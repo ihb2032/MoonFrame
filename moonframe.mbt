@@ -152,6 +152,7 @@ pub using @io {
 
 ///|
 pub using @chart {
+  type Chart,
   type ChartKind,
   type ChartSpec,
   type VegaAggregate,

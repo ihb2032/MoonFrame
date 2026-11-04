@@ -281,12 +281,137 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
 }
 
 ///|
+/// The composition half of the corpus: one chart per operator.
+fn corpus_charts() -> Array[(String, @chart.Chart)] {
+  [
+    (
+      "layer_line_point.json",
+      @chart.Chart::Layer(
+        @chart.VegaLayer::VegaLayer(
+          [
+            @chart.Chart::of(
+              @chart.ChartSpec::point(@chart.field("val"), @chart.field("val")),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::line(
+                @chart.field("val"),
+                @chart.field("val"),
+                color=@chart.field("grp"),
+              ),
+            ),
+          ],
+          title=@chart.VegaTitle::Text("Value against itself"),
+          resolve=@chart.VegaResolve::VegaResolve(
+            legend=@chart.VegaLegendResolve::VegaLegendResolve(
+              color=@chart.VegaResolveMode::Independent,
+            ),
+          ),
+        ),
+      ),
+    ),
+    (
+      "facet_header.json",
+      @chart.Chart::Facet(
+        @chart.VegaFacet::VegaFacet(
+          @chart.Chart::of(
+            @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+          ),
+          row=@chart.VegaFacetChannel::VegaFacetChannel(
+            field="grp",
+            header=@chart.VegaHeader::VegaHeader(
+              title="Group",
+              label_angle=-30.0,
+            ),
+          ),
+          columns=2,
+          spacing=@chart.VegaSpacing::Px(8),
+        ),
+      ),
+    ),
+    (
+      "repeat_columns.json",
+      @chart.Chart::Repeat(
+        @chart.VegaRepeat::VegaRepeat(
+          @chart.Chart::of(
+            @chart.ChartSpec::line(
+              @chart.field("cat"),
+              @chart.field("val"),
+              title="Dummy",
+            ),
+          ),
+          column=["val", "ts"],
+          spacing=@chart.VegaSpacing::Px(6),
+        ),
+      ),
+    ),
+    (
+      "concat_wrap.json",
+      @chart.Chart::Concat(
+        @chart.VegaConcat::VegaConcat(
+          [
+            @chart.Chart::of(
+              @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+            ),
+            @chart.Chart::Layer(
+              @chart.VegaLayer::VegaLayer([
+                @chart.Chart::of(
+                  @chart.ChartSpec::point(
+                    @chart.field("val"),
+                    @chart.field("val"),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+          align=@chart.VegaAlignMode::Layout(@chart.VegaLayoutAlign::Each),
+          columns=1,
+          resolve=@chart.VegaResolve::VegaResolve(
+            scale=@chart.VegaScaleResolve::VegaScaleResolve(
+              y=@chart.VegaResolveMode::Independent,
+            ),
+          ),
+        ),
+      ),
+    ),
+    (
+      "vconcat_pair.json",
+      @chart.Chart::VConcat(
+        @chart.VegaConcat::VegaConcat(
+          [
+            @chart.Chart::of(
+              @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::area(
+                @chart.field("ts", time_unit=@chart.VegaTimeUnit::Month),
+                @chart.field("val"),
+              ),
+            ),
+          ],
+          bounds=@chart.VegaBounds::Flush,
+        ),
+      ),
+    ),
+  ]
+}
+
+///|
 test "corpus: every committed spec matches the emitter byte for byte" {
   let df = corpus_df()
   let refresh = @env.get_env_var("MOONFRAME_VEGA_CORPUS_REFRESH") is Some("1")
   for entry in corpus_specs() {
     let (file, spec) = entry
-    let emitted = @chart.format_vega_lite(df, spec)
+    let emitted = @chart.format_vega_lite(df, @chart.Chart::of(spec))
+    let path = "chart/corpus/" + file
+    if refresh {
+      @fs.write_string_to_file(path, emitted)
+    } else {
+      assert_eq(emitted, @fs.read_file_to_string(path))
+    }
+  }
+  for entry in corpus_charts() {
+    let (file, chart) = entry
+    let emitted = @chart.format_vega_lite(df, chart)
     let path = "chart/corpus/" + file
     if refresh {
       @fs.write_string_to_file(path, emitted)

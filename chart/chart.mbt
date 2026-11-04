@@ -956,12 +956,327 @@ pub fn ChartSpec::of(
 /// reader.
 pub fn format_vega_lite(
   df : @frame.DataFrame,
-  spec : ChartSpec,
+  chart : Chart,
 ) -> String raise @types.DataError {
   let obj : Map[String, Json] = Map([])
   obj["$schema"] = Json::string(
     "https://vega.github.io/schema/vega-lite/v6.json",
   )
+  chart_emit(chart, df, obj)
+  let data : Map[String, Json] = Map([])
+  data["values"] = Json::array(@io.df_to_json_records(df))
+  obj["data"] = Json::object(data)
+  Json::object(obj).stringify()
+}
+
+///|
+/// Emit one chart into `obj` — a single view's fields, or a composition
+/// operator's own shape — without `$schema` and `data`: those belong to
+/// the top level alone, so a nested child (a layer member, a facet's
+/// spec) reuses this same emission over the shared frame.
+fn chart_emit(
+  chart : Chart,
+  df : @frame.DataFrame,
+  obj : Map[String, Json],
+) -> Unit raise @types.DataError {
+  match chart {
+    Single(spec) => unit_emit(spec, df, obj)
+    Layer(layer) => {
+      obj["layer"] = Json::array(
+        layer.layer.map(child => chart_child(child, df)),
+      )
+      put_layer_chrome(layer, obj)
+    }
+    VConcat(concat) => {
+      obj["vconcat"] = Json::array(
+        concat.concat.map(child => chart_child(child, df)),
+      )
+      put_concat_chrome(concat, obj, false)
+    }
+    HConcat(concat) => {
+      obj["hconcat"] = Json::array(
+        concat.concat.map(child => chart_child(child, df)),
+      )
+      put_concat_chrome(concat, obj, false)
+    }
+    Concat(concat) => {
+      obj["concat"] = Json::array(
+        concat.concat.map(child => chart_child(child, df)),
+      )
+      put_concat_chrome(concat, obj, true)
+    }
+    Facet(facet) => {
+      // The facet's own channels resolve before its spec: the row /
+      // column fields name columns of the shared frame, and a missing one
+      // raises `ColumnNotFound` ahead of the child.
+      let facet_obj : Map[String, Json] = Map([])
+      if facet.row is Some(row) {
+        facet_obj["row"] = facet_channel_json(row, resolve_facet(df, row))
+      }
+      if facet.column is Some(column) {
+        facet_obj["column"] = facet_channel_json(
+          column,
+          resolve_facet(df, column),
+        )
+      }
+      obj["facet"] = Json::object(facet_obj)
+      obj["spec"] = chart_child(facet.spec, df)
+      put_facet_chrome(facet, obj)
+    }
+    Repeat(repeat) => {
+      let repeat_obj : Map[String, Json] = Map([])
+      if repeat.row is Some(row) {
+        repeat_obj["row"] = Json::array(row.map(fn(f) { Json::string(f) }))
+      }
+      if repeat.column is Some(column) {
+        repeat_obj["column"] = Json::array(
+          column.map(fn(f) { Json::string(f) }),
+        )
+      }
+      obj["repeat"] = Json::object(repeat_obj)
+      obj["spec"] = chart_child(repeat.spec, df)
+      put_repeat_chrome(repeat, obj)
+    }
+  }
+}
+
+///|
+/// One nested child as a JSON object — the same emission as the top
+/// level, minus the `$schema` / `data` that belong there alone.
+fn chart_child(
+  chart : Chart,
+  df : @frame.DataFrame,
+) -> Json raise @types.DataError {
+  let obj : Map[String, Json] = Map([])
+  chart_emit(chart, df, obj)
+  Json::object(obj)
+}
+
+///|
+/// The layer spec's chrome: the title block, the names, the view size
+/// and background, the projection, and the resolve block.
+fn put_layer_chrome(layer : VegaLayer, obj : Map[String, Json]) -> Unit {
+  if layer.name is Some(name) {
+    obj["name"] = Json::string(name)
+  }
+  if layer.description is Some(description) {
+    obj["description"] = Json::string(description)
+  }
+  if layer.title is Some(title) {
+    obj["title"] = vega_title_emit_json(title)
+  }
+  if layer.width is Some(width) {
+    obj["width"] = extent_json(width)
+  }
+  if layer.height is Some(height) {
+    obj["height"] = extent_json(height)
+  }
+  if layer.view is Some(view) {
+    obj["view"] = vega_view_background_emit_json(view)
+  }
+  if layer.projection is Some(projection) {
+    obj["projection"] = vega_projection_emit_json(projection)
+  }
+  if layer.resolve is Some(resolve) {
+    obj["resolve"] = vega_resolve_emit_json(resolve)
+  }
+}
+
+///|
+/// The concat family's chrome and layout: bounds, centering, and
+/// spacing for all three; the alignment and wrap column count only for
+/// the wrapped `Concat` (a vertical / horizontal concat's direction
+/// fixes those); the title block, names, and resolve for all.
+fn put_concat_chrome(
+  concat : VegaConcat,
+  obj : Map[String, Json],
+  wrapped : Bool,
+) -> Unit {
+  if concat.bounds is Some(bounds) {
+    obj["bounds"] = Json::string(vega_bounds_string(bounds))
+  }
+  if concat.center is Some(center) {
+    obj["center"] = vega_center_emit_json(center)
+  }
+  if concat.spacing is Some(spacing) {
+    obj["spacing"] = vega_spacing_emit_json(spacing)
+  }
+  if wrapped && concat.align is Some(align) {
+    obj["align"] = vega_align_mode_emit_json(align)
+  }
+  if wrapped && concat.columns is Some(columns) {
+    obj["columns"] = Json::number(columns)
+  }
+  if concat.name is Some(name) {
+    obj["name"] = Json::string(name)
+  }
+  if concat.description is Some(description) {
+    obj["description"] = Json::string(description)
+  }
+  if concat.title is Some(title) {
+    obj["title"] = vega_title_emit_json(title)
+  }
+  if concat.resolve is Some(resolve) {
+    obj["resolve"] = vega_resolve_emit_json(resolve)
+  }
+}
+
+///|
+/// The facet spec's chrome and layout: alignment, bounds, centering,
+/// spacing, the wrap column count, the title block, the names, and the
+/// resolve block.
+fn put_facet_chrome(facet : VegaFacet, obj : Map[String, Json]) -> Unit {
+  if facet.align is Some(align) {
+    obj["align"] = vega_align_mode_emit_json(align)
+  }
+  if facet.bounds is Some(bounds) {
+    obj["bounds"] = Json::string(vega_bounds_string(bounds))
+  }
+  if facet.center is Some(center) {
+    obj["center"] = vega_center_emit_json(center)
+  }
+  if facet.spacing is Some(spacing) {
+    obj["spacing"] = vega_spacing_emit_json(spacing)
+  }
+  if facet.columns is Some(columns) {
+    obj["columns"] = Json::number(columns)
+  }
+  if facet.name is Some(name) {
+    obj["name"] = Json::string(name)
+  }
+  if facet.description is Some(description) {
+    obj["description"] = Json::string(description)
+  }
+  if facet.title is Some(title) {
+    obj["title"] = vega_title_emit_json(title)
+  }
+  if facet.resolve is Some(resolve) {
+    obj["resolve"] = vega_resolve_emit_json(resolve)
+  }
+}
+
+///|
+/// The repeat spec's chrome and layout — the same set a facet carries.
+fn put_repeat_chrome(repeat : VegaRepeat, obj : Map[String, Json]) -> Unit {
+  if repeat.align is Some(align) {
+    obj["align"] = vega_align_mode_emit_json(align)
+  }
+  if repeat.bounds is Some(bounds) {
+    obj["bounds"] = Json::string(vega_bounds_string(bounds))
+  }
+  if repeat.center is Some(center) {
+    obj["center"] = vega_center_emit_json(center)
+  }
+  if repeat.spacing is Some(spacing) {
+    obj["spacing"] = vega_spacing_emit_json(spacing)
+  }
+  if repeat.columns is Some(columns) {
+    obj["columns"] = Json::number(columns)
+  }
+  if repeat.name is Some(name) {
+    obj["name"] = Json::string(name)
+  }
+  if repeat.description is Some(description) {
+    obj["description"] = Json::string(description)
+  }
+  if repeat.title is Some(title) {
+    obj["title"] = vega_title_emit_json(title)
+  }
+  if repeat.resolve is Some(resolve) {
+    obj["resolve"] = vega_resolve_emit_json(resolve)
+  }
+}
+
+///|
+/// Resolve a facet channel's column against the frame — the facet
+/// sibling of the encoding channels' existence check: a non-count
+/// channel's field is read for its dtype (a count aggregate needs no
+/// column), and a missing name raises `ColumnNotFound`.
+fn resolve_facet(
+  df : @frame.DataFrame,
+  channel : VegaFacetChannel,
+) -> @types.DataType? raise @types.DataError {
+  if channel.aggregate is Some(Count) || channel.field is None {
+    None
+  } else {
+    Some(df.get_column(channel.field.unwrap()).dtype())
+  }
+}
+
+///|
+/// One facet channel's JSON: the emitted field definition plus its
+/// `type`, which a facet channel carries like any encoding channel —
+/// inferred from the column dtype, or overridden; a count facet channel
+/// carries no `type`.
+fn facet_channel_json(
+  channel : VegaFacetChannel,
+  dtype : @types.DataType?,
+) -> Json {
+  let ch : Map[String, Json] = Map([])
+  if channel.field is Some(field) && !(channel.aggregate is Some(Count)) {
+    ch["field"] = Json::string(field)
+    // The type rides directly after the field, as in an encoding
+    // channel: inferred from the column dtype, or overridden; a count
+    // facet channel carries neither. Under a present, non-count field
+    // the resolved dtype is always present.
+    let d = dtype.unwrap()
+    let inferred : String = if channel.type_override is Some(t) {
+      vega_type_string(t)
+    } else if d.is_numeric() || d is @types.DataType::Decimal(_) {
+      "quantitative"
+    } else if d is @types.DataType::Date ||
+      d is @types.DataType::Timestamp ||
+      d is @types.DataType::Duration {
+      "temporal"
+    } else {
+      "nominal"
+    }
+    ch["type"] = Json::string(inferred)
+  }
+  if channel.aggregate is Some(op) {
+    ch["aggregate"] = Json::string(aggregate_string(op))
+  }
+  if channel.bin is Some(bin) {
+    ch["bin"] = bin_json(bin)
+  }
+  if channel.time_unit is Some(unit) {
+    ch["timeUnit"] = Json::string(time_unit_string(unit))
+  }
+  if channel.sort is Some(sort) {
+    ch["sort"] = sort_json(sort)
+  }
+  if channel.title is Some(title) {
+    ch["title"] = Json::string(title)
+  }
+  if channel.band_position is Some(band) {
+    ch["bandPosition"] = Json::number(band)
+  }
+  if channel.header is Some(header) {
+    ch["header"] = vega_header_emit_json(header)
+  }
+  if channel.align is Some(align) {
+    ch["align"] = vega_align_mode_emit_json(align)
+  }
+  if channel.center is Some(center) {
+    ch["center"] = vega_center_emit_json(center)
+  }
+  if channel.spacing is Some(spacing) {
+    ch["spacing"] = vega_spacing_emit_json(spacing)
+  }
+  Json::object(ch)
+}
+
+///|
+/// A single view's own fields: the chrome (`name`, `description`,
+/// `title`, `autosize`, `background`, `padding`, `width`, `height`,
+/// `view`, `projection`), the `mark`, and the `encoding` with its
+/// channels resolved in the fixed order — everything but `$schema` and
+/// `data`, which belong to the top level.
+fn unit_emit(
+  spec : ChartSpec,
+  df : @frame.DataFrame,
+  obj : Map[String, Json],
+) -> Unit raise @types.DataError {
   if spec.name is Some(name) {
     obj["name"] = Json::string(name)
   }
@@ -1039,14 +1354,10 @@ pub fn format_vega_lite(
   put_channel(encoding, "detail", df, spec.detail)
   put_channel(encoding, "order", df, spec.order)
   obj["encoding"] = Json::object(encoding)
-  let data : Map[String, Json] = Map([])
-  data["values"] = Json::array(@io.df_to_json_records(df))
-  obj["data"] = Json::object(data)
-  Json::object(obj).stringify()
 }
 
 ///|
-/// Write a Vega-Lite v6 spec for `df` / `spec` to `path`. Mirrors
+/// Write a Vega-Lite v6 spec for `df` / `chart` to `path`. Mirrors
 /// `write_json`: a `ColumnNotFound` from `format_vega_lite` (a spec
 /// column absent from `df`) propagates unchanged, a filesystem failure
 /// surfaces as `raise IoError(message)`, and content holding an unpaired
@@ -1054,8 +1365,8 @@ pub fn format_vega_lite(
 pub fn write_vega_lite(
   path : String,
   df : @frame.DataFrame,
-  spec : ChartSpec,
+  chart : Chart,
 ) -> Unit raise @types.DataError {
-  let content = format_vega_lite(df, spec)
+  let content = format_vega_lite(df, chart)
   @io.write_text(path, content)
 }

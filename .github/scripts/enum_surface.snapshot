@@ -1,6 +1,13 @@
 CellParseLocation | enum | Line
 CellParseLocation | enum | Record
 CellParseLocation | enum | Row
+Chart | enum | Concat(VegaConcat)
+Chart | enum | Facet(VegaFacet)
+Chart | enum | HConcat(VegaConcat)
+Chart | enum | Layer(VegaLayer)
+Chart | enum | Repeat(VegaRepeat)
+Chart | enum | Single(ChartSpec)
+Chart | enum | VConcat(VegaConcat)
 ChartKind | enum | Arc
 ChartKind | enum | Area
 ChartKind | enum | Bar
@@ -116,6 +123,8 @@ VegaAggregate | enum | Variancep
 VegaAlign | enum | Center
 VegaAlign | enum | Left
 VegaAlign | enum | Right
+VegaAlignMode | enum | Layout(VegaLayoutAlign)
+VegaAlignMode | enum | Sides(VegaRowColAlign)
 VegaAnchor | enum | End
 VegaAnchor | enum | Middle
 VegaAnchor | enum | Start
@@ -141,9 +150,13 @@ VegaBin | enum | On
 VegaBin | enum | Params(VegaBinParams)
 VegaBins | enum | Params(VegaBinsParams)
 VegaBins | enum | Values(Array[Double])
+VegaBounds | enum | Flush
+VegaBounds | enum | Full
 VegaCap | enum | Butt
 VegaCap | enum | Round
 VegaCap | enum | Square
+VegaCenter | enum | All(Bool)
+VegaCenter | enum | Sides(VegaRowColBool)
 VegaChannelSort | enum | Ascending
 VegaChannelSort | enum | ByChannel(VegaSortChannel, Bool?)
 VegaChannelSort | enum | ByField(String, VegaSort?)
@@ -239,6 +252,10 @@ VegaNice | enum | Bool(Bool)
 VegaNice | enum | Interval(VegaTimeInterval)
 VegaNice | enum | Step(VegaTimeInterval, Double)
 VegaNice | enum | Ticks(Double)
+VegaOrient | enum | Bottom
+VegaOrient | enum | Left
+VegaOrient | enum | Right
+VegaOrient | enum | Top
 VegaPadding | enum | Px(Int32)
 VegaPadding | enum | Sides(VegaSides)
 VegaProjectionType | enum | Albers
@@ -269,6 +286,8 @@ VegaRangeName | enum | Ordinal
 VegaRangeName | enum | Ramp
 VegaRangeName | enum | Symbol
 VegaRangeName | enum | Width
+VegaResolveMode | enum | Independent
+VegaResolveMode | enum | Shared
 VegaRotate | enum | LonLat(Double, Double)
 VegaRotate | enum | LonLatRoll(Double, Double, Double)
 VegaScaleRef | enum | Config(VegaScale)
@@ -305,6 +324,8 @@ VegaSortChannel | enum | StrokeWidth
 VegaSortChannel | enum | Text
 VegaSortChannel | enum | X
 VegaSortChannel | enum | Y
+VegaSpacing | enum | Px(Double)
+VegaSpacing | enum | Sides(VegaRowColDouble)
 VegaStack | enum | Center
 VegaStack | enum | Normalize
 VegaStack | enum | Off

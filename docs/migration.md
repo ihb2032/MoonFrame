@@ -25,6 +25,17 @@ Source-level note:
   the new `fraction?` (exactly one of the two names the draw size, a
   fraction drawing `max(1, round(fraction × nrows))` rows of a non-empty
   frame, `(0, 1]` enforced).
+- `format_vega_lite` / `write_vega_lite` take a `Chart`, not a bare
+  `ChartSpec`: a single view is `Chart::of(spec)` —
+  `format_vega_lite(df, spec)` becomes
+  `format_vega_lite(df, Chart::of(spec))` — and the compositions the
+  mirror now carries are built with the `@chart`-qualified wrappers:
+  `Chart::Layer(VegaLayer::VegaLayer([Chart::of(…), …]))`,
+  `Chart::VConcat` / `HConcat` / `Concat(VegaConcat::VegaConcat(…))`,
+  `Chart::Facet(VegaFacet::VegaFacet(child, row=VegaFacetChannel…))`,
+  and `Chart::Repeat(VegaRepeat::VegaRepeat(child, column=[…]))` —
+  every child shares the frame the call inlines once, and the facet
+  channels resolve their columns against it ahead of the child.
 - The chart export is a typed mirror of **Vega-Lite v6** (the emitted
   `$schema` points at the v6 URL, and CI walks a golden corpus of emitted
   specs against the vendored 6.5.0 schema), and the builders speak

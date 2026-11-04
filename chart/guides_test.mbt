@@ -41,10 +41,12 @@ test "VegaScale carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      y=@chart.field("val"),
-      x=@chart.field("val", scale=Config(family)),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        y=@chart.field("val"),
+        x=@chart.field("val", scale=Config(family)),
+      ),
     ),
   )
   assert_true(spec.contains("scale"))
@@ -134,10 +136,12 @@ test "VegaAxis carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      y=@chart.field("val"),
-      x=@chart.field("val", axis=@chart.VegaAxisRef::Config(family)),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        y=@chart.field("val"),
+        x=@chart.field("val", axis=@chart.VegaAxisRef::Config(family)),
+      ),
     ),
   )
   assert_true(spec.contains("axis"))
@@ -215,11 +219,13 @@ test "VegaLegend carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      color=@chart.field("grp", legend=@chart.VegaLegendRef::Config(family)),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        color=@chart.field("grp", legend=@chart.VegaLegendRef::Config(family)),
+      ),
     ),
   )
   assert_true(spec.contains("legend"))
@@ -259,11 +265,13 @@ test "VegaTitleParams carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      title=@chart.VegaTitle::Params(family),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        title=@chart.VegaTitle::Params(family),
+      ),
     ),
   )
   assert_true(spec.contains("subtitle"))
@@ -289,11 +297,13 @@ test "VegaViewBackground carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      view=family,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        view=family,
+      ),
     ),
   )
   assert_true(spec.contains("view"))
@@ -328,11 +338,13 @@ test "VegaProjection carries every property it declares" {
   )
   let spec = @chart.format_vega_lite(
     guides_df(),
-    @chart.ChartSpec::of(
-      @chart.ChartKind::Bar,
-      x=@chart.field("cat"),
-      y=@chart.field("val"),
-      projection=family,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        projection=family,
+      ),
     ),
   )
   assert_true(spec.contains("projection"))

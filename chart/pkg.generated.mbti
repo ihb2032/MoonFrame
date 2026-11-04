@@ -15,13 +15,28 @@ pub fn datum(@json.Json) -> VegaChannel
 
 pub fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double, scale? : VegaScaleRef, axis? : VegaAxisRef, legend? : VegaLegendRef) -> VegaChannel
 
-pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
+pub fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError
 
-pub fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError
+pub fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError
 
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Chart {
+  Single(ChartSpec)
+  Layer(VegaLayer)
+  VConcat(VegaConcat)
+  HConcat(VegaConcat)
+  Concat(VegaConcat)
+  Facet(VegaFacet)
+  Repeat(VegaRepeat)
+}
+pub fn Chart::equal(Self, Self) -> Bool
+pub fn Chart::not_equal(Self, Self) -> Bool
+pub fn Chart::of(ChartSpec) -> Self
+pub fn Chart::to_repr(Self) -> @debug.Repr
+
 #derive(Eq, @debug.Debug)
 pub(all) enum ChartKind {
   Bar
@@ -163,6 +178,15 @@ pub fn VegaAlign::not_equal(Self, Self) -> Bool
 pub fn VegaAlign::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaAlignMode {
+  Layout(VegaLayoutAlign)
+  Sides(VegaRowColAlign)
+}
+pub fn VegaAlignMode::equal(Self, Self) -> Bool
+pub fn VegaAlignMode::not_equal(Self, Self) -> Bool
+pub fn VegaAlignMode::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaAnchor {
   Start
   Middle
@@ -292,6 +316,16 @@ pub fn VegaAxisRef::not_equal(Self, Self) -> Bool
 pub fn VegaAxisRef::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaAxisResolve {
+  x : VegaResolveMode?
+  y : VegaResolveMode?
+}
+pub fn VegaAxisResolve::VegaAxisResolve(x? : VegaResolveMode, y? : VegaResolveMode) -> Self
+pub fn VegaAxisResolve::equal(Self, Self) -> Bool
+pub fn VegaAxisResolve::not_equal(Self, Self) -> Bool
+pub fn VegaAxisResolve::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaBaseline {
   Alphabetic
   Top
@@ -354,6 +388,15 @@ pub fn VegaBinsParams::not_equal(Self, Self) -> Bool
 pub fn VegaBinsParams::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaBounds {
+  Full
+  Flush
+}
+pub fn VegaBounds::equal(Self, Self) -> Bool
+pub fn VegaBounds::not_equal(Self, Self) -> Bool
+pub fn VegaBounds::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaCap {
   Butt
   Round
@@ -362,6 +405,15 @@ pub(all) enum VegaCap {
 pub fn VegaCap::equal(Self, Self) -> Bool
 pub fn VegaCap::not_equal(Self, Self) -> Bool
 pub fn VegaCap::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaCenter {
+  All(Bool)
+  Sides(VegaRowColBool)
+}
+pub fn VegaCenter::equal(Self, Self) -> Bool
+pub fn VegaCenter::not_equal(Self, Self) -> Bool
+pub fn VegaCenter::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaChannel {
@@ -399,6 +451,25 @@ pub fn VegaChannelSort::equal(Self, Self) -> Bool
 pub fn VegaChannelSort::not_equal(Self, Self) -> Bool
 pub fn VegaChannelSort::to_repr(Self) -> @debug.Repr
 pub fn VegaChannelSort::values(Array[@json.Json]) -> Self
+
+#derive(Eq, @debug.Debug)
+pub struct VegaConcat {
+  align : VegaAlignMode?
+  bounds : VegaBounds?
+  center : VegaCenter?
+  spacing : VegaSpacing?
+  columns : Double?
+  title : VegaTitle?
+  name : String?
+  description : String?
+  resolve : VegaResolve?
+  // private fields
+}
+pub fn VegaConcat::VegaConcat(Array[Chart], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaConcat::concat(Self) -> Array[Chart]
+pub fn VegaConcat::equal(Self, Self) -> Bool
+pub fn VegaConcat::not_equal(Self, Self) -> Bool
+pub fn VegaConcat::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaCursor {
@@ -472,6 +543,46 @@ pub fn VegaExtent::not_equal(Self, Self) -> Bool
 pub fn VegaExtent::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaFacet {
+  row : VegaFacetChannel?
+  column : VegaFacetChannel?
+  spec : Chart
+  align : VegaAlignMode?
+  bounds : VegaBounds?
+  center : VegaCenter?
+  spacing : VegaSpacing?
+  columns : Double?
+  title : VegaTitle?
+  name : String?
+  description : String?
+  resolve : VegaResolve?
+}
+pub fn VegaFacet::VegaFacet(Chart, row? : VegaFacetChannel, column? : VegaFacetChannel, align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaFacet::equal(Self, Self) -> Bool
+pub fn VegaFacet::not_equal(Self, Self) -> Bool
+pub fn VegaFacet::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaFacetChannel {
+  field : String?
+  aggregate : VegaAggregate?
+  bin : VegaBin?
+  time_unit : VegaTimeUnit?
+  sort : VegaChannelSort?
+  type_override : VegaType?
+  title : String?
+  band_position : Double?
+  header : VegaHeader?
+  align : VegaAlignMode?
+  center : VegaCenter?
+  spacing : VegaSpacing?
+}
+pub fn VegaFacetChannel::VegaFacetChannel(field? : String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, band_position? : Double, header? : VegaHeader, align? : VegaAlignMode, center? : VegaCenter, spacing? : VegaSpacing) -> Self
+pub fn VegaFacetChannel::equal(Self, Self) -> Bool
+pub fn VegaFacetChannel::not_equal(Self, Self) -> Bool
+pub fn VegaFacetChannel::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaFontWeight {
   Normal
   Bold
@@ -482,6 +593,46 @@ pub(all) enum VegaFontWeight {
 pub fn VegaFontWeight::equal(Self, Self) -> Bool
 pub fn VegaFontWeight::not_equal(Self, Self) -> Bool
 pub fn VegaFontWeight::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaHeader {
+  format : String?
+  format_type : String?
+  label_align : VegaAlign?
+  label_anchor : VegaAnchor?
+  label_angle : Double?
+  label_baseline : VegaBaseline?
+  label_color : String?
+  label_expr : String?
+  label_font : String?
+  label_font_size : Double?
+  label_font_style : String?
+  label_font_weight : VegaFontWeight?
+  label_limit : Double?
+  label_line_height : Double?
+  label_orient : VegaOrient?
+  label_padding : Double?
+  labels : Bool?
+  orient : VegaOrient?
+  title : String?
+  title_align : VegaAlign?
+  title_anchor : VegaAnchor?
+  title_angle : Double?
+  title_baseline : VegaBaseline?
+  title_color : String?
+  title_font : String?
+  title_font_size : Double?
+  title_font_style : String?
+  title_font_weight : VegaFontWeight?
+  title_limit : Double?
+  title_line_height : Double?
+  title_orient : VegaOrient?
+  title_padding : Double?
+}
+pub fn VegaHeader::VegaHeader(format? : String, format_type? : String, label_align? : VegaAlign, label_anchor? : VegaAnchor, label_angle? : Double, label_baseline? : VegaBaseline, label_color? : String, label_expr? : String, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_line_height? : Double, label_orient? : VegaOrient, label_padding? : Double, labels? : Bool, orient? : VegaOrient, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_angle? : Double, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_orient? : VegaOrient, title_padding? : Double) -> Self
+pub fn VegaHeader::equal(Self, Self) -> Bool
+pub fn VegaHeader::not_equal(Self, Self) -> Bool
+pub fn VegaHeader::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaInterpolate {
@@ -555,6 +706,24 @@ pub(all) enum VegaLabelOverlap {
 pub fn VegaLabelOverlap::equal(Self, Self) -> Bool
 pub fn VegaLabelOverlap::not_equal(Self, Self) -> Bool
 pub fn VegaLabelOverlap::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaLayer {
+  title : VegaTitle?
+  name : String?
+  description : String?
+  width : VegaExtent?
+  height : VegaExtent?
+  view : VegaViewBackground?
+  projection : VegaProjection?
+  resolve : VegaResolve?
+  // private fields
+}
+pub fn VegaLayer::VegaLayer(Array[Chart], title? : VegaTitle, name? : String, description? : String, width? : VegaExtent, height? : VegaExtent, view? : VegaViewBackground, projection? : VegaProjection, resolve? : VegaResolve) -> Self
+pub fn VegaLayer::equal(Self, Self) -> Bool
+pub fn VegaLayer::layer(Self) -> Array[Chart]
+pub fn VegaLayer::not_equal(Self, Self) -> Bool
+pub fn VegaLayer::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaLayoutAlign {
@@ -667,6 +836,25 @@ pub fn VegaLegendRef::not_equal(Self, Self) -> Bool
 pub fn VegaLegendRef::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaLegendResolve {
+  color : VegaResolveMode?
+  fill : VegaResolveMode?
+  stroke : VegaResolveMode?
+  opacity : VegaResolveMode?
+  fill_opacity : VegaResolveMode?
+  stroke_opacity : VegaResolveMode?
+  stroke_width : VegaResolveMode?
+  stroke_dash : VegaResolveMode?
+  size : VegaResolveMode?
+  shape : VegaResolveMode?
+  angle : VegaResolveMode?
+}
+pub fn VegaLegendResolve::VegaLegendResolve(color? : VegaResolveMode, fill? : VegaResolveMode, stroke? : VegaResolveMode, opacity? : VegaResolveMode, fill_opacity? : VegaResolveMode, stroke_opacity? : VegaResolveMode, stroke_width? : VegaResolveMode, stroke_dash? : VegaResolveMode, size? : VegaResolveMode, shape? : VegaResolveMode, angle? : VegaResolveMode) -> Self
+pub fn VegaLegendResolve::equal(Self, Self) -> Bool
+pub fn VegaLegendResolve::not_equal(Self, Self) -> Bool
+pub fn VegaLegendResolve::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaLegendType {
   Symbol
   Gradient
@@ -685,6 +873,17 @@ pub(all) enum VegaNice {
 pub fn VegaNice::equal(Self, Self) -> Bool
 pub fn VegaNice::not_equal(Self, Self) -> Bool
 pub fn VegaNice::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaOrient {
+  Left
+  Right
+  Top
+  Bottom
+}
+pub fn VegaOrient::equal(Self, Self) -> Bool
+pub fn VegaOrient::not_equal(Self, Self) -> Bool
+pub fn VegaOrient::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaPadding {
@@ -784,6 +983,47 @@ pub fn VegaRangeName::not_equal(Self, Self) -> Bool
 pub fn VegaRangeName::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaRepeat {
+  spec : Chart
+  align : VegaAlignMode?
+  bounds : VegaBounds?
+  center : VegaCenter?
+  spacing : VegaSpacing?
+  columns : Double?
+  title : VegaTitle?
+  name : String?
+  description : String?
+  resolve : VegaResolve?
+  // private fields
+}
+pub fn VegaRepeat::VegaRepeat(Chart, row? : Array[String], column? : Array[String], align? : VegaAlignMode, bounds? : VegaBounds, center? : VegaCenter, spacing? : VegaSpacing, columns? : Double, title? : VegaTitle, name? : String, description? : String, resolve? : VegaResolve) -> Self
+pub fn VegaRepeat::column(Self) -> Array[String]?
+pub fn VegaRepeat::equal(Self, Self) -> Bool
+pub fn VegaRepeat::not_equal(Self, Self) -> Bool
+pub fn VegaRepeat::row(Self) -> Array[String]?
+pub fn VegaRepeat::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaResolve {
+  scale : VegaScaleResolve?
+  axis : VegaAxisResolve?
+  legend : VegaLegendResolve?
+}
+pub fn VegaResolve::VegaResolve(scale? : VegaScaleResolve, axis? : VegaAxisResolve, legend? : VegaLegendResolve) -> Self
+pub fn VegaResolve::equal(Self, Self) -> Bool
+pub fn VegaResolve::not_equal(Self, Self) -> Bool
+pub fn VegaResolve::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaResolveMode {
+  Independent
+  Shared
+}
+pub fn VegaResolveMode::equal(Self, Self) -> Bool
+pub fn VegaResolveMode::not_equal(Self, Self) -> Bool
+pub fn VegaResolveMode::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaRotate {
   LonLat(Double, Double)
   LonLatRoll(Double, Double, Double)
@@ -791,6 +1031,36 @@ pub(all) enum VegaRotate {
 pub fn VegaRotate::equal(Self, Self) -> Bool
 pub fn VegaRotate::not_equal(Self, Self) -> Bool
 pub fn VegaRotate::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaRowColAlign {
+  row : VegaLayoutAlign?
+  column : VegaLayoutAlign?
+}
+pub fn VegaRowColAlign::VegaRowColAlign(row? : VegaLayoutAlign, column? : VegaLayoutAlign) -> Self
+pub fn VegaRowColAlign::equal(Self, Self) -> Bool
+pub fn VegaRowColAlign::not_equal(Self, Self) -> Bool
+pub fn VegaRowColAlign::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaRowColBool {
+  row : Bool?
+  column : Bool?
+}
+pub fn VegaRowColBool::VegaRowColBool(row? : Bool, column? : Bool) -> Self
+pub fn VegaRowColBool::equal(Self, Self) -> Bool
+pub fn VegaRowColBool::not_equal(Self, Self) -> Bool
+pub fn VegaRowColBool::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaRowColDouble {
+  row : Double?
+  column : Double?
+}
+pub fn VegaRowColDouble::VegaRowColDouble(row? : Double, column? : Double) -> Self
+pub fn VegaRowColDouble::equal(Self, Self) -> Bool
+pub fn VegaRowColDouble::not_equal(Self, Self) -> Bool
+pub fn VegaRowColDouble::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaScale {
@@ -831,6 +1101,31 @@ pub(all) enum VegaScaleRef {
 pub fn VegaScaleRef::equal(Self, Self) -> Bool
 pub fn VegaScaleRef::not_equal(Self, Self) -> Bool
 pub fn VegaScaleRef::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaScaleResolve {
+  x : VegaResolveMode?
+  y : VegaResolveMode?
+  color : VegaResolveMode?
+  fill : VegaResolveMode?
+  stroke : VegaResolveMode?
+  opacity : VegaResolveMode?
+  fill_opacity : VegaResolveMode?
+  stroke_opacity : VegaResolveMode?
+  stroke_width : VegaResolveMode?
+  stroke_dash : VegaResolveMode?
+  size : VegaResolveMode?
+  shape : VegaResolveMode?
+  angle : VegaResolveMode?
+  theta : VegaResolveMode?
+  radius : VegaResolveMode?
+  x_offset : VegaResolveMode?
+  y_offset : VegaResolveMode?
+}
+pub fn VegaScaleResolve::VegaScaleResolve(x? : VegaResolveMode, y? : VegaResolveMode, color? : VegaResolveMode, fill? : VegaResolveMode, stroke? : VegaResolveMode, opacity? : VegaResolveMode, fill_opacity? : VegaResolveMode, stroke_opacity? : VegaResolveMode, stroke_width? : VegaResolveMode, stroke_dash? : VegaResolveMode, size? : VegaResolveMode, shape? : VegaResolveMode, angle? : VegaResolveMode, theta? : VegaResolveMode, radius? : VegaResolveMode, x_offset? : VegaResolveMode, y_offset? : VegaResolveMode) -> Self
+pub fn VegaScaleResolve::equal(Self, Self) -> Bool
+pub fn VegaScaleResolve::not_equal(Self, Self) -> Bool
+pub fn VegaScaleResolve::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaScaleType {
@@ -915,6 +1210,15 @@ pub(all) enum VegaSortChannel {
 pub fn VegaSortChannel::equal(Self, Self) -> Bool
 pub fn VegaSortChannel::not_equal(Self, Self) -> Bool
 pub fn VegaSortChannel::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaSpacing {
+  Px(Double)
+  Sides(VegaRowColDouble)
+}
+pub fn VegaSpacing::equal(Self, Self) -> Bool
+pub fn VegaSpacing::not_equal(Self, Self) -> Bool
+pub fn VegaSpacing::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaStack {

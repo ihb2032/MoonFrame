@@ -559,7 +559,7 @@ expect 1 'facade surface: a public type outside the intermediate allowlist' \
 # facade's type re-exports are read from the root interface (one exploded
 # `pub using @chart {type X}` line per type) and its function re-exports from
 # the facade source, so the fixture carries both.
-fs_chart_types="ChartKind ChartSpec VegaAggregate VegaAutoSize VegaBin VegaBinParams VegaChannel VegaChannelSort VegaExtent VegaPadding VegaSort VegaSortChannel VegaStack VegaTimeUnit VegaType"
+fs_chart_types="Chart ChartKind ChartSpec VegaAggregate VegaAutoSize VegaBin VegaBinParams VegaChannel VegaChannelSort VegaExtent VegaPadding VegaSort VegaSortChannel VegaStack VegaTimeUnit VegaType"
 fs_chart_mbti="$(
   for t in $fs_chart_types; do
     printf 'pub struct %s {\n  // private fields\n}\n' "$t"

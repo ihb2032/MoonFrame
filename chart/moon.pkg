@@ -6,6 +6,7 @@ import {
 
 import {
   "ihb2032/MoonFrame/series",
+  "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/test",
   "moonbitlang/x/fs",

@@ -107,6 +107,19 @@ intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyG
 # Package-qualified for the same reason as the intermediates list.
 qualified_reach="io/format_csv io/format_json io/format_ndjson io/parse_csv_str io/parse_json_str io/parse_ndjson_str"
 
+# The chart package's mirror of the Vega-Lite spec is two surfaces at once:
+# a main face a first-contact caller builds a chart from (the spec type, the
+# mark enum, the channel builder and the enums its parameters name), and a
+# deep family of spec-object trees (scales, axes, legends, transforms,
+# config …) that only a caller already speaking `@chart` reaches — the same
+# deliberate package-qualification as the io serialiser family, scoped to a
+# package because the family grows with every mirror PR. The pin is two-way:
+# a name on this list must be on the facade (and must still exist), and a
+# chart symbol not on it must NOT be on the facade — `@chart.VegaScale`, not
+# a bare `VegaScale` nobody promised. Shrink or grow the list only alongside
+# the facade comment that draws the same line.
+chart_main="chart/ChartSpec chart/ChartKind chart/VegaAggregate chart/VegaAutoSize chart/VegaBin chart/VegaBinParams chart/VegaChannel chart/VegaChannelSort chart/VegaExtent chart/VegaPadding chart/VegaSort chart/VegaSortChannel chart/VegaStack chart/VegaTimeUnit chart/VegaType chart/constant chart/datum chart/field chart/format_vega_lite chart/write_vega_lite"
+
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`
 # is programs rather than library surface.
@@ -123,10 +136,15 @@ extract() {
     [ -n "$f" ] || continue
     pkg=$(dirname "$f")
     [ "$pkg" != "." ] || pkg=root
-    NAMED="$named" awk -v pkg="$pkg" '
+    NAMED="$named" CHART_MAIN="$chart_main" awk -v pkg="$pkg" '
       BEGIN {
         n = split(ENVIRON["NAMED"], line, "\n")
         for (i = 1; i <= n; i++) if (line[i] != "") reexported[line[i]] = 1
+        n = split(ENVIRON["CHART_MAIN"], entry, "\n")
+        for (i = 1; i <= n; i++) if (entry[i] != "") {
+          split(entry[i], pair, "/")
+          chartmain[pair[2]] = 1
+        }
       }
       # `#alias(x)` gives the next method a second callable spelling, so
       # dropping the attribute is as breaking as deleting a method.
@@ -193,7 +211,14 @@ extract() {
         tname = $3
         sub(/[{].*/, "", tname)
         key = tname " " pkg
-        print (key in reexported ? "type " : "intermediate ") tname " <- " pkg
+        # A chart type the facade does not name is a member of the deep
+        # mirror family (reached through `@chart` qualification) when it is
+        # off the `chart_main` list, and a main-surface type that lost its
+        # re-export when it is on it — the two-way pin below settles which.
+        tag = "intermediate "
+        if (!(key in reexported) && pkg == "chart" && !(tname in chartmain))
+          tag = "qualified "
+        print (key in reexported ? "type " : tag) tname " <- " pkg
         alias = ""
         next
       }
@@ -233,9 +258,12 @@ if [ -n "$unexpected" ]; then
   printf '%s\n' "$unexpected"
   printf '  A public type the facade does not name is reachable-but-unnamed:\n'
   printf '  callable through whatever returns it, yet impossible to annotate.\n'
-  printf '  That is deliberate for the fluent chain steps and an accident\n'
-  printf '  otherwise — make the type `priv`, or re-export it and say why.\n'
-  printf '  Allowed: %s\n' "$intermediates"
+  printf '  That is deliberate for the fluent chain steps, deliberate for the\n'
+  printf '  chart deep mirror family (off the chart_main list, reached through\n'
+  printf '  `@chart` qualification), and an accident otherwise — make the type\n'
+  printf '  `priv`, re-export it and say why, or add it to no list by reflex.\n'
+  printf '  Allowed chain steps: %s\n' "$intermediates"
+  printf '  Chart main surface (these must be ON the facade): %s\n' "$chart_main"
   exit 1
 fi
 
@@ -279,6 +307,11 @@ unexported_fns=$(printf '%s\n' "$current" |
     for allowed in $qualified_reach; do
       [ "$allowed" != "$pkg/$name" ] || continue 2
     done
+    # A chart free function off the main-surface list is deep-family reach,
+    # the same deliberate package-qualification as the io serialisers.
+    if [ "$pkg" = "chart" ]; then
+      printf '%s\n' $chart_main | grep -qx "chart/$name" || continue
+    fi
     printf '  %s (in %s)\n' "$name" "$pkg"
   done)
 if [ -n "$unexported_fns" ]; then
@@ -293,6 +326,72 @@ if [ -n "$unexported_fns" ]; then
   printf '  it through its package deliberately (the string-level serialiser\n'
   printf '  family does), or make it `priv` / an engine seam.\n'
   printf '  Deliberately package-qualified: %s\n' "$qualified_reach"
+  printf '  Chart main surface (these must be ON the facade): %s\n' "$chart_main"
+  exit 1
+fi
+
+# The chart pin's other direction: every name on the main-surface list must
+# be a live public chart symbol and must be on the facade. A symbol renamed
+# out from under the list, or a re-export dropped while the list kept the
+# name, leaves a line that lies in both directions — so both halves fail
+# here rather than only wherever they happened to surface above. The pin
+# only speaks where a chart interface is tracked at all; a fixture (or a
+# fork) without the package has nothing to pin.
+chart_tracked=$(printf '%s\n' "$files" | grep -qx 'chart/pkg.generated.mbti' &&
+  echo yes || echo no)
+chart_live=$(printf '%s\n' "$current" |
+  sed -n -e 's/^\(type\|intermediate\|qualified\) \([A-Za-z0-9_]*\) <- chart$/\2/p' \
+    -e 's/^fn \([A-Za-z0-9_]*\)(.* <- chart$/\1/p' | LC_ALL=C sort -u)
+chart_on_facade="$(
+  printf '%s\n' "$current" | sed -n 's/^type \([A-Za-z0-9_]*\) <- chart$/\1/p'
+  printf '%s\n' "$facade_fns" | sed -n 's/^\([A-Za-z0-9_]*\) chart$/\1/p'
+)"
+chart_missing=""
+if [ "$chart_tracked" = yes ]; then
+  for entry in $chart_main; do
+    name=${entry#chart/}
+    if ! printf '%s\n' "$chart_live" | grep -qx "$name"; then
+      chart_missing="$chart_missing
+  $name (no public chart symbol carries this name)"
+    elif ! printf '%s\n' "$chart_on_facade" | grep -qx "$name"; then
+      chart_missing="$chart_missing
+  $name (on the list, not on the facade)"
+    fi
+  done
+fi
+if [ -n "$chart_missing" ]; then
+  printf 'facade surface: a stale or unexported chart main-surface entry:\n'
+  printf '%s\n' "$chart_missing"
+  printf '  The chart_main list is a two-way pin: its names ride the facade\n'
+  printf '  and must stay live chart symbols; everything else in chart stays\n'
+  printf '  deliberately `@chart`-qualified. Reconcile the list, the facade\n'
+  printf '  block, and the package together.\n'
+  exit 1
+fi
+
+# And the direction nothing else catches: a chart symbol on the facade but
+# off the main-surface list. The facade is the first-contact promise, and a
+# deep mirror type re-exported bare promises `VegaScale` as a supported name
+# the chart_main line never drew — the quiet way the qualified family erodes
+# into the facade one symbol at a time.
+chart_bare="$(
+  printf '%s\n' "$current" | sed -n 's/^type \([A-Za-z0-9_]*\) <- chart$/\1/p'
+  printf '%s\n' "$facade_fns" | sed -n 's/^\([A-Za-z0-9_]*\) chart$/\1/p'
+)"
+chart_unpinned=""
+if [ "$chart_tracked" = yes ]; then
+  chart_unpinned=$(printf '%s\n' "$chart_bare" |
+    while read -r name; do
+      printf '%s\n' $chart_main | grep -qx "chart/$name" || printf '  %s\n' "$name"
+    done)
+fi
+if [ -n "$chart_unpinned" ]; then
+  printf 'facade surface: a chart symbol on the facade but off the main list:\n'
+  printf '%s\n' "$chart_unpinned"
+  printf '  The deep mirror family reaches callers through `@chart`\n'
+  printf '  qualification, and the facade re-exporting one of its names bare\n'
+  printf '  is a promise the chart_main line never made. Grow the list (and\n'
+  printf '  the facade comment) or take the re-export back out.\n'
   exit 1
 fi
 

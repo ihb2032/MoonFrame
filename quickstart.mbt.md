@@ -309,7 +309,7 @@ test "quickstart: render to HTML" {
 
 ## Export a Vega-Lite chart spec
 
-`format_vega_lite(df, spec)` produces a complete Vega-Lite v5 specification — a
+`format_vega_lite(df, spec)` produces a complete Vega-Lite v6 specification — a
 JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
 or hand to any Vega-Lite runtime. A mark-named `ChartSpec` constructor (`bar` /
 `line` / `point` / `area` / … / `arc`, `text`, `boxplot`) chooses the mark, and
@@ -317,7 +317,7 @@ each encoding channel is a column built with `field("name")`; a channel's
 field `type` is inferred from the column dtype (numeric → `quantitative`,
 `Date` / `Timestamp` → `temporal`, else `nominal`). A channel can also declare
 an `aggregate` / `bin` / `sort` for the Vega-Lite runtime to compute — a
-histogram is `ChartSpec::bar(field("price", bin=true), VegaChannel::count())`,
+histogram is `ChartSpec::bar(field("price", bin=On), VegaChannel::count())`,
 a pie is `ChartSpec::arc(field("revenue", aggregate=Sum), color=field("region"))`.
 A spec that names a missing column raises `ColumnNotFound`.
 
@@ -335,7 +335,7 @@ test "quickstart: export a Vega-Lite chart spec" {
   inspect(
     spec,
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Revenue by region","mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}},"data":{"values":[{"region":"west","revenue":100},{"region":"east","revenue":50}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","title":"Revenue by region","mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}},"data":{"values":[{"region":"west","revenue":100},{"region":"east","revenue":50}]}}
     ),
   )
 }

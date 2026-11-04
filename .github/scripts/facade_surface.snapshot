@@ -13,23 +13,55 @@ ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error
 ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
 ctor Optimizations::Optimizations() -> Self <- lazy
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
+ctor VegaBinParams::VegaBinParams(maxbins? : Int32, anchor? : Double, base? : Double, nice? : Bool, step? : Double, minstep? : Double, binned? : Bool, extent? : (Double, Double), divide? : Array[Double], steps? : Array[Double]) -> Self <- chart
+ctor VegaSides::VegaSides(top? : Int32, right? : Int32, bottom? : Int32, left? : Int32) -> Self <- chart
+field ChartSpec.angle : VegaChannel? <- chart
+field ChartSpec.autosize : VegaAutoSize? <- chart
+field ChartSpec.background : String? <- chart
 field ChartSpec.color : VegaChannel? <- chart
+field ChartSpec.description : String? <- chart
+field ChartSpec.description_channel : VegaChannel? <- chart
 field ChartSpec.detail : VegaChannel? <- chart
-field ChartSpec.height : Int32? <- chart
+field ChartSpec.fill : VegaChannel? <- chart
+field ChartSpec.fill_opacity : VegaChannel? <- chart
+field ChartSpec.height : VegaExtent? <- chart
+field ChartSpec.href : VegaChannel? <- chart
+field ChartSpec.key : VegaChannel? <- chart
 field ChartSpec.kind : ChartKind <- chart
+field ChartSpec.latitude : VegaChannel? <- chart
+field ChartSpec.latitude2 : VegaChannel? <- chart
+field ChartSpec.longitude : VegaChannel? <- chart
+field ChartSpec.longitude2 : VegaChannel? <- chart
+field ChartSpec.name : String? <- chart
 field ChartSpec.opacity : VegaChannel? <- chart
+field ChartSpec.order : VegaChannel? <- chart
+field ChartSpec.padding : VegaPadding? <- chart
 field ChartSpec.radius : VegaChannel? <- chart
 field ChartSpec.radius2 : VegaChannel? <- chart
+field ChartSpec.shape : VegaChannel? <- chart
 field ChartSpec.size : VegaChannel? <- chart
+field ChartSpec.stroke : VegaChannel? <- chart
+field ChartSpec.stroke_dash : VegaChannel? <- chart
+field ChartSpec.stroke_opacity : VegaChannel? <- chart
+field ChartSpec.stroke_width : VegaChannel? <- chart
 field ChartSpec.text : VegaChannel? <- chart
 field ChartSpec.theta : VegaChannel? <- chart
+field ChartSpec.theta2 : VegaChannel? <- chart
+field ChartSpec.time : VegaChannel? <- chart
 field ChartSpec.title : String? <- chart
 field ChartSpec.tooltip : VegaChannel? <- chart
-field ChartSpec.width : Int32? <- chart
+field ChartSpec.url : VegaChannel? <- chart
+field ChartSpec.width : VegaExtent? <- chart
 field ChartSpec.x : VegaChannel? <- chart
 field ChartSpec.x2 : VegaChannel? <- chart
+field ChartSpec.x_error : VegaChannel? <- chart
+field ChartSpec.x_error2 : VegaChannel? <- chart
+field ChartSpec.x_offset : VegaChannel? <- chart
 field ChartSpec.y : VegaChannel? <- chart
 field ChartSpec.y2 : VegaChannel? <- chart
+field ChartSpec.y_error : VegaChannel? <- chart
+field ChartSpec.y_error2 : VegaChannel? <- chart
+field ChartSpec.y_offset : VegaChannel? <- chart
 field CsvReadOptions.allow_nonfinite_floats : Bool <- io
 field CsvReadOptions.delimiter : Char <- io
 field CsvReadOptions.has_header : Bool <- io
@@ -58,17 +90,40 @@ field Optimizations.predicate_pushdown : Bool <- lazy
 field Optimizations.projection_pushdown : Bool <- lazy
 field Optimizations.simplify_expressions : Bool <- lazy
 field Optimizations.slice_pushdown : Bool <- lazy
+field VegaBinParams.anchor : Double? <- chart
+field VegaBinParams.base : Double? <- chart
+field VegaBinParams.binned : Bool? <- chart
+field VegaBinParams.extent : (Double, Double)? <- chart
+field VegaBinParams.maxbins : Int32? <- chart
+field VegaBinParams.minstep : Double? <- chart
+field VegaBinParams.nice : Bool? <- chart
+field VegaBinParams.step : Double? <- chart
 field VegaChannel.aggregate : VegaAggregate? <- chart
-field VegaChannel.bin : Bool? <- chart
-field VegaChannel.field : String <- chart
-field VegaChannel.sort : VegaSort? <- chart
+field VegaChannel.band_position : Double? <- chart
+field VegaChannel.bin : VegaBin? <- chart
+field VegaChannel.datum : @json.Json? <- chart
+field VegaChannel.field : String? <- chart
+field VegaChannel.format : String? <- chart
+field VegaChannel.sort : VegaChannelSort? <- chart
+field VegaChannel.stack : VegaStack? <- chart
+field VegaChannel.time_unit : VegaTimeUnit? <- chart
+field VegaChannel.title : String? <- chart
 field VegaChannel.type_override : VegaType? <- chart
+field VegaChannel.value : @json.Json? <- chart
+field VegaSides.bottom : Int32? <- chart
+field VegaSides.left : Int32? <- chart
+field VegaSides.right : Int32? <- chart
+field VegaSides.top : Int32? <- chart
 fn col(String) -> @expr.Expr <- root
 fn col(String) -> Expr <- expr
 fn cols(Array[String]) -> Array[@expr.Expr] <- root
 fn cols(Array[String]) -> Array[Expr] <- expr
-fn field(String, aggregate? : @chart.VegaAggregate, bin? : Bool, sort? : @chart.VegaSort, type_override? : @chart.VegaType) -> @chart.VegaChannel <- root
-fn field(String, aggregate? : VegaAggregate, bin? : Bool, sort? : VegaSort, type_override? : VegaType) -> VegaChannel <- chart
+fn constant(@json.Json) -> @chart.VegaChannel <- root
+fn constant(@json.Json) -> VegaChannel <- chart
+fn datum(@json.Json) -> @chart.VegaChannel <- root
+fn datum(@json.Json) -> VegaChannel <- chart
+fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double) -> @chart.VegaChannel <- root
+fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double) -> VegaChannel <- chart
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
 fn format_json(@frame.DataFrame) -> String <- io
 fn format_ndjson(@frame.DataFrame) -> String <- io
@@ -145,22 +200,27 @@ method CellParseLocation::to_repr(Self) -> @debug.Repr <- types
 method ChartKind::equal(Self, Self) -> Bool <- chart
 method ChartKind::not_equal(Self, Self) -> Bool <- chart
 method ChartKind::to_repr(Self) -> @debug.Repr <- chart
-method ChartSpec::arc(VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::area(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::bar(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::boxplot(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::circle(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
+method ChartSpec::arc(VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::area(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::bar(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::boxplot(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::circle(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
 method ChartSpec::equal(Self, Self) -> Bool <- chart
-method ChartSpec::line(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
+method ChartSpec::errorband(VegaChannel, VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::errorbar(VegaChannel, VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::geoshape(VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::image(VegaChannel, VegaChannel, VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::line(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
 method ChartSpec::not_equal(Self, Self) -> Bool <- chart
-method ChartSpec::point(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::rect(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::rule(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::square(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::text(VegaChannel, VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
-method ChartSpec::tick(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
+method ChartSpec::of(ChartKind, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent, name? : String, description? : String, autosize? : VegaAutoSize, padding? : VegaPadding, background? : String) -> Self <- chart
+method ChartSpec::point(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::rect(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::rule(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::square(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::text(VegaChannel, VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
+method ChartSpec::tick(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
 method ChartSpec::to_repr(Self) -> @debug.Repr <- chart
-method ChartSpec::trail(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self <- chart
+method ChartSpec::trail(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self <- chart
 method ClosedInterval::equal(Self, Self) -> Bool <- types
 method ClosedInterval::not_equal(Self, Self) -> Bool <- types
 method ClosedInterval::to_repr(Self) -> @debug.Repr <- types
@@ -562,18 +622,52 @@ method TypeMismatchDetail::to_repr(Self) -> @debug.Repr <- types
 method VegaAggregate::equal(Self, Self) -> Bool <- chart
 method VegaAggregate::not_equal(Self, Self) -> Bool <- chart
 method VegaAggregate::to_repr(Self) -> @debug.Repr <- chart
+method VegaAutoSize::equal(Self, Self) -> Bool <- chart
+method VegaAutoSize::not_equal(Self, Self) -> Bool <- chart
+method VegaAutoSize::to_repr(Self) -> @debug.Repr <- chart
+method VegaBin::equal(Self, Self) -> Bool <- chart
+method VegaBin::not_equal(Self, Self) -> Bool <- chart
+method VegaBin::to_repr(Self) -> @debug.Repr <- chart
+method VegaBinParams::divide(Self) -> Array[Double]? <- chart
+method VegaBinParams::equal(Self, Self) -> Bool <- chart
+method VegaBinParams::not_equal(Self, Self) -> Bool <- chart
+method VegaBinParams::steps(Self) -> Array[Double]? <- chart
+method VegaBinParams::to_repr(Self) -> @debug.Repr <- chart
 method VegaChannel::count() -> Self <- chart
 method VegaChannel::equal(Self, Self) -> Bool <- chart
 method VegaChannel::not_equal(Self, Self) -> Bool <- chart
 method VegaChannel::to_repr(Self) -> @debug.Repr <- chart
+method VegaChannelSort::equal(Self, Self) -> Bool <- chart
+method VegaChannelSort::not_equal(Self, Self) -> Bool <- chart
+method VegaChannelSort::to_repr(Self) -> @debug.Repr <- chart
+method VegaChannelSort::values(Array[@json.Json]) -> Self <- chart
+method VegaExtent::equal(Self, Self) -> Bool <- chart
+method VegaExtent::not_equal(Self, Self) -> Bool <- chart
+method VegaExtent::to_repr(Self) -> @debug.Repr <- chart
+method VegaPadding::equal(Self, Self) -> Bool <- chart
+method VegaPadding::not_equal(Self, Self) -> Bool <- chart
+method VegaPadding::to_repr(Self) -> @debug.Repr <- chart
+method VegaSides::equal(Self, Self) -> Bool <- chart
+method VegaSides::not_equal(Self, Self) -> Bool <- chart
+method VegaSides::to_repr(Self) -> @debug.Repr <- chart
 method VegaSort::equal(Self, Self) -> Bool <- chart
 method VegaSort::not_equal(Self, Self) -> Bool <- chart
 method VegaSort::to_repr(Self) -> @debug.Repr <- chart
+method VegaSortChannel::equal(Self, Self) -> Bool <- chart
+method VegaSortChannel::not_equal(Self, Self) -> Bool <- chart
+method VegaSortChannel::to_repr(Self) -> @debug.Repr <- chart
+method VegaStack::equal(Self, Self) -> Bool <- chart
+method VegaStack::not_equal(Self, Self) -> Bool <- chart
+method VegaStack::to_repr(Self) -> @debug.Repr <- chart
+method VegaTimeUnit::equal(Self, Self) -> Bool <- chart
+method VegaTimeUnit::not_equal(Self, Self) -> Bool <- chart
+method VegaTimeUnit::to_repr(Self) -> @debug.Repr <- chart
 method VegaType::equal(Self, Self) -> Bool <- chart
 method VegaType::not_equal(Self, Self) -> Bool <- chart
 method VegaType::to_repr(Self) -> @debug.Repr <- chart
 method WhenThen::then(Self, Expr) -> WhenThenElse <- expr
 method WhenThenElse::otherwise(Self, Expr) -> Expr <- expr
+qualified VegaSides <- chart
 type CellParseLocation <- types
 type ChartKind <- chart
 type ChartSpec <- chart
@@ -603,6 +697,15 @@ type Schema <- types
 type Series <- series
 type TypeMismatchDetail <- types
 type VegaAggregate <- chart
+type VegaAutoSize <- chart
+type VegaBin <- chart
+type VegaBinParams <- chart
 type VegaChannel <- chart
+type VegaChannelSort <- chart
+type VegaExtent <- chart
+type VegaPadding <- chart
 type VegaSort <- chart
+type VegaSortChannel <- chart
+type VegaStack <- chart
+type VegaTimeUnit <- chart
 type VegaType <- chart

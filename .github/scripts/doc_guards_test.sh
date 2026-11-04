@@ -315,6 +315,10 @@ mkfacadesurface() {
     mkdir -p "$1/io"
     printf '%s\n' "$6" >"$1/io/pkg.generated.mbti"
   fi
+  if [ $# -ge 7 ]; then
+    mkdir -p "$1/chart"
+    printf '%s\n' "$7" >"$1/chart/pkg.generated.mbti"
+  fi
   (cd "$1" && git add -A && git commit -qm f)
 }
 
@@ -546,6 +550,75 @@ intermediate LeakedHelper <- frame
 method LeakedHelper::run <- frame"
 expect 1 'facade surface: a public type outside the intermediate allowlist' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_leak"
+
+# The chart mirror keeps two surfaces: a main face on the facade and a deep
+# spec-object family reached through `@chart` qualification, with chart_main
+# pinning both directions. The fixture chart carries exactly the main-surface
+# set — every name the real list pins — plus one deep tree (VegaScale, as a
+# type, a method, and a free function) the pin must leave qualified. The
+# facade's type re-exports are read from the root interface (one exploded
+# `pub using @chart {type X}` line per type) and its function re-exports from
+# the facade source, so the fixture carries both.
+fs_chart_types="ChartKind ChartSpec VegaAggregate VegaAutoSize VegaBin VegaBinParams VegaChannel VegaChannelSort VegaExtent VegaPadding VegaSort VegaSortChannel VegaStack VegaTimeUnit VegaType"
+fs_chart_mbti="$(
+  for t in $fs_chart_types; do
+    printf 'pub struct %s {\n  // private fields\n}\n' "$t"
+  done
+  printf '%s\n' 'pub fn field(String) -> VegaChannel'
+  printf '%s\n' 'pub fn constant(Json) -> VegaChannel'
+  printf '%s\n' 'pub fn datum(Json) -> VegaChannel'
+  printf '%s\n' 'pub fn format_vega_lite(String) -> String'
+  printf '%s\n' 'pub fn write_vega_lite(String) -> Unit'
+  printf '%s\n' 'pub struct VegaScale {
+  // private fields
+}'
+  printf '%s\n' 'pub fn VegaScale::log(Self) -> Self'
+  printf '%s\n' 'pub fn scale_key(String) -> Int'
+)"
+fs_chart_root="$fs_root
+$(for t in $fs_chart_types; do printf 'pub using @chart {type %s}\n' "$t"; done)"
+fs_chart_facade="$fs_chart_root
+$(for fn in field constant datum format_vega_lite write_vega_lite; do printf 'pub using @chart {%s}\n' "$fn"; done)"
+fs_chart_snap="$( {
+    printf '%s\n' "$fs_snap"
+    for t in $fs_chart_types; do printf 'type %s <- chart\n' "$t"; done
+    printf '%s\n' 'fn field(String) -> VegaChannel <- chart' \
+      'fn constant(Json) -> VegaChannel <- chart' \
+      'fn datum(Json) -> VegaChannel <- chart' \
+      'fn format_vega_lite(String) -> String <- chart' \
+      'fn write_vega_lite(String) -> Unit <- chart' \
+      'qualified VegaScale <- chart' \
+      'method VegaScale::log(Self) -> Self <- chart' \
+      'fn scale_key(String) -> Int <- chart'
+  } | LC_ALL=C sort -u
+)"
+
+mkfacadesurface "$work/fs_chart_ok" "$fs_chart_root" "$fs_frame" "$fs_chart_snap" \
+  "$fs_chart_facade" '' "$fs_chart_mbti"
+expect 0 'facade surface: chart deep family stays qualified, main face rides the facade' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_chart_ok"
+
+# A deep tree name re-exported bare promises a facade symbol the chart_main
+# line never drew — the quiet way the qualified family erodes. The snapshot
+# line flips to a facade type along with the re-export, so it is the rule,
+# not the diff, that refuses it.
+mkfacadesurface "$work/fs_chart_bare" "$fs_chart_root
+pub using @chart {type VegaScale}" "$fs_frame" \
+  "$(printf '%s\n' "$fs_chart_snap" | sed 's/^qualified VegaScale <- chart$/type VegaScale <- chart/')" \
+  "$fs_chart_facade
+pub using @chart {type VegaScale}" '' "$fs_chart_mbti"
+expect_out 1 'VegaScale' 'facade surface: a chart deep name on the facade' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_chart_bare"
+
+# Dropping a main-surface re-export while the list keeps the name: the type
+# lands as an unreexported public type, and the pin's message names both
+# directions.
+mkfacadesurface "$work/fs_chart_dropped" \
+  "$(printf '%s\n' "$fs_chart_root" | grep -v '{type ChartSpec}')" "$fs_frame" \
+  "$(printf '%s\n' "$fs_chart_snap" | sed 's/^type ChartSpec <- chart$/intermediate ChartSpec <- chart/')" \
+  "$(printf '%s\n' "$fs_chart_facade" | grep -v '{type ChartSpec}')" '' "$fs_chart_mbti"
+expect_out 1 'ChartSpec' 'facade surface: a chart main type off the facade' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_chart_dropped"
 
 # ── internal package manifest ─────────────────────────────────────────────
 mkinternal() {

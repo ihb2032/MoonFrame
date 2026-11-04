@@ -1,15 +1,17 @@
 // Blackbox tests for `@chart.format_vega_lite` / `@chart.write_vega_lite`
 // and the `ChartKind` / `VegaChannel` / `ChartSpec` builders.
 //
-// The renderer assembles a Vega-Lite v5 spec through the builtin `@json`,
+// The renderer assembles a Vega-Lite v6 spec through the builtin `@json`,
 // so these tests pin the *spec layout* MoonFrame imposes — `$schema` /
-// `title` / `width` / `height` / `mark` / `encoding` (field + inferred
-// `type` + the channel's declared `aggregate` / `bin` / `sort`) / inlined
-// `data.values` — plus the column-name validation (`ColumnNotFound`, in
-// the `ChartSpec` doc's fixed channel order) and the cell conventions
-// inherited from `format_json` (null / non-finite floats → JSON `null`).
-// One test parses the output back with `@json.parse` to self-certify it
-// is well-formed JSON.
+// chrome (`name` / `description` / `title` / `autosize` / `background` /
+// `padding` / `width` / `height`) / `mark` / `encoding` (field + inferred
+// `type` + the channel's declared modifiers) / inlined `data.values` —
+// plus the column-name validation (`ColumnNotFound`, in the `ChartSpec`
+// doc's fixed channel order) and the cell conventions inherited from
+// `format_json` (null / non-finite floats → JSON `null`). One test parses
+// the output back with `@json.parse` to self-certify it is well-formed
+// JSON; the corpus test beside this one additionally walks every emitted
+// corpus spec against the vendored schema.
 //
 // `id_double` (defeats constant folding for the non-finite-float test)
 // is a blackbox-test helper; this package defines its own copy, since
@@ -48,7 +50,7 @@ fn catvalgrp_df() -> @frame.DataFrame raise @types.DataError {
 // ── format_vega_lite: spec layout ───────────────────────────────────
 
 ///|
-test "format_vega_lite: bar chart emits a complete Vega-Lite v5 spec" {
+test "format_vega_lite: bar chart emits a complete Vega-Lite v6 spec" {
   // The canonical case pins the whole shape: pinned `$schema`, `mark`,
   // both encoding channels (nominal x / quantitative y, inferred from the
   // column dtypes), and the frame inlined as `data.values`.
@@ -58,7 +60,7 @@ test "format_vega_lite: bar chart emits a complete Vega-Lite v5 spec" {
       @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
     ),
   )
 }
@@ -135,7 +137,8 @@ test "format_vega_lite: a `.` in a column name is escaped in the Vega field path
 test "format_vega_lite: a type_override replaces the color channel's inferred type" {
   // A numeric grouping column ("g") would infer `quantitative` (a
   // continuous gradient); the channel's type_override forces the chosen
-  // type. Covers all four VegaType variants.
+  // type. Covers all five VegaType variants — geojson never comes from
+  // inference, only from an override.
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
     @series.Series::from_ints("val", [1]),
@@ -146,6 +149,7 @@ test "format_vega_lite: a type_override replaces the color channel's inferred ty
     (@chart.VegaType::Nominal, "nominal"),
     (@chart.VegaType::Ordinal, "ordinal"),
     (@chart.VegaType::Temporal, "temporal"),
+    (@chart.VegaType::Geojson, "geojson"),
   ]
   for case in cases {
     let (vt, expected) = case
@@ -163,8 +167,8 @@ test "format_vega_lite: a type_override replaces the color channel's inferred ty
 
 ///|
 test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
-  // Parse the output and read the `mark` field back, so all thirteen
-  // `ChartKind` arms are exercised without thirteen near-identical spec
+  // Parse the output and read the `mark` field back, so all seventeen
+  // `ChartKind` arms are exercised without seventeen near-identical spec
   // strings — and the parse doubles as a well-formedness check.
   let df = catval_df()
   let cases = [
@@ -194,8 +198,33 @@ test "format_vega_lite: each ChartKind maps to its Vega-Lite mark" {
     ),
     (@chart.ChartSpec::arc(@chart.field("val")), "arc"),
     (
+      @chart.ChartSpec::image(
+        @chart.field("cat"),
+        @chart.field("val"),
+        @chart.field("cat"),
+      ),
+      "image",
+    ),
+    (@chart.ChartSpec::geoshape(@chart.field("cat")), "geoshape"),
+    (
       @chart.ChartSpec::boxplot(@chart.field("cat"), @chart.field("val")),
       "boxplot",
+    ),
+    (
+      @chart.ChartSpec::errorbar(
+        @chart.field("cat"),
+        @chart.field("val"),
+        y_error=@chart.field("val"),
+      ),
+      "errorbar",
+    ),
+    (
+      @chart.ChartSpec::errorband(
+        @chart.field("cat"),
+        @chart.field("val"),
+        y_error=@chart.field("val"),
+      ),
+      "errorband",
     ),
   ]
   for case in cases {
@@ -224,15 +253,16 @@ test "format_vega_lite: title injects a top-level title" {
       ),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Sales","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","title":"Sales","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
     ),
   )
 }
 
 ///|
-test "format_vega_lite: width and height inject top-level view sizes" {
-  // The sizes follow `title` in the emitted object and are plain JSON
-  // numbers; unset sizes are omitted (the canonical case has none).
+test "format_vega_lite: the three width / height forms emit their own shapes" {
+  // `Px` is a plain number, `Step` the `{"step": n}` object; both land
+  // between `title` and `mark`, and unset sizes stay absent (the
+  // canonical case has none).
   inspect(
     @chart.format_vega_lite(
       catval_df(),
@@ -240,12 +270,58 @@ test "format_vega_lite: width and height inject top-level view sizes" {
         @chart.field("cat"),
         @chart.field("val"),
         title="Sales",
-        width=320,
-        height=240,
+        width=@chart.VegaExtent::Px(320),
+        height=@chart.VegaExtent::Step(24),
       ),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Sales","width":320,"height":240,"mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","title":"Sales","width":320,"height":{"step":24},"mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
+    ),
+  )
+  let container = @chart.format_vega_lite(
+    catval_df(),
+    @chart.ChartSpec::of(
+      @chart.ChartKind::Point,
+      x=@chart.field("cat"),
+      y=@chart.field("val"),
+      width=@chart.VegaExtent::Container,
+    ),
+  )
+  let width = match @json.parse(container) {
+    Object(obj) =>
+      match obj.get("width") {
+        Some(String(w)) => w
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+  assert_eq(width, "container")
+}
+
+///|
+test "format_vega_lite: the top-level chrome emits in its fixed order" {
+  // `name`, `description`, `title`, `autosize`, `background`, `padding`
+  // — one spec carrying all of them, `padding` in its per-side form with
+  // two of four sides set.
+  inspect(
+    @chart.format_vega_lite(
+      catval_df(),
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        name="revenue-chart",
+        description="Revenue by region",
+        title="Revenue",
+        autosize=@chart.VegaAutoSize::FitX,
+        background="#f8f8f8",
+        padding=@chart.VegaPadding::Sides(
+          @chart.VegaSides::VegaSides(top=10, left=5),
+        ),
+      ),
+    ),
+    content=(
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","name":"revenue-chart","description":"Revenue by region","title":"Revenue","autosize":"fit-x","background":"#f8f8f8","padding":{"top":10,"left":5},"mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
     ),
   )
 }
@@ -262,16 +338,16 @@ test "format_vega_lite: color adds a color encoding channel" {
       ),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"color":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"color":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
     ),
   )
 }
 
 ///|
 test "format_vega_lite: size, opacity, tooltip, and detail channels follow color" {
-  // The four remaining non-polar channels, one spec — the emission order
-  // matches the fixed resolution order (size, opacity, tooltip, detail
-  // after color, which this spec leaves unset).
+  // The four channels a `point` commonly adds, one spec — the emission
+  // order matches the fixed resolution order (size, opacity, tooltip,
+  // detail after color, which this spec leaves unset).
   inspect(
     @chart.format_vega_lite(
       catvalgrp_df(),
@@ -285,7 +361,7 @@ test "format_vega_lite: size, opacity, tooltip, and detail channels follow color
       ),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"point","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"size":{"field":"val","type":"quantitative"},"opacity":{"field":"val","type":"quantitative"},"tooltip":{"field":"grp","type":"nominal"},"detail":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"point","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"opacity":{"field":"val","type":"quantitative"},"size":{"field":"val","type":"quantitative"},"tooltip":{"field":"grp","type":"nominal"},"detail":{"field":"grp","type":"nominal"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
     ),
   )
 }
@@ -303,146 +379,74 @@ test "format_vega_lite: x2 and y2 emit the ranged-mark end channels" {
       ),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"rect","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"x2":{"field":"grp","type":"nominal"},"y2":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"rect","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"},"x2":{"field":"grp"},"y2":{"field":"val"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
     ),
   )
 }
 
 ///|
-test "format_vega_lite: each VegaAggregate maps to its Vega-Lite aggregate" {
-  // The five column aggregates read back from the y channel; the count
-  // aggregate has its own no-field test below.
-  let cases = [
-    (@chart.VegaAggregate::Sum, "sum"),
-    (@chart.VegaAggregate::Mean, "mean"),
-    (@chart.VegaAggregate::Median, "median"),
-    (@chart.VegaAggregate::Min, "min"),
-    (@chart.VegaAggregate::Max, "max"),
-  ]
-  for case in cases {
-    let (op, expected) = case
-    let spec = @chart.format_vega_lite(
-      catval_df(),
-      @chart.ChartSpec::bar(
-        @chart.field("cat"),
-        @chart.field("val", aggregate=op),
-      ),
-    )
-    assert_eq(channel_key(spec, "y", "aggregate"), expected)
-    // An aggregate is declared, not applied: the field and its dtype
-    // inference are unchanged.
-    assert_eq(channel_key(spec, "y", "field"), "val")
-    assert_eq(channel_key(spec, "y", "type"), "quantitative")
+test "format_vega_lite: the error, offset, geo, and prop channels ride ChartSpec::of" {
+  // The channels no mark-named constructor carries — error bars' four,
+  // the offsets, the geo pair, the fill / stroke family, and the v6
+  // `time` channel — emitted by the general constructor, one key each.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("val", [1]),
+    @series.Series::from_ints("err", [1]),
+    @series.Series::from_floats("lon", [1.5]),
+    @series.Series::from_floats("lat", [1.5]),
+    @series.Series::from_timestamp_options("ts", [Some(1_704_067_200_000_000L)]),
+  ])
+  let spec = @chart.format_vega_lite(
+    df,
+    @chart.ChartSpec::of(
+      @chart.ChartKind::Point,
+      x=@chart.field("cat"),
+      y=@chart.field("val"),
+      x_error=@chart.field("err"),
+      x_error2=@chart.field("err"),
+      y_error=@chart.field("err"),
+      y_error2=@chart.field("err"),
+      x_offset=@chart.field("err"),
+      y_offset=@chart.field("err"),
+      longitude=@chart.field("lon"),
+      latitude=@chart.field("lat"),
+      fill=@chart.field("cat"),
+      stroke=@chart.field("cat"),
+      fill_opacity=@chart.field("val"),
+      stroke_opacity=@chart.field("val"),
+      stroke_width=@chart.field("val"),
+      stroke_dash=@chart.field("val"),
+      shape=@chart.field("cat"),
+      angle=@chart.field("val"),
+      time=@chart.field("ts"),
+      href=@chart.field("cat"),
+      url=@chart.field("cat"),
+      description_channel=@chart.field("cat"),
+      key=@chart.field("cat"),
+      order=@chart.field("val"),
+    ),
+  )
+  let encoding = match @json.parse(spec) {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) => enc
+        _ => Map([])
+      }
+    _ => Map([])
   }
-}
-
-///|
-test "format_vega_lite: a count channel emits aggregate count with no field" {
-  // A count tallies rows per group, so no column is read: the channel
-  // carries no `field` key, and its type is quantitative by definition.
-  inspect(
-    @chart.format_vega_lite(
-      catval_df(),
-      @chart.ChartSpec::bar(@chart.field("cat"), @chart.VegaChannel::count()),
-    ),
-    content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"aggregate":"count","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1}]}}
-    ),
-  )
-}
-
-///|
-test "format_vega_lite: a count channel skips column resolution entirely" {
-  // `field("nox", aggregate=Count)` names a column the frame does not
-  // have, and that is fine — the count aggregate ignores the field, so
-  // no `ColumnNotFound` is raised and no `field` key is emitted. This is
-  // the histogram shape: a binned x with a row-count y.
-  let spec = @chart.format_vega_lite(
-    catval_df(),
-    @chart.ChartSpec::bar(
-      @chart.field("val", bin=true),
-      @chart.field("nox", aggregate=Count),
-    ),
-  )
-  assert_eq(channel_key(spec, "y", "aggregate"), "count")
-  assert_eq(channel_key(spec, "y", "field"), "<missing>")
-  assert_eq(channel_key(spec, "y", "type"), "quantitative")
-  assert_eq(channel_key(spec, "x", "bin"), "true")
-}
-
-///|
-test "format_vega_lite: bin emits the channel's bin key as given" {
-  // `bin=true` declares binning (the Vega-Lite runtime picks the bins);
-  // `bin=false` is emitted as an explicit false rather than dropped —
-  // the caller said so.
-  let binned = @chart.format_vega_lite(
-    catval_df(),
-    @chart.ChartSpec::point(@chart.field("val", bin=true), @chart.field("val")),
-  )
-  assert_eq(channel_key(binned, "x", "bin"), "true")
-  let unbinned = @chart.format_vega_lite(
-    catval_df(),
-    @chart.ChartSpec::point(@chart.field("val", bin=false), @chart.field("val")),
-  )
-  assert_eq(channel_key(unbinned, "x", "bin"), "false")
-}
-
-///|
-test "format_vega_lite: a sort channel orders the channel's scale" {
-  let ascending = @chart.format_vega_lite(
-    catval_df(),
-    @chart.ChartSpec::bar(
-      @chart.field("cat", sort=@chart.VegaSort::Ascending),
-      @chart.field("val"),
-    ),
-  )
-  assert_eq(channel_key(ascending, "x", "sort"), "ascending")
-  let descending = @chart.format_vega_lite(
-    catval_df(),
-    @chart.ChartSpec::bar(
-      @chart.field("cat", sort=@chart.VegaSort::Descending),
-      @chart.field("val"),
-    ),
-  )
-  assert_eq(channel_key(descending, "x", "sort"), "descending")
-}
-
-///|
-test "format_vega_lite: an arc pie emits theta with its color grouping" {
-  // A pie is an arc mark with a theta measure and a color grouping; the
-  // emission order follows the fixed resolution order, so `color` lands
-  // before `theta` even though the constructor names theta first.
-  inspect(
-    @chart.format_vega_lite(
-      catvalgrp_df(),
-      @chart.ChartSpec::arc(
-        @chart.field("val", aggregate=Sum),
-        color=@chart.field("grp"),
-      ),
-    ),
-    content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"arc","encoding":{"color":{"field":"grp","type":"nominal"},"theta":{"field":"val","aggregate":"sum","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1,"grp":"a"}]}}
-    ),
-  )
-}
-
-///|
-test "format_vega_lite: radius and radius2 emit the arc's polar channels" {
-  // A rose varies the slice length with radius; a donut cuts the center
-  // out with radius2. Both resolve like any other channel.
-  let spec = @chart.format_vega_lite(
-    catvalgrp_df(),
-    @chart.ChartSpec::arc(
-      @chart.field("val"),
-      color=@chart.field("cat"),
-      radius=@chart.field("grp"),
-      radius2=@chart.field("val"),
-    ),
-  )
-  assert_eq(channel_key(spec, "radius", "field"), "grp")
-  assert_eq(channel_key(spec, "radius", "type"), "nominal")
-  assert_eq(channel_key(spec, "radius2", "field"), "val")
-  assert_eq(channel_key(spec, "radius2", "type"), "quantitative")
+  // Every channel the spec named is present, under its Vega key.
+  let keys = [
+    "xError", "xError2", "yError", "yError2", "xOffset", "yOffset", "longitude",
+    "latitude", "fill", "stroke", "fillOpacity", "strokeOpacity", "strokeWidth",
+    "strokeDash", "shape", "angle", "time", "href", "url", "description", "key",
+    "order",
+  ]
+  for key in keys {
+    assert_true(encoding.get(key) is Some(Object(_)))
+  }
+  // The ts column drives the time channel's temporal inference.
+  assert_eq(channel_key(spec, "time", "type"), "temporal")
 }
 
 ///|
@@ -459,7 +463,7 @@ test "format_vega_lite: field type follows column dtype (Float→quantitative, B
       @chart.ChartSpec::point(@chart.field("ratio"), @chart.field("flag")),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"point","encoding":{"x":{"field":"ratio","type":"quantitative"},"y":{"field":"flag","type":"nominal"}},"data":{"values":[{"ratio":1.5,"flag":true}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"point","encoding":{"x":{"field":"ratio","type":"quantitative"},"y":{"field":"flag","type":"nominal"}},"data":{"values":[{"ratio":1.5,"flag":true}]}}
     ),
   )
 }
@@ -486,7 +490,7 @@ test "format_vega_lite: null and non-finite float cells become JSON null" {
       @chart.ChartSpec::bar(@chart.field("label"), @chart.field("amount")),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"label","type":"nominal"},"y":{"field":"amount","type":"quantitative"}},"data":{"values":[{"label":"a","amount":1.5},{"label":"b","amount":null},{"label":"c","amount":null},{"label":"d","amount":null}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"label","type":"nominal"},"y":{"field":"amount","type":"quantitative"}},"data":{"values":[{"label":"a","amount":1.5},{"label":"b","amount":null},{"label":"c","amount":null},{"label":"d","amount":null}]}}
     ),
   )
 }
@@ -504,7 +508,7 @@ test "format_vega_lite: a frame with columns but no rows yields empty data.value
       @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
     ),
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"bar","encoding":{"x":{"field":"cat","type":"nominal"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[]}}
     ),
   )
 }
@@ -512,7 +516,7 @@ test "format_vega_lite: a frame with columns but no rows yields empty data.value
 ///|
 test "format_vega_lite: output is well-formed JSON (parses back to an object)" {
   // The most complex spec (title + color) round-trips through the builtin
-  // JSON reader, self-certifying it is a legal Vega-Lite v5 document.
+  // JSON reader, self-certifying it is a legal Vega-Lite v6 document.
   let spec = @chart.format_vega_lite(
     catvalgrp_df(),
     @chart.ChartSpec::area(
@@ -625,6 +629,30 @@ test "format_vega_lite: color is validated before the size column" {
   )
 }
 
+///|
+test "format_vega_lite: an unknown detail column raises after size and opacity" {
+  // detail resolves after size / opacity in the fixed order — the deepest
+  // channel a mark-named constructor carries.
+  let df = catvalgrp_df()
+  assert_eq(
+    Ok(
+      @chart.format_vega_lite(
+        df,
+        @chart.ChartSpec::line(
+          @chart.field("cat"),
+          @chart.field("val"),
+          size=@chart.field("val"),
+          opacity=@chart.field("val"),
+          detail=@chart.field("nodetail"),
+        ),
+      ),
+    ) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::ColumnNotFound("nodetail")),
+  )
+}
+
 // ── write_vega_lite: filesystem path ────────────────────────────────
 
 ///|
@@ -717,6 +745,7 @@ fn channel_key(spec : String, channel : String, key : String) -> String {
             Some(Object(c)) =>
               match c.get(key) {
                 Some(String(t)) => t
+                Some(Number(n, ..)) => n.to_string()
                 Some(True) => "true"
                 Some(False) => "false"
                 _ => "<missing>"

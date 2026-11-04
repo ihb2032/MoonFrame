@@ -57,13 +57,13 @@ test "revenue_table: renders the summary as a captioned HTML table" {
 }
 
 ///|
-test "revenue_chart: emits a Vega-Lite v5 bar spec" {
+test "revenue_chart: emits a Vega-Lite v6 bar spec" {
   let df = @io.parse_csv_str(sample_csv)
   let chart = revenue_chart(revenue_by_region(df))
   inspect(
     chart,
     content=(
-      #|{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"Revenue by region","mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}},"data":{"values":[{"region":"west","revenue":170,"quantity":17},{"region":"east","revenue":80,"quantity":8},{"region":"north","revenue":40,"quantity":4}]}}
+      #|{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","title":"Revenue by region","mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}},"data":{"values":[{"region":"west","revenue":170,"quantity":17},{"region":"east","revenue":80,"quantity":8},{"region":"north","revenue":40,"quantity":4}]}}
     ),
   )
 }

@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn field(String, aggregate? : VegaAggregate, bin? : Bool, sort? : VegaSort, type_override? : VegaType) -> VegaChannel
+
 pub fn format_vega_lite(@frame.DataFrame, ChartSpec) -> String raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, ChartSpec) -> Unit raise @types.DataError
@@ -21,6 +23,15 @@ pub(all) enum ChartKind {
   Line
   Point
   Area
+  Tick
+  Rect
+  Rule
+  Circle
+  Square
+  Trail
+  Text
+  Arc
+  Boxplot
 }
 pub fn ChartKind::equal(Self, Self) -> Bool
 pub fn ChartKind::not_equal(Self, Self) -> Bool
@@ -29,19 +40,74 @@ pub fn ChartKind::to_repr(Self) -> @debug.Repr
 #derive(Eq, @debug.Debug)
 pub struct ChartSpec {
   kind : ChartKind
-  x : String
-  y : String
-  color : String?
+  x : VegaChannel?
+  y : VegaChannel?
+  x2 : VegaChannel?
+  y2 : VegaChannel?
+  color : VegaChannel?
+  size : VegaChannel?
+  opacity : VegaChannel?
+  tooltip : VegaChannel?
+  detail : VegaChannel?
+  theta : VegaChannel?
+  radius : VegaChannel?
+  radius2 : VegaChannel?
+  text : VegaChannel?
   title : String?
-  color_type : VegaType?
+  width : Int32?
+  height : Int32?
 }
-pub fn ChartSpec::area(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
-pub fn ChartSpec::bar(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
+pub fn ChartSpec::arc(VegaChannel, color? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::area(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::bar(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::boxplot(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::circle(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
 pub fn ChartSpec::equal(Self, Self) -> Bool
-pub fn ChartSpec::line(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
+pub fn ChartSpec::line(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
 pub fn ChartSpec::not_equal(Self, Self) -> Bool
-pub fn ChartSpec::point(String, String, color? : String, color_type? : VegaType, title? : String) -> Self
+pub fn ChartSpec::point(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::rect(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::rule(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::square(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::text(VegaChannel, VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+pub fn ChartSpec::tick(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
+pub fn ChartSpec::trail(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : Int32, height? : Int32) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaAggregate {
+  Sum
+  Mean
+  Median
+  Min
+  Max
+  Count
+}
+pub fn VegaAggregate::equal(Self, Self) -> Bool
+pub fn VegaAggregate::not_equal(Self, Self) -> Bool
+pub fn VegaAggregate::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaChannel {
+  field : String
+  aggregate : VegaAggregate?
+  bin : Bool?
+  sort : VegaSort?
+  type_override : VegaType?
+}
+pub fn VegaChannel::count() -> Self
+pub fn VegaChannel::equal(Self, Self) -> Bool
+pub fn VegaChannel::not_equal(Self, Self) -> Bool
+pub fn VegaChannel::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaSort {
+  Ascending
+  Descending
+}
+pub fn VegaSort::equal(Self, Self) -> Bool
+pub fn VegaSort::not_equal(Self, Self) -> Bool
+pub fn VegaSort::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaType {

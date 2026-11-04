@@ -311,9 +311,14 @@ test "quickstart: render to HTML" {
 
 `format_vega_lite(df, spec)` produces a complete Vega-Lite v5 specification — a
 JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
-or hand to any Vega-Lite runtime. `ChartSpec::bar` / `line` / `point` / `area`
-choose the mark; each channel's field `type` is inferred from the column dtype
-(numeric → `quantitative`, `Date` / `Timestamp` → `temporal`, else `nominal`).
+or hand to any Vega-Lite runtime. A mark-named `ChartSpec` constructor (`bar` /
+`line` / `point` / `area` / … / `arc`, `text`, `boxplot`) chooses the mark, and
+each encoding channel is a column built with `field("name")`; a channel's
+field `type` is inferred from the column dtype (numeric → `quantitative`,
+`Date` / `Timestamp` → `temporal`, else `nominal`). A channel can also declare
+an `aggregate` / `bin` / `sort` for the Vega-Lite runtime to compute — a
+histogram is `ChartSpec::bar(field("price", bin=true), VegaChannel::count())`,
+a pie is `ChartSpec::arc(field("revenue", aggregate=Sum), color=field("region"))`.
 A spec that names a missing column raises `ColumnNotFound`.
 
 ```moonbit check
@@ -325,7 +330,7 @@ test "quickstart: export a Vega-Lite chart spec" {
   ])
   let spec = format_vega_lite(
     sales,
-    ChartSpec::bar("region", "revenue", title="Revenue by region"),
+    ChartSpec::bar(field("region"), field("revenue"), title="Revenue by region"),
   )
   inspect(
     spec,

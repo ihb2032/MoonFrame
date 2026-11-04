@@ -38,7 +38,11 @@ fn main {
     @moonframe.write_vega_lite(
       chart_out,
       summary,
-      @moonframe.ChartSpec::bar("region", "revenue", title="Revenue by region"),
+      @moonframe.ChartSpec::bar(
+        @moonframe.field("region"),
+        @moonframe.field("revenue"),
+        title="Revenue by region",
+      ),
     )
     println("\nWrote Vega-Lite spec to \{chart_out}")
   } catch {

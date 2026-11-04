@@ -1,10 +1,19 @@
 CellParseLocation | enum | Line
 CellParseLocation | enum | Record
 CellParseLocation | enum | Row
+ChartKind | enum | Arc
 ChartKind | enum | Area
 ChartKind | enum | Bar
+ChartKind | enum | Boxplot
+ChartKind | enum | Circle
 ChartKind | enum | Line
 ChartKind | enum | Point
+ChartKind | enum | Rect
+ChartKind | enum | Rule
+ChartKind | enum | Square
+ChartKind | enum | Text
+ChartKind | enum | Tick
+ChartKind | enum | Trail
 ClosedInterval | enum | Both
 ClosedInterval | enum | Left
 ClosedInterval | enum | None
@@ -75,6 +84,14 @@ Scalar | enum | Timestamp(Int64)
 TypeMismatchDetail | enum | Expected(DataType, DataType, String)
 TypeMismatchDetail | enum | Message(String)
 TypeMismatchDetail | enum | Operation(String, DataType, DataType)
+VegaAggregate | enum | Count
+VegaAggregate | enum | Max
+VegaAggregate | enum | Mean
+VegaAggregate | enum | Median
+VegaAggregate | enum | Min
+VegaAggregate | enum | Sum
+VegaSort | enum | Ascending
+VegaSort | enum | Descending
 VegaType | enum | Nominal
 VegaType | enum | Ordinal
 VegaType | enum | Quantitative

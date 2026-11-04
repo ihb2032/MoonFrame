@@ -16,6 +16,8 @@ pub fn col(String) -> @expr.Expr
 
 pub fn cols(Array[String]) -> Array[@expr.Expr]
 
+pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : Bool, sort? : @chart.VegaSort, type_override? : @chart.VegaType) -> @chart.VegaChannel
+
 pub fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError
 
 pub fn lit(@types.Scalar) -> @expr.Expr
@@ -122,6 +124,12 @@ pub using @types {type Schema}
 pub using @series {type Series}
 
 pub using @types {type TypeMismatchDetail}
+
+pub using @chart {type VegaAggregate}
+
+pub using @chart {type VegaChannel}
+
+pub using @chart {type VegaSort}
 
 pub using @chart {type VegaType}
 

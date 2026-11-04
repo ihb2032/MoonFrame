@@ -25,6 +25,21 @@ Source-level note:
   the new `fraction?` (exactly one of the two names the draw size, a
   fraction drawing `max(1, round(fraction × nrows))` rows of a non-empty
   frame, `(0, 1]` enforced).
+- The chart builders speak channels: every `ChartSpec` constructor takes
+  `VegaChannel` values (built with `field("name")`, the `col` idiom of the
+  chart export) instead of bare column strings, and `color_type` is gone —
+  a type override is a channel modifier:
+  `ChartSpec::bar("region", "revenue", title="T")` becomes
+  `ChartSpec::bar(field("region"), field("revenue"), title="T")`, and
+  `color="g", color_type=Nominal` becomes
+  `color=field("g", type_override=Nominal)`. The mark family grew to
+  thirteen (`tick` / `rect` / `rule` / `circle` / `square` / `trail` /
+  `text` / `arc` / `boxplot` joined `bar` / `line` / `point` / `area`),
+  channels gained `size` / `opacity` / `tooltip` / `detail` / `theta` /
+  `radius` / `radius2` / `x2` / `y2` / `text` alongside `color`, a
+  channel may declare an `aggregate` / `bin` / `sort` for the Vega-Lite
+  runtime to compute (`VegaChannel::count()` for a row count, no column
+  read), and the spec accepts `width` / `height`.
 
 What has landed on `main`:
 

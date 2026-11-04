@@ -81,6 +81,7 @@ Expr::lit
 JoinOptions::with_
 ChartSpec::with_
 HtmlOptions::with_
+color_type
 to_markdown_with_limit
 to_html_with_options
 coalesce_into

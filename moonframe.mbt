@@ -18,15 +18,19 @@
 // the interfaces. Likewise the
 // `JoinOptions` / `HtmlOptions` / `ChartSpec` constructors — the named
 // constructors that replaced the setter chains
-// (`JoinOptions::on` / `left_on` / `cross`, `ChartSpec::bar` / `line` /
-// `point` / `area`, and `HtmlOptions::HtmlOptions`) — come for free once their
+// (`JoinOptions::on` / `left_on` / `cross`, the `ChartSpec` mark-named
+// family (`bar` / `line` / `point` / `area` / … / `arc` / `text` /
+// `boxplot`) and `VegaChannel::count`, and `HtmlOptions::HtmlOptions`) —
+// come for free once their
 // types are re-exported. The rule is that simple: **methods and constructors ride along
 // with a re-exported type; type names and free functions still need an
 // explicit line here.** So the lists below are the value types (the Join
 // `JoinType` / `JoinOptions`, the HTML `HtmlOptions`, the Chart `ChartKind` /
-// `ChartSpec`, …) plus every free function a caller reaches by name — the
+// `ChartSpec` / `VegaChannel` and its `VegaType` / `VegaAggregate` /
+// `VegaSort`, …) plus every free function a caller reaches by name — the
 // expression constructors, the frame's column selectors, the io layer's
-// file-level readers and writers, the chart's spec export, and the lazy
+// file-level readers and writers, the chart's channel builder and spec
+// export, and the lazy
 // layer's file sources. The string-level
 // serialisers (`parse_csv_str` / `parse_json_str` / `parse_ndjson_str` /
 // `format_csv` / `format_json` / `format_ndjson`) are deliberately NOT
@@ -145,7 +149,11 @@ pub using @io {
 pub using @chart {
   type ChartKind,
   type ChartSpec,
+  type VegaAggregate,
+  type VegaChannel,
+  type VegaSort,
   type VegaType,
+  field,
   format_vega_lite,
   write_vega_lite,
 }

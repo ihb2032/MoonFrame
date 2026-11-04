@@ -176,7 +176,17 @@ the sweep to the push.
   that reaches callers as `@moonframe.Type::method` without any facade change,
   and becomes a breaking change once published. Any add / remove /
   reclassification / source-package change fails until the snapshot is
-  regenerated (`sh .github/scripts/check_facade_surface.sh --write`).
+  regenerated (`sh .github/scripts/check_facade_surface.sh --write`). The
+  chart package is a deliberate two-way exception to "every public type
+  rides the facade": its **main face** (the spec type, the mark enum, the
+  channel family and its builders — the `chart_main` list in the guard) is
+  re-exported, and its **deep mirror family** (the spec-object trees the
+  later mirror stages add: scales, axes, legends, transforms, config) is
+  reached through `@chart` qualification, the io string-serialiser
+  precedent widened to a package. The pin holds both directions: a
+  `chart_main` name off the facade fails, a deep name on it fails, a list
+  entry whose symbol vanished fails, and deep types are tagged `qualified`
+  in the snapshot rather than `intermediate`.
 - **Stale names** — a removed identifier must not appear in current-state prose
   or in a comment that explains something: tracked `*.md`, `*.mbt`, the CI
   workflow and the package manifests. The guard scripts are not scanned — the
@@ -365,6 +375,32 @@ flags closure-parameter lines inside a match block's span (`fold(_, _ =>
 false)` and the `k => …` readers that lead an arm body's line); those are
 registered with that stated reason, the same
 conservative-by-design trade the array-boundary guard makes.
+
+## Vega corpus guard
+
+```sh
+python -B .github/scripts/check_vega_corpus.py --self-test   # the walker's own cases
+python -B .github/scripts/check_vega_corpus.py               # the corpus
+```
+
+The chart export is a hand-written typed mirror of Vega-Lite v6, and a hand
+mirror drifts the way no compiler catches: a key spelled wrong, an enum
+string the schema never listed, a property moved to a channel whose field
+definition does not carry it (the corpus caught exactly that in its first
+run — `type` on a secondary channel, `format` on a position channel). The
+facts of the format have one home — the vendored
+`.github/fixtures/vega_lite_v6_5_0.schema.json`, pinned to the exact
+Vega-Lite 6.5.0 release — and the guard is a draft-07-subset walker
+(`$ref` / `type` / `enum` / `const` / `pattern` / `items` / `properties` /
+`required` / `additionalProperties` / `anyOf`-any-branch / `allOf`;
+deliberately not a full validator) that walks every committed spec in
+`chart/corpus/` against it. The corpus itself is golden: `moon test`
+re-emits each spec and compares byte for byte, so it cannot fall behind
+the emitter; refresh after an intended emission change with
+`MOONFRAME_VEGA_CORPUS_REFRESH=1 moon test -p ihb2032/MoonFrame/chart`
+and review the diffs like a snapshot diff. A new mirror feature grows a
+corpus spec in the same change — the guard's spec count is the number to
+watch.
 
 ## Completion Requirements
 

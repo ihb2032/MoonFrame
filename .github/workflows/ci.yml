@@ -158,6 +158,18 @@ jobs:
           python -B .github/scripts/check_dtype_wildcards_test.py
           python -B .github/scripts/check_dtype_wildcards.py
 
+      # The chart mirror's fidelity half — see AGENTS.md for the corpus and
+      # the vendored schema. The walker's own cases run first (a validator
+      # that stopped rejecting fails here, not in a corpus that has drifted
+      # with it); then every committed corpus spec is walked against the
+      # schema, and `moon test` above has already re-emitted each corpus
+      # spec and compared it with the committed file byte for byte.
+      - name: Guard the Vega-Lite corpus against the vendored schema
+        if: runner.os == 'Linux'
+        run: |
+          python -B .github/scripts/check_vega_corpus.py --self-test
+          python -B .github/scripts/check_vega_corpus.py
+
       # Documentation guards. Everything else in this workflow protects
       # executable content — sources, interfaces, tests, snapshots — which is
       # why prose is where this repository's drift collects instead. These check

@@ -31,7 +31,12 @@
 // expression constructors, the frame's column selectors, the io layer's
 // file-level readers and writers, the chart's channel builder and spec
 // export, and the lazy
-// layer's file sources. The string-level
+// layer's file sources. (The chart package keeps a second, deliberate
+// surface off this facade: the deep Vega mirror family — the
+// spec-object trees behind `@chart.VegaSides` and its kin — is reached
+// through `@chart` qualification alone, the way io's string-level
+// serialisers are; the facade-surface guard pins that line both ways.)
+// The string-level
 // serialisers (`parse_csv_str` / `parse_json_str` / `parse_ndjson_str` /
 // `format_csv` / `format_json` / `format_ndjson`) are deliberately NOT
 // re-exported: building a frame from in-memory text is a slice of the
@@ -150,9 +155,20 @@ pub using @chart {
   type ChartKind,
   type ChartSpec,
   type VegaAggregate,
+  type VegaAutoSize,
+  type VegaBin,
+  type VegaBinParams,
   type VegaChannel,
+  type VegaChannelSort,
+  type VegaExtent,
+  type VegaPadding,
   type VegaSort,
+  type VegaSortChannel,
+  type VegaStack,
+  type VegaTimeUnit,
   type VegaType,
+  constant,
+  datum,
   field,
   format_vega_lite,
   write_vega_lite,

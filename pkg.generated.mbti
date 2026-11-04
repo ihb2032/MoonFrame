@@ -9,6 +9,7 @@ import {
   "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -16,7 +17,11 @@ pub fn col(String) -> @expr.Expr
 
 pub fn cols(Array[String]) -> Array[@expr.Expr]
 
-pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : Bool, sort? : @chart.VegaSort, type_override? : @chart.VegaType) -> @chart.VegaChannel
+pub fn constant(@json.Json) -> @chart.VegaChannel
+
+pub fn datum(@json.Json) -> @chart.VegaChannel
+
+pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double) -> @chart.VegaChannel
 
 pub fn format_vega_lite(@frame.DataFrame, @chart.ChartSpec) -> String raise @types.DataError
 
@@ -127,9 +132,27 @@ pub using @types {type TypeMismatchDetail}
 
 pub using @chart {type VegaAggregate}
 
+pub using @chart {type VegaAutoSize}
+
+pub using @chart {type VegaBin}
+
+pub using @chart {type VegaBinParams}
+
 pub using @chart {type VegaChannel}
 
+pub using @chart {type VegaChannelSort}
+
+pub using @chart {type VegaExtent}
+
+pub using @chart {type VegaPadding}
+
 pub using @chart {type VegaSort}
+
+pub using @chart {type VegaSortChannel}
+
+pub using @chart {type VegaStack}
+
+pub using @chart {type VegaTimeUnit}
 
 pub using @chart {type VegaType}
 

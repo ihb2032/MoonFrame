@@ -25,21 +25,30 @@ Source-level note:
   the new `fraction?` (exactly one of the two names the draw size, a
   fraction drawing `max(1, round(fraction × nrows))` rows of a non-empty
   frame, `(0, 1]` enforced).
-- The chart builders speak channels: every `ChartSpec` constructor takes
-  `VegaChannel` values (built with `field("name")`, the `col` idiom of the
-  chart export) instead of bare column strings, and `color_type` is gone —
-  a type override is a channel modifier:
-  `ChartSpec::bar("region", "revenue", title="T")` becomes
-  `ChartSpec::bar(field("region"), field("revenue"), title="T")`, and
-  `color="g", color_type=Nominal` becomes
+- The chart export is a typed mirror of **Vega-Lite v6** (the emitted
+  `$schema` points at the v6 URL, and CI walks a golden corpus of emitted
+  specs against the vendored 6.5.0 schema), and the builders speak
+  channels: every `ChartSpec` constructor takes `VegaChannel` values
+  (built with `field("name")` — the `col` idiom of the chart export — or
+  `constant(...)` / `datum(...)` for value / datum definitions) instead of
+  bare column strings, and `color_type` is gone — a type override is a
+  channel modifier. `ChartSpec::bar("region", "revenue", title="T")`
+  becomes `ChartSpec::bar(field("region"), field("revenue"), title="T")`,
+  and `color="g", color_type=Nominal` becomes
   `color=field("g", type_override=Nominal)`. The mark family grew to
-  thirteen (`tick` / `rect` / `rule` / `circle` / `square` / `trail` /
-  `text` / `arc` / `boxplot` joined `bar` / `line` / `point` / `area`),
-  channels gained `size` / `opacity` / `tooltip` / `detail` / `theta` /
-  `radius` / `radius2` / `x2` / `y2` / `text` alongside `color`, a
-  channel may declare an `aggregate` / `bin` / `sort` for the Vega-Lite
-  runtime to compute (`VegaChannel::count()` for a row count, no column
-  read), and the spec accepts `width` / `height`.
+  seventeen (`image` / `geoshape` / `errorbar` / `errorband` and more
+  joined the original four), the channel set to thirty-nine (the error,
+  offset, geo, fill / stroke, and `time` channels among them —
+  `ChartSpec::of` is the general constructor that carries them all), a
+  channel may declare any of the schema's twenty-five `aggregate`
+  operations, explicit `bin` parameters (`VegaBin::Params`), a `timeUnit`
+  (the schema's eighty-unit closure), and the full `sort` union, and the
+  spec gained the top-level chrome (`name`, `description`, `autosize`,
+  `padding`, `background`) with `width` / `height` as a `VegaExtent`
+  (`Px(320)` / `Container` / `Step(24)`). The mirror's later stages
+  (scales, axes, legends, transforms, config) land in the same release;
+  their types are reached through `@chart` qualification rather than the
+  facade.
 
 What has landed on `main`:
 

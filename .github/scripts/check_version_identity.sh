@@ -142,6 +142,7 @@ s/MoonBit[[:space:]]v[0-9.]+//g
 /uses:[[:space:]]/d
 s/[A-Za-z0-9_.-]+@[0-9.]+//g
 s/UCD[[:space:]]version[[:space:]]*[0-9.]+//g
+s/Vega-Lite[[:space:]]+[0-9][0-9.]*//g
 '
 
 prose=$(git ls-files '*.md' |

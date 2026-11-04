@@ -36,6 +36,16 @@ Source-level note:
   and `Chart::Repeat(VegaRepeat::VegaRepeat(child, column=[…]))` —
   every child shares the frame the call inlines once, and the facet
   channels resolve their columns against it ahead of the child.
+- The transform pipeline is mirrored: a chart (single view or
+  composition) carries `transform=[…]` — all nineteen schema transforms
+  (`@chart.VegaAggregateTransform` … `@chart.VegaWindowTransform`, built
+  as `@chart.VegaTransform` variants) with their field-def lists,
+  sort keys, frames, and lookup sources — and the filter predicate
+  union `@chart.VegaPredicate` covers the expression string, the field
+  comparisons (`equal` / `lt` / `lte` / `gt` / `gte` / `range` /
+  `oneOf` / `valid`, each with an optional `timeUnit`), parameter
+  references, and the `not` / `and` / `or` compositions. The Vega
+  expression language stays a `String` throughout.
 - The chart export is a typed mirror of **Vega-Lite v6** (the emitted
   `$schema` points at the v6 URL, and CI walks a golden corpus of emitted
   specs against the vendored 6.5.0 schema), and the builders speak

@@ -359,6 +359,7 @@ pub struct VegaLayer {
   view : VegaViewBackground?
   projection : VegaProjection?
   resolve : VegaResolve?
+  priv transform : Array[VegaTransform]?
 }
 
 ///|
@@ -380,6 +381,7 @@ pub fn VegaLayer::VegaLayer(
   view? : VegaViewBackground,
   projection? : VegaProjection,
   resolve? : VegaResolve,
+  transform? : Array[VegaTransform],
 ) -> VegaLayer {
   {
     layer: layer.copy(),
@@ -391,6 +393,10 @@ pub fn VegaLayer::VegaLayer(
     view,
     projection,
     resolve,
+    transform: match transform {
+      Some(ts) => Some(ts.copy())
+      None => None
+    },
   }
 }
 
@@ -421,6 +427,7 @@ pub struct VegaConcat {
   name : String?
   description : String?
   resolve : VegaResolve?
+  priv transform : Array[VegaTransform]?
 }
 
 ///|
@@ -444,6 +451,7 @@ pub fn VegaConcat::VegaConcat(
   name? : String,
   description? : String,
   resolve? : VegaResolve,
+  transform? : Array[VegaTransform],
 ) -> VegaConcat {
   {
     concat: concat.copy(),
@@ -456,6 +464,10 @@ pub fn VegaConcat::VegaConcat(
     name,
     description,
     resolve,
+    transform: match transform {
+      Some(ts) => Some(ts.copy())
+      None => None
+    },
   }
 }
 
@@ -484,6 +496,7 @@ pub struct VegaFacet {
   name : String?
   description : String?
   resolve : VegaResolve?
+  priv transform : Array[VegaTransform]?
 }
 
 ///|
@@ -508,6 +521,7 @@ pub fn VegaFacet::VegaFacet(
   name? : String,
   description? : String,
   resolve? : VegaResolve,
+  transform? : Array[VegaTransform],
 ) -> VegaFacet {
   {
     row,
@@ -522,6 +536,10 @@ pub fn VegaFacet::VegaFacet(
     name,
     description,
     resolve,
+    transform: match transform {
+      Some(ts) => Some(ts.copy())
+      None => None
+    },
   }
 }
 
@@ -545,6 +563,7 @@ pub struct VegaRepeat {
   name : String?
   description : String?
   resolve : VegaResolve?
+  priv transform : Array[VegaTransform]?
 }
 
 ///|
@@ -569,6 +588,7 @@ pub fn VegaRepeat::VegaRepeat(
   name? : String,
   description? : String,
   resolve? : VegaResolve,
+  transform? : Array[VegaTransform],
 ) -> VegaRepeat {
   {
     row: match row {
@@ -589,6 +609,10 @@ pub fn VegaRepeat::VegaRepeat(
     name,
     description,
     resolve,
+    transform: match transform {
+      Some(ts) => Some(ts.copy())
+      None => None
+    },
   }
 }
 

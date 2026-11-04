@@ -392,6 +392,71 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
         ),
       ),
     ),
+    (
+      "transforms_filter.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          transform=[
+            @chart.VegaTransform::Filter(
+              @chart.VegaFilterTransform::VegaFilterTransform(
+                filter=@chart.VegaPredicate::all_of([
+                  @chart.VegaPredicate::Valid("val", true, None),
+                  @chart.VegaPredicate::Expr("datum.cat != 'z'"),
+                ]),
+              ),
+            ),
+            @chart.VegaTransform::Calculate(
+              @chart.VegaCalculateTransform::VegaCalculateTransform(
+                calculate="datum.val * 2",
+                as_="doubled",
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    (
+      "transforms_window.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Line,
+          x=@chart.field("ts", time_unit=@chart.VegaTimeUnit::Month),
+          y=@chart.field("val", aggregate=Sum),
+          transform=[
+            @chart.VegaTransform::Window(
+              @chart.VegaWindowTransform::VegaWindowTransform(
+                window=[
+                  @chart.VegaWindowField::VegaWindowField(
+                    op=@chart.VegaAggregate::Sum,
+                    field="val",
+                    as_="running",
+                  ),
+                ],
+                sort=[
+                  @chart.VegaSortField::VegaSortField(
+                    field="ts",
+                    order=@chart.VegaSort::Ascending,
+                  ),
+                ],
+                frame=(
+                  @chart.VegaFrameLimit::Open,
+                  @chart.VegaFrameLimit::Num(0),
+                ),
+              ),
+            ),
+            @chart.VegaTransform::Fold(
+              @chart.VegaFoldTransform::VegaFoldTransform(
+                fold=["val", "running"],
+                as_=["measure", "amount"],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   ]
 }
 

@@ -171,9 +171,11 @@ same way.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
 - **Export** — `to_markdown()` / `to_html()`, `format_vega_lite` (a Vega-Lite
-  v5 chart spec: thirteen marks, channels built with `field("name")`, and
-  per-channel `aggregate` / `bin` / `sort` for the Vega-Lite runtime to
-  compute), and — through the `io` package — the string-level
+  v6 chart spec: seventeen marks, thirty-nine encoding channels built with
+  `field("name")` or a `constant(...)` value, per-channel `aggregate` /
+  `bin` / `timeUnit` / `sort` for the Vega-Lite runtime to compute, and
+  top-level chrome — a typed mirror held to the vendored schema by CI), and
+  — through the `io` package — the string-level
   `format_csv` / `format_json` / `format_ndjson`.
 
 For example, summarise the same data by region (another doc test, in-memory
@@ -319,7 +321,7 @@ series/     Series + column-level stats + the shared reduction / rebuild / key-c
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
 io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types
-chart/      Vega-Lite export — ChartSpec mark-named builders over VegaChannel (field / VegaAggregate / VegaSort / VegaType), format_vega_lite / write_vega_lite (shares io's JSON cell conventions)
+chart/      Vega-Lite v6 typed mirror — ChartSpec mark-named builders over VegaChannel (field / constant / datum and the aggregate / bin / timeUnit / sort / stack enums), format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

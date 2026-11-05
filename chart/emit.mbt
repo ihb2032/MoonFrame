@@ -38,11 +38,13 @@ fn channel_dtype(
 /// follows the dtype→type rule — a numeric column (`Int` / `Float` /
 /// `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
 /// `"temporal"` (its ISO cells sort chronologically, and a temporal axis
-/// orders by time rather than by first appearance), every other dtype is
-/// `"nominal"` — unless the channel carries an explicit `type_override`;
-/// a channel with no column to read (count, and anything the builders
-/// cannot build) is `"quantitative"` — a row count is a quantity by
-/// definition.
+/// orders by time rather than by first appearance), a `Duration` column
+/// is `"quantitative"` (its `data.values` cells leave as microsecond
+/// counts — Vega's temporal has no ISO-duration parser), and every other
+/// dtype is `"nominal"` — unless the channel carries an explicit
+/// `type_override`; a channel with no column to read (count, and
+/// anything the builders cannot build) is `"quantitative"` — a row
+/// count is a quantity by definition.
 fn encoding_channel(
   key : String,
   channel : VegaChannel,
@@ -232,7 +234,12 @@ fn allows_legend_key(key : String) -> Bool {
 ///|
 /// The field `type` of a channel: an explicit `type_override` wins;
 /// otherwise the dtype→type rule over the channel's column, or
-/// `"quantitative"` when there is no column to read.
+/// `"quantitative"` when there is no column to read. A `Duration`
+/// column is `"quantitative"`: its `data.values` cells leave as their
+/// microsecond count (see `chart_data_values`), and a number is what a
+/// quantitative scale reads — Vega's temporal has no ISO-duration
+/// parser, so typing it temporal would hand the runtime strings it
+/// cannot parse.
 fn channel_type_string(
   channel : VegaChannel,
   dtype : @types.DataType?,
@@ -240,11 +247,11 @@ fn channel_type_string(
   if channel.type_override is Some(t) {
     vega_type_string(t)
   } else if dtype is Some(d) {
-    if d.is_numeric() || d is @types.DataType::Decimal(_) {
-      "quantitative"
-    } else if d is @types.DataType::Date ||
-      d is @types.DataType::Timestamp ||
+    if d.is_numeric() ||
+      d is @types.DataType::Decimal(_) ||
       d is @types.DataType::Duration {
+      "quantitative"
+    } else if d is @types.DataType::Date || d is @types.DataType::Timestamp {
       "temporal"
     } else {
       "nominal"

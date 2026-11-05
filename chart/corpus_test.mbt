@@ -23,6 +23,9 @@ fn corpus_df() -> @frame.DataFrame raise @types.DataError {
       Some(1_704_067_200_000_000L),
       Some(1_704_075_840_000_000L),
     ]),
+    // A duration column rides every spec's data.values so the corpus
+    // pins its cell form: the microsecond count, not the ISO spelling.
+    @series.Series::from_duration_options("dur", [Some(3600_000_000_000L), None]),
   ])
 }
 
@@ -283,6 +286,12 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
     (
       "boxplot_plain.json",
       @chart.ChartSpec::boxplot(@chart.field("cat"), @chart.field("val")),
+    ),
+    (
+      "duration_quantitative.json",
+      // A duration column types quantitative and its cells leave as
+      // microsecond counts — Vega's temporal has no ISO-duration parser.
+      @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
     ),
   ]
 }

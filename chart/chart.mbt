@@ -982,9 +982,13 @@ pub fn ChartSpec::of(
 /// `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
 /// `"temporal"` (its ISO cells — `data.values`' date units, via the JSON
 /// records' ISO mapping — sort chronologically, and a temporal axis
-/// orders by time rather than by first appearance), and every other
-/// dtype is `"nominal"` — unless the channel carries an explicit
-/// `type_override`. A count channel reads no column and is
+/// orders by time rather than by first appearance), a `Duration` column
+/// is `"quantitative"` (its `data.values` cells leave as microsecond
+/// counts, `chart_data_values`'s one departure from the shared JSON
+/// records walk — Vega's temporal has no ISO-duration parser, so a
+/// temporal type would hand the runtime strings it cannot read), and
+/// every other dtype is `"nominal"` — unless the channel carries an
+/// explicit `type_override`. A count channel reads no column and is
 /// `"quantitative"`.
 ///
 /// The spec's channels are resolved in the fixed order the `ChartSpec`
@@ -1006,9 +1010,53 @@ pub fn format_vega_lite(
   )
   chart_emit(chart, df, obj, None)
   let data : Map[String, Json] = Map([])
-  data["values"] = Json::array(@io.df_to_json_records(df))
+  data["values"] = Json::array(chart_data_values(df))
   obj["data"] = Json::object(data)
   Json::object(obj).stringify()
+}
+
+///|
+/// The frame as Vega-Lite `data.values`: the shared JSON-records walk
+/// (`@io`'s `df_to_json_records` seam, so every other cell convention
+/// matches `format_json` exactly), with one chart-specific departure —
+/// a `Duration` column's cells leave as their microsecond count instead
+/// of the ISO string the records walk writes. A duration channel is
+/// typed `"quantitative"` (see `format_vega_lite`'s dtype→type rule),
+/// and a quantitative scale reads numbers: Vega's temporal has no
+/// ISO-duration parser, so both halves have to move together.
+fn chart_data_values(
+  df : @frame.DataFrame,
+) -> Array[Json] raise @types.DataError {
+  let records = @io.df_to_json_records(df)
+  let duration_cols : Array[String] = []
+  for series in df.iter() {
+    if series.dtype() is @types.DataType::Duration {
+      duration_cols.push(series.name())
+    }
+  }
+  if duration_cols.length() > 0 {
+    // Rebuild each duration column's cells from the series itself — the
+    // record holds the ISO spelling, and the count is not derivable
+    // from it here. A null cell stays null.
+    for col in duration_cols {
+      let series = df.get_column(col)
+      let len = series.len()
+      let micros : Array[Json] = Array::make(len, Json::null())
+      for i in 0..<len {
+        micros[i] = match series.get(i) {
+          Duration(v) => Json::number(v.to_double(), repr=v.to_string())
+          _ => Json::null()
+        }
+      }
+      for r in 0..<records.length() {
+        match records[r] {
+          Object(obj) => obj[col] = micros[r]
+          _ => ()
+        }
+      }
+    }
+  }
+  records
 }
 
 ///|
@@ -1302,11 +1350,11 @@ fn facet_channel_json(
       // dtype for one, so this arm is the present-field case alone.
       let inferred : String = if channel.type_override is Some(t) {
         vega_type_string(t)
-      } else if d.is_numeric() || d is @types.DataType::Decimal(_) {
-        "quantitative"
-      } else if d is @types.DataType::Date ||
-        d is @types.DataType::Timestamp ||
+      } else if d.is_numeric() ||
+        d is @types.DataType::Decimal(_) ||
         d is @types.DataType::Duration {
+        "quantitative"
+      } else if d is @types.DataType::Date || d is @types.DataType::Timestamp {
         "temporal"
       } else {
         "nominal"

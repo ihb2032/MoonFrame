@@ -766,12 +766,14 @@ test "a Date channel encodes as temporal" {
 }
 
 ///|
-test "a Duration channel encodes as temporal" {
-  // The temporal arm of the dtype rule has three dtypes; a Duration
-  // column rides the same `temporal` verdict as Date and Timestamp.
+test "a Duration channel encodes as quantitative microseconds" {
+  // A Duration column is quantitative, and its data.values cells leave
+  // as microsecond counts: Vega's temporal has no ISO-duration parser,
+  // so a temporal type would hand the runtime strings it cannot read.
+  // Both halves move together — the type and the cell form.
   let df = @frame.DataFrame::DataFrame([
-    @series.Series::from_duration_options("dur", [Some(3600_000_000_000L)]),
-    @series.Series::from_ints("val", [1]),
+    @series.Series::from_duration_options("dur", [Some(3600_000_000_000L), None]),
+    @series.Series::from_ints("val", [1, 2]),
   ])
   let spec = @chart.format_vega_lite(
     df,
@@ -779,7 +781,11 @@ test "a Duration channel encodes as temporal" {
       @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
     ),
   )
-  assert_eq(channel_key(spec, "x", "type"), "temporal")
+  assert_eq(channel_key(spec, "x", "type"), "quantitative")
+  // The cell is the count, not the ISO spelling; a null cell stays null.
+  assert_true(spec.contains("\"dur\":3600000000000"))
+  assert_true(spec.contains("\"dur\":null"))
+  assert_true(!spec.contains("PT1H"))
 }
 
 ///|

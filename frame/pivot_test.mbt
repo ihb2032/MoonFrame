@@ -521,7 +521,7 @@ test "a 0-row frame pivots to the index columns alone, no value columns" {
     Series::from_ints("v", []),
   ])
   let r = df.pivot(on=[@expr.col("q")], index=[@expr.col("k")], values=[
-    @expr.col("v")
+    @expr.col("v"),
   ])
   assert_eq(r.shape(), (0, 1))
   assert_eq(r.columns(), ["k"])

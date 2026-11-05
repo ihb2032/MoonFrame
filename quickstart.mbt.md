@@ -309,17 +309,18 @@ test "quickstart: render to HTML" {
 
 ## Export a Vega-Lite chart spec
 
-`format_vega_lite(df, Chart::of(spec))` produces a complete Vega-Lite v6 specification — a
-JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
-or hand to any Vega-Lite runtime. A mark-named `ChartSpec` constructor (`bar` /
-`line` / `point` / `area` / … / `arc`, `text`, `boxplot`) chooses the mark, and
-each encoding channel is a column built with `field("name")`; a channel's
-field `type` is inferred from the column dtype (numeric → `quantitative`,
-`Date` / `Timestamp` → `temporal`, else `nominal`). A channel can also declare
-an `aggregate` / `bin` / `sort` for the Vega-Lite runtime to compute — a
-histogram is `ChartSpec::bar(field("price", bin=On), VegaChannel::count())`,
-a pie is `ChartSpec::arc(field("revenue", aggregate=Sum), color=field("region"))`.
-A spec that names a missing column raises `ColumnNotFound`.
+`plot(df)` binds the frame once and chains to a finished chart: a mark method
+(`bar` / `line` / `point` / `area` / … / `arc`, `text`, `boxplot`) takes its
+encoding channels as plain column names, `encode` swaps a channel for a full
+`field(...)` definition when it needs an `aggregate` / `bin` / `sort`, and the
+terminals render — `to_json()` produces a complete Vega-Lite v6 specification,
+a JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
+or hand to any Vega-Lite runtime; `write_html(path)` writes a self-contained
+chart page. A channel's field `type` is inferred from the column dtype
+(numeric → `quantitative`, `Date` / `Timestamp` → `temporal`, else `nominal`).
+Do the data work — filter, aggregate — on the frame before `plot`, the way the
+rest of the library does it. A chart that names a missing column raises
+`ColumnNotFound` at the terminal.
 
 ```moonbit check
 ///|
@@ -328,16 +329,9 @@ test "quickstart: export a Vega-Lite chart spec" {
     Series::from_strings("region", ["west", "east"]),
     Series::from_ints("revenue", [100, 50]),
   ])
-  let spec = format_vega_lite(
-    sales,
-    Chart::of(
-      ChartSpec::bar(
-        field("region"),
-        field("revenue"),
-        title="Revenue by region",
-      ),
-    ),
-  )
+  let spec = plot(sales)
+    .bar(x="region", y="revenue", title="Revenue by region")
+    .to_json()
   inspect(
     spec,
     content=(
@@ -346,6 +340,14 @@ test "quickstart: export a Vega-Lite chart spec" {
   )
 }
 ```
+
+Behind the chain sits the typed spec mirror, for what a column name cannot
+say: `format_vega_lite(df, Chart::of(spec))` over a hand-built `ChartSpec` —
+a histogram is `ChartSpec::bar(field("price", bin=On), VegaChannel::count())`,
+a pie is `ChartSpec::arc(field("revenue", aggregate=Sum), color=field("region"))`
+— and `plot(df).bar(x="region", y="revenue").spec()` hands the chain's own
+spec back for that treatment. The chain's `encode` is the short way there:
+`.bar(x="region", y="revenue").encode(y=field("revenue", aggregate=Sum))`.
 
 ## Join two frames
 

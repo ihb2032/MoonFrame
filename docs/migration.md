@@ -93,6 +93,16 @@ Source-level note:
   guides — and the deep mirror types (these, and the transforms / config
   / params stages still landing) are reached through `@chart`
   qualification rather than the facade.
+- `plot(df)` is the frame-first entry into that chart export: the frame
+  is bound once at the entry and the terminals render without re-passing
+  it — `plot(df).bar(x="region", y="revenue", title="Revenue by
+  region").write_html("out.html")`, with `to_json()` for the spec string
+  and `.encode(y=field("revenue", aggregate=Sum))` to swap a plain
+  column for a full channel definition. Each mark method is its
+  `ChartSpec` counterpart over column names, so the chain emits what the
+  mirror emits; the data work (filter, aggregate) stays on the frame
+  ahead of `plot`, and `.chart()` / `.spec()` hand the underlying mirror
+  values back for composition and the deep trees.
 
 What has landed on `main`:
 

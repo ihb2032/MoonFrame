@@ -179,7 +179,8 @@ the sweep to the push.
   regenerated (`sh .github/scripts/check_facade_surface.sh --write`). The
   chart package is a deliberate two-way exception to "every public type
   rides the facade": its **main face** (the spec type, the mark enum, the
-  channel family and its builders — the `chart_main` list in the guard) is
+  channel family and its builders, the `plot` entry — the `chart_main` list
+  in the guard) is
   re-exported, and its **deep mirror family** (the spec-object trees:
   scales, axes, legends, projection, title parameters — and the
   transforms / params / config stages still landing) is

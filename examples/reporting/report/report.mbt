@@ -40,21 +40,14 @@ pub fn revenue_table(summary : @moonframe.DataFrame) -> String {
 }
 
 ///|
-/// Emit a Vega-Lite v5 bar-chart spec for `summary` — region on the x
+/// Emit a Vega-Lite v6 bar-chart spec for `summary` — region on the x
 /// axis, revenue on the y axis — as a JSON string that pastes straight
 /// into the Vega editor. Raises `ColumnNotFound` if `summary` lacks a
 /// charted column.
 pub fn revenue_chart(
   summary : @moonframe.DataFrame,
 ) -> String raise @moonframe.DataError {
-  @moonframe.format_vega_lite(
-    summary,
-    @moonframe.Chart::of(
-      @moonframe.ChartSpec::bar(
-        @moonframe.field("region"),
-        @moonframe.field("revenue"),
-        title="Revenue by region",
-      ),
-    ),
-  )
+  @moonframe.plot(summary)
+  .bar(x="region", y="revenue", title="Revenue by region")
+  .to_json()
 }

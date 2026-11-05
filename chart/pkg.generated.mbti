@@ -736,12 +736,12 @@ pub struct VegaConfig {
   axis_discrete : VegaAxis?
   axis_quantitative : VegaAxis?
   axis_temporal : VegaAxis?
-  legend : VegaLegend?
+  legend : VegaLegendConfig?
   header : VegaHeader?
   header_row : VegaHeader?
   header_column : VegaHeader?
   header_facet : VegaHeader?
-  title : VegaTitleParams?
+  title : VegaTitleConfig?
   view : VegaViewConfig?
   projection : VegaProjection?
   selection : VegaSelectionConfig?
@@ -749,7 +749,6 @@ pub struct VegaConfig {
   concat : VegaCompositionConfig?
   facet : VegaCompositionConfig?
   locale : VegaLocaleConfig?
-  format : VegaFormatConfig?
   number_format : String?
   number_format_type : String?
   normalized_number_format : String?
@@ -760,7 +759,7 @@ pub struct VegaConfig {
   custom_format_types : Bool?
   // private fields
 }
-pub fn VegaConfig::VegaConfig(background? : String, autosize? : VegaAutoSize, padding? : VegaPadding, font? : String, count_title? : String, field_title? : String, aria? : Bool, line_break? : String, params? : Array[@json.Json], mark? : VegaMarkStyle, bar? : VegaMarkStyle, line? : VegaMarkStyle, point? : VegaMarkStyle, area? : VegaMarkStyle, tick? : VegaMarkStyle, rect? : VegaMarkStyle, rule? : VegaMarkStyle, circle? : VegaMarkStyle, square? : VegaMarkStyle, trail? : VegaMarkStyle, text? : VegaMarkStyle, image? : VegaMarkStyle, arc? : VegaMarkStyle, geoshape? : VegaMarkStyle, boxplot? : VegaBoxPlotConfig, errorbar? : VegaErrorBarConfig, errorband? : VegaErrorBandConfig, scale? : VegaScaleConfig, axis? : VegaAxis, axis_x? : VegaAxis, axis_y? : VegaAxis, axis_left? : VegaAxis, axis_right? : VegaAxis, axis_top? : VegaAxis, axis_bottom? : VegaAxis, axis_band? : VegaAxis, axis_point? : VegaAxis, axis_discrete? : VegaAxis, axis_quantitative? : VegaAxis, axis_temporal? : VegaAxis, legend? : VegaLegend, header? : VegaHeader, header_row? : VegaHeader, header_column? : VegaHeader, header_facet? : VegaHeader, title? : VegaTitleParams, view? : VegaViewConfig, projection? : VegaProjection, selection? : VegaSelectionConfig, range? : VegaRangeConfig, style? : Map[String, VegaMarkStyle], concat? : VegaCompositionConfig, facet? : VegaCompositionConfig, locale? : VegaLocaleConfig, format? : VegaFormatConfig, number_format? : String, number_format_type? : String, normalized_number_format? : String, normalized_number_format_type? : String, time_format? : String, time_format_type? : String, tooltip_format? : VegaFormatConfig, custom_format_types? : Bool) -> Self
+pub fn VegaConfig::VegaConfig(background? : String, autosize? : VegaAutoSize, padding? : VegaPadding, font? : String, count_title? : String, field_title? : String, aria? : Bool, line_break? : String, params? : Array[@json.Json], mark? : VegaMarkStyle, bar? : VegaMarkStyle, line? : VegaMarkStyle, point? : VegaMarkStyle, area? : VegaMarkStyle, tick? : VegaMarkStyle, rect? : VegaMarkStyle, rule? : VegaMarkStyle, circle? : VegaMarkStyle, square? : VegaMarkStyle, trail? : VegaMarkStyle, text? : VegaMarkStyle, image? : VegaMarkStyle, arc? : VegaMarkStyle, geoshape? : VegaMarkStyle, boxplot? : VegaBoxPlotConfig, errorbar? : VegaErrorBarConfig, errorband? : VegaErrorBandConfig, scale? : VegaScaleConfig, axis? : VegaAxis, axis_x? : VegaAxis, axis_y? : VegaAxis, axis_left? : VegaAxis, axis_right? : VegaAxis, axis_top? : VegaAxis, axis_bottom? : VegaAxis, axis_band? : VegaAxis, axis_point? : VegaAxis, axis_discrete? : VegaAxis, axis_quantitative? : VegaAxis, axis_temporal? : VegaAxis, legend? : VegaLegendConfig, header? : VegaHeader, header_row? : VegaHeader, header_column? : VegaHeader, header_facet? : VegaHeader, title? : VegaTitleConfig, view? : VegaViewConfig, projection? : VegaProjection, selection? : VegaSelectionConfig, range? : VegaRangeConfig, style? : Map[String, VegaMarkStyle], concat? : VegaCompositionConfig, facet? : VegaCompositionConfig, locale? : VegaLocaleConfig, number_format? : String, number_format_type? : String, normalized_number_format? : String, normalized_number_format_type? : String, time_format? : String, time_format_type? : String, tooltip_format? : VegaFormatConfig, custom_format_types? : Bool) -> Self
 pub fn VegaConfig::equal(Self, Self) -> Bool
 pub fn VegaConfig::not_equal(Self, Self) -> Bool
 pub fn VegaConfig::params(Self) -> Array[@json.Json]?
@@ -837,6 +836,15 @@ pub(all) enum VegaDirection {
 pub fn VegaDirection::equal(Self, Self) -> Bool
 pub fn VegaDirection::not_equal(Self, Self) -> Bool
 pub fn VegaDirection::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaDiscreteSize {
+  Px(Double)
+  Step(Double)
+}
+pub fn VegaDiscreteSize::equal(Self, Self) -> Bool
+pub fn VegaDiscreteSize::not_equal(Self, Self) -> Bool
+pub fn VegaDiscreteSize::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaDomain {
@@ -1268,6 +1276,75 @@ pub fn VegaLegend::not_equal(Self, Self) -> Bool
 pub fn VegaLegend::symbol_dash(Self) -> Array[Double]?
 pub fn VegaLegend::to_repr(Self) -> @debug.Repr
 pub fn VegaLegend::values(Self) -> Array[@json.Json]?
+
+#derive(Eq, @debug.Debug)
+pub struct VegaLegendConfig {
+  aria : Bool?
+  clip_height : Double?
+  column_padding : Double?
+  columns : Double?
+  corner_radius : Double?
+  description : String?
+  direction : VegaDirection?
+  fill_color : String?
+  gradient_length : Double?
+  gradient_opacity : Double?
+  gradient_stroke_color : String?
+  gradient_stroke_width : Double?
+  gradient_thickness : Double?
+  grid_align : VegaLayoutAlign?
+  label_align : VegaAlign?
+  label_baseline : VegaBaseline?
+  label_color : String?
+  label_font : String?
+  label_font_size : Double?
+  label_font_style : String?
+  label_font_weight : VegaFontWeight?
+  label_limit : Double?
+  label_offset : Double?
+  label_opacity : Double?
+  label_overlap : VegaLabelOverlap?
+  label_padding : Double?
+  label_separation : Double?
+  legend_x : Double?
+  legend_y : Double?
+  offset : Double?
+  orient : VegaLegendOrient?
+  padding : Double?
+  row_padding : Double?
+  stroke_color : String?
+  symbol_dash_offset : Double?
+  symbol_fill_color : String?
+  symbol_limit : Double?
+  symbol_offset : Double?
+  symbol_opacity : Double?
+  symbol_size : Double?
+  symbol_stroke_color : String?
+  symbol_stroke_width : Double?
+  symbol_type : String?
+  tick_count : VegaTickInterval?
+  title : String?
+  title_align : VegaAlign?
+  title_anchor : VegaAnchor?
+  title_baseline : VegaBaseline?
+  title_color : String?
+  title_font : String?
+  title_font_size : Double?
+  title_font_style : String?
+  title_font_weight : VegaFontWeight?
+  title_limit : Double?
+  title_line_height : Double?
+  title_opacity : Double?
+  title_orient : VegaTitleOrient?
+  title_padding : Double?
+  zindex : Double?
+  // private fields
+}
+pub fn VegaLegendConfig::VegaLegendConfig(aria? : Bool, clip_height? : Double, column_padding? : Double, columns? : Double, corner_radius? : Double, description? : String, direction? : VegaDirection, fill_color? : String, gradient_length? : Double, gradient_opacity? : Double, gradient_stroke_color? : String, gradient_stroke_width? : Double, gradient_thickness? : Double, grid_align? : VegaLayoutAlign, label_align? : VegaAlign, label_baseline? : VegaBaseline, label_color? : String, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_offset? : Double, label_opacity? : Double, label_overlap? : VegaLabelOverlap, label_padding? : Double, label_separation? : Double, legend_x? : Double, legend_y? : Double, offset? : Double, orient? : VegaLegendOrient, padding? : Double, row_padding? : Double, stroke_color? : String, symbol_dash? : Array[Double], symbol_dash_offset? : Double, symbol_fill_color? : String, symbol_limit? : Double, symbol_offset? : Double, symbol_opacity? : Double, symbol_size? : Double, symbol_stroke_color? : String, symbol_stroke_width? : Double, symbol_type? : String, tick_count? : VegaTickInterval, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_opacity? : Double, title_orient? : VegaTitleOrient, title_padding? : Double, zindex? : Double) -> Self
+pub fn VegaLegendConfig::equal(Self, Self) -> Bool
+pub fn VegaLegendConfig::not_equal(Self, Self) -> Bool
+pub fn VegaLegendConfig::symbol_dash(Self) -> Array[Double]?
+pub fn VegaLegendConfig::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaLegendOrient {
@@ -2199,6 +2276,39 @@ pub fn VegaTitle::not_equal(Self, Self) -> Bool
 pub fn VegaTitle::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaTitleConfig {
+  align : VegaAlign?
+  anchor : VegaAnchor?
+  angle : Double?
+  aria : Bool?
+  baseline : VegaBaseline?
+  color : String?
+  dx : Double?
+  dy : Double?
+  font : String?
+  font_size : Double?
+  font_style : String?
+  font_weight : VegaFontWeight?
+  frame : VegaTitleFrame?
+  limit : Double?
+  line_height : Double?
+  offset : Double?
+  orient : VegaTitleOrient?
+  subtitle_color : String?
+  subtitle_font : String?
+  subtitle_font_size : Double?
+  subtitle_font_style : String?
+  subtitle_font_weight : VegaFontWeight?
+  subtitle_line_height : Double?
+  subtitle_padding : Double?
+  zindex : Double?
+}
+pub fn VegaTitleConfig::VegaTitleConfig(align? : VegaAlign, anchor? : VegaAnchor, angle? : Double, aria? : Bool, baseline? : VegaBaseline, color? : String, dx? : Double, dy? : Double, font? : String, font_size? : Double, font_style? : String, font_weight? : VegaFontWeight, frame? : VegaTitleFrame, limit? : Double, line_height? : Double, offset? : Double, orient? : VegaTitleOrient, subtitle_color? : String, subtitle_font? : String, subtitle_font_size? : Double, subtitle_font_style? : String, subtitle_font_weight? : VegaFontWeight, subtitle_line_height? : Double, subtitle_padding? : Double, zindex? : Double) -> Self
+pub fn VegaTitleConfig::equal(Self, Self) -> Bool
+pub fn VegaTitleConfig::not_equal(Self, Self) -> Bool
+pub fn VegaTitleConfig::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaTitleFrame {
   Bounds
   Group
@@ -2334,8 +2444,8 @@ pub struct VegaViewConfig {
   clip : Bool?
   continuous_height : Double?
   continuous_width : Double?
-  discrete_height : VegaExtent?
-  discrete_width : VegaExtent?
+  discrete_height : VegaDiscreteSize?
+  discrete_width : VegaDiscreteSize?
   step : Double?
   corner_radius : Double?
   cursor : VegaCursor?
@@ -2351,7 +2461,7 @@ pub struct VegaViewConfig {
   stroke_width : Double?
   // private fields
 }
-pub fn VegaViewConfig::VegaViewConfig(clip? : Bool, continuous_height? : Double, continuous_width? : Double, discrete_height? : VegaExtent, discrete_width? : VegaExtent, step? : Double, corner_radius? : Double, cursor? : VegaCursor, fill? : String, fill_opacity? : Double, opacity? : Double, stroke? : String, stroke_cap? : VegaCap, stroke_dash? : Array[Double], stroke_dash_offset? : Double, stroke_join? : VegaJoin, stroke_miter_limit? : Double, stroke_opacity? : Double, stroke_width? : Double) -> Self
+pub fn VegaViewConfig::VegaViewConfig(clip? : Bool, continuous_height? : Double, continuous_width? : Double, discrete_height? : VegaDiscreteSize, discrete_width? : VegaDiscreteSize, step? : Double, corner_radius? : Double, cursor? : VegaCursor, fill? : String, fill_opacity? : Double, opacity? : Double, stroke? : String, stroke_cap? : VegaCap, stroke_dash? : Array[Double], stroke_dash_offset? : Double, stroke_join? : VegaJoin, stroke_miter_limit? : Double, stroke_opacity? : Double, stroke_width? : Double) -> Self
 pub fn VegaViewConfig::equal(Self, Self) -> Bool
 pub fn VegaViewConfig::not_equal(Self, Self) -> Bool
 pub fn VegaViewConfig::stroke_dash(Self) -> Array[Double]?

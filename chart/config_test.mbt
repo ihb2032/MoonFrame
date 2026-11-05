@@ -129,7 +129,7 @@ test "a theme carries its composite marks, ranges, style index, locale" {
       ),
       errorbar=@chart.VegaErrorBarConfig::VegaErrorBarConfig(thickness=2),
       errorband=@chart.VegaErrorBandConfig::VegaErrorBandConfig(
-        interpolate="linear",
+        interpolate=@chart.VegaMarkInterpolate::Linear,
       ),
       range=@chart.VegaRangeConfig::VegaRangeConfig(
         category=["#1f77b4", "#ff7f0e"],
@@ -259,7 +259,7 @@ test "a mark-style block carries its every property" {
     height=10,
     href="https://example.com",
     inner_radius=4,
-    interpolate="linear",
+    interpolate=@chart.VegaMarkInterpolate::Linear,
     invalid="filter",
     limit=100,
     line=true,

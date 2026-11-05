@@ -860,10 +860,10 @@ pub struct VegaErrorBandConfig {
   extent : @json.Json?
   band : VegaMarkStyle?
   borders : VegaMarkStyle?
-  interpolate : String?
+  interpolate : VegaMarkInterpolate?
   tension : Double?
 }
-pub fn VegaErrorBandConfig::VegaErrorBandConfig(extent? : @json.Json, band? : VegaMarkStyle, borders? : VegaMarkStyle, interpolate? : String, tension? : Double) -> Self
+pub fn VegaErrorBandConfig::VegaErrorBandConfig(extent? : @json.Json, band? : VegaMarkStyle, borders? : VegaMarkStyle, interpolate? : VegaMarkInterpolate, tension? : Double) -> Self
 pub fn VegaErrorBandConfig::equal(Self, Self) -> Bool
 pub fn VegaErrorBandConfig::not_equal(Self, Self) -> Bool
 pub fn VegaErrorBandConfig::to_repr(Self) -> @debug.Repr
@@ -1098,11 +1098,21 @@ pub fn VegaInterpolateKind::not_equal(Self, Self) -> Bool
 pub fn VegaInterpolateKind::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaInterpolateParamType {
+  Rgb
+  Cubehelix
+  Cubehelix_long
+}
+pub fn VegaInterpolateParamType::equal(Self, Self) -> Bool
+pub fn VegaInterpolateParamType::not_equal(Self, Self) -> Bool
+pub fn VegaInterpolateParamType::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaInterpolateParams {
-  type_ : VegaInterpolateKind?
+  type_ : VegaInterpolateParamType
   gamma : Double?
 }
-pub fn VegaInterpolateParams::VegaInterpolateParams(type_? : VegaInterpolateKind, gamma? : Double) -> Self
+pub fn VegaInterpolateParams::VegaInterpolateParams(type_~ : VegaInterpolateParamType, gamma? : Double) -> Self
 pub fn VegaInterpolateParams::equal(Self, Self) -> Bool
 pub fn VegaInterpolateParams::not_equal(Self, Self) -> Bool
 pub fn VegaInterpolateParams::to_repr(Self) -> @debug.Repr
@@ -1457,6 +1467,28 @@ pub fn VegaLookupTransform::not_equal(Self, Self) -> Bool
 pub fn VegaLookupTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaMarkInterpolate {
+  Basis
+  BasisOpen
+  BasisClosed
+  Bundle
+  Cardinal
+  CardinalOpen
+  CardinalClosed
+  CatmullRom
+  Linear
+  LinearClosed
+  Monotone
+  Natural
+  Step
+  StepBefore
+  StepAfter
+}
+pub fn VegaMarkInterpolate::equal(Self, Self) -> Bool
+pub fn VegaMarkInterpolate::not_equal(Self, Self) -> Bool
+pub fn VegaMarkInterpolate::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaMarkStyle {
   align : VegaAlign?
   angle : Double?
@@ -1489,7 +1521,7 @@ pub struct VegaMarkStyle {
   height : Double?
   href : String?
   inner_radius : Double?
-  interpolate : String?
+  interpolate : VegaMarkInterpolate?
   invalid : String?
   limit : Double?
   line : Bool?
@@ -1537,7 +1569,7 @@ pub struct VegaMarkStyle {
   thickness : Double?
   // private fields
 }
-pub fn VegaMarkStyle::VegaMarkStyle(align? : VegaAlign, angle? : Double, aria? : Bool, aria_role? : String, aria_role_description? : String, aspect? : Bool, baseline? : VegaBaseline, blend? : String, color? : String, corner_radius? : Double, corner_radius_bottom_left? : Double, corner_radius_bottom_right? : Double, corner_radius_top_left? : Double, corner_radius_top_right? : Double, cursor? : VegaCursor, description? : String, dir? : String, dx? : Double, dy? : Double, ellipsis? : String, end_angle? : Double, fill? : String, fill_opacity? : Double, filled? : Bool, font? : String, font_size? : Double, font_style? : String, font_weight? : VegaFontWeight, height? : Double, href? : String, inner_radius? : Double, interpolate? : String, invalid? : String, limit? : Double, line? : Bool, line_break? : String, line_height? : Double, opacity? : Double, order? : Bool, orient? : VegaOrient, outer_radius? : Double, pad_angle? : Double, point? : String, radius? : Double, radius2? : Double, shape? : String, size? : Double, smooth? : Bool, start_angle? : Double, stroke? : String, stroke_cap? : VegaCap, stroke_dash? : Array[Double], stroke_dash_offset? : Double, stroke_join? : VegaJoin, stroke_miter_limit? : Double, stroke_offset? : Double, stroke_opacity? : Double, stroke_width? : Double, tension? : Double, text? : String, theta? : Double, theta2? : Double, time? : Double, time_unit_band_position? : Double, time_unit_band_size? : Double, tooltip? : @json.Json, url? : String, width? : Double, x? : @json.Json, x2? : @json.Json, y? : @json.Json, y2? : @json.Json, bin_spacing? : Double, continuous_band_size? : Double, discrete_band_size? : Double, band_size? : Double, min_band_size? : Double, thickness? : Double) -> Self
+pub fn VegaMarkStyle::VegaMarkStyle(align? : VegaAlign, angle? : Double, aria? : Bool, aria_role? : String, aria_role_description? : String, aspect? : Bool, baseline? : VegaBaseline, blend? : String, color? : String, corner_radius? : Double, corner_radius_bottom_left? : Double, corner_radius_bottom_right? : Double, corner_radius_top_left? : Double, corner_radius_top_right? : Double, cursor? : VegaCursor, description? : String, dir? : String, dx? : Double, dy? : Double, ellipsis? : String, end_angle? : Double, fill? : String, fill_opacity? : Double, filled? : Bool, font? : String, font_size? : Double, font_style? : String, font_weight? : VegaFontWeight, height? : Double, href? : String, inner_radius? : Double, interpolate? : VegaMarkInterpolate, invalid? : String, limit? : Double, line? : Bool, line_break? : String, line_height? : Double, opacity? : Double, order? : Bool, orient? : VegaOrient, outer_radius? : Double, pad_angle? : Double, point? : String, radius? : Double, radius2? : Double, shape? : String, size? : Double, smooth? : Bool, start_angle? : Double, stroke? : String, stroke_cap? : VegaCap, stroke_dash? : Array[Double], stroke_dash_offset? : Double, stroke_join? : VegaJoin, stroke_miter_limit? : Double, stroke_offset? : Double, stroke_opacity? : Double, stroke_width? : Double, tension? : Double, text? : String, theta? : Double, theta2? : Double, time? : Double, time_unit_band_position? : Double, time_unit_band_size? : Double, tooltip? : @json.Json, url? : String, width? : Double, x? : @json.Json, x2? : @json.Json, y? : @json.Json, y2? : @json.Json, bin_spacing? : Double, continuous_band_size? : Double, discrete_band_size? : Double, band_size? : Double, min_band_size? : Double, thickness? : Double) -> Self
 pub fn VegaMarkStyle::equal(Self, Self) -> Bool
 pub fn VegaMarkStyle::not_equal(Self, Self) -> Bool
 pub fn VegaMarkStyle::stroke_dash(Self) -> Array[Double]?

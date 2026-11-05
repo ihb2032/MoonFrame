@@ -10,6 +10,59 @@
 // (`ExprRef` in place of a value) stay out — a config value is a value.
 
 ///|
+/// The line / area interpolation method, the schema's `Interpolate`
+/// enum — one variant per value, so a method the schema does not list
+/// fails compilation here rather than shipping as a plausible string.
+/// `pub(all)` so callers can name the variants in a mark style's
+/// `interpolate`.
+#derive(Eq, Debug)
+pub(all) enum VegaMarkInterpolate {
+  Basis
+  BasisOpen
+  BasisClosed
+  Bundle
+  Cardinal
+  CardinalOpen
+  CardinalClosed
+  CatmullRom
+  Linear
+  LinearClosed
+  Monotone
+  Natural
+  Step
+  StepBefore
+  StepAfter
+}
+
+///|
+pub extend VegaMarkInterpolate with Eq::{equal, not_equal}
+
+///|
+pub extend VegaMarkInterpolate with Debug::{to_repr}
+
+///|
+/// The schema string for each variant, one arm per variant.
+fn vega_mark_interpolate_string(v : VegaMarkInterpolate) -> String {
+  match v {
+    Basis => "basis"
+    BasisOpen => "basis-open"
+    BasisClosed => "basis-closed"
+    Bundle => "bundle"
+    Cardinal => "cardinal"
+    CardinalOpen => "cardinal-open"
+    CardinalClosed => "cardinal-closed"
+    CatmullRom => "catmull-rom"
+    Linear => "linear"
+    LinearClosed => "linear-closed"
+    Monotone => "monotone"
+    Natural => "natural"
+    Step => "step"
+    StepBefore => "step-before"
+    StepAfter => "step-after"
+  }
+}
+
+///|
 /// A mark-style block: the shared `MarkConfig` base with the per-mark
 /// extras (a bar's `binSpacing` and band sizes, a tick's `thickness`, the
 /// line / point toggles) folded in. `config.mark`, every per-mark block
@@ -52,7 +105,7 @@ pub struct VegaMarkStyle {
   height : Double?
   href : String?
   inner_radius : Double?
-  interpolate : String?
+  interpolate : VegaMarkInterpolate?
   invalid : String?
   limit : Double?
   line : Bool?
@@ -143,7 +196,7 @@ pub fn VegaMarkStyle::VegaMarkStyle(
   height? : Double,
   href? : String,
   inner_radius? : Double,
-  interpolate? : String,
+  interpolate? : VegaMarkInterpolate,
   invalid? : String,
   limit? : Double,
   line? : Bool,
@@ -385,7 +438,7 @@ fn vega_mark_style_emit_json(x : VegaMarkStyle) -> Json {
     obj["innerRadius"] = Json::number(v)
   }
   if x.interpolate is Some(v) {
-    obj["interpolate"] = Json::string(v)
+    obj["interpolate"] = Json::string(vega_mark_interpolate_string(v))
   }
   if x.invalid is Some(v) {
     obj["invalid"] = Json::string(v)
@@ -1385,7 +1438,7 @@ pub struct VegaErrorBandConfig {
   extent : Json?
   band : VegaMarkStyle?
   borders : VegaMarkStyle?
-  interpolate : String?
+  interpolate : VegaMarkInterpolate?
   tension : Double?
 }
 
@@ -1403,7 +1456,7 @@ pub fn VegaErrorBandConfig::VegaErrorBandConfig(
   extent? : Json,
   band? : VegaMarkStyle,
   borders? : VegaMarkStyle,
-  interpolate? : String,
+  interpolate? : VegaMarkInterpolate,
   tension? : Double,
 ) -> VegaErrorBandConfig {
   { extent, band, borders, interpolate, tension, }
@@ -1424,7 +1477,7 @@ fn vega_error_band_config_emit_json(x : VegaErrorBandConfig) -> Json {
     obj["borders"] = vega_mark_style_emit_json(v)
   }
   if x.interpolate is Some(v) {
-    obj["interpolate"] = Json::string(v)
+    obj["interpolate"] = Json::string(vega_mark_interpolate_string(v))
   }
   if x.tension is Some(v) {
     obj["tension"] = Json::number(v)

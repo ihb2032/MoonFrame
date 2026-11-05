@@ -241,6 +241,12 @@ What has landed on `main`:
   and its scaled forms), an error under the readers' `Raise` mode and a
   silent null under `Null`. The digits now accumulate in the value's own
   sign; every value outside the signed range still refuses.
+- A signed year zero refuses: `-0000-01-01` (and the timestamp spellings
+  built on it) read as year 0, but the writer emits year 0 only as the
+  unsigned `0000-01-01` — the form the parsers promise to accept — and
+  ISO 8601 agrees a signed zero is no year. The signed form now refuses
+  like every other shape the writers do not emit; the unsigned one is
+  unchanged.
 
 ## v0.8.0 → v0.8.1
 

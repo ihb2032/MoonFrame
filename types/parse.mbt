@@ -13,7 +13,8 @@
 
 ///|
 /// `Some(days)` when `s` is the ISO date form `YYYY-MM-DD` the `Date`
-/// writer renders — an optional leading `-` for years before year 1, a
+/// writer renders — an optional leading `-` for years before year 1,
+/// never on year 0 itself (its one form is the unsigned `0000`), a
 /// year of four or more digits, then two-digit month and day — naming a
 /// real calendar date; `None` for any other shape and for a month or day
 /// the calendar itself refuses (February 30th, a non-leap February 29th).
@@ -135,7 +136,8 @@ pub fn parse_decimal_unscaled_opt(s : String, scale : Int32) -> Int64? {
 /// `Some((year, month, day, next))` for the ISO date prefix at the start —
 /// an optional `-`, four-or-more year digits, `-`, two month digits, `-`,
 /// two day digits — with `next` the index after the date; `None` for any
-/// other prefix. The month and day are range-screened here (`01`–`12`,
+/// other prefix, and for a `-` on year 0 itself (the writer emits year 0
+/// only unsigned). The month and day are range-screened here (`01`–`12`,
 /// `01`–`31`) so an out-of-range pair refuses without reaching the
 /// calendar round trip, which owns the finer rules.
 fn scan_iso_date(s : String) -> (Int64, Int64, Int64, Int32)? {
@@ -167,6 +169,12 @@ fn scan_iso_date(s : String) -> (Int64, Int64, Int64, Int32)? {
   // The writer pads the basic-range year to four digits; a longer run is
   // an expanded year the rendering also emits, so four is the floor.
   if !alive || year_digits < 4 {
+    return None
+  }
+  // Year 0 has one spelling, the unsigned `0000` — the writer's own, and
+  // ISO 8601's (a signed zero names no year) — so a `-` on an all-zero
+  // run refuses here rather than reading as a second spelling of it.
+  if neg_year && year == 0L {
     return None
   }
   if i >= n || s[i] != '-' {

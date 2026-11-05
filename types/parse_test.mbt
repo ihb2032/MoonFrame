@@ -9,12 +9,15 @@ test "parse_date_days_opt round-trips the renderer" {
   assert_eq(@types.parse_date_days_opt("2000-02-29"), Some(11016L))
   assert_eq(@types.parse_date_days_opt("1969-12-31"), Some(-1L))
   assert_eq(@types.parse_date_days_opt("0001-01-01"), Some(-719_162L))
+  assert_eq(@types.parse_date_days_opt("0000-01-01"), Some(-719_528L))
   assert_eq(@types.parse_date_days_opt("9999-12-31"), Some(2_932_896L))
   // Every renderer output parses back to the count it came from — the
-  // padded-year, expanded-year, and pre-year-1 spellings included.
+  // padded-year, expanded-year, pre-year-1, and year-zero spellings
+  // included (year zero rendered unsigned, its one form).
   for
     days in [
-      0L, 11016L, -1L, -719_162L, 2_932_896L, 100_000L, -100_000L, -800_000L, 9_223_372_036_854_775_807L,
+      0L, 11016L, -1L, -719_162L, -719_528L, 2_932_896L, 100_000L, -100_000L, -800_000L,
+      9_223_372_036_854_775_807L,
     ] {
     let rendered = @types.Scalar::Date(days).to_string()
     assert_eq(@types.parse_date_days_opt(rendered), Some(days))
@@ -35,6 +38,7 @@ test "parse_date_days_opt refuses the non-forms and non-dates" {
   assert_eq(@types.parse_date_days_opt(" 2024-01-01"), None)
   assert_eq(@types.parse_date_days_opt("2024-01-01T00:00:00.000000"), None) // a timestamp, not a date
   assert_eq(@types.parse_date_days_opt("+2024-01-01"), None) // the writer carries no `+`
+  assert_eq(@types.parse_date_days_opt("-0000-01-01"), None) // signed year zero — its one form is unsigned
   assert_eq(@types.parse_date_days_opt("99999999999999999999-01-01"), None) // a year whose digits leave Int64
   // The calendar's own refusals.
   assert_eq(@types.parse_date_days_opt("2023-02-29"), None) // non-leap
@@ -118,6 +122,7 @@ test "parse_timestamp_micros_opt admits the fraction variants and refuses the re
     None,
   ) // non-date half
   assert_eq(@types.parse_timestamp_micros_opt("nope"), None) // no date half at all
+  assert_eq(@types.parse_timestamp_micros_opt("-0000-01-01T00:00:00"), None) // signed year zero, the date half's own refusal
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T0:00:00"), None) // a torn clock field
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T00:"), None) // cut at the minute
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T00:00:"), None) // cut at the second

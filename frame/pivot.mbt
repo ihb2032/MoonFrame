@@ -76,6 +76,10 @@ pub extend PivotAgg with Debug::{to_repr}
 /// `values~` resolution that comes up empty (an explicit empty list, or
 /// defaults that name every column) `raise`s `InvalidOperation`: there
 /// is nothing to reshape.
+///
+/// A 0-row frame reshapes to the `index` columns alone at height 0: a
+/// reshaped column is named by its `on` value, and an empty frame has no
+/// distinct `on` value to name one by, so no value column is emitted.
 pub fn DataFrame::pivot(
   self : DataFrame,
   on~ : Array[@expr.Expr],

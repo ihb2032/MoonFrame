@@ -510,3 +510,19 @@ test "unpivot's roles stay disjoint and its names stay fresh" {
     is Err(@types.DataError::DuplicateColumn("same")),
   )
 }
+
+///|
+test "a 0-row frame pivots to the index columns alone, no value columns" {
+  // No distinct `on` value exists to name a reshaped column by, so none is
+  // emitted — the docstring's stated 0-row shape, pinned here.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("k", []),
+    Series::from_strings("q", []),
+    Series::from_ints("v", []),
+  ])
+  let r = df.pivot(on=[@expr.col("q")], index=[@expr.col("k")], values=[
+    @expr.col("v")
+  ])
+  assert_eq(r.shape(), (0, 1))
+  assert_eq(r.columns(), ["k"])
+}

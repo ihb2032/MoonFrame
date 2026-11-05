@@ -323,6 +323,14 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               label_angle=-30.0,
             ),
           ),
+          column=@chart.VegaFacetChannel::VegaFacetChannel(
+            field="cat",
+            sort=@chart.VegaChannelSort::ByField(
+              "val",
+              Some(@chart.VegaSort::Descending),
+            ),
+            bin=@chart.VegaBin::On,
+          ),
           columns=2,
           spacing=@chart.VegaSpacing::Px(8),
         ),

@@ -33,11 +33,23 @@
 /// rescale) is a semantic decision that lands with the first consumer
 /// that needs one. The registry promise holds: a new I64 rider is refused
 /// here without a new arm to forget.
+///
+/// A cast onto the column's own dtype short-circuits to the identity before
+/// any arm runs — the column itself is returned, not a rebuild (a column is
+/// immutable, so sharing it is safe) — which is what makes `Bool`, `Date`,
+/// `Timestamp`, `Decimal`, and `Duration` cast to *themselves* succeed: they
+/// have no cross-dtype arm, and without the short-circuit their only path
+/// was the refusal below. `Decimal`'s identity is exact-dtype: the scale is
+/// part of the dtype, so `Decimal(2) → Decimal(3)` is a rescale (refused),
+/// not an identity.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {
   let source = self.dtype()
+  if source == target {
+    return self
+  }
   if source is @types.DataType::Date && target is @types.DataType::Timestamp {
     return self.cast_date_to_timestamp()
   }

@@ -617,11 +617,13 @@ fn decode_column(
                 }
               7 =>
                 // The compact protocol's bool rides the field header's
-                // own type nibble — the wire type is the value.
+                // own type nibble — the wire type is the value. Any
+                // other wire a hostile header spells is skipped by its
+                // own type, the unknown-field rule.
                 match hi.wire {
                   BoolTrue => page_compressed = true
                   BoolFalse => page_compressed = false
-                  _ =>
+                  Stop | I32V | I64V | BinaryV | ListV | StructV =>
                     if !r.skip(hi.wire) {
                       raise bad("a V2 page header is malformed")
                     }

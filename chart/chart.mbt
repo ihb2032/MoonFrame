@@ -1004,7 +1004,7 @@ pub fn format_vega_lite(
   obj["$schema"] = Json::string(
     "https://vega.github.io/schema/vega-lite/v6.json",
   )
-  chart_emit(chart, df, obj)
+  chart_emit(chart, df, obj, None)
   let data : Map[String, Json] = Map([])
   data["values"] = Json::array(@io.df_to_json_records(df))
   obj["data"] = Json::object(data)
@@ -1012,38 +1012,57 @@ pub fn format_vega_lite(
 }
 
 ///|
+/// Where a nested child is being placed — the host decides which of a
+/// `ChartSpec`'s chrome keys the child may still carry. `LayerMember` is
+/// the schema's `UnitSpec` (a member of a `layer` array): no view-frame
+/// chrome at all. `CompositionChild` is the frame-carrying child host
+/// (the `spec` of a facet / repeat, a concat member — the schema's
+/// `FacetedUnitSpec` / `UnitSpecWithFrame`): the view frame is allowed,
+/// the top-level-only chrome is not.
+priv enum VegaChildHost {
+  LayerMember
+  CompositionChild
+}
+
+///|
 /// Emit one chart into `obj` — a single view's fields, or a composition
 /// operator's own shape — without `$schema` and `data`: those belong to
 /// the top level alone, so a nested child (a layer member, a facet's
-/// spec) reuses this same emission over the shared frame.
+/// spec) reuses this same emission over the shared frame. `host` says
+/// which nested shape the chart is being emitted into (`None` is the
+/// top level, where every chrome key is legal); a unit child's chrome is
+/// filtered against its host's allowed set, and a nested child's
+/// selection params drop their `views` key (it exists only on the
+/// top-level parameter form).
 fn chart_emit(
   chart : Chart,
   df : @frame.DataFrame,
   obj : Map[String, Json],
+  host : VegaChildHost?,
 ) -> Unit raise @types.DataError {
   match chart {
-    Single(spec) => unit_emit(spec, df, obj)
+    Single(spec) => unit_emit(spec, df, obj, host)
     Layer(layer) => {
       obj["layer"] = Json::array(
-        layer.layer.map(child => chart_child(child, df)),
+        layer.layer.map(child => chart_child(child, df, LayerMember)),
       )
       put_layer_chrome(layer, obj)
     }
     VConcat(concat) => {
       obj["vconcat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     HConcat(concat) => {
       obj["hconcat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     Concat(concat) => {
       obj["concat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, true)
     }
@@ -1062,7 +1081,7 @@ fn chart_emit(
         )
       }
       obj["facet"] = Json::object(facet_obj)
-      obj["spec"] = chart_child(facet.spec, df)
+      obj["spec"] = chart_child(facet.spec, df, CompositionChild)
       put_facet_chrome(facet, obj)
     }
     Repeat(repeat) => {
@@ -1076,7 +1095,7 @@ fn chart_emit(
         )
       }
       obj["repeat"] = Json::object(repeat_obj)
-      obj["spec"] = chart_child(repeat.spec, df)
+      obj["spec"] = chart_child(repeat.spec, df, CompositionChild)
       put_repeat_chrome(repeat, obj)
     }
   }
@@ -1084,13 +1103,15 @@ fn chart_emit(
 
 ///|
 /// One nested child as a JSON object — the same emission as the top
-/// level, minus the `$schema` / `data` that belong there alone.
+/// level, minus the `$schema` / `data` that belong there alone and the
+/// chrome its host does not carry.
 fn chart_child(
   chart : Chart,
   df : @frame.DataFrame,
+  host : VegaChildHost,
 ) -> Json raise @types.DataError {
   let obj : Map[String, Json] = Map([])
-  chart_emit(chart, df, obj)
+  chart_emit(chart, df, obj, Some(host))
   Json::object(obj)
 }
 
@@ -1329,11 +1350,18 @@ fn facet_channel_json(
 /// `title`, `autosize`, `background`, `padding`, `width`, `height`,
 /// `view`, `projection`), the `mark`, and the `encoding` with its
 /// channels resolved in the fixed order — everything but `$schema` and
-/// `data`, which belong to the top level.
+/// `data`, which belong to the top level. A nested child (`host` set)
+/// keeps only the chrome its host carries: `autosize`, `background`,
+/// `padding`, `config`, and `usermeta` exist on the top-level specs
+/// alone, and a `layer` member (the schema's `UnitSpec`) carries no
+/// `width` / `height` / `view` either — the layer itself sizes the
+/// shared frame. `name`, `description`, `title`, `projection`,
+/// `transform`, and `params` are legal at every host.
 fn unit_emit(
   spec : ChartSpec,
   df : @frame.DataFrame,
   obj : Map[String, Json],
+  host : VegaChildHost?,
 ) -> Unit raise @types.DataError {
   if spec.name is Some(name) {
     obj["name"] = Json::string(name)
@@ -1344,23 +1372,37 @@ fn unit_emit(
   if spec.title is Some(title) {
     obj["title"] = vega_title_emit_json(title)
   }
-  if spec.autosize is Some(autosize) {
-    obj["autosize"] = autosize_json(autosize)
+  if host is None {
+    // The top-level-only chrome: no nested host the schema defines
+    // carries these keys.
+    if spec.autosize is Some(autosize) {
+      obj["autosize"] = autosize_json(autosize)
+    }
+    if spec.background is Some(background) {
+      obj["background"] = Json::string(background)
+    }
+    if spec.padding is Some(padding) {
+      obj["padding"] = padding_json(padding)
+    }
+    if spec.config is Some(config) {
+      obj["config"] = vega_config_emit_json(config)
+    }
+    if spec.usermeta is Some(usermeta) {
+      obj["usermeta"] = usermeta
+    }
   }
-  if spec.background is Some(background) {
-    obj["background"] = Json::string(background)
-  }
-  if spec.padding is Some(padding) {
-    obj["padding"] = padding_json(padding)
-  }
-  if spec.width is Some(width) {
-    obj["width"] = extent_json(width)
-  }
-  if spec.height is Some(height) {
-    obj["height"] = extent_json(height)
-  }
-  if spec.view is Some(view) {
-    obj["view"] = vega_view_background_emit_json(view)
+  if host is None || host is Some(CompositionChild) {
+    // The view frame: a facet / repeat / concat child sizes itself; a
+    // layer member shares its parent's frame and carries none of it.
+    if spec.width is Some(width) {
+      obj["width"] = extent_json(width)
+    }
+    if spec.height is Some(height) {
+      obj["height"] = extent_json(height)
+    }
+    if spec.view is Some(view) {
+      obj["view"] = vega_view_background_emit_json(view)
+    }
   }
   if spec.projection is Some(projection) {
     obj["projection"] = vega_projection_emit_json(projection)
@@ -1369,13 +1411,9 @@ fn unit_emit(
     obj["transform"] = vega_transforms_emit_json(transforms)
   }
   if spec.params is Some(params) {
-    obj["params"] = vega_params_emit_json(params)
-  }
-  if spec.config is Some(config) {
-    obj["config"] = vega_config_emit_json(config)
-  }
-  if spec.usermeta is Some(usermeta) {
-    obj["usermeta"] = usermeta
+    // A nested child's selection params carry no `views` key — it exists
+    // only on the top-level parameter form.
+    obj["params"] = vega_params_emit_json(params, host is Some(_))
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))

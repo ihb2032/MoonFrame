@@ -148,12 +148,19 @@ fn ThriftWriter::bool_field_v2(
 }
 
 ///|
-/// The PLAIN definition levels for `n` present cells — one RLE run of
-/// `n` ones at width 1 (header `n << 1`, value 1).
+/// The definition levels a V1 data page carries for `n` present cells —
+/// the 4-byte little-endian length prefix every V1 level run opens
+/// with, then one RLE run of `n` ones at width 1 (header `n << 1`,
+/// value 1).
 fn plain_defs(n : Int32) -> Array[Byte] {
+  let run : Array[Byte] = []
+  push_varint_bytes(run, n.to_uint64() << 1)
+  run.push(b'\x01')
   let out : Array[Byte] = []
-  push_varint_bytes(out, n.to_uint64() << 1)
-  out.push(b'\x01')
+  push_le_i32(out, run.length())
+  for b in run {
+    out.push(b)
+  }
   out
 }
 
@@ -452,9 +459,13 @@ test "page-body refusals name their column" {
     e => Err(e)
   }
   assert_true(result is Err(@types.DataError::ParseError(_)))
-  // Def levels that do not decode: the level stream is a bit-packed
-  // header naming more groups than the count allows.
-  let bad_defs : Array[Byte] = [(0xFF).to_byte(), (0x01).to_byte()]
+  // Def levels that do not decode: the prefixed level stream is a
+  // bit-packed header naming more groups than the count allows (the
+  // prefix itself names the run's two bytes).
+  let bad_defs : Array[Byte] = []
+  push_le_i32(bad_defs, 2)
+  bad_defs.push((0xFF).to_byte())
+  bad_defs.push((0x01).to_byte())
   push_le_i64(bad_defs, 7L)
   let bad_file = foreign_file({
     physical: 2,
@@ -476,6 +487,58 @@ test "page-body refusals name their column" {
     e => Err(e)
   }
   assert_true(bad_result is Err(_))
+  // A level run whose prefix names more bytes than the body carries:
+  // the two-byte run below sits behind a prefix claiming eight.
+  let long_defs : Array[Byte] = []
+  push_le_i32(long_defs, 8)
+  long_defs.push((0x06).to_byte())
+  long_defs.push((0x01).to_byte())
+  let long_file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: long_defs,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 3,
+        def_len: 0,
+      },
+    ],
+  })
+  let long_result = Ok(ignore(read_parquet_columns(long_file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    long_result
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
+    msg.contains("level length leaves its body"),
+  )
+  // A body shorter than the prefix itself: two level bytes, no prefix.
+  let cut_defs : Array[Byte] = [(0x06).to_byte(), (0x01).to_byte()]
+  let cut_file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: cut_defs,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 3,
+        def_len: 0,
+      },
+    ],
+  })
+  let cut_result = Ok(ignore(read_parquet_columns(cut_file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(cut_result is Err(_))
   // The same refusal on a V2 page: the level run names three values in
   // its header but carries no value byte — the raw level stream is
   // truncated mid-run.

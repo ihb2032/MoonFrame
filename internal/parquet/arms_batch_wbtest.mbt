@@ -428,8 +428,10 @@ test "a dictionary data page with a null cell keeps the frame's rows" {
   push_le_i64(dict, 10L)
   push_le_i64(dict, 20L)
   let data : Array[Byte] = []
-  // Def levels for two cells, one present one null: a bit-packed group
-  // (header (1<<1)|1 = 0x03, one byte, bits 1,0 → 0x01).
+  // Def levels for two cells, one present one null: the V1 page's
+  // 4-byte length prefix (the run is two bytes), then a bit-packed
+  // group (header (1<<1)|1 = 0x03, one byte, bits 1,0 → 0x01).
+  push_le_i32(data, 2)
   data.push((0x03).to_byte())
   data.push((0x01).to_byte())
   // The index stream: width 1, RLE run of one index 0.

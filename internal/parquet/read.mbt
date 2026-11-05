@@ -702,22 +702,29 @@ fn decode_column(
     }
     // A REQUIRED column's max definition level is 0, so neither page
     // version writes a level section: the body is values from byte zero
-    // and every cell is present. V1 otherwise reads RLE-coded levels at
-    // width 1 from the body's head — the decoder's own output array is
-    // the level array, no second allocation. V2 carries its levels as
-    // an RLE / bit-packed hybrid stream at the column's own def-level
-    // bit width (1 under the flat schema's OPTIONAL leaves), raw at the
-    // page head with no length prefix — the header's
-    // definition_levels_byte_length names the run's size, and the flat
-    // schema's zero repetition width puts the definition run first.
+    // and every cell is present. V1 otherwise opens its level run with
+    // a 4-byte little-endian length naming the encoded run's byte
+    // count, the RLE-coded levels at width 1 behind it, and the values
+    // after both. V2 carries its levels as an RLE / bit-packed hybrid
+    // stream at the column's own def-level bit width (1 under the flat
+    // schema's OPTIONAL leaves), raw at the page head with no length
+    // prefix — the header's definition_levels_byte_length names the
+    // run's size, and the flat schema's zero repetition width puts the
+    // definition run first.
     let (page_defs, values_at) = if column.required {
       (Array::makei(num_values, _ => 1), 0)
     } else if !v2 {
-      let (decoded, consumed) = match rle_decode(body, num_values, 1) {
-        Some(d) => d
+      if body.length() < 4 {
+        raise bad("a V1 page's level prefix ends early")
+      }
+      let level_len = le_i32(body, 0)
+      if level_len < 0 || level_len > body.length() - 4 {
+        raise bad("a V1 page's level length leaves its body")
+      }
+      match rle_decode(slice(body, 4, level_len), num_values, 1) {
+        Some((decoded, _)) => (decoded, 4 + level_len)
         None => raise bad("definition levels do not decode")
       }
-      (decoded, consumed)
     } else {
       match
         rle_decode(

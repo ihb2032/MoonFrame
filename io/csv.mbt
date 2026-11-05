@@ -154,6 +154,20 @@ pub fn CsvReadOptions::CsvReadOptions(
 ///      is wrapped through `DataFrame::from_parts` (an empty input
 ///      short-circuits to `DataFrame::DataFrame([])` before this point).
 ///
+/// Caveat — integer text past `Int64`. The `Int` probe accepts a cell
+/// only as a base-10 literal inside the signed `Int64` range; an integer
+/// literal one past it (`9223372036854775808` = 2^63) is still a plain
+/// `Double` literal, so it tips its column to `Float` — the value keeps
+/// its magnitude as the nearest `Double` (exact for 2^63 itself, rounded
+/// for neighbors like 2^63 + 1), and the narrowing is silent: one
+/// out-of-range cell retypes the whole column through the
+/// `Int → Float → Bool → String` ladder. The JSON family's large-`Int64`
+/// caveat (`json_core`'s Caveat 2) is the writer-side sibling; CSV has no
+/// writer side to it — an `Int` column writes exact decimal text, so this
+/// is a read-side fact of the inference ladder alone. Pinning
+/// `dtypes = { "col": Int }` does not rescue the value: the cell then
+/// fails the pinned parse and follows `on_parse_error`.
+///
 /// Raises:
 /// - `DuplicateColumn(name)` — two headers share a name.
 /// - `InvalidOperation` — `options.dtypes` names a column the input does

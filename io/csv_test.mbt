@@ -1225,3 +1225,14 @@ test "an Int-then-Bool mixed column still infers String" {
   let df = @io.parse_csv_str(content)
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
 }
+
+///|
+test "an integer literal past Int64 narrows its column to Float" {
+  // The inference-ladder caveat the parse_csv_str docstring states: the
+  // Int probe refuses 2^63, the Float probe accepts it, and one
+  // out-of-range cell retypes the whole column — value kept as the
+  // nearest Double (exact for 2^63 itself).
+  let df = @io.parse_csv_str("n\n9223372036854775808\n")
+  assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
+  assert_eq(df.item(0, "n"), @types.Scalar::Float(9223372036854775808.0))
+}

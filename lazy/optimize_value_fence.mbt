@@ -31,10 +31,13 @@
 /// trigger is never narrower than the truth, and the queries that pay are
 /// the ones decimal columns ride in. A projection output counts as decimal
 /// when its expression so much as reads a decimal column or sums (the `sum`
-/// of a decimal column is decimal whatever wraps it). The file source infers
-/// no decimal columns today (its dtype probes stop at `Int` / `Float` /
-/// `Bool` / `String` / `Date` / `Timestamp`), so its arm starts empty — a
-/// rider reaching file inference revisits it.
+/// of a decimal column is decimal whatever wraps it). A file source's
+/// decimal columns are just as real — a `dtypes` pin rides the text readers,
+/// a `Decimal` footer column the parquet one — but their names are not
+/// knowable on the plan, so its arm carries none and raises `any` for a
+/// source its builder marked as possibly carrying them: above such a leaf
+/// every column read is a potential decimal one, the pivot's conservatism
+/// applied to the leaf itself.
 ///
 /// The names must survive every verb that renames or reshapes columns, or a
 /// stage above it reads a name the set never learned: a `rename` applies its
@@ -97,9 +100,15 @@ fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
       }
       { stage: cols, union: cols, any: false, }
     }
-    Scan(File(_)) => {
+    Scan(File(fs)) => {
+      // The file leaf's decimal columns are real but not nameable here —
+      // the builder's probe (`may_carry_decimal`) says only whether they
+      // may exist — so the arm carries no names and raises `any` for a
+      // source that may carry them: every decimal-checked stage above such
+      // a leaf fences, the same over-approximation `Pivot` makes for names
+      // that come from data.
       let empty = @set.Set([])
-      { stage: empty, union: empty, any: false, }
+      { stage: empty, union: empty, any: fs.may_carry_decimal, }
     }
     Unary(_, Select(exprs)) => {
       let below = pop_top(risks)

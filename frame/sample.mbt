@@ -128,8 +128,13 @@ pub fn DataFrame::sample(
 ///
 /// Eager-only, for the same reason `sample` is: a seeded permutation sees
 /// a specific row order, and pushdown would change which one; collect
-/// first. Total — there is no invalid argument to refuse.
-pub fn DataFrame::shuffle(self : DataFrame, seed~ : Int32 = 0) -> DataFrame {
+/// first. Near-total — there is no invalid argument to refuse; the one
+/// raise is the string layout's payload bound the underlying row gather
+/// carries (`gather_series`'s), past `2^31 - 1` bytes of string payload.
+pub fn DataFrame::shuffle(
+  self : DataFrame,
+  seed~ : Int32 = 0,
+) -> DataFrame raise @types.DataError {
   let total = self.nrows()
   let perm = Array::makei(total, i => i)
   chacha8_seeded(seed).shuffle(total, (i, j) => {

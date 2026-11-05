@@ -1126,14 +1126,14 @@ method DataFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr
 method DataFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self raise @types.DataError <- frame
 method DataFrame::rename(Self, Array[(String, String)]) -> Self raise @types.DataError <- frame
 method DataFrame::rename_with(Self, (String) -> String) -> Self raise @types.DataError <- frame
-method DataFrame::reverse(Self) -> Self <- frame
+method DataFrame::reverse(Self) -> Self raise @types.DataError <- frame
 method DataFrame::row(Self, Int32) -> Array[@types.Scalar] raise @types.DataError <- frame
 method DataFrame::rows(Self) -> Array[Array[@types.Scalar]] <- frame
 method DataFrame::sample(Self, n? : Int32, with_replacement? : Bool, seed? : Int32, fraction? : Double) -> Self raise @types.DataError <- frame
 method DataFrame::schema(Self) -> @types.Schema <- frame
 method DataFrame::select(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::shape(Self) -> (Int32, Int32) <- frame
-method DataFrame::shuffle(Self, seed? : Int32) -> Self <- frame
+method DataFrame::shuffle(Self, seed? : Int32) -> Self raise @types.DataError <- frame
 method DataFrame::slice(Self, Int32, length? : Int32) -> Self <- frame
 method DataFrame::slice_between(Self, start? : Int32, end? : Int32) -> Self <- frame
 method DataFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self raise @types.DataError <- frame
@@ -1450,7 +1450,7 @@ method Schema::to_repr(Self) -> @debug.Repr <- types
 method Schema::to_string(Self) -> String <- types
 method Series::cast(Self, @types.DataType) -> Self raise @types.DataError <- series
 method Series::count(Self) -> Int32 <- series
-method Series::drop_nulls(Self) -> Self <- series
+method Series::drop_nulls(Self) -> Self raise @types.DataError <- series
 method Series::dtype(Self) -> @types.DataType <- series
 method Series::equal(Self, Self) -> Bool <- series
 method Series::fill_null(Self, @types.Scalar) -> Self raise @types.DataError <- series
@@ -1459,7 +1459,7 @@ method Series::from_bools(String, Array[Bool]) -> Self <- series
 method Series::from_floats(String, Array[Double]) -> Self <- series
 method Series::from_ints(String, Array[Int64]) -> Self <- series
 method Series::from_scalars(String, Array[@types.Scalar], dtype? : @types.DataType) -> Self raise @types.DataError <- series
-method Series::from_strings(String, Array[String]) -> Self <- series
+method Series::from_strings(String, Array[String]) -> Self raise @types.DataError <- series
 method Series::gather(Self, Array[Int32]) -> Self raise @types.DataError <- series
 method Series::get(Self, Int32) -> @types.Scalar raise @types.DataError <- series
 method Series::has_nan(Self) -> Bool <- series
@@ -1479,10 +1479,10 @@ method Series::not_equal(Self, Self) -> Bool <- series
 method Series::null_count(Self) -> Int32 <- series
 method Series::quantile(Self, Double, interpolation? : QuantileInterpolation) -> Double raise @types.DataError <- series
 method Series::rename(Self, String) -> Self <- series
-method Series::reverse(Self) -> Self <- series
+method Series::reverse(Self) -> Self raise @types.DataError <- series
 method Series::slice(Self, Int32, length? : Int32) -> Self <- series
 method Series::slice_between(Self, start? : Int32, end? : Int32) -> Self <- series
-method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self <- series
+method Series::sort(Self, descending? : Bool, nulls_last? : Bool) -> Self raise @types.DataError <- series
 method Series::std(Self) -> Double raise @types.DataError <- series
 method Series::sum(Self) -> @types.Scalar raise @types.DataError <- series
 method Series::tail(Self, Int32) -> Self <- series

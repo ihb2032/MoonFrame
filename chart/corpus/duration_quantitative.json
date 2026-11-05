@@ -1,0 +1,1 @@
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","mark":"line","encoding":{"x":{"field":"dur","type":"quantitative"},"y":{"field":"val","type":"quantitative"}},"data":{"values":[{"cat":"x","val":1,"grp":"a","ts":"2024-01-01T00:00:00.000000","dur":3600000000000},{"cat":"y","val":2,"grp":"b","ts":"2024-01-01T02:24:00.000000","dur":null}]}}

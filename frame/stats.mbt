@@ -186,10 +186,12 @@ pub fn DataFrame::n_unique(
 /// row with nothing in it. The height is passed explicitly for the latter,
 /// since there is then no column to infer it from.
 ///
-/// Raises only through the 1-row `DataFrame::from_parts`, whose failure paths
-/// (duplicate name / length mismatch) cannot fire here — the output column
-/// names are exactly `self`'s (already unique) and every output column has
-/// length 1 — so the raise is forwarded, never actually taken.
+/// Raises through one real path — `sum` over a `Decimal` column whose total
+/// leaves the `Int64` range (`InvalidOperation`: the exact dtype's checked
+/// fold refuses rather than wraps) — and, forwarded, through the 1-row
+/// `DataFrame::from_parts`, whose failure paths (duplicate name / length
+/// mismatch) cannot fire here: the output column names are exactly `self`'s
+/// (already unique) and every output column has length 1.
 fn DataFrame::reduce_to_row(
   self : DataFrame,
   op : FrameReduceOp,
@@ -242,8 +244,10 @@ fn reduce_column(
   let (cell, probe) = match op {
     FrameReduceOp::Count =>
       (@types.Scalar::Int(s.count().to_int64()), @types.DataType::Int)
-    // `Series::sum` only raises for a dtype outside the `summable` gate, so
-    // the call never actually raises here.
+    // `Series::sum` raises for a dtype outside the `summable` gate — kept
+    // away by the `if` — and, inside the gate, for a `Decimal` total past
+    // the `Int64` range (the checked fold's `InvalidOperation`, the one
+    // raise `reduce_to_row`'s docstring names).
     FrameReduceOp::Sum =>
       (if summable { s.sum() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Min =>

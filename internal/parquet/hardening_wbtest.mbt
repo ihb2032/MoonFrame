@@ -210,6 +210,7 @@ test "a foreign bit-packed BOOLEAN page reads eight cells to a byte" {
   body.push((0x02).to_byte()) // cell 8 false, cell 9 true
   let file = foreign_file({
     physical: 0,
+    repetition: 1,
     converted: None,
     codec: 0,
     pages: [
@@ -252,6 +253,7 @@ test "a foreign V2 SNAPPY page reads its raw levels and compressed values" {
   }
   let file = foreign_file({
     physical: 2,
+    repetition: 1,
     converted: None,
     codec: 1,
     pages: [

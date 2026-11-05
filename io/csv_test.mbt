@@ -1236,3 +1236,18 @@ test "an integer literal past Int64 narrows its column to Float" {
   assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
   assert_eq(df.item(0, "n"), @types.Scalar::Float(9223372036854775808.0))
 }
+
+///|
+test "parse_csv_str: a spaces-only line is a header record, not empty" {
+  // NyaCSV's skip_empty_lines drops only *empty* lines, so "  \n" is not
+  // the line-empty case two tests up: the spaces parse as a header cell,
+  // yielding one zero-row String column named "  " — pinned here because
+  // the `ncols == 0` early-return's comment once claimed all
+  // whitespace-only input collapsed to 0x0.
+  let df = @io.parse_csv_str("  \n")
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.shape(), (0, 1))
+  let col = df.get_column("  ")
+  assert_eq(col.dtype(), @types.DataType::String)
+  assert_eq(col.len(), 0)
+}

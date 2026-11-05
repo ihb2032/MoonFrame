@@ -295,8 +295,12 @@ fn parse_csv_str_projected(
   let (headers, rows) = split_csv_records(csv, options)
   let ncols = headers.length()
   if ncols == 0 {
-    // Whitespace-only input parses to no headers — same pin check as the
-    // empty-input short-circuit above: no column exists to pin.
+    // Line-empty input (`"\n"`, `\r\n`) parses to no headers — same pin
+    // check as the empty-input short-circuit above: no column exists to
+    // pin. This is *not* the whitespace-only case: NyaCSV's
+    // `skip_empty_lines` drops only empty lines, so `"  \n"` is a header
+    // record — one String column named `"  "` over zero rows — and flows
+    // on through the ordinary pipeline below.
     check_override_columns(options.dtypes, headers)
     return @frame.DataFrame::DataFrame([])
   }

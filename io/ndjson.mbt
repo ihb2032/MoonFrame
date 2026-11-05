@@ -41,8 +41,11 @@
 /// frame, matching `parse_json_str`'s empty-array behaviour.
 ///
 /// Raises:
-/// - `ParseError(Message(...))` — a malformed line or a line whose value is
-///   not a JSON object.
+/// - `ParseError(Message(...))` — a malformed line, a line whose value is
+///   not a JSON object, or a record nesting deeper than 512 brackets
+///   (refused by a pre-scan before the parse, naming the physical line
+///   and column — the reader's own bound, in place of the parser's
+///   position-less default-depth refusal).
 /// - `ParseError(Cell(...))` — a non-null cell does not fit its inferred
 ///   dtype, unless `options.on_parse_error` is `Null`, which downgrades that
 ///   cell to a null instead.
@@ -113,10 +116,30 @@ fn parse_ndjson_str_projected(
     if line.is_blank() {
       continue
     }
+    // Deep-nesting pre-scan, per record: the whole-file reader's bound,
+    // pinned here too — `@json.parse`'s own default-depth refusal carries
+    // no position and names a parameter no MoonFrame reader exposes, so
+    // the string-aware scan (`json_core`'s, shared with the whole-file
+    // reader) refuses past `JSON_MAX_NESTING_DEPTH` first. A record is a
+    // single line, so the scan's own line is always 1 and only the column
+    // survives, beside the physical-line locator — the same trade
+    // `duplicate_key_detail` makes.
+    match json_nesting_violation(line, JSON_MAX_NESTING_DEPTH) {
+      Some((_line, column)) =>
+        raise @types.DataError::ParseError(
+          @types.ParseErrorDetail::Message(
+            "\{locator_text(@types.CellParseLocation::Line, i + 1)}: invalid JSON: nesting deeper than \{JSON_MAX_NESTING_DEPTH} brackets at column \{column}",
+          ),
+        )
+      None => ()
+    }
     // The strict duplicate-key reading rides the parser itself; off by
-    // default it costs nothing (see `parse_json_str`).
+    // default it costs nothing (see `parse_json_str`). The parse-level
+    // depth cap backs the pre-scan up at the same bound, exactly as the
+    // whole-file reader's does.
     let json = @json.parse(
       line,
+      max_nesting_depth=JSON_MAX_NESTING_DEPTH,
       reject_duplicate_keys=options.reject_duplicate_keys,
     ) catch {
       // Each record parses alone, so the parser's line is always 1 — the

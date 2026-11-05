@@ -197,6 +197,78 @@ fn frame_from_json_records(
 }
 
 ///|
+/// The deepest bracket nesting a JSON payload may carry before the readers
+/// refuse it. `@json.parse` itself refuses past its own default depth
+/// (1024) — a catchable raise, but a position-less one whose diagnostic
+/// tells the caller to raise a parameter no MoonFrame reader exposes — so
+/// the readers pin the bound as theirs: both pre-scan (string-aware,
+/// below) and refuse past this depth with a located `ParseError`, and the
+/// parse-level cap rides along at the same number as the backstop. The
+/// number sits an order of magnitude above the nesting real payloads carry
+/// (nested records, Vega-Lite specs: tens) and halves the worst-case
+/// recursion a parse can enter under core's default, so an honest deep
+/// payload never meets it and a hostile one gets a located refusal before
+/// the parse runs.
+const JSON_MAX_NESTING_DEPTH : Int32 = 512
+
+///|
+/// String-aware bracket-depth pre-scan: `Some((line, column))` of the
+/// first bracket that pushes the nesting past `cap`, `None` when the
+/// payload stays under. Brackets inside string literals do not count —
+/// the scan tracks quoting and `\\` escapes (JSON has no comments to
+/// skip), so the depth it counts is exactly the recursion the parser
+/// would enter. Line and column are 1-based and count UTF-16 code units.
+/// Shared by both readers: the whole-file reader scans the document once,
+/// the NDJSON reader each record line (whose scan-line is therefore always
+/// 1 — the caller's physical-line locator is the one worth naming, the
+/// same trade `duplicate_key_detail` makes).
+fn json_nesting_violation(text : StringView, cap : Int32) -> (Int32, Int32)? {
+  // The scan walks code units (`StringView` hands out `UInt16`s) and only
+  // ever compares the ASCII delimiters, so a lone surrogate half in a
+  // malformed payload reaches no `Char` conversion that could refuse it —
+  // `unsafe_to_char` here just wraps the unit for the `match`.
+  let n = text.length()
+  let mut depth = 0
+  let mut in_string = false
+  let mut line = 1
+  let mut line_start = 0
+  let mut i = 0
+  while i < n {
+    let c = text.at(i).to_int().unsafe_to_char()
+    if in_string {
+      match c {
+        // The escaped unit never closes the string — `\"` stays inside,
+        // and `\\"` closes, because the first backslash escapes the second.
+        '\\' => {
+          i = i + 2
+          continue
+        }
+        '"' => in_string = false
+        _ => ()
+      }
+    } else {
+      match c {
+        '"' => in_string = true
+        '[' | '{' => {
+          depth = depth + 1
+          if depth > cap {
+            return Some((line, i - line_start + 1))
+          }
+        }
+        ']' | '}' => depth = depth - 1
+        '\n' => {
+          line = line + 1
+          line_start = i + 1
+        }
+        _ => ()
+      }
+    }
+    i = i + 1
+  }
+  None
+}
+
+///|
 /// The duplicate-key diagnostic the strict `reject_duplicate_keys` option
 /// produces, spelled once for both readers: the whole-file reader parses
 /// the entire document, where the parser's line is the file's own line

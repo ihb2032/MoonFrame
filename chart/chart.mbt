@@ -1351,27 +1351,33 @@ fn facet_channel_json(
   dtype : @types.DataType?,
 ) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
-  match (channel.field, dtype) {
-    (Some(field), Some(d)) => {
-      ch["field"] = Json::string(escape_vega_field(field))
-      // The type rides directly after the field, as in an encoding
-      // channel: inferred from the column dtype, or overridden; a count
-      // facet channel carries neither — `resolve_facet` hands back no
-      // dtype for one, so this arm is the present-field case alone.
-      let inferred : String = if channel.type_override is Some(t) {
-        vega_type_string(t)
-      } else if d.is_numeric() ||
-        d is @types.DataType::Decimal(_) ||
-        d is @types.DataType::Duration {
-        "quantitative"
-      } else if d is @types.DataType::Date || d is @types.DataType::Timestamp {
-        "temporal"
-      } else {
-        "nominal"
+  match channel.field {
+    Some(field) =>
+      match dtype {
+        Some(d) => {
+          ch["field"] = Json::string(escape_vega_field(field))
+          // The type rides directly after the field, as in an encoding
+          // channel: inferred from the column dtype, or overridden; a
+          // count facet channel carries neither — `resolve_facet`
+          // hands back no dtype for one, so this arm is the
+          // present-field case alone.
+          let inferred : String = if channel.type_override is Some(t) {
+            vega_type_string(t)
+          } else if d.is_numeric() ||
+            d is @types.DataType::Decimal(_) ||
+            d is @types.DataType::Duration {
+            "quantitative"
+          } else if d is @types.DataType::Date ||
+            d is @types.DataType::Timestamp {
+            "temporal"
+          } else {
+            "nominal"
+          }
+          ch["type"] = Json::string(inferred)
+        }
+        None => ()
       }
-      ch["type"] = Json::string(inferred)
-    }
-    _ => ()
+    None => ()
   }
   if channel.aggregate is Some(op) {
     ch["aggregate"] = Json::string(aggregate_string(op))
@@ -1388,7 +1394,8 @@ fn facet_channel_json(
         raise @types.DataError::InvalidOperation(
           "a facet channel's sort cannot key on another channel (the schema's FacetFieldDef.sort has no bare-channel form); sort by a field or an explicit order instead",
         )
-      _ => ch["sort"] = sort_json(sort)
+      Ascending | Descending | ByField(_, _) | Values(_) | Off =>
+        ch["sort"] = sort_json(sort)
     }
   }
   if channel.title is Some(title) {

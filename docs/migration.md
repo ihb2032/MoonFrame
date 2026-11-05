@@ -46,6 +46,13 @@ Source-level note:
   `oneOf` / `valid`, each with an optional `timeUnit`), parameter
   references, and the `not` / `and` / `or` compositions. The Vega
   expression language stays a `String` throughout.
+- The theme surface is mirrored: a chart carries `config` (the
+  `@chart.VegaConfig` tree — the per-mark style defaults through one
+  `@chart.VegaMarkStyle` union, the scale / axis / legend / header /
+  title defaults, the view frame, the named ranges and the style index,
+  the composition grid, the selection defaults, the locale and format
+  defaults, and the top-level scalars) and `usermeta` (a free-form JSON
+  object the runtime passes through untouched).
 - The interactive surface is mirrored: a chart's `params` array declares
   `@chart.VegaParam`s — a variable bound to an input widget (checkbox,
   radio / select, range slider, free text, or a direct element binding)

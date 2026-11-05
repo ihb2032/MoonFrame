@@ -526,6 +526,37 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
         ),
       ),
     ),
+    (
+      "config_theme.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          config=@chart.VegaConfig::VegaConfig(
+            background="#fafafa",
+            font="sans-serif",
+            count_title="Rows",
+            mark=@chart.VegaMarkStyle::VegaMarkStyle(
+              color="steelblue",
+              fill_opacity=0.8,
+            ),
+            bar=@chart.VegaMarkStyle::VegaMarkStyle(bin_spacing=2),
+            scale=@chart.VegaScaleConfig::VegaScaleConfig(clamp=true),
+            axis=@chart.VegaAxis::VegaAxis(grid=false),
+            legend=@chart.VegaLegend::VegaLegend(
+              orient=@chart.VegaLegendOrient::Right,
+            ),
+            view=@chart.VegaViewConfig::VegaViewConfig(step=24, fill="#fff"),
+            range=@chart.VegaRangeConfig::VegaRangeConfig(category=[
+              "#1f77b4", "#ff7f0e",
+            ]),
+            number_format=".2f",
+          ),
+          usermeta=Json::object({ "owner": Json::string("dashboard") }),
+        ),
+      ),
+    ),
   ]
 }
 

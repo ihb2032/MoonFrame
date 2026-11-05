@@ -23,6 +23,8 @@ pub fn datum(@json.Json) -> @chart.VegaChannel
 
 pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double, scale? : @chart.VegaScaleRef, axis? : @chart.VegaAxisRef, legend? : @chart.VegaLegendRef, condition? : @chart.VegaCondition) -> @chart.VegaChannel
 
+pub fn format_vega_html(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError
+
 pub fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError
 
 pub fn lit(@types.Scalar) -> @expr.Expr
@@ -66,6 +68,8 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError
+
+pub fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
 

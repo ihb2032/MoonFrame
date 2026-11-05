@@ -15,7 +15,11 @@ pub fn datum(@json.Json) -> VegaChannel
 
 pub fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double, scale? : VegaScaleRef, axis? : VegaAxisRef, legend? : VegaLegendRef, condition? : VegaCondition) -> VegaChannel
 
+pub fn format_vega_html(@frame.DataFrame, Chart) -> String raise @types.DataError
+
 pub fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError
+
+pub fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError
 

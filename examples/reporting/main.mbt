@@ -4,11 +4,13 @@
 //   read_csv → group_by(region) + agg(sum revenue, sum quantity)
 //            → sort(revenue desc)
 //            → to_html            (a styled <table> for a web page / notebook)
-//            → format_vega_lite   (a Vega-Lite v5 bar-chart spec)
+//            → format_vega_lite   (a Vega-Lite v6 bar-chart spec)
+//            → write_vega_html    (a self-contained chart page for the browser)
 //
 // Reporting logic lives in the sibling `report/` package so it is
 // covered by that package's blackbox tests. `main` is a thin orchestrator around
-// `read_csv` / `write_vega_lite` / `println` and is therefore marked
+// `read_csv` / `write_vega_lite` / `write_vega_html` / `println` and is
+// therefore marked
 // `#coverage.skip` — every meaningful branch is in the helper.
 //
 // Run from the project root:
@@ -30,23 +32,26 @@ fn main {
     // 1) HTML table — paste into a page / notebook for a rendered view.
     println("\nHTML table:")
     println(@report.revenue_table(summary))
-    // 2) Vega-Lite v5 spec — paste into https://vega.github.io/editor/.
+    // 2) Vega-Lite v6 spec — paste into https://vega.github.io/editor/.
     println("\nVega-Lite spec:")
     println(@report.revenue_chart(summary))
     // …and persist the same spec to `_build/` via the file-backed
     // wrapper (the directory always exists during `moon` runs).
-    @moonframe.write_vega_lite(
-      chart_out,
-      summary,
-      @moonframe.Chart::of(
-        @moonframe.ChartSpec::bar(
-          @moonframe.field("region"),
-          @moonframe.field("revenue"),
-          title="Revenue by region",
-        ),
+    let chart = @moonframe.Chart::of(
+      @moonframe.ChartSpec::bar(
+        @moonframe.field("region"),
+        @moonframe.field("revenue"),
+        title="Revenue by region",
       ),
     )
+    @moonframe.write_vega_lite(chart_out, summary, chart)
     println("\nWrote Vega-Lite spec to \{chart_out}")
+    // 3) The same chart as a self-contained HTML page — open it in a
+    // browser for the interactive view, with vega-embed's action links
+    // (SVG / PNG export, the spec source, the online editor).
+    let page_out = "_build/revenue_by_region.html"
+    @moonframe.write_vega_html(page_out, summary, chart)
+    println("\nWrote chart page to \{page_out}")
   } catch {
     e => println("reporting failed: \{e.message()}")
   }

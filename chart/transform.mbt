@@ -3,7 +3,12 @@
 // through the corpus guard. Reached through `@chart` qualification —
 // part of the deep mirror family the facade deliberately does not
 // re-export. The Vega expression language stays a `String` throughout:
-// the mirror passes an expression through, it does not parse one.
+// the mirror passes an expression through, it does not parse one. Field
+// references (the transform's input fields, its group-by and sort keys)
+// escape through `escape_vega_field` the way encoding channels do;
+// output names (`as`) and the expression inside a `calculate` do not —
+// an output name is whatever the caller wants the new field called,
+// and an expression's field spellings are the caller's to write.
 
 ///|
 /// One aggregated output: the operation, the input field it runs over (absent for `Count`), and the output name.
@@ -43,7 +48,7 @@ fn vega_agg_field_emit_json(x : VegaAggField) -> Json {
     obj["op"] = Json::string(aggregate_string(v))
   }
   if x.field is Some(v) {
-    obj["field"] = Json::string(v)
+    obj["field"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.as_
@@ -90,7 +95,7 @@ fn vega_window_field_emit_json(x : VegaWindowField) -> Json {
     obj["op"] = Json::string(aggregate_string(v))
   }
   if x.field is Some(v) {
-    obj["field"] = Json::string(v)
+    obj["field"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.as_
@@ -132,7 +137,7 @@ fn vega_sort_field_emit_json(x : VegaSortField) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.field
-    obj["field"] = Json::string(v)
+    obj["field"] = Json::string(escape_vega_field(v))
   }
   if x.order is Some(v) {
     obj["order"] = Json::string(vega_sort_order_string(v))
@@ -197,10 +202,12 @@ fn vega_lookup_data_emit_json(x : VegaLookupData) -> Json {
   }
   {
     let v = x.key
-    obj["key"] = Json::string(v)
+    obj["key"] = Json::string(escape_vega_field(v))
   }
   if x.fields is Some(v) {
-    obj["fields"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["fields"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   Json::object(obj)
 }
@@ -318,7 +325,9 @@ fn vega_aggregate_transform_emit_json(x : VegaAggregateTransform) -> Json {
     obj["aggregate"] = Json::array(v.map(fn(e) { vega_agg_field_emit_json(e) }))
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   Json::object(obj)
 }
@@ -362,7 +371,7 @@ fn vega_bin_transform_emit_json(x : VegaBinTransform) -> Json {
   }
   {
     let v = x.field
-    obj["field"] = Json::string(v)
+    obj["field"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.as_
@@ -399,7 +408,10 @@ pub fn VegaCalculateTransform::VegaCalculateTransform(
 
 ///|
 /// The emitted JSON object, every set property under its
-/// schema key.
+/// schema key. The expression passes through verbatim: it is Vega
+/// expression source the mirror does not parse, so a dotted column it
+/// references is the caller's to spell escaped (`datum["a.b"]`); the
+/// `as` output name is emitted as written for the same reason.
 fn vega_calculate_transform_emit_json(x : VegaCalculateTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
@@ -519,7 +531,7 @@ fn vega_density_transform_emit_json(x : VegaDensityTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.density
-    obj["density"] = Json::string(v)
+    obj["density"] = Json::string(escape_vega_field(v))
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -537,7 +549,9 @@ fn vega_density_transform_emit_json(x : VegaDensityTransform) -> Json {
     obj["extent"] = Json::array(v.map(fn(n) { Json::number(n) }))
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.steps is Some(v) {
     obj["steps"] = Json::number(v)
@@ -584,7 +598,7 @@ fn vega_extent_transform_emit_json(x : VegaExtentTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.extent
-    obj["extent"] = Json::string(v)
+    obj["extent"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.param
@@ -689,7 +703,9 @@ fn vega_flatten_transform_emit_json(x : VegaFlattenTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.flatten
-    obj["flatten"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["flatten"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -755,7 +771,9 @@ fn vega_fold_transform_emit_json(x : VegaFoldTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.fold
-    obj["fold"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["fold"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -861,11 +879,11 @@ fn vega_impute_transform_emit_json(x : VegaImputeTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.impute
-    obj["impute"] = Json::string(v)
+    obj["impute"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.key
-    obj["key"] = Json::string(v)
+    obj["key"] = Json::string(escape_vega_field(v))
   }
   if x.keyvals is Some(v) {
     obj["keyvals"] = Json::array(v.copy())
@@ -880,7 +898,9 @@ fn vega_impute_transform_emit_json(x : VegaImputeTransform) -> Json {
     obj["value"] = json_identity(v)
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.frame is Some(v) {
     obj["frame"] = Json::array(v.map(fn(n) { Json::number(n) }))
@@ -957,7 +977,9 @@ fn vega_join_aggregate_transform_emit_json(
     )
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   Json::object(obj)
 }
@@ -1035,11 +1057,11 @@ fn vega_loess_transform_emit_json(x : VegaLoessTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.loess
-    obj["loess"] = Json::string(v)
+    obj["loess"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.on
-    obj["on"] = Json::string(v)
+    obj["on"] = Json::string(escape_vega_field(v))
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -1048,7 +1070,9 @@ fn vega_loess_transform_emit_json(x : VegaLoessTransform) -> Json {
     obj["bandwidth"] = Json::number(v)
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   Json::object(obj)
 }
@@ -1090,7 +1114,7 @@ fn vega_lookup_transform_emit_json(x : VegaLookupTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.lookup
-    obj["lookup"] = Json::string(v)
+    obj["lookup"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.from_
@@ -1164,14 +1188,16 @@ fn vega_pivot_transform_emit_json(x : VegaPivotTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.pivot
-    obj["pivot"] = Json::string(v)
+    obj["pivot"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.value
-    obj["value"] = Json::string(v)
+    obj["value"] = Json::string(escape_vega_field(v))
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.limit is Some(v) {
     obj["limit"] = Json::number(v)
@@ -1275,7 +1301,7 @@ fn vega_quantile_transform_emit_json(x : VegaQuantileTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.quantile
-    obj["quantile"] = Json::string(v)
+    obj["quantile"] = Json::string(escape_vega_field(v))
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -1287,7 +1313,9 @@ fn vega_quantile_transform_emit_json(x : VegaQuantileTransform) -> Json {
     obj["step"] = Json::number(v)
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   Json::object(obj)
 }
@@ -1394,11 +1422,11 @@ fn vega_regression_transform_emit_json(x : VegaRegressionTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.regression
-    obj["regression"] = Json::string(v)
+    obj["regression"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.on
-    obj["on"] = Json::string(v)
+    obj["on"] = Json::string(escape_vega_field(v))
   }
   if x.as_ is Some(v) {
     obj["as"] = Json::array(v.map(fn(f) { Json::string(f) }))
@@ -1413,7 +1441,9 @@ fn vega_regression_transform_emit_json(x : VegaRegressionTransform) -> Json {
     obj["order"] = Json::number(v)
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.params is Some(v) {
     obj["params"] = Json::boolean(v)
@@ -1526,11 +1556,13 @@ fn vega_stack_transform_emit_json(x : VegaStackTransform) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.stack
-    obj["stack"] = Json::string(v)
+    obj["stack"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.groupby
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   {
     let v = x.as_
@@ -1584,7 +1616,7 @@ fn vega_time_unit_transform_emit_json(x : VegaTimeUnitTransform) -> Json {
   }
   {
     let v = x.field
-    obj["field"] = Json::string(v)
+    obj["field"] = Json::string(escape_vega_field(v))
   }
   {
     let v = x.as_
@@ -1683,7 +1715,9 @@ fn vega_window_transform_emit_json(x : VegaWindowTransform) -> Json {
     obj["window"] = Json::array(v.map(fn(e) { vega_window_field_emit_json(e) }))
   }
   if x.groupby is Some(v) {
-    obj["groupby"] = Json::array(v.map(fn(f) { Json::string(f) }))
+    obj["groupby"] = Json::array(
+      v.map(fn(f) { Json::string(escape_vega_field(f)) }),
+    )
   }
   if x.sort is Some(v) {
     obj["sort"] = Json::array(v.map(fn(e) { vega_sort_field_emit_json(e) }))

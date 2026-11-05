@@ -1134,12 +1134,17 @@ fn chart_emit(
     }
     Repeat(repeat) => {
       let repeat_obj : Map[String, Json] = Map([])
+      // The repeat lists name columns, so they escape like any other
+      // field reference — a dotted column repeats on itself, not on a
+      // nested path.
       if repeat.row is Some(row) {
-        repeat_obj["row"] = Json::array(row.map(fn(f) { Json::string(f) }))
+        repeat_obj["row"] = Json::array(
+          row.map(fn(f) { Json::string(escape_vega_field(f)) }),
+        )
       }
       if repeat.column is Some(column) {
         repeat_obj["column"] = Json::array(
-          column.map(fn(f) { Json::string(f) }),
+          column.map(fn(f) { Json::string(escape_vega_field(f)) }),
         )
       }
       obj["repeat"] = Json::object(repeat_obj)
@@ -1333,9 +1338,12 @@ fn resolve_facet(
 /// One facet channel's JSON: the emitted field definition plus its
 /// `type`, which a facet channel carries like any encoding channel —
 /// inferred from the column dtype, or overridden; a count facet channel
-/// carries no `type`. The facet host has no bare-channel sort form, so
-/// `ByChannel` raises `InvalidOperation` here rather than emitting a
-/// string the schema's `FacetFieldDef.sort` would reject.
+/// carries no `type`. The field name is escaped the way an encoding
+/// channel's is (`escape_vega_field`), so a column literally named
+/// `a.b` facets on `a.b` and not on a nested path. The facet host has
+/// no bare-channel sort form, so `ByChannel` raises `InvalidOperation`
+/// here rather than emitting a string the schema's `FacetFieldDef.sort`
+/// would reject.
 fn facet_channel_json(
   channel : VegaFacetChannel,
   dtype : @types.DataType?,
@@ -1343,7 +1351,7 @@ fn facet_channel_json(
   let ch : Map[String, Json] = Map([])
   match (channel.field, dtype) {
     (Some(field), Some(d)) => {
-      ch["field"] = Json::string(field)
+      ch["field"] = Json::string(escape_vega_field(field))
       // The type rides directly after the field, as in an encoding
       // channel: inferred from the column dtype, or overridden; a count
       // facet channel carries neither — `resolve_facet` hands back no

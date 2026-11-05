@@ -323,7 +323,8 @@ fn bin_json(bin : VegaBin) -> Json {
 ///|
 /// The JSON of a channel `sort`: the bare orders as strings, a by-channel
 /// sort as the channel's name (prefixed `-` for the descending form), a
-/// by-field sort as `{"field", "order"?}`, an explicit list as the array
+/// by-field sort as `{"field", "order"?}` (the field escaped like any
+/// other reference — it names a column), an explicit list as the array
 /// itself (in that order), and `Off` as `null`.
 fn sort_json(sort : VegaChannelSort) -> Json {
   match sort {
@@ -338,7 +339,7 @@ fn sort_json(sort : VegaChannelSort) -> Json {
     }
     ByField(field_name, order) => {
       let obj : Map[String, Json] = Map([])
-      obj["field"] = Json::string(field_name)
+      obj["field"] = Json::string(escape_vega_field(field_name))
       if order is Some(o) {
         obj["order"] = Json::string(
           if o is Ascending {

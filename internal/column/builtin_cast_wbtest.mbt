@@ -390,3 +390,51 @@ test "the temporal casts refuse a construction the invariants rule out" {
     is Err(Unsupported(_)),
   )
 }
+
+// ── Float -> String -> Float round-trip ──────────────────────────────
+
+///|
+/// Round-trip one `Double` through the cast path — `cast(String)` renders
+/// the value form, `cast(Float)` parses it back — demanding bit equality
+/// (`reinterpret_as_int64`), which `==` cannot promise for the zeros:
+/// `-0.0 == 0.0` numerically while carrying a different bit form.
+fn roundtrip_bits(x : Double) -> Int64 raise @types.DataError {
+  let text = BuiltinColumn::from_floats([x]).cast(@types.DataType::String)
+  let back = text.cast(@types.DataType::Float)
+  match back.get(0) {
+    @types.Scalar::Float(v) => v.reinterpret_as_int64()
+    _ => abort("unreachable: the Float cast's cells are Float by construction")
+  }
+}
+
+///|
+test "float value-form rendering round-trips bit-exactly" {
+  // 0.1 and its adjacent ulp up: each renders to its own shortest exact
+  // text and parses back to the same bits — and the two strings differ,
+  // so the pair cannot collapse into one value through the round trip.
+  let near = (0.1.reinterpret_as_int64() + 1L).reinterpret_as_double()
+  assert_eq(roundtrip_bits(0.1), 0.1.reinterpret_as_int64())
+  assert_eq(roundtrip_bits(near), near.reinterpret_as_int64())
+  // The first doubles past 2^53, where the integer text is 16 digits and
+  // a naive renderer could round to 2^53: exact text, exact bits.
+  let big = (0x4340_0000_0000_0000L + 2L).reinterpret_as_double()
+  assert_eq(roundtrip_bits(big), big.reinterpret_as_int64())
+  // The extremes of the format: the smallest normal (2^-1022) and the
+  // smallest subnormal (5e-324), both through exponent-notation text.
+  let min_normal = 0x0010_0000_0000_0000L.reinterpret_as_double()
+  assert_eq(roundtrip_bits(min_normal), 0x0010_0000_0000_0000L)
+  let min_subnormal = 1L.reinterpret_as_double()
+  assert_eq(roundtrip_bits(min_subnormal), 1L)
+}
+
+///|
+test "negative zero loses its sign through the value form" {
+  // A recorded loss, not a round-trip claim: core documents
+  // `(-0.0).to_string()` as `"0"`, so the value form carries no sign for
+  // zero and the parse back lands on +0.0 — numerically equal (and equal
+  // in the IEEE total order), bit-form different. Pinned here so a future
+  // renderer change that preserves the sign turns this assert around.
+  let back = roundtrip_bits(-0.0)
+  assert_eq(back, 0L)
+  assert_true((-0.0).reinterpret_as_int64() != back)
+}

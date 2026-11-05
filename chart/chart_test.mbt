@@ -908,3 +908,103 @@ test "format_vega_lite: brackets and a trailing backslash in a column name are e
   }
   assert_eq(field2, "trail\\\\")
 }
+
+///|
+test "a dotted column name escapes through every field reference" {
+  // The escaping contract: an encoding `field` escapes (established),
+  // and so does every other reference to the same column — a facet
+  // channel, a repeat list, a predicate's comparison field, a
+  // transform's group-by, an aggregate's input, and a by-field sort.
+  // Output names (`as`) do not escape: they name the new field.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("a.b", ["x", "y"]),
+    @series.Series::from_strings("c[0]", ["1", "2"]),
+    @series.Series::from_ints("val", [1, 2]),
+  ])
+  let spec = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field(
+          "a.b",
+          sort=@chart.VegaChannelSort::ByField("c[0]", None),
+        ),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Filter(
+            @chart.VegaFilterTransform::VegaFilterTransform(
+              filter=@chart.VegaPredicate::Equal("a.b", Json::string("x"), None),
+            ),
+          ),
+          @chart.VegaTransform::Aggregate(
+            @chart.VegaAggregateTransform::VegaAggregateTransform(
+              aggregate=[
+                @chart.VegaAggField::VegaAggField(
+                  op=@chart.VegaAggregate::Sum,
+                  field="val",
+                  as_="total",
+                ),
+              ],
+              groupby=["a.b", "c[0]"],
+            ),
+          ),
+        ],
+      ),
+    ),
+  )
+  // The emitted JSON text carries the backslash-escaped spelling (the
+  // stringifier doubles the backslash); the parsed values read back as
+  // the single-escaped field name.
+  let parsed = @json.parse(spec) catch { _ => Json::null() }
+  let x_field = match parsed {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("x") {
+            Some(Object(c)) =>
+              match c.get("field") {
+                Some(f) => f
+                _ => Json::null()
+              }
+            _ => Json::null()
+          }
+        _ => Json::null()
+      }
+    _ => Json::null()
+  }
+  assert_eq(x_field, Json::string("a\\.b"))
+  assert_true(spec.contains("\"groupby\":[\"a\\\\.b\",\"c\\\\[0\\\\]\"]"))
+  assert_true(spec.contains("\"sort\":{\"field\":\"c\\\\[0\\\\]\"}"))
+  assert_true(spec.contains("\"field\":\"a\\\\.b\",\"equal\":\"x\""))
+  // The output name is emitted as written, unescaped.
+  assert_true(spec.contains("\"as\":\"total\""))
+  // And the record keys stay the raw column names — only references
+  // escape, never the data itself.
+  assert_true(spec.contains("\"a.b\":\"x\""))
+  // The facet and repeat paths escape the same way.
+  let faceted = @chart.format_vega_lite(
+    df,
+    @chart.Chart::Facet(
+      @chart.VegaFacet::VegaFacet(
+        @chart.Chart::of(
+          @chart.ChartSpec::point(@chart.field("val"), @chart.field("val")),
+        ),
+        row=@chart.VegaFacetChannel::VegaFacetChannel(field="a.b"),
+      ),
+    ),
+  )
+  assert_true(faceted.contains("\"row\":{\"field\":\"a\\\\.b\""))
+  let repeated = @chart.format_vega_lite(
+    df,
+    @chart.Chart::Repeat(
+      @chart.VegaRepeat::VegaRepeat(
+        @chart.Chart::of(
+          @chart.ChartSpec::line(@chart.field("val"), @chart.field("val")),
+        ),
+        column=["a.b", "c[0]"],
+      ),
+    ),
+  )
+  assert_true(repeated.contains("\"column\":[\"a\\\\.b\",\"c\\\\[0\\\\]\"]"))
+}

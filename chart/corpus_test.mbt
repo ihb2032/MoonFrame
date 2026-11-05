@@ -26,6 +26,9 @@ fn corpus_df() -> @frame.DataFrame raise @types.DataError {
     // A duration column rides every spec's data.values so the corpus
     // pins its cell form: the microsecond count, not the ISO spelling.
     @series.Series::from_duration_options("dur", [Some(3600_000_000_000L), None]),
+    // A dotted column name, so the corpus pins the escaping of
+    // references to it while the record keys stay raw.
+    @series.Series::from_strings("price.usd", ["3", "4"]),
   ])
 }
 
@@ -293,6 +296,45 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
       // microsecond counts — Vega's temporal has no ISO-duration parser.
       @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
     ),
+    (
+      "field_escape.json",
+      // A column literally named `price.usd` escapes in every reference
+      // — the encoding field, the by-field sort, the filter predicate,
+      // the aggregate's input and group-by — while the record key in
+      // data.values stays raw.
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field(
+          "price.usd",
+          type_override=@chart.VegaType::Quantitative,
+          sort=@chart.VegaChannelSort::ByField("grp", None),
+        ),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Filter(
+            @chart.VegaFilterTransform::VegaFilterTransform(
+              filter=@chart.VegaPredicate::OneOf(
+                "price.usd",
+                [Json::string("3"), Json::string("4")],
+                None,
+              ),
+            ),
+          ),
+          @chart.VegaTransform::Aggregate(
+            @chart.VegaAggregateTransform::VegaAggregateTransform(
+              aggregate=[
+                @chart.VegaAggField::VegaAggField(
+                  op=@chart.VegaAggregate::Sum,
+                  field="val",
+                  as_="total",
+                ),
+              ],
+              groupby=["price.usd"],
+            ),
+          ),
+        ],
+      ),
+    ),
   ]
 }
 
@@ -363,7 +405,7 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               title="Dummy",
             ),
           ),
-          column=["val", "ts"],
+          column=["val", "ts", "price.usd"],
           spacing=@chart.VegaSpacing::Px(6),
         ),
       ),

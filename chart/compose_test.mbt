@@ -276,6 +276,136 @@ test "compositions nest: a concat whose child is a layer" {
 }
 
 ///|
+test "a layer member drops the chrome its UnitSpec host disallows" {
+  // A spec built with the full top-level chrome (width, autosize,
+  // background, padding, config, usermeta) keeps all of it at the top
+  // level and none of it as a `layer` member: the schema's `UnitSpec`
+  // carries mark, encoding, name, description, title, projection,
+  // transform, and params alone, so the rest is filtered at emission
+  // rather than shipped as a spec the schema would reject.
+  let spec = @chart.format_vega_lite(
+    compose_df(),
+    @chart.Chart::Layer(
+      @chart.VegaLayer::VegaLayer([
+        @chart.Chart::of(
+          @chart.ChartSpec::of(
+            @chart.ChartKind::Bar,
+            x=@chart.field("cat"),
+            y=@chart.field("val"),
+            name="child",
+            description="a chrome-heavy member",
+            title=@chart.VegaTitle::Text("Child"),
+            width=@chart.VegaExtent::Px(400),
+            height=@chart.VegaExtent::Step(20),
+            autosize=@chart.VegaAutoSize::Fit,
+            background="#123456",
+            padding=@chart.VegaPadding::Px(5),
+            config=@chart.VegaConfig::VegaConfig(background="#654321"),
+            usermeta=Json::object({ "k": Json::string("v") }),
+          ),
+        ),
+        @chart.Chart::of(
+          @chart.ChartSpec::line(@chart.field("val"), @chart.field("val")),
+        ),
+      ]),
+    ),
+  )
+  // The member keeps its allowed chrome…
+  assert_true(spec.contains("\"layer\":[{\"name\":\"child\""))
+  assert_true(spec.contains("\"description\":\"a chrome-heavy member\""))
+  assert_true(spec.contains("\"title\":\"Child\""))
+  assert_true(spec.contains("\"mark\":\"bar\""))
+  // …and none of the host-disallowed keys appear anywhere.
+  assert_eq(spec.split("\"width\"").count(), 1)
+  assert_eq(spec.split("\"height\"").count(), 1)
+  assert_true(!spec.contains("\"autosize\""))
+  assert_true(!spec.contains("\"background\""))
+  assert_true(!spec.contains("\"padding\""))
+  assert_true(!spec.contains("\"config\""))
+  assert_true(!spec.contains("\"usermeta\""))
+}
+
+///|
+test "a facet child keeps the view frame and drops top-level chrome" {
+  // The facet host (the schema's `FacetedUnitSpec`) allows `width` /
+  // `height` / `view` on its child — the panels size themselves — but
+  // not `autosize` / `background` / `padding` / `config` / `usermeta`,
+  // which exist on the top-level specs alone.
+  let spec = @chart.format_vega_lite(
+    compose_df(),
+    @chart.Chart::Facet(
+      @chart.VegaFacet::VegaFacet(
+        @chart.Chart::of(
+          @chart.ChartSpec::of(
+            @chart.ChartKind::Bar,
+            x=@chart.field("cat"),
+            y=@chart.field("val"),
+            width=@chart.VegaExtent::Px(150),
+            view=@chart.VegaViewBackground::VegaViewBackground(fill="#eee"),
+            autosize=@chart.VegaAutoSize::FitX,
+            config=@chart.VegaConfig::VegaConfig(background="#000000"),
+            usermeta=Json::object({ "k": Json::string("v") }),
+          ),
+        ),
+        row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+      ),
+    ),
+  )
+  assert_true(spec.contains("\"spec\":{\"width\":150"))
+  assert_true(spec.contains("\"view\":{\"fill\":\"#eee\"}"))
+  assert_true(!spec.contains("\"autosize\""))
+  assert_true(!spec.contains("\"config\""))
+  assert_true(!spec.contains("\"usermeta\""))
+}
+
+///|
+test "a nested child's selection params drop their views key" {
+  // `views` (which facet views a selection spans) exists only on the
+  // top-level selection-parameter form; a child spec's params are the
+  // plain form, so the key is stripped when the same spec nests.
+  let params = [
+    @chart.VegaParam::Selection(
+      @chart.VegaSelectionParam::VegaSelectionParam(
+        name="brush",
+        select=@chart.VegaSelect::Interval(
+          @chart.VegaIntervalSelect::VegaIntervalSelect(encodings=["x"]),
+        ),
+        views=["view_1", "view_2"],
+      ),
+    ),
+  ]
+  let nested = @chart.format_vega_lite(
+    compose_df(),
+    @chart.Chart::Facet(
+      @chart.VegaFacet::VegaFacet(
+        @chart.Chart::of(
+          @chart.ChartSpec::of(
+            @chart.ChartKind::Point,
+            x=@chart.field("val"),
+            y=@chart.field("val"),
+            params~,
+          ),
+        ),
+        row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+      ),
+    ),
+  )
+  assert_true(!nested.contains("\"views\""))
+  let top = @chart.format_vega_lite(
+    compose_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("val"),
+        y=@chart.field("val"),
+        params~,
+      ),
+    ),
+  )
+  assert_true(top.contains("\"views\":[\"view_1\",\"view_2\"]"))
+}
+
+///|
 test "the child lists and field lists are copied at construction" {
   let children = [
     @chart.Chart::of(

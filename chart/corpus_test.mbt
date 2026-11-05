@@ -535,6 +535,74 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
       ),
     ),
     (
+      "layer_nested_chrome.json",
+      @chart.Chart::Layer(
+        @chart.VegaLayer::VegaLayer(
+          [
+            // A member built with the full top-level chrome: every
+            // host-disallowed key (width, height, autosize, background,
+            // padding, config, usermeta) is filtered at emission — the
+            // corpus spec pins the filtered shape against the schema.
+            @chart.Chart::of(
+              @chart.ChartSpec::of(
+                @chart.ChartKind::Bar,
+                x=@chart.field("cat"),
+                y=@chart.field("val"),
+                name="member",
+                title=@chart.VegaTitle::Text("Chrome-heavy member"),
+                width=@chart.VegaExtent::Px(400),
+                height=@chart.VegaExtent::Step(20),
+                autosize=@chart.VegaAutoSize::Fit,
+                background="#123456",
+                padding=@chart.VegaPadding::Px(5),
+                config=@chart.VegaConfig::VegaConfig(background="#654321"),
+                usermeta=Json::object({ "k": Json::string("v") }),
+              ),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::line(@chart.field("val"), @chart.field("val")),
+            ),
+          ],
+          title=@chart.VegaTitle::Text("Layered"),
+        ),
+      ),
+    ),
+    (
+      "facet_nested_params.json",
+      @chart.Chart::Facet(
+        @chart.VegaFacet::VegaFacet(
+          // The facet child keeps its view frame but drops top-level
+          // chrome, and its selection param drops the `views` key that
+          // only the top-level parameter form carries.
+          @chart.Chart::of(
+            @chart.ChartSpec::of(
+              @chart.ChartKind::Point,
+              x=@chart.field("val"),
+              y=@chart.field("val"),
+              width=@chart.VegaExtent::Px(150),
+              view=@chart.VegaViewBackground::VegaViewBackground(fill="#eee"),
+              autosize=@chart.VegaAutoSize::FitX,
+              config=@chart.VegaConfig::VegaConfig(background="#000000"),
+              params=[
+                @chart.VegaParam::Selection(
+                  @chart.VegaSelectionParam::VegaSelectionParam(
+                    name="brush",
+                    select=@chart.VegaSelect::Interval(
+                      @chart.VegaIntervalSelect::VegaIntervalSelect(encodings=[
+                        "x",
+                      ]),
+                    ),
+                    views=["view_1", "view_2"],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+        ),
+      ),
+    ),
+    (
       "config_theme.json",
       @chart.Chart::of(
         @chart.ChartSpec::of(

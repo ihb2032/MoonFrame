@@ -70,7 +70,6 @@ internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines i
 internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
-internal/column/builtin_cast.mbt BuiltinColumn::to_string_column closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/kernel/positional.mbt value_comparator closure-parameter lines inside the comparator lambdas ((i, j) =>), not match arms - the scanner is deliberately lexical
 internal/kernel/positional.mbt value_comparator closure-parameter lines inside the comparator lambdas ((i, j) =>), not match arms - the scanner is deliberately lexical
 internal/kernel/positional.mbt value_comparator closure-parameter lines inside the comparator lambdas ((i, j) =>), not match arms - the scanner is deliberately lexical

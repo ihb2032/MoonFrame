@@ -46,6 +46,17 @@ Source-level note:
   `oneOf` / `valid`, each with an optional `timeUnit`), parameter
   references, and the `not` / `and` / `or` compositions. The Vega
   expression language stays a `String` throughout.
+- The interactive surface is mirrored: a chart's `params` array declares
+  `@chart.VegaParam`s — a variable bound to an input widget (checkbox,
+  radio / select, range slider, free text, or a direct element binding)
+  or driven by an expression, and a selection driven by direct
+  manipulation (a click-set `point` or a drag-drawn `interval`, with
+  the brush styling, projection fields / encodings, and per-facet
+  resolution) — and an encoding channel carries a `condition`:
+  `@chart.VegaCondition::When(predicate, value)` colors what the
+  predicate selects. The v6 detail the corpus walker caught: the
+  condition's predicate key is `test` and its arm is a constant
+  `value`, not a field definition.
 - The chart export is a typed mirror of **Vega-Lite v6** (the emitted
   `$schema` points at the v6 URL, and CI walks a golden corpus of emitted
   specs against the vendored 6.5.0 schema), and the builders speak

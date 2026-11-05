@@ -13,7 +13,7 @@ pub fn constant(@json.Json) -> VegaChannel
 
 pub fn datum(@json.Json) -> VegaChannel
 
-pub fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double, scale? : VegaScaleRef, axis? : VegaAxisRef, legend? : VegaLegendRef) -> VegaChannel
+pub fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double, scale? : VegaScaleRef, axis? : VegaAxisRef, legend? : VegaLegendRef, condition? : VegaCondition) -> VegaChannel
 
 pub fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError
 
@@ -126,7 +126,8 @@ pub fn ChartSpec::geoshape(VegaChannel, color? : VegaChannel, opacity? : VegaCha
 pub fn ChartSpec::image(VegaChannel, VegaChannel, VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::line(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::not_equal(Self, Self) -> Bool
-pub fn ChartSpec::of(ChartKind, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel, title? : VegaTitle, width? : VegaExtent, height? : VegaExtent, name? : String, description? : String, autosize? : VegaAutoSize, padding? : VegaPadding, background? : String, projection? : VegaProjection, view? : VegaViewBackground, transform? : Array[VegaTransform]) -> Self
+pub fn ChartSpec::of(ChartKind, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel, title? : VegaTitle, width? : VegaExtent, height? : VegaExtent, name? : String, description? : String, autosize? : VegaAutoSize, padding? : VegaPadding, background? : String, projection? : VegaProjection, view? : VegaViewBackground, transform? : Array[VegaTransform], params? : Array[VegaParam]) -> Self
+pub fn ChartSpec::params(Self) -> Array[VegaParam]?
 pub fn ChartSpec::point(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::rect(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::rule(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
@@ -412,6 +413,81 @@ pub fn VegaBinTransform::not_equal(Self, Self) -> Bool
 pub fn VegaBinTransform::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaBind {
+  Checkbox(VegaBindCheckbox)
+  RadioSelect(VegaBindRadioSelect)
+  Range(VegaBindRange)
+  Input(VegaBindInput)
+  Direct(VegaBindDirect)
+}
+pub fn VegaBind::equal(Self, Self) -> Bool
+pub fn VegaBind::not_equal(Self, Self) -> Bool
+pub fn VegaBind::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBindCheckbox {
+  debounce : Double?
+  element : String?
+  name : String?
+}
+pub fn VegaBindCheckbox::VegaBindCheckbox(debounce? : Double, element? : String, name? : String) -> Self
+pub fn VegaBindCheckbox::equal(Self, Self) -> Bool
+pub fn VegaBindCheckbox::not_equal(Self, Self) -> Bool
+pub fn VegaBindCheckbox::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBindDirect {
+  debounce : Double?
+  element : String
+  event : String?
+}
+pub fn VegaBindDirect::VegaBindDirect(element~ : String, debounce? : Double, event? : String) -> Self
+pub fn VegaBindDirect::equal(Self, Self) -> Bool
+pub fn VegaBindDirect::not_equal(Self, Self) -> Bool
+pub fn VegaBindDirect::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBindInput {
+  debounce : Double?
+  element : String?
+  name : String?
+  autocomplete : String?
+  placeholder : String?
+}
+pub fn VegaBindInput::VegaBindInput(debounce? : Double, element? : String, name? : String, autocomplete? : String, placeholder? : String) -> Self
+pub fn VegaBindInput::equal(Self, Self) -> Bool
+pub fn VegaBindInput::not_equal(Self, Self) -> Bool
+pub fn VegaBindInput::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBindRadioSelect {
+  debounce : Double?
+  element : String?
+  name : String?
+  // private fields
+}
+pub fn VegaBindRadioSelect::VegaBindRadioSelect(Array[@json.Json], labels? : Array[String], debounce? : Double, element? : String, name? : String) -> Self
+pub fn VegaBindRadioSelect::equal(Self, Self) -> Bool
+pub fn VegaBindRadioSelect::labels(Self) -> Array[String]?
+pub fn VegaBindRadioSelect::not_equal(Self, Self) -> Bool
+pub fn VegaBindRadioSelect::options(Self) -> Array[@json.Json]
+pub fn VegaBindRadioSelect::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBindRange {
+  debounce : Double?
+  element : String?
+  name : String?
+  max : Double?
+  min : Double?
+  step : Double?
+}
+pub fn VegaBindRange::VegaBindRange(debounce? : Double, element? : String, name? : String, max? : Double, min? : Double, step? : Double) -> Self
+pub fn VegaBindRange::equal(Self, Self) -> Bool
+pub fn VegaBindRange::not_equal(Self, Self) -> Bool
+pub fn VegaBindRange::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaBins {
   Values(Array[Double])
   Params(VegaBinsParams)
@@ -439,6 +515,23 @@ pub(all) enum VegaBounds {
 pub fn VegaBounds::equal(Self, Self) -> Bool
 pub fn VegaBounds::not_equal(Self, Self) -> Bool
 pub fn VegaBounds::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaBrush {
+  fill : String?
+  fill_opacity : Double?
+  stroke : String?
+  stroke_opacity : Double?
+  stroke_width : Double?
+  stroke_dash_offset : Double?
+  cursor : String?
+  // private fields
+}
+pub fn VegaBrush::VegaBrush(fill? : String, fill_opacity? : Double, stroke? : String, stroke_opacity? : Double, stroke_width? : Double, stroke_dash? : Array[Double], stroke_dash_offset? : Double, cursor? : String) -> Self
+pub fn VegaBrush::equal(Self, Self) -> Bool
+pub fn VegaBrush::not_equal(Self, Self) -> Bool
+pub fn VegaBrush::stroke_dash(Self) -> Array[Double]?
+pub fn VegaBrush::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaCalculateTransform {
@@ -484,6 +577,7 @@ pub struct VegaChannel {
   scale : VegaScaleRef?
   axis : VegaAxisRef?
   legend : VegaLegendRef?
+  condition : VegaCondition?
   value : @json.Json?
   datum : @json.Json?
 }
@@ -524,6 +618,14 @@ pub fn VegaConcat::concat(Self) -> Array[Chart]
 pub fn VegaConcat::equal(Self, Self) -> Bool
 pub fn VegaConcat::not_equal(Self, Self) -> Bool
 pub fn VegaConcat::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaCondition {
+  When(VegaPredicate, @json.Json)
+}
+pub fn VegaCondition::equal(Self, Self) -> Bool
+pub fn VegaCondition::not_equal(Self, Self) -> Bool
+pub fn VegaCondition::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaCursor {
@@ -821,6 +923,23 @@ pub fn VegaInterpolateParams::not_equal(Self, Self) -> Bool
 pub fn VegaInterpolateParams::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub struct VegaIntervalSelect {
+  on : String?
+  clear : String?
+  translate : String?
+  zoom : String?
+  mark : VegaBrush?
+  resolve : VegaSelectionResolution?
+  // private fields
+}
+pub fn VegaIntervalSelect::VegaIntervalSelect(on? : String, clear? : String, translate? : String, zoom? : String, mark? : VegaBrush, fields? : Array[String], encodings? : Array[String], resolve? : VegaSelectionResolution) -> Self
+pub fn VegaIntervalSelect::encodings(Self) -> Array[String]?
+pub fn VegaIntervalSelect::equal(Self, Self) -> Bool
+pub fn VegaIntervalSelect::fields(Self) -> Array[String]?
+pub fn VegaIntervalSelect::not_equal(Self, Self) -> Bool
+pub fn VegaIntervalSelect::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub(all) enum VegaJoin {
   Miter
   Round
@@ -1105,6 +1224,15 @@ pub fn VegaPadding::not_equal(Self, Self) -> Bool
 pub fn VegaPadding::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaParam {
+  Variable(VegaVariableParam)
+  Selection(VegaSelectionParam)
+}
+pub fn VegaParam::equal(Self, Self) -> Bool
+pub fn VegaParam::not_equal(Self, Self) -> Bool
+pub fn VegaParam::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaPivotTransform {
   pivot : String
   value : String
@@ -1117,6 +1245,22 @@ pub fn VegaPivotTransform::equal(Self, Self) -> Bool
 pub fn VegaPivotTransform::groupby(Self) -> Array[String]?
 pub fn VegaPivotTransform::not_equal(Self, Self) -> Bool
 pub fn VegaPivotTransform::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaPointSelect {
+  on : String?
+  clear : String?
+  nearest : Bool?
+  toggle : Bool?
+  resolve : VegaSelectionResolution?
+  // private fields
+}
+pub fn VegaPointSelect::VegaPointSelect(on? : String, clear? : String, fields? : Array[String], encodings? : Array[String], nearest? : Bool, toggle? : Bool, resolve? : VegaSelectionResolution) -> Self
+pub fn VegaPointSelect::encodings(Self) -> Array[String]?
+pub fn VegaPointSelect::equal(Self, Self) -> Bool
+pub fn VegaPointSelect::fields(Self) -> Array[String]?
+pub fn VegaPointSelect::not_equal(Self, Self) -> Bool
+pub fn VegaPointSelect::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaPredicate {
@@ -1459,6 +1603,39 @@ pub fn VegaSchemeParams::not_equal(Self, Self) -> Bool
 pub fn VegaSchemeParams::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
+pub(all) enum VegaSelect {
+  Point(VegaPointSelect)
+  Interval(VegaIntervalSelect)
+}
+pub fn VegaSelect::equal(Self, Self) -> Bool
+pub fn VegaSelect::not_equal(Self, Self) -> Bool
+pub fn VegaSelect::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaSelectionParam {
+  name : String
+  select : VegaSelect
+  bind : VegaBind?
+  // private fields
+}
+pub fn VegaSelectionParam::VegaSelectionParam(name~ : String, select~ : VegaSelect, bind? : VegaBind, value? : Array[@json.Json], views? : Array[String]) -> Self
+pub fn VegaSelectionParam::equal(Self, Self) -> Bool
+pub fn VegaSelectionParam::not_equal(Self, Self) -> Bool
+pub fn VegaSelectionParam::to_repr(Self) -> @debug.Repr
+pub fn VegaSelectionParam::value(Self) -> Array[@json.Json]?
+pub fn VegaSelectionParam::views(Self) -> Array[String]?
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaSelectionResolution {
+  Global
+  Union
+  Intersect
+}
+pub fn VegaSelectionResolution::equal(Self, Self) -> Bool
+pub fn VegaSelectionResolution::not_equal(Self, Self) -> Bool
+pub fn VegaSelectionResolution::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
 pub struct VegaSides {
   top : Int32?
   right : Int32?
@@ -1777,6 +1954,19 @@ pub(all) enum VegaType {
 pub fn VegaType::equal(Self, Self) -> Bool
 pub fn VegaType::not_equal(Self, Self) -> Bool
 pub fn VegaType::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct VegaVariableParam {
+  name : String
+  value : @json.Json?
+  bind : VegaBind?
+  expr : String?
+  react : Bool?
+}
+pub fn VegaVariableParam::VegaVariableParam(name~ : String, value? : @json.Json, bind? : VegaBind, expr? : String, react? : Bool) -> Self
+pub fn VegaVariableParam::equal(Self, Self) -> Bool
+pub fn VegaVariableParam::not_equal(Self, Self) -> Bool
+pub fn VegaVariableParam::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaViewBackground {

@@ -209,7 +209,8 @@ What has landed on `main`:
   read instead of mis-decoding), and a V2 page decodes its levels as
   the RLE / bit-packed hybrid stream the page header itself sizes — no
   prefix, never compressed — where the reader once read a bare bitmap
-  no parquet writer emits. The schema walk reads the repetition type
+  no parquet writer emits, under the page type (3) a foreign V2 page
+  actually declares. The schema walk reads the repetition type
   and child count too: a REQUIRED column's pages carry no level section
   at all and their values begin at the body's first byte (a foreign
   REQUIRED column was mis-refused before), a group element refuses

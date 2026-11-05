@@ -15,6 +15,7 @@ priv struct ForeignPage {
   v2 : Bool
   num_values : Int32
   def_len : Int32
+  page_type : Int32
 }
 
 ///|
@@ -40,7 +41,18 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
   let mut total_values = 0L
   for page in spec.pages {
     let pw = thrift_writer()
-    pw.i32_field(1, if page.dictionary_page { 2 } else { 0 })
+    // The V2 data page rides its own page type (3); a `page_type~`
+    // override spells the shapes the builder does not model.
+    pw.i32_field(
+      1,
+      if page.dictionary_page {
+        2
+      } else if page.v2 {
+        3
+      } else {
+        page.page_type
+      },
+    )
     pw.i32_field(2, page.body.length())
     pw.i32_field(3, page.body.length())
     if page.dictionary_page {
@@ -200,6 +212,7 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
         v2: false,
         num_values: 2,
         def_len: 0,
+        page_type: 0,
       },
       {
         body: data_body,
@@ -208,6 +221,7 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
         v2: false,
         num_values: 3,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -236,6 +250,7 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
         v2: false,
         num_values: 1,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -279,6 +294,7 @@ test "a dictionary chunk with two data pages reads every page's rows" {
         v2: false,
         num_values: 2,
         def_len: 0,
+        page_type: 0,
       },
       {
         body: first,
@@ -287,6 +303,7 @@ test "a dictionary chunk with two data pages reads every page's rows" {
         v2: false,
         num_values: 2,
         def_len: 0,
+        page_type: 0,
       },
       {
         body: second,
@@ -295,6 +312,7 @@ test "a dictionary chunk with two data pages reads every page's rows" {
         v2: false,
         num_values: 1,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -304,6 +322,69 @@ test "a dictionary chunk with two data pages reads every page's rows" {
     @types.Scalar::Int(10),
     @types.Scalar::Int(20),
   ])
+}
+
+///|
+test "an index page refuses naming its column" {
+  // A page type the reader does not carry (INDEX_PAGE = 1) refuses
+  // with the column named — its level run must first decode, since the
+  // page-type gate sits after the level walk.
+  let body : Array[Byte] = plain_defs(1)
+  push_le_i64(body, 7L)
+  let file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+        page_type: 1,
+      },
+    ],
+  })
+  let result = Ok(ignore(read_parquet_columns(file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::Unsupported(_)))
+}
+
+///|
+test "a FLOAT column refuses the pairing as unmappable" {
+  // The pairing's own refusal: a chunk whose schema element maps to no
+  // MoonFrame dtype (FLOAT would narrow a Double) raises Unsupported
+  // naming the column.
+  let body : Array[Byte] = plain_defs(1)
+  body.push((0x00).to_byte())
+  body.push((0x00).to_byte())
+  body.push((0x00).to_byte())
+  body.push((0x00).to_byte())
+  let file = foreign_file({
+    physical: 4,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+        page_type: 0,
+      },
+    ],
+  })
+  let result = Ok(ignore(read_parquet_columns(file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::Unsupported(_)))
 }
 
 ///|
@@ -330,6 +411,7 @@ test "a foreign V2 data page reads its RLE definition levels" {
         v2: true,
         num_values: 3,
         def_len: 2,
+        page_type: 0,
       },
     ],
   })
@@ -359,6 +441,7 @@ test "a foreign V2 data page reads its RLE definition levels" {
         v2: true,
         num_values: 3,
         def_len: 2,
+        page_type: 0,
       },
     ],
   })
@@ -394,6 +477,7 @@ test "a REQUIRED column's pages carry no definition levels" {
         v2: false,
         num_values: 2,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -416,6 +500,7 @@ test "a REQUIRED column's pages carry no definition levels" {
         v2: true,
         num_values: 1,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -446,6 +531,7 @@ test "a bare INT32 column reads as Int" {
         v2: false,
         num_values: 3,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -525,6 +611,7 @@ test "a REPEATED leaf column refuses naming the column" {
         v2: false,
         num_values: 1,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -557,6 +644,7 @@ test "page-body refusals name their column" {
         v2: false,
         num_values: 2,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -585,6 +673,7 @@ test "page-body refusals name their column" {
         v2: false,
         num_values: 3,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -611,6 +700,7 @@ test "page-body refusals name their column" {
         v2: false,
         num_values: 3,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -637,6 +727,7 @@ test "page-body refusals name their column" {
         v2: false,
         num_values: 3,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -661,6 +752,7 @@ test "page-body refusals name their column" {
         v2: true,
         num_values: 2,
         def_len: 1,
+        page_type: 0,
       },
     ],
   })
@@ -686,6 +778,7 @@ test "page-body refusals name their column" {
         v2: false,
         num_values: 1,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })

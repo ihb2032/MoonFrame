@@ -761,7 +761,12 @@ fn decode_column(
       }
     }
     let value_bytes = slice(body, values_at, body.length() - values_at)
-    if page_type != 0 {
+    // The V2 data page rides its own page type (3) alongside the header
+    // field that already named it; a DATA_PAGE header spelling type 0
+    // with a V2 header inside stays readable (a writer's misspelling
+    // the field spells unambiguously). Every other page type — an index
+    // page, something unknown — refuses.
+    if page_type != 0 && !(page_type == 3 && v2) {
       raise @types.DataError::Unsupported(
         "parquet column \"\{chunk.name}\" carries a page type \{page_type} MoonFrame does not read",
       )

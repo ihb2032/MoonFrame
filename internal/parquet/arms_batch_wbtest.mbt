@@ -198,7 +198,8 @@ fn foreign_raw(
 
 ///|
 /// A complete V2 data-page header (with `def_len`) over a body of
-/// `body_len` bytes, spelling is_compressed per `compressed~`.
+/// `body_len` bytes, spelling is_compressed per `compressed~` — the
+/// page type a foreign writer declares for a V2 page.
 fn v2_page_header(
   num_values : Int32,
   encoding : Int32,
@@ -207,7 +208,7 @@ fn v2_page_header(
   compressed~ : Bool = true,
 ) -> Bytes {
   let pw = thrift_writer()
-  pw.i32_field(1, 0)
+  pw.i32_field(1, 3) // DATA_PAGE_V2
   pw.i32_field(2, body_len)
   pw.i32_field(3, body_len)
   pw.struct_field_begin(8)
@@ -669,6 +670,34 @@ test "a V2 page that opts out of compression reads raw under a codec" {
     @types.Scalar::Int(7),
     @types.Scalar::Int(8),
   ])
+  // A field 7 on the binary wire whose length varint the bytes end
+  // before: the skip itself refuses, and the walk answers the located
+  // malformed-header error.
+  let cut = thrift_writer()
+  cut.i32_field(1, 3)
+  cut.i32_field(2, 4)
+  cut.i32_field(3, 4)
+  cut.struct_field_begin(8)
+  cut.i32_field(1, 2)
+  cut.i32_field(4, 0)
+  cut.i32_field(5, 2)
+  cut.i32_field(6, 0)
+  cut.field_header(7, 8)
+  let cut_page : Array[Byte] = []
+  for b in cut.finish() {
+    cut_page.push(b)
+  }
+  let cut_result = Ok(
+    ignore(
+      read_parquet_columns(
+        foreign_raw(2, 0, Bytes::from_array(cut_page), 2),
+        None,
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(cut_result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|

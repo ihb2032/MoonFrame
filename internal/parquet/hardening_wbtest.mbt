@@ -221,6 +221,7 @@ test "a foreign bit-packed BOOLEAN page reads eight cells to a byte" {
         v2: false,
         num_values: 10,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -264,6 +265,7 @@ test "a foreign V2 SNAPPY page reads its raw levels and compressed values" {
         v2: true,
         num_values: 3,
         def_len: 2,
+        page_type: 0,
       },
     ],
   })

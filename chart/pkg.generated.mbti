@@ -19,6 +19,8 @@ pub fn format_vega_html(@frame.DataFrame, Chart) -> String raise @types.DataErro
 
 pub fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError
 
+pub fn plot(@frame.DataFrame) -> FramePlot
+
 pub fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError
@@ -143,6 +145,41 @@ pub fn ChartSpec::tick(VegaChannel, VegaChannel, color? : VegaChannel, size? : V
 pub fn ChartSpec::to_repr(Self) -> @debug.Repr
 pub fn ChartSpec::trail(VegaChannel, VegaChannel, color? : VegaChannel, size? : VegaChannel, opacity? : VegaChannel, tooltip? : VegaChannel, detail? : VegaChannel, title? : String, width? : VegaExtent, height? : VegaExtent) -> Self
 pub fn ChartSpec::transform(Self) -> Array[VegaTransform]?
+
+pub struct FramePlot {
+  // private fields
+}
+pub fn FramePlot::arc(Self, theta~ : String, color? : String, opacity? : String, tooltip? : String, radius? : String, radius2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::area(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::bar(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::boxplot(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::circle(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::errorband(Self, x~ : String, y~ : String, x_error? : String, x_error2? : String, y_error? : String, y_error2? : String, color? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::errorbar(Self, x~ : String, y~ : String, x_error? : String, x_error2? : String, y_error? : String, y_error2? : String, color? : String, size? : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::geoshape(Self, shape~ : String, color? : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::image(Self, x~ : String, y~ : String, url~ : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::line(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::point(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::rect(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::rule(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::square(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::text(Self, x~ : String, y~ : String, text~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::tick(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+pub fn FramePlot::trail(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot
+
+pub struct Plot {
+  // private fields
+}
+pub fn Plot::chart(Self) -> Chart
+pub fn Plot::encode(Self, x? : VegaChannel, y? : VegaChannel, x2? : VegaChannel, y2? : VegaChannel, x_error? : VegaChannel, x_error2? : VegaChannel, y_error? : VegaChannel, y_error2? : VegaChannel, x_offset? : VegaChannel, y_offset? : VegaChannel, longitude? : VegaChannel, longitude2? : VegaChannel, latitude? : VegaChannel, latitude2? : VegaChannel, theta? : VegaChannel, theta2? : VegaChannel, radius? : VegaChannel, radius2? : VegaChannel, color? : VegaChannel, fill? : VegaChannel, stroke? : VegaChannel, opacity? : VegaChannel, fill_opacity? : VegaChannel, stroke_width? : VegaChannel, stroke_dash? : VegaChannel, size? : VegaChannel, shape? : VegaChannel, angle? : VegaChannel, time? : VegaChannel, text? : VegaChannel, tooltip? : VegaChannel, href? : VegaChannel, url? : VegaChannel, description_channel? : VegaChannel, key? : VegaChannel, detail? : VegaChannel, order? : VegaChannel) -> Self
+pub fn Plot::height(Self, VegaExtent) -> Self
+pub fn Plot::spec(Self) -> ChartSpec
+pub fn Plot::title(Self, String) -> Self
+pub fn Plot::to_html(Self) -> String raise @types.DataError
+pub fn Plot::to_json(Self) -> String raise @types.DataError
+pub fn Plot::width(Self, VegaExtent) -> Self
+pub fn Plot::write_html(Self, String) -> Unit raise @types.DataError
+pub fn Plot::write_json(Self, String) -> Unit raise @types.DataError
 
 #derive(Eq, @debug.Debug)
 pub struct VegaAggField {

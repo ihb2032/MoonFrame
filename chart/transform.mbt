@@ -58,12 +58,82 @@ fn vega_agg_field_emit_json(x : VegaAggField) -> Json {
 }
 
 ///|
-/// One windowed output: the operation, the input field, and the output name.
+/// A window-only operation, the schema's `WindowOnlyOp` — the ranking
+/// and offset functions that exist inside a window transform and
+/// nowhere else (`row_number`, `rank`, `lag`, …), one variant per
+/// value. Several take no input field, and `lag` / `lead` / `nth_value`
+/// take the schema's `param` offset (a `VegaWindowField`'s `param`).
+/// `pub(all)` so callers can name the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaWindowOnlyOp {
+  RowNumber
+  Rank
+  DenseRank
+  PercentRank
+  CumeDist
+  Ntile
+  Lag
+  Lead
+  FirstValue
+  LastValue
+  NthValue
+}
+
+///|
+pub extend VegaWindowOnlyOp with Eq::{equal, not_equal}
+
+///|
+pub extend VegaWindowOnlyOp with Debug::{to_repr}
+
+///|
+/// The schema's `WindowOnlyOp` string for a variant, one arm per
+/// variant — generated from the vendored schema's own enum list.
+fn window_only_op_string(op : VegaWindowOnlyOp) -> String {
+  match op {
+    RowNumber => "row_number"
+    Rank => "rank"
+    DenseRank => "dense_rank"
+    PercentRank => "percent_rank"
+    CumeDist => "cume_dist"
+    Ntile => "ntile"
+    Lag => "lag"
+    Lead => "lead"
+    FirstValue => "first_value"
+    LastValue => "last_value"
+    NthValue => "nth_value"
+  }
+}
+
+///|
+/// A windowed output's operation: an aggregate that runs over the
+/// window frame (`sum`, `mean`, …), or one of the window-only
+/// functions. The schema's `WindowFieldDef.op` is exactly this union —
+/// spelling it as one keeps a window-only verb reachable, which a bare
+/// `VegaAggregate` silently was not. `pub(all)` so callers can build
+/// the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaWindowFieldOp {
+  Aggregate(VegaAggregate)
+  WindowOnly(VegaWindowOnlyOp)
+}
+
+///|
+pub extend VegaWindowFieldOp with Eq::{equal, not_equal}
+
+///|
+pub extend VegaWindowFieldOp with Debug::{to_repr}
+
+///|
+/// One windowed output: the operation, the input field (absent for the
+/// field-less window functions — `rank`, `row_number`, and kin), the
+/// output name, and the window functions' numeric parameter (the `lag`
+/// / `lead` offset, the `nth_value` index, the `ntile` count).
 #derive(Eq, Debug)
 pub struct VegaWindowField {
-  op : VegaAggregate
+  op : VegaWindowFieldOp
   field : String?
   as_ : String
+  param : Double?
 }
 
 ///|
@@ -78,11 +148,12 @@ pub extend VegaWindowField with Debug::{to_repr}
 /// chart already built; read them back through their
 /// accessors, which copy again.
 pub fn VegaWindowField::VegaWindowField(
-  op~ : VegaAggregate,
+  op~ : VegaWindowFieldOp,
   as_~ : String,
   field? : String,
+  param? : Double,
 ) -> VegaWindowField {
-  { op, field, as_, }
+  { op, field, as_, param, }
 }
 
 ///|
@@ -92,7 +163,12 @@ fn vega_window_field_emit_json(x : VegaWindowField) -> Json {
   let obj : Map[String, Json] = Map([])
   {
     let v = x.op
-    obj["op"] = Json::string(aggregate_string(v))
+    obj["op"] = Json::string(
+      match v {
+        Aggregate(op) => aggregate_string(op)
+        WindowOnly(op) => window_only_op_string(op)
+      },
+    )
   }
   if x.field is Some(v) {
     obj["field"] = Json::string(escape_vega_field(v))
@@ -100,6 +176,9 @@ fn vega_window_field_emit_json(x : VegaWindowField) -> Json {
   {
     let v = x.as_
     obj["as"] = Json::string(v)
+  }
+  if x.param is Some(v) {
+    obj["param"] = Json::number(v)
   }
   Json::object(obj)
 }

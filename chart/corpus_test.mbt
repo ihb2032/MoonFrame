@@ -496,9 +496,23 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               @chart.VegaWindowTransform::VegaWindowTransform(
                 window=[
                   @chart.VegaWindowField::VegaWindowField(
-                    op=@chart.VegaAggregate::Sum,
+                    op=@chart.VegaWindowFieldOp::Aggregate(
+                      @chart.VegaAggregate::Sum,
+                    ),
                     field="val",
                     as_="running",
+                  ),
+                  // The window-only half of the op union: a field-less
+                  // rank, and a lag with its param offset.
+                  @chart.VegaWindowField::VegaWindowField(
+                    op=@chart.VegaWindowFieldOp::WindowOnly(Rank),
+                    as_="rank",
+                  ),
+                  @chart.VegaWindowField::VegaWindowField(
+                    op=@chart.VegaWindowFieldOp::WindowOnly(Lag),
+                    field="val",
+                    as_="previous",
+                    param=1,
                   ),
                 ],
                 sort=[

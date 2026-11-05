@@ -2501,14 +2501,42 @@ pub fn VegaViewConfig::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaWindowField {
-  op : VegaAggregate
+  op : VegaWindowFieldOp
   field : String?
   as_ : String
+  param : Double?
 }
-pub fn VegaWindowField::VegaWindowField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self
+pub fn VegaWindowField::VegaWindowField(op~ : VegaWindowFieldOp, as_~ : String, field? : String, param? : Double) -> Self
 pub fn VegaWindowField::equal(Self, Self) -> Bool
 pub fn VegaWindowField::not_equal(Self, Self) -> Bool
 pub fn VegaWindowField::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaWindowFieldOp {
+  Aggregate(VegaAggregate)
+  WindowOnly(VegaWindowOnlyOp)
+}
+pub fn VegaWindowFieldOp::equal(Self, Self) -> Bool
+pub fn VegaWindowFieldOp::not_equal(Self, Self) -> Bool
+pub fn VegaWindowFieldOp::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaWindowOnlyOp {
+  RowNumber
+  Rank
+  DenseRank
+  PercentRank
+  CumeDist
+  Ntile
+  Lag
+  Lead
+  FirstValue
+  LastValue
+  NthValue
+}
+pub fn VegaWindowOnlyOp::equal(Self, Self) -> Bool
+pub fn VegaWindowOnlyOp::not_equal(Self, Self) -> Bool
+pub fn VegaWindowOnlyOp::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub struct VegaWindowTransform {

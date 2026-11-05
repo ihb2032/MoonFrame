@@ -416,7 +416,9 @@ test "VegaWindowTransform emits its every property under its schema keys" {
           @chart.VegaWindowTransform::VegaWindowTransform(
             window=[
               @chart.VegaWindowField::VegaWindowField(
-                op=@chart.VegaAggregate::Sum,
+                op=@chart.VegaWindowFieldOp::Aggregate(
+                  @chart.VegaAggregate::Sum,
+                ),
                 field="val",
                 as_="running",
               ),
@@ -435,6 +437,71 @@ test "VegaWindowTransform emits its every property under its schema keys" {
       ]),
     ),
     "[{\"window\":[{\"op\":\"sum\",\"field\":\"val\",\"as\":\"running\"}],\"groupby\":[\"grp\"],\"sort\":[{\"field\":\"ts\",\"order\":\"ascending\"}],\"frame\":[null,0],\"ignorePeers\":true}]",
+  )
+}
+
+///|
+test "each window-only op emits the schema's own string" {
+  // The schema's WindowOnlyOp list, one line per variant with the exact
+  // string it must emit — the same table shape the aggregate table
+  // uses, so a variant and its spelling live one line apart.
+  let table : Array[(@chart.VegaWindowOnlyOp, String)] = [
+    (RowNumber, "row_number"),
+    (Rank, "rank"),
+    (DenseRank, "dense_rank"),
+    (PercentRank, "percent_rank"),
+    (CumeDist, "cume_dist"),
+    (Ntile, "ntile"),
+    (Lag, "lag"),
+    (Lead, "lead"),
+    (FirstValue, "first_value"),
+    (LastValue, "last_value"),
+    (NthValue, "nth_value"),
+  ]
+  for entry in table {
+    let (op, expected) = entry
+    assert_eq(
+      transform_array(
+        with_transforms([
+          @chart.VegaTransform::Window(
+            @chart.VegaWindowTransform::VegaWindowTransform(window=[
+              @chart.VegaWindowField::VegaWindowField(
+                op=@chart.VegaWindowFieldOp::WindowOnly(op),
+                as_="out",
+              ),
+            ]),
+          ),
+        ]),
+      ),
+      "[{\"window\":[{\"op\":\"" + expected + "\",\"as\":\"out\"}]}]",
+    )
+  }
+}
+
+///|
+test "a window field carries the window functions' numeric parameter" {
+  // lag / lead / nth_value take a param (the offset or the index), and
+  // the field-less forms (rank and kin) carry no field key.
+  assert_eq(
+    transform_array(
+      with_transforms([
+        @chart.VegaTransform::Window(
+          @chart.VegaWindowTransform::VegaWindowTransform(window=[
+            @chart.VegaWindowField::VegaWindowField(
+              op=@chart.VegaWindowFieldOp::WindowOnly(Lag),
+              field="val",
+              as_="previous",
+              param=1,
+            ),
+            @chart.VegaWindowField::VegaWindowField(
+              op=@chart.VegaWindowFieldOp::WindowOnly(Rank),
+              as_="rank",
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    "[{\"window\":[{\"op\":\"lag\",\"field\":\"val\",\"as\":\"previous\",\"param\":1},{\"op\":\"rank\",\"as\":\"rank\"}]}]",
   )
 }
 

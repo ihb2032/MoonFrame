@@ -481,6 +481,7 @@ fn decode_column(
     let mut encoding = 0
     let mut v2 = false
     let mut def_len = 0
+    let mut rep_len = 0
     let mut last = 0
     for ;; {
       let h = match r.field_header(last) {
@@ -583,7 +584,6 @@ fn decode_column(
           // repetition_levels_byte_length (6), is_compressed (7).
           v2 = true
           let mut inner_last = 0
-          let mut rep_len = 0
           for ;; {
             let hi = match r.field_header(inner_last) {
               Some(h) => h
@@ -620,7 +620,6 @@ fn decode_column(
                 }
             }
           }
-          ignore(rep_len)
         }
         _ => if !r.skip(h.wire) { raise bad("a page header is malformed") }
       }
@@ -648,17 +647,27 @@ fn decode_column(
       )
     }
     // The body's values ride the codec. V1 compresses levels and
-    // values together; V2 keeps the level bytes raw at the page head
-    // and compresses only the values after them (the flat schema's
-    // repetition levels are zero-width, so the head is `def_len` bytes
-    // long) — the codec's input is the values alone, and what it yields
-    // is values from byte zero. Sending a V2 page's head through the
-    // decompressor would reject every foreign V2 file.
+    // values together; V2 keeps both level runs raw at the page head —
+    // `rep_len` bytes of repetition levels, then `def_len` bytes of
+    // definition levels, never compressed — and compresses only the
+    // values after them, so the codec's input is the values alone and
+    // what it yields is values from byte zero. Sending a V2 page's head
+    // through the decompressor would reject every foreign V2 file. The
+    // bounds are subtraction forms throughout (`compressed_size` is
+    // already known non-negative and `def_len` no greater than it), so a
+    // hostile level length cannot wrap the sum back inside.
     let values_input = if v2 {
-      if def_len < 0 || def_len > compressed_size {
+      if def_len < 0 ||
+        rep_len < 0 ||
+        def_len > compressed_size ||
+        rep_len > compressed_size - def_len {
         raise bad("a V2 page's levels leave its body")
       }
-      slice(chunk_bytes, body_in_chunk + def_len, compressed_size - def_len)
+      slice(
+        chunk_bytes,
+        body_in_chunk + rep_len + def_len,
+        compressed_size - rep_len - def_len,
+      )
     } else {
       slice(chunk_bytes, body_in_chunk, compressed_size)
     }
@@ -695,10 +704,12 @@ fn decode_column(
     // version writes a level section: the body is values from byte zero
     // and every cell is present. V1 otherwise reads RLE-coded levels at
     // width 1 from the body's head — the decoder's own output array is
-    // the level array, no second allocation. V2 keeps the levels raw at
-    // the page head (one bit per cell, outside the compression); the
-    // slice above already lifted the head off the codec input, so the
-    // body is values from byte zero under every codec.
+    // the level array, no second allocation. V2 carries its levels as
+    // an RLE / bit-packed hybrid stream at the column's own def-level
+    // bit width (1 under the flat schema's OPTIONAL leaves), raw at the
+    // page head with no length prefix — the header's
+    // definition_levels_byte_length names the run's size, and the flat
+    // schema's zero repetition width puts the definition run first.
     let (page_defs, values_at) = if column.required {
       (Array::makei(num_values, _ => 1), 0)
     } else if !v2 {
@@ -708,14 +719,15 @@ fn decode_column(
       }
       (decoded, consumed)
     } else {
-      let level_bytes = slice(chunk_bytes, body_in_chunk, def_len)
-      let defs : Array[Int32] = Array::makei(num_values, _ => 1)
-      for i in 0..<num_values {
-        if i / 8 < level_bytes.length() {
-          defs[i] = (level_bytes[i / 8].to_int() >> (i % 8)) & 1
-        }
+      match
+        rle_decode(
+          slice(chunk_bytes, body_in_chunk + rep_len, def_len),
+          num_values,
+          1,
+        ) {
+        Some((decoded, _)) => (decoded, 0)
+        None => raise bad("definition levels do not decode")
       }
-      (defs, 0)
     }
     let value_bytes = slice(body, values_at, body.length() - values_at)
     if page_type != 0 {

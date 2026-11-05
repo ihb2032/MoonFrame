@@ -584,12 +584,10 @@ test "PLAIN payloads shorter than num_values refuse per dtype" {
 }
 
 ///|
-test "a V2 page whose def levels run past the chunk clamps" {
-  // def_len far past the page: the level slice clamps to what is there
-  // (the arm under test), every present default stands — and the values,
-  // sought after a hundred level bytes that do not exist, find nothing
-  // and refuse. The clamp keeps the read safe; the refusal is the
-  // honest answer.
+test "a V2 page whose def levels run past the chunk refuses at the bound" {
+  // def_len far past the page: the level lengths are checked against
+  // the page's own compressed size before any slice happens, so a
+  // hostile length names its refusal instead of reading past the body.
   let body : Array[Byte] = [(0x01).to_byte()]
   push_le_i64(body, 7L)
   let header = v2_page_header(1, 0, 100, body.length())

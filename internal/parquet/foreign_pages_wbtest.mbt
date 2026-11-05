@@ -229,11 +229,13 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
 }
 
 ///|
-test "a foreign V2 data page reads its bit-packed levels" {
-  // V2: the def levels are raw bit-packed bytes (three present cells
-  // = bits 111 → 0x07), then the PLAIN values. The body handed to the
-  // reader is levels-then-values; the header names def_len = 1.
-  let body : Array[Byte] = [(0x07).to_byte()]
+test "a foreign V2 data page reads its RLE definition levels" {
+  // V2 levels are an RLE / bit-packed hybrid stream at the column's
+  // def-level bit width (1 here), carried raw at the page head with no
+  // length prefix — the header's definition_levels_byte_length names
+  // the run's size. One RLE run of three ones: the varint header
+  // `3 << 1` (low bit 0 = RLE run), then the width-1 value byte 0x01.
+  let body : Array[Byte] = [(0x06).to_byte(), (0x01).to_byte()]
   push_le_i64(body, 7L)
   push_le_i64(body, 8L)
   push_le_i64(body, 9L)
@@ -249,7 +251,7 @@ test "a foreign V2 data page reads its bit-packed levels" {
         dictionary_page: false,
         v2: true,
         num_values: 3,
-        def_len: 1,
+        def_len: 2,
       },
     ],
   })
@@ -258,6 +260,35 @@ test "a foreign V2 data page reads its bit-packed levels" {
     @types.Scalar::Int(7),
     @types.Scalar::Int(8),
     @types.Scalar::Int(9),
+  ])
+  // The same page with its levels in the bit-packed spelling: the
+  // varint header `(1 << 1) | 1` (one group of eight slots), then one
+  // byte whose low bits are the levels 1, 0, 1 (the tail slots pad with
+  // zeros the count never reads) — a present, a null, a present.
+  let packed : Array[Byte] = [(0x03).to_byte(), (0x05).to_byte()]
+  push_le_i64(packed, 7L)
+  push_le_i64(packed, 8L)
+  let packed_file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: packed,
+        encoding: 0,
+        dictionary_page: false,
+        v2: true,
+        num_values: 3,
+        def_len: 2,
+      },
+    ],
+  })
+  let packed_read = read_parquet_columns(packed_file, None)
+  assert_eq(packed_read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Null,
+    @types.Scalar::Int(8),
   ])
 }
 
@@ -445,6 +476,30 @@ test "page-body refusals name their column" {
     e => Err(e)
   }
   assert_true(bad_result is Err(_))
+  // The same refusal on a V2 page: the level run names three values in
+  // its header but carries no value byte — the raw level stream is
+  // truncated mid-run.
+  let v2_bad : Array[Byte] = [(0x06).to_byte()]
+  let v2_bad_file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: v2_bad,
+        encoding: 0,
+        dictionary_page: false,
+        v2: true,
+        num_values: 2,
+        def_len: 1,
+      },
+    ],
+  })
+  let v2_bad_result = Ok(ignore(read_parquet_columns(v2_bad_file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(v2_bad_result is Err(_))
   // A non-UTF-8 BYTE_ARRAY cell under the UTF8 annotation: the payload
   // carries a lone 0xFF byte.
   let raw : Array[Byte] = plain_defs(1)

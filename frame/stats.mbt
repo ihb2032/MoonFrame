@@ -111,6 +111,12 @@ pub fn DataFrame::max(self : DataFrame) -> DataFrame raise @types.DataError {
 /// Non-null cell count of every column as a 1-row `Int` `DataFrame` — the
 /// row-oriented counterpart of the column-oriented `null_count`. Total over
 /// every dtype (no numeric restriction).
+///
+/// The `raise` is forwarded by the shared driver (`reduce_to_row`) and
+/// never taken under `Count`: the driver's one real raise is the `Decimal`
+/// `sum` overflow, which `Count` does not reach, and its `from_parts` call
+/// cannot fire (the output names are `self`'s, already unique, and every
+/// output column has length 1).
 pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Count)
 }

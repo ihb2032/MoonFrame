@@ -25,9 +25,14 @@
 /// cache verbatim (the same same-schema rebuild `head` / `tail` / `reverse`
 /// use) rather than re-deriving them through `DataFrame::DataFrame`.
 ///
-/// `raise`-typed because `Series::fill_null` is, but the compatibility gate
-/// means it is only ever called on a column it cannot fail on (a matching
-/// non-null value), so no error is actually produced here.
+/// `raise`-typed because `Series::fill_null` is. The compatibility gate
+/// rules out that verb's dtype refusals (the value is non-null and matches
+/// the column's dtype exactly), which leaves the one path that can still
+/// fire: filling a `String` column adds the fill value's bytes at every
+/// null slot (a null contributes none), so a fill on a column near the
+/// string layout's `2^31 - 1`-byte payload bound `raise`s
+/// `InvalidOperation` rather than wraps — the same bound `Series::drop_nulls`
+/// documents for its rebuild.
 pub fn DataFrame::fill_null(
   self : DataFrame,
   value : @types.Scalar,

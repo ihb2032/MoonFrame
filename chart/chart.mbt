@@ -122,6 +122,8 @@ pub struct ChartSpec {
   view : VegaViewBackground?
   priv transform : Array[VegaTransform]?
   priv params : Array[VegaParam]?
+  config : VegaConfig?
+  usermeta : Json?
 }
 
 ///|
@@ -207,6 +209,8 @@ fn empty_channel_spec(kind : ChartKind) -> ChartSpec {
     view: None,
     transform: None,
     params: None,
+    config: None,
+    usermeta: None,
   }
 }
 
@@ -895,6 +899,8 @@ pub fn ChartSpec::of(
   view? : VegaViewBackground,
   transform? : Array[VegaTransform],
   params? : Array[VegaParam],
+  config? : VegaConfig,
+  usermeta? : Json,
 ) -> ChartSpec {
   {
     ..empty_channel_spec(kind),
@@ -954,6 +960,8 @@ pub fn ChartSpec::of(
       Some(ps) => Some(ps.copy())
       None => None
     },
+    config,
+    usermeta,
   }
 }
 
@@ -1358,6 +1366,12 @@ fn unit_emit(
   }
   if spec.params is Some(params) {
     obj["params"] = vega_params_emit_json(params)
+  }
+  if spec.config is Some(config) {
+    obj["config"] = vega_config_emit_json(config)
+  }
+  if spec.usermeta is Some(usermeta) {
+    obj["usermeta"] = usermeta
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))

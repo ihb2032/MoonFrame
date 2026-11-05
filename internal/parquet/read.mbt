@@ -636,12 +636,15 @@ fn decode_column(
       raise bad("a page body leaves the chunk")
     }
     at = at + body_in_chunk + compressed_size
-    // A page cannot name more values than the chunk still owes: the
-    // count sizes every per-value allocation below, so it is checked
-    // against the chunk's own total before anything is built by it —
-    // a page header claiming two billion values in a three-row chunk
-    // refuses here instead of allocating the array it names.
-    if num_values < 0 || produced + num_values.to_int64() > total {
+    // A data page cannot name more values than the chunk still owes:
+    // the count sizes every per-value allocation below, so it is checked
+    // against the chunk's own total before anything is built by it — a
+    // page header claiming two billion values in a three-row chunk
+    // refuses here instead of allocating the array it names. A
+    // dictionary page's count names its entries, not frame rows, so it
+    // stands outside the check and outside `produced`.
+    if page_type != 2 &&
+      (num_values < 0 || produced + num_values.to_int64() > total) {
       raise bad(
         "a page of column \"\{chunk.name}\" claims \{num_values} values past its chunk",
       )
@@ -689,7 +692,9 @@ fn decode_column(
     }
     // A dictionary page's body is the PLAIN value set itself — no
     // levels, no indices — so it is handled before the level decoding
-    // the data pages carry.
+    // the data pages carry. It owes the chunk no rows: the chunk's
+    // num_values counts the data pages' cells alone, so the walk's
+    // produced total does not move here.
     if page_type == 2 {
       dictionary = decode_plain_values(
         body,
@@ -697,7 +702,6 @@ fn decode_column(
         dictionary_capacity(body, map),
         chunk.name,
       )
-      produced = produced + num_values.to_int64()
       continue
     }
     // A REQUIRED column's max definition level is 0, so neither page

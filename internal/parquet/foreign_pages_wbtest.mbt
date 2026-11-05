@@ -31,7 +31,10 @@ priv struct ForeignSpec {
 
 ///|
 fn foreign_file(spec : ForeignSpec) -> Bytes {
-  // The page headers and bodies, in order.
+  // The page headers and bodies, in order. A dictionary page carries
+  // only the DictionaryPageHeader — its num_values names the value set's
+  // entries — and the footer's chunk num_values counts the data pages'
+  // cells alone, exactly the shape a foreign writer spells.
   let pages_bytes : Array[Byte] = []
   let mut total_size = 0L
   let mut total_values = 0L
@@ -40,7 +43,12 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
     pw.i32_field(1, if page.dictionary_page { 2 } else { 0 })
     pw.i32_field(2, page.body.length())
     pw.i32_field(3, page.body.length())
-    if page.v2 {
+    if page.dictionary_page {
+      pw.struct_field_begin(7)
+      pw.i32_field(1, 0) // the value set rides PLAIN
+      pw.i32_field(2, page.num_values)
+      pw.struct_end()
+    } else if page.v2 {
       pw.struct_field_begin(8)
       pw.i32_field(1, page.num_values)
       pw.i32_field(2, 0)
@@ -68,7 +76,9 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
     }
     total_size = total_size +
       (page.body.length() + page_header.length()).to_int64()
-    total_values = total_values + page.num_values.to_int64()
+    if !page.dictionary_page {
+      total_values = total_values + page.num_values.to_int64()
+    }
   }
   let w = thrift_writer()
   w.i32_field(1, 1)
@@ -233,6 +243,67 @@ test "a foreign RLE_DICTIONARY file reads through the value set" {
     e => Err(e)
   }
   assert_true(result is Err(_))
+}
+
+///|
+test "a dictionary chunk with two data pages reads every page's rows" {
+  // The chunk's num_values counts the data pages' cells alone — a
+  // dictionary page's own count names its entries, not frame rows — so
+  // a dictionary page ahead of two data pages neither advances the
+  // walk's produced total nor eats into the chunk's own count.
+  let dict_body : Array[Byte] = []
+  push_le_i64(dict_body, 10L)
+  push_le_i64(dict_body, 20L)
+  // First data page: two present cells, both index 0 — the index
+  // stream is width byte 1, then an RLE run of two index-0 (header
+  // `2 << 1`, value 0).
+  let first : Array[Byte] = plain_defs(2)
+  first.push((0x01).to_byte())
+  first.push((0x04).to_byte())
+  first.push(b'\x00')
+  // Second data page: one present cell, index 1 — an RLE run of one.
+  let second : Array[Byte] = plain_defs(1)
+  second.push((0x01).to_byte())
+  second.push((0x02).to_byte())
+  second.push(b'\x01')
+  let file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: dict_body,
+        encoding: 0,
+        dictionary_page: true,
+        v2: false,
+        num_values: 2,
+        def_len: 0,
+      },
+      {
+        body: first,
+        encoding: 2,
+        dictionary_page: false,
+        v2: false,
+        num_values: 2,
+        def_len: 0,
+      },
+      {
+        body: second,
+        encoding: 2,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+      },
+    ],
+  })
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(20),
+  ])
 }
 
 ///|

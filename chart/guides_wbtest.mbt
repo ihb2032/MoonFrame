@@ -345,3 +345,62 @@ test "each VegaOrient variant emits the schema's own string" {
     assert_eq(vega_orient_string(v), expected)
   }
 }
+
+///|
+test "each VegaInterpolateParamType variant emits the schema's own string" {
+  let cases = [
+    (VegaInterpolateParamType::Rgb, "rgb"),
+    (VegaInterpolateParamType::Cubehelix, "cubehelix"),
+    (VegaInterpolateParamType::Cubehelix_long, "cubehelix-long"),
+  ]
+  for c in cases {
+    let (v, expected) = c
+    assert_eq(vega_interpolate_param_type_string(v), expected)
+  }
+}
+
+///|
+test "each VegaMarkInterpolate variant emits the schema's own string" {
+  let cases = [
+    (VegaMarkInterpolate::Basis, "basis"),
+    (VegaMarkInterpolate::BasisOpen, "basis-open"),
+    (VegaMarkInterpolate::BasisClosed, "basis-closed"),
+    (VegaMarkInterpolate::Bundle, "bundle"),
+    (VegaMarkInterpolate::Cardinal, "cardinal"),
+    (VegaMarkInterpolate::CardinalOpen, "cardinal-open"),
+    (VegaMarkInterpolate::CardinalClosed, "cardinal-closed"),
+    (VegaMarkInterpolate::CatmullRom, "catmull-rom"),
+    (VegaMarkInterpolate::Linear, "linear"),
+    (VegaMarkInterpolate::LinearClosed, "linear-closed"),
+    (VegaMarkInterpolate::Monotone, "monotone"),
+    (VegaMarkInterpolate::Natural, "natural"),
+    (VegaMarkInterpolate::Step, "step"),
+    (VegaMarkInterpolate::StepBefore, "step-before"),
+    (VegaMarkInterpolate::StepAfter, "step-after"),
+  ]
+  for c in cases {
+    let (v, expected) = c
+    assert_eq(vega_mark_interpolate_string(v), expected)
+  }
+}
+
+///|
+test "each VegaWindowOnlyOp variant emits the schema's own string" {
+  let cases = [
+    (VegaWindowOnlyOp::RowNumber, "row_number"),
+    (VegaWindowOnlyOp::Rank, "rank"),
+    (VegaWindowOnlyOp::DenseRank, "dense_rank"),
+    (VegaWindowOnlyOp::PercentRank, "percent_rank"),
+    (VegaWindowOnlyOp::CumeDist, "cume_dist"),
+    (VegaWindowOnlyOp::Ntile, "ntile"),
+    (VegaWindowOnlyOp::Lag, "lag"),
+    (VegaWindowOnlyOp::Lead, "lead"),
+    (VegaWindowOnlyOp::FirstValue, "first_value"),
+    (VegaWindowOnlyOp::LastValue, "last_value"),
+    (VegaWindowOnlyOp::NthValue, "nth_value"),
+  ]
+  for c in cases {
+    let (v, expected) = c
+    assert_eq(window_only_op_string(v), expected)
+  }
+}

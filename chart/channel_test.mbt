@@ -858,4 +858,19 @@ test "a position channel constant must be a number or width / height" {
     e => Err(e)
   }
   assert_true(refused is Err(@types.DataError::InvalidOperation(_)))
+  // And so does a non-string, non-number JSON value.
+  let refused_too = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.constant(Json::boolean(true)),
+          @chart.field("val"),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_too is Err(@types.DataError::InvalidOperation(_)))
 }

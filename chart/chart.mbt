@@ -1049,9 +1049,11 @@ fn chart_data_values(
         }
       }
       for r in 0..<records.length() {
-        match records[r] {
-          Object(obj) => obj[col] = micros[r]
-          _ => ()
+        // The records walk yields objects only; the `is` keeps the
+        // patch total without inventing a fallback for a shape that
+        // cannot occur.
+        if records[r] is Object(obj) {
+          obj[col] = micros[r]
         }
       }
     }

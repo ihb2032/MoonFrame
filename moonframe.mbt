@@ -29,8 +29,8 @@
 // `ChartSpec` / `VegaChannel` and its `VegaType` / `VegaAggregate` /
 // `VegaSort`, …) plus every free function a caller reaches by name — the
 // expression constructors, the frame's column selectors, the io layer's
-// file-level readers and writers, the chart's channel builder and its
-// spec / HTML export, and the lazy
+// file-level readers and writers, the chart's channel builder, its
+// spec / HTML export, and the plot entry, plus the lazy
 // layer's file sources. (The chart package keeps a second, deliberate
 // surface off this facade: the deep Vega mirror family — the
 // spec-object trees behind `@chart.VegaSides` and its kin — is reached
@@ -62,8 +62,10 @@
 // construct it (`Scalar::Int`, `HtmlOptions::HtmlOptions`), annotate it
 // (`Array[Expr]`, `let df : DataFrame`), or match its variants. The
 // fluent-chain intermediates are deliberately NOT re-exported: `WhenThen` /
-// `WhenThenElse` (threaded through `when(c).then(a).otherwise(b)`) and
-// `GroupedDataFrame` / `LazyGroupBy` (through `group_by(k).agg(e)`). Reaching
+// `WhenThenElse` (threaded through `when(c).then(a).otherwise(b)`),
+// `GroupedDataFrame` / `LazyGroupBy` (through `group_by(k).agg(e)`), and the
+// chart's `FramePlot` / `Plot` (through `plot(df).bar(x=, y=)` and the
+// refinement chain off the mark). Reaching
 // the library through this facade never requires naming one — a caller chains
 // a method off the previous step's return value, and dot-method resolution
 // follows that value's own type, so the chain compiles cross-module without
@@ -173,6 +175,7 @@ pub using @chart {
   field,
   format_vega_html,
   format_vega_lite,
+  plot,
   write_vega_html,
   write_vega_lite,
 }

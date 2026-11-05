@@ -113,6 +113,12 @@ libraries — not a derivative work of either codebase.
 
 Where MoonFrame knowingly does something else than Polars.
 
+- **The chart export has no Polars counterpart.** Polars ships no plotting
+  surface (it defers to other libraries); MoonFrame carries one — the
+  frame-first `plot(df).bar(x="region", y="revenue").write_html("out.html")`
+  chain (the nearest analogue elsewhere is pandas' `df.plot.bar(x=, y=)`),
+  over a typed mirror of Vega-Lite v6 whose facts live in the vendored
+  schema.
 - **A CSV header of all-empty names raises.** `",,"` as a header row is
   `DuplicateColumn("")` — the empty name repeats. Polars instead
   disambiguates repeated header names (`_duplicated_0` suffixes) and

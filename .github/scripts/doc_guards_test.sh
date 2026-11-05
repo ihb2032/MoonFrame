@@ -569,8 +569,15 @@ fs_chart_mbti="$(
   printf '%s\n' 'pub fn datum(Json) -> VegaChannel'
   printf '%s\n' 'pub fn format_vega_html(String) -> String'
   printf '%s\n' 'pub fn format_vega_lite(String) -> String'
+  printf '%s\n' 'pub fn plot(String) -> FramePlot'
   printf '%s\n' 'pub fn write_vega_html(String) -> Unit'
   printf '%s\n' 'pub fn write_vega_lite(String) -> Unit'
+  printf '%s\n' 'pub struct FramePlot {
+  // private fields
+}'
+  printf '%s\n' 'pub struct Plot {
+  // private fields
+}'
   printf '%s\n' 'pub struct VegaScale {
   // private fields
 }'
@@ -580,7 +587,7 @@ fs_chart_mbti="$(
 fs_chart_root="$fs_root
 $(for t in $fs_chart_types; do printf 'pub using @chart {type %s}\n' "$t"; done)"
 fs_chart_facade="$fs_chart_root
-$(for fn in field constant datum format_vega_html format_vega_lite write_vega_html write_vega_lite; do printf 'pub using @chart {%s}\n' "$fn"; done)"
+$(for fn in field constant datum format_vega_html format_vega_lite plot write_vega_html write_vega_lite; do printf 'pub using @chart {%s}\n' "$fn"; done)"
 fs_chart_snap="$( {
     printf '%s\n' "$fs_snap"
     for t in $fs_chart_types; do printf 'type %s <- chart\n' "$t"; done
@@ -589,8 +596,11 @@ fs_chart_snap="$( {
       'fn datum(Json) -> VegaChannel <- chart' \
       'fn format_vega_html(String) -> String <- chart' \
       'fn format_vega_lite(String) -> String <- chart' \
+      'fn plot(String) -> FramePlot <- chart' \
       'fn write_vega_html(String) -> Unit <- chart' \
       'fn write_vega_lite(String) -> Unit <- chart' \
+      'qualified FramePlot <- chart' \
+      'qualified Plot <- chart' \
       'qualified VegaScale <- chart' \
       'method VegaScale::log(Self) -> Self <- chart' \
       'fn scale_key(String) -> Int <- chart'

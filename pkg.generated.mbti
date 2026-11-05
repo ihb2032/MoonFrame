@@ -43,6 +43,8 @@ pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @t
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn plot(@frame.DataFrame) -> @chart.FramePlot
+
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError

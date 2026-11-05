@@ -878,6 +878,8 @@ fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTi
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
 fn format_json(@frame.DataFrame) -> String <- io
 fn format_ndjson(@frame.DataFrame) -> String <- io
+fn format_vega_html(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError <- root
+fn format_vega_html(@frame.DataFrame, Chart) -> String raise @types.DataError <- chart
 fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError <- root
 fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError <- chart
 fn lit(@types.Scalar) -> @expr.Expr <- root
@@ -925,6 +927,8 @@ fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec) -> Unit raise @types.DataError <- io
+fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
+fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 impl @debug.Debug for Expr <- expr

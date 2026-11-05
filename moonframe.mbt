@@ -29,8 +29,8 @@
 // `ChartSpec` / `VegaChannel` and its `VegaType` / `VegaAggregate` /
 // `VegaSort`, …) plus every free function a caller reaches by name — the
 // expression constructors, the frame's column selectors, the io layer's
-// file-level readers and writers, the chart's channel builder and spec
-// export, and the lazy
+// file-level readers and writers, the chart's channel builder and its
+// spec / HTML export, and the lazy
 // layer's file sources. (The chart package keeps a second, deliberate
 // surface off this facade: the deep Vega mirror family — the
 // spec-object trees behind `@chart.VegaSides` and its kin — is reached
@@ -171,7 +171,9 @@ pub using @chart {
   constant,
   datum,
   field,
+  format_vega_html,
   format_vega_lite,
+  write_vega_html,
   write_vega_lite,
 }
 

@@ -192,6 +192,17 @@ What has landed on `main`:
   decode even when the projection above drops them, the same key-column
   contract the text scans' pruner honours, so a filtered select or a
   filtered group-by collects to exactly its eager spelling.
+- The chart export gains a browser page: `format_vega_html` /
+  `write_vega_html` wrap the specification `format_vega_lite` emits in a
+  standalone HTML document that loads the Vega runtime from three pinned
+  CDN scripts (vega@6.4.0 / vega-lite@6.5.0 / vega-embed@7.3.0) and
+  hands the embedded spec to `vegaEmbed` — opening the file renders the
+  interactive chart, with vega-embed's action links for SVG / PNG
+  export. The channel contract is the spec emitter's (`ColumnNotFound`
+  for a column absent from the frame), and the embedded JSON rewrites
+  every literal `<` to its `\u003c` escape (the U+2028 / U+2029 line
+  separators likewise), so chart data cannot close the host `<script>`
+  element early.
 
 ## v0.8.0 → v0.8.1
 

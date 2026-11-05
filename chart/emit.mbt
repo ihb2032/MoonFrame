@@ -15,24 +15,28 @@ fn channel_dtype(
   df : @frame.DataFrame,
   channel : VegaChannel,
 ) -> @types.DataType? raise @types.DataError {
-  if channel.aggregate is Some(Count) || channel.field is None {
-    None
-  } else {
-    Some(df.get_column(channel.field.unwrap()).dtype())
+  match (channel.aggregate, channel.field) {
+    (Some(Count), _) => None
+    (_, Some(name)) => Some(df.get_column(name).dtype())
+    (_, None) => None
   }
 }
 
 ///|
 /// Build one Vega-Lite encoding-channel object. A constant channel emits
 /// only its `value` (the schema's value definition carries no `type`; the
-/// `constant` builder sets nothing else). A datum channel emits its
-/// `datum`. A field channel emits `{"field": <name>, "type": <vega-type>}`
-/// plus its declared modifiers — `aggregate`, `bin`, `timeUnit`, `sort`,
-/// `stack`, `bandPosition`, `title`, `format` — each present only when
-/// set; a `Count` aggregate emits no `field` key (its aggregate tallies
-/// rows per group) and its ignored `field` never reaches the spec. The
-/// `type` follows the dtype→type rule — a numeric column (`Int` / `Float`
-/// / `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
+/// `constant` builder sets nothing else) — and on a position channel the
+/// value must be a number or the strings `"width"` / `"height"` (the
+/// schema's `PositionValueDef` allows nothing else), so any other JSON
+/// value raises `InvalidOperation` rather than emitting a constant the
+/// schema would reject. A datum channel emits its `datum`. A field
+/// channel emits `{"field": <name>, "type": <vega-type>}` plus its
+/// declared modifiers — `aggregate`, `bin`, `timeUnit`, `sort`, `stack`,
+/// `bandPosition`, `title`, `format` — each present only when set; a
+/// `Count` aggregate emits no `field` key (its aggregate tallies rows per
+/// group) and its ignored `field` never reaches the spec. The `type`
+/// follows the dtype→type rule — a numeric column (`Int` / `Float` /
+/// `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
 /// `"temporal"` (its ISO cells sort chronologically, and a temporal axis
 /// orders by time rather than by first appearance), every other dtype is
 /// `"nominal"` — unless the channel carries an explicit `type_override`;
@@ -43,9 +47,28 @@ fn encoding_channel(
   key : String,
   channel : VegaChannel,
   dtype : @types.DataType?,
-) -> Json {
+) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
   if channel.value is Some(value) {
+    if is_position_key(key) {
+      // The position value definition: a number, or the plot's own
+      // width / height by name — the schema's PositionValueDef allows
+      // nothing else, and a constant of any other shape is refused
+      // loudly rather than silently shipped.
+      match value {
+        Number(_, ..) => ()
+        String(s) =>
+          if s != "width" && s != "height" {
+            raise @types.DataError::InvalidOperation(
+              "a constant on the position channel \{key} must be a number or the string \"width\" / \"height\" (the schema's PositionValueDef allows nothing else)",
+            )
+          }
+        _ =>
+          raise @types.DataError::InvalidOperation(
+            "a constant on the position channel \{key} must be a number or the string \"width\" / \"height\" (the schema's PositionValueDef allows nothing else)",
+          )
+      }
+    }
     // The value definition: the constant itself, nothing else — the
     // `constant` builder sets no modifiers, and the schema's ValueDef
     // carries no `type`.
@@ -94,7 +117,9 @@ fn encoding_channel(
   if channel.legend is Some(legend) && allows_legend_key(key) {
     ch["legend"] = vega_legend_ref_emit_json(legend)
   }
-  if channel.condition is Some(condition) && !(channel.value is Some(_)) {
+  if channel.condition is Some(condition) &&
+    !(channel.value is Some(_)) &&
+    !is_secondary_key(key) {
     ch["condition"] = vega_condition_emit_json(condition)
   }
   if !is_secondary_key(key) {
@@ -107,10 +132,10 @@ fn encoding_channel(
 /// The secondary channels — the `2` / error forms that share their
 /// primary's scale (`x2`, `y2`, `theta2`, `radius2`, the four error
 /// channels, the far geo corners). The schema's field definition for one
-/// carries no `type` (the primary's scale decides it), no `sort`, no
-/// `format`, no `stack`; a modifier set on a secondary channel through a
-/// struct the builders cannot build is dropped here rather than emitted
-/// into a spec the schema would reject.
+/// (`SecondaryFieldDef`) carries no `type` (the primary's scale decides
+/// it), no `sort`, no `format`, no `stack`, and no `condition` — a
+/// modifier of those names set on a secondary channel is dropped here
+/// rather than emitted into a spec the schema would reject.
 fn is_secondary_key(key : String) -> Bool {
   key == "x2" ||
   key == "y2" ||
@@ -122,6 +147,22 @@ fn is_secondary_key(key : String) -> Bool {
   key == "yError2" ||
   key == "longitude2" ||
   key == "latitude2"
+}
+
+///|
+/// The position channels — the two primary positions, their far ends,
+/// and the polar pair — whose value definition is the schema's
+/// `PositionValueDef`: a number, or the plot's own `"width"` / `"height"`
+/// by name, and nothing else.
+fn is_position_key(key : String) -> Bool {
+  key == "x" ||
+  key == "y" ||
+  key == "x2" ||
+  key == "y2" ||
+  key == "theta" ||
+  key == "radius" ||
+  key == "theta2" ||
+  key == "radius2"
 }
 
 ///|

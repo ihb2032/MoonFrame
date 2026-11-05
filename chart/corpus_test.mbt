@@ -175,6 +175,7 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
           ]),
         ),
         y=@chart.field("val", stack=@chart.VegaStack::Normalize, format="d"),
+        y2=@chart.constant(Json::number(0)),
         color=@chart.constant(Json::string("steelblue")),
         size=@chart.datum(Json::number(60.0)),
       ),
@@ -212,6 +213,12 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
               clamp=true,
               zero=false,
               nice=@chart.VegaNice::Ticks(7),
+              interpolate=@chart.VegaInterpolate::Params(
+                @chart.VegaInterpolateParams::VegaInterpolateParams(
+                  type_=@chart.VegaInterpolateParamType::Cubehelix_long,
+                  gamma=0.5,
+                ),
+              ),
             ),
           ),
         ),
@@ -616,6 +623,7 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
             mark=@chart.VegaMarkStyle::VegaMarkStyle(
               color="steelblue",
               fill_opacity=0.8,
+              interpolate=@chart.VegaMarkInterpolate::Monotone,
             ),
             bar=@chart.VegaMarkStyle::VegaMarkStyle(bin_spacing=2),
             scale=@chart.VegaScaleConfig::VegaScaleConfig(clamp=true),

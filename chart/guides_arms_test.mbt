@@ -182,7 +182,7 @@ test "a scale carries every union form its properties accept" {
             @chart.VegaScale::VegaScale(
               interpolate=@chart.VegaInterpolate::Params(
                 @chart.VegaInterpolateParams::VegaInterpolateParams(
-                  type_=@chart.VegaInterpolateKind::Cubehelix,
+                  type_=@chart.VegaInterpolateParamType::Cubehelix,
                   gamma=0.5,
                 ),
               ),

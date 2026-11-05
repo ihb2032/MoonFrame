@@ -37,9 +37,13 @@ fn vega_legend_type_string(v : VegaLegendType) -> String {
 /// in full static form — discrete symbols or a continuous gradient, the
 /// gradient and symbol geometry, the label and title styling, the
 /// orientation (a side or a corner), explicit `values`, and a legend grid
-/// (columns, paddings, alignment). Every property is optional; unset ones
-/// fall to the runtime's defaults. The array-carrying ones (`symbol_dash`,
-/// `values`) are copied at construction and copied again on read.
+/// (columns, paddings, alignment). `symbol_type` stays a free `String`
+/// by the schema's own choice: its `SymbolShape` is an unenumerated
+/// string, because a custom SVG path (a path string, not a name) is a
+/// legal symbol — an enum here would reject what the format accepts.
+/// Every property is optional; unset ones fall to the runtime's
+/// defaults. The array-carrying ones (`symbol_dash`, `values`) are
+/// copied at construction and copied again on read.
 #derive(Eq, Debug)
 pub struct VegaLegend {
   aria : Bool?

@@ -457,6 +457,75 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
         ),
       ),
     ),
+    (
+      "params_brush.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Area,
+          x=@chart.field("ts"),
+          y=@chart.field("val"),
+          params=[
+            @chart.VegaParam::Selection(
+              @chart.VegaSelectionParam::VegaSelectionParam(
+                name="brush",
+                select=@chart.VegaSelect::Interval(
+                  @chart.VegaIntervalSelect::VegaIntervalSelect(
+                    encodings=["x"],
+                    mark=@chart.VegaBrush::VegaBrush(
+                      fill="#669eff",
+                      fill_opacity=0.2,
+                    ),
+                  ),
+                ),
+                bind=@chart.VegaBind::Range(
+                  @chart.VegaBindRange::VegaBindRange(min=0, max=100),
+                ),
+              ),
+            ),
+            @chart.VegaParam::Variable(
+              @chart.VegaVariableParam::VegaVariableParam(
+                name="cutoff",
+                value=Json::number(10),
+                bind=@chart.VegaBind::Checkbox(
+                  @chart.VegaBindCheckbox::VegaBindCheckbox(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    (
+      "params_condition.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Point,
+          x=@chart.field("val"),
+          y=@chart.field("val"),
+          color=@chart.field(
+            "grp",
+            condition=@chart.VegaCondition::When(
+              @chart.VegaPredicate::Expr("datum.val > 1"),
+              Json::string("orangered"),
+            ),
+          ),
+          params=[
+            @chart.VegaParam::Selection(
+              @chart.VegaSelectionParam::VegaSelectionParam(
+                name="picked",
+                select=@chart.VegaSelect::Point(
+                  @chart.VegaPointSelect::VegaPointSelect(
+                    on="click",
+                    fields=["cat"],
+                    nearest=true,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   ]
 }
 

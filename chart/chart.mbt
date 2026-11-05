@@ -121,6 +121,7 @@ pub struct ChartSpec {
   projection : VegaProjection?
   view : VegaViewBackground?
   priv transform : Array[VegaTransform]?
+  priv params : Array[VegaParam]?
 }
 
 ///|
@@ -128,6 +129,16 @@ pub extend ChartSpec with Eq::{equal, not_equal}
 
 ///|
 pub extend ChartSpec with Debug::{to_repr}
+
+///|
+/// The parameter declarations, copied — reading the field itself would
+/// hand the caller the array the spec holds.
+pub fn ChartSpec::params(self : ChartSpec) -> Array[VegaParam]? {
+  match self.params {
+    Some(ps) => Some(ps.copy())
+    None => None
+  }
+}
 
 ///|
 /// The transform pipeline, copied — reading the field itself would
@@ -195,6 +206,7 @@ fn empty_channel_spec(kind : ChartKind) -> ChartSpec {
     projection: None,
     view: None,
     transform: None,
+    params: None,
   }
 }
 
@@ -882,6 +894,7 @@ pub fn ChartSpec::of(
   projection? : VegaProjection,
   view? : VegaViewBackground,
   transform? : Array[VegaTransform],
+  params? : Array[VegaParam],
 ) -> ChartSpec {
   {
     ..empty_channel_spec(kind),
@@ -935,6 +948,10 @@ pub fn ChartSpec::of(
     view,
     transform: match transform {
       Some(ts) => Some(ts.copy())
+      None => None
+    },
+    params: match params {
+      Some(ps) => Some(ps.copy())
       None => None
     },
   }
@@ -1338,6 +1355,9 @@ fn unit_emit(
   }
   if spec.transform is Some(transforms) {
     obj["transform"] = vega_transforms_emit_json(transforms)
+  }
+  if spec.params is Some(params) {
+    obj["params"] = vega_params_emit_json(params)
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))

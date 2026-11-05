@@ -21,7 +21,7 @@ pub fn constant(@json.Json) -> @chart.VegaChannel
 
 pub fn datum(@json.Json) -> @chart.VegaChannel
 
-pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double, scale? : @chart.VegaScaleRef, axis? : @chart.VegaAxisRef, legend? : @chart.VegaLegendRef) -> @chart.VegaChannel
+pub fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double, scale? : @chart.VegaScaleRef, axis? : @chart.VegaAxisRef, legend? : @chart.VegaLegendRef, condition? : @chart.VegaCondition) -> @chart.VegaChannel
 
 pub fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError
 

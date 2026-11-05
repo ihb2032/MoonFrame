@@ -489,6 +489,7 @@ pub struct VegaChannel {
   scale : VegaScaleRef?
   axis : VegaAxisRef?
   legend : VegaLegendRef?
+  condition : VegaCondition?
   value : Json?
   datum : Json?
 }
@@ -521,6 +522,7 @@ pub fn field(
   scale? : VegaScaleRef,
   axis? : VegaAxisRef,
   legend? : VegaLegendRef,
+  condition? : VegaCondition,
 ) -> VegaChannel {
   {
     field: Some(name),
@@ -536,6 +538,7 @@ pub fn field(
     scale,
     axis,
     legend,
+    condition,
     value: None,
     datum: None,
   }
@@ -563,6 +566,7 @@ pub fn constant(value : Json) -> VegaChannel {
     scale: None,
     axis: None,
     legend: None,
+    condition: None,
     value: Some(value),
     datum: None,
   }
@@ -588,6 +592,7 @@ pub fn datum(value : Json) -> VegaChannel {
     scale: None,
     axis: None,
     legend: None,
+    condition: None,
     value: None,
     datum: Some(value),
   }
@@ -614,6 +619,7 @@ pub fn VegaChannel::count() -> VegaChannel {
     scale: None,
     axis: None,
     legend: None,
+    condition: None,
     value: None,
     datum: None,
   }

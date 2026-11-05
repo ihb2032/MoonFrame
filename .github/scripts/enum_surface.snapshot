@@ -150,6 +150,11 @@ VegaBaseline | enum | Top
 VegaBin | enum | Binned
 VegaBin | enum | On
 VegaBin | enum | Params(VegaBinParams)
+VegaBind | enum | Checkbox(VegaBindCheckbox)
+VegaBind | enum | Direct(VegaBindDirect)
+VegaBind | enum | Input(VegaBindInput)
+VegaBind | enum | RadioSelect(VegaBindRadioSelect)
+VegaBind | enum | Range(VegaBindRange)
 VegaBins | enum | Params(VegaBinsParams)
 VegaBins | enum | Values(Array[Double])
 VegaBounds | enum | Flush
@@ -165,6 +170,7 @@ VegaChannelSort | enum | ByField(String, VegaSort?)
 VegaChannelSort | enum | Descending
 VegaChannelSort | enum | Off
 VegaChannelSort | enum | Values(Array[@json.Json])
+VegaCondition | enum | When(VegaPredicate, @json.Json)
 VegaCursor | enum | Alias
 VegaCursor | enum | AllScroll
 VegaCursor | enum | Auto
@@ -264,6 +270,8 @@ VegaOrient | enum | Right
 VegaOrient | enum | Top
 VegaPadding | enum | Px(Int32)
 VegaPadding | enum | Sides(VegaSides)
+VegaParam | enum | Selection(VegaSelectionParam)
+VegaParam | enum | Variable(VegaVariableParam)
 VegaPredicate | enum | And(Array[VegaPredicate])
 VegaPredicate | enum | Equal(String, @json.Json, VegaTimeUnit?)
 VegaPredicate | enum | Expr(String)
@@ -329,6 +337,11 @@ VegaScaleType | enum | Time
 VegaScaleType | enum | Utc
 VegaScheme | enum | Name(String)
 VegaScheme | enum | Params(VegaSchemeParams)
+VegaSelect | enum | Interval(VegaIntervalSelect)
+VegaSelect | enum | Point(VegaPointSelect)
+VegaSelectionResolution | enum | Global
+VegaSelectionResolution | enum | Intersect
+VegaSelectionResolution | enum | Union
 VegaSort | enum | Ascending
 VegaSort | enum | Descending
 VegaSortChannel | enum | Color

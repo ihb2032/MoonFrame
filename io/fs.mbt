@@ -9,8 +9,10 @@
 //
 // The per-format suites and the surrogate-refusal corpus cover this shared
 // plumbing end to end (file-backed `read_csv` / `write_csv` / `write_json` /
-// `write_ndjson`); the output cap's own refusal needs the private
-// parameterised entry, so it lives in `fs_wbtest.mbt`.
+// `write_ndjson`); the output cap's own refusal fires only past a
+// production-sized expansion, which no end-to-end test should pay for, so
+// it is exercised through the private parameterised entry below with a
+// small cap instead.
 
 ///|
 /// Read a whole file as a string, mapping a file-system `IOError` to

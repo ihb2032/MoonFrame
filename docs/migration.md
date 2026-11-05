@@ -234,6 +234,13 @@ What has landed on `main`:
   every literal `<` to its `\u003c` escape (the U+2028 / U+2029 line
   separators likewise), so chart data cannot close the host `<script>`
   element early.
+- A `Decimal` cell at the negative extreme reads back: the pin's parser
+  accumulated the digits as a positive magnitude before negating, so
+  `Int64::MIN` — the one value whose magnitude exceeds `Int64::MAX` —
+  refused in every spelling the writer renders (`-9223372036854775808`
+  and its scaled forms), an error under the readers' `Raise` mode and a
+  silent null under `Null`. The digits now accumulate in the value's own
+  sign; every value outside the signed range still refuses.
 
 ## v0.8.0 → v0.8.1
 

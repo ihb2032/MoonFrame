@@ -88,10 +88,14 @@ pub fn parse_timestamp_micros_opt(s : String) -> Int64? {
 /// `unscaled x 10^-scale`); `None` for any other shape, for a `scale`
 /// outside the dtype's `[0, 18]` envelope, for a fraction carrying more
 /// digits than `scale` names (a precision the pin cannot hold exactly —
-/// truncating it would be a silent misreading), and for a magnitude whose
-/// digits leave `Int64`. A fraction with fewer digits than `scale` pads
-/// with zeros (`"1.5"` at scale 2 is `1.50`); a bare integer is the same
-/// padding applied to the whole fraction.
+/// truncating it would be a silent misreading), and for a value outside
+/// the signed `Int64` range. The digits accumulate in the value's own
+/// sign, so the negative extreme — `Int64::MIN`, whose magnitude runs one
+/// past `MAX` and could never be formed as a positive magnitude first —
+/// reads back in every spelling the writer gives it. A fraction with
+/// fewer digits than `scale` pads with zeros (`"1.5"` at scale 2 is
+/// `1.50`); a bare integer is the same padding applied to the whole
+/// fraction.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn parse_decimal_unscaled_opt(s : String, scale : Int32) -> Int64? {
@@ -106,7 +110,7 @@ pub fn parse_decimal_unscaled_opt(s : String, scale : Int32) -> Int64? {
   } else {
     false
   }
-  match scan_digit_run(s, i) {
+  match scan_digit_run(s, i, neg) {
     None => None
     Some((int_part, int_digits, after_int)) =>
       if int_digits == 0 {
@@ -118,10 +122,7 @@ pub fn parse_decimal_unscaled_opt(s : String, scale : Int32) -> Int64? {
             if end != n {
               None
             } else {
-              match express_at_scale(int_part, frac_part, frac_digits, scale) {
-                Some(unscaled) => Some(if neg { -unscaled } else { unscaled })
-                None => None
-              }
+              express_at_scale(int_part, frac_part, frac_digits, scale, neg)
             }
         }
       }
@@ -281,8 +282,14 @@ fn scan_fraction_tail(
 ///|
 /// `Some((value, digits, next))` for a maximal run of ASCII digits at
 /// `start` (an empty run allowed — the callers decide whether zero digits
-/// is their form), the value accumulated checked.
-fn scan_digit_run(s : String, start : Int32) -> (Int64, Int32, Int32)? {
+/// is their form), the value accumulated checked — in the run's own sign
+/// under `neg`, so the negative side reaches `Int64::MIN`, whose digits
+/// as a positive magnitude would run one past `MAX`.
+fn scan_digit_run(
+  s : String,
+  start : Int32,
+  neg : Bool,
+) -> (Int64, Int32, Int32)? {
   let n = s.length()
   let mut v = 0L
   let mut digits = 0
@@ -291,7 +298,7 @@ fn scan_digit_run(s : String, start : Int32) -> (Int64, Int32, Int32)? {
   while alive && i < n {
     match digit_at(s, i) {
       Some(d) =>
-        match checked_push(v, d) {
+        match checked_push(v, if neg { -d } else { d }) {
           Some(pushed) => {
             v = pushed
             i = i + 1
@@ -313,7 +320,9 @@ fn scan_digit_run(s : String, start : Int32) -> (Int64, Int32, Int32)? {
 /// The decimal scan's fraction half: when the character at `from` is a
 /// point, a run of one-or-more digits after it carrying at most `scale`
 /// digits (more is a precision the pin cannot hold); when it is not, no
-/// fraction at all. `next` is the index the whole form ends at.
+/// fraction at all. The run is a magnitude — scanned unsigned, whatever
+/// sign the whole form carries. `next` is the index the whole form ends
+/// at.
 fn scan_fraction(
   s : String,
   from : Int32,
@@ -323,7 +332,7 @@ fn scan_fraction(
   if from >= n || s[from] != '.' {
     return Some((0L, 0, from))
   }
-  match scan_digit_run(s, from + 1) {
+  match scan_digit_run(s, from + 1, false) {
     None => None
     Some((frac, digits, next)) =>
       if digits == 0 || digits > scale {
@@ -337,21 +346,26 @@ fn scan_fraction(
 ///|
 /// Express an `(integer part, fraction part at its own digit count)`
 /// pair at `scale`: the integer part shifts the full width, the fraction
-/// the digits it has, the gap zeros. The fraction carries at most
-/// `scale` ≤ 18 digits, so its shift lands below `10^18` — plain
-/// arithmetic, no check to need — while the integer part's shift and the
-/// sum can leave the range and are checked, so a magnitude that would
-/// wrap refuses instead.
+/// the digits it has, the gap zeros. The parts join in the value's sign —
+/// the integer part arrives from the signed scan, the fraction (a
+/// magnitude, always below `10^18`) takes its sign from `neg` — so the
+/// composition reaches the negative extreme a positive magnitude could
+/// not. The fraction carries at most `scale` ≤ 18 digits, so its shift
+/// lands below `10^18` — plain arithmetic, no check to need — while the
+/// integer part's shift and the sum can leave the range and are checked,
+/// so a value that would wrap refuses instead.
 fn express_at_scale(
   int_part : Int64,
   frac_part : Int64,
   frac_digits : Int32,
   scale : Int32,
+  neg : Bool,
 ) -> Int64? {
   let mut frac = frac_part
   for _ in frac_digits..<scale {
     frac = frac * 10L
   }
+  let signed_frac = if neg { -frac } else { frac }
   let mut whole = int_part
   for _ in 0..<scale {
     match checked_mul(whole, 10L) {
@@ -359,7 +373,7 @@ fn express_at_scale(
       None => return None
     }
   }
-  checked_add(whole, frac)
+  checked_add(whole, signed_frac)
 }
 
 ///|
@@ -388,11 +402,14 @@ fn digit_at(s : String, i : Int32) -> Int64? {
 }
 
 ///|
-/// The checked `Int64` push a digit run accumulates by — the same range
-/// tests the decimal dtype's own envelope rides, spelled here because the
-/// value-type package sits below the numeric package that owns the other
-/// copy. A `None` is the parser's refusal (a digit run whose value leaves
-/// `Int64`), never a wrap into a confidently wrong count.
+/// The checked `Int64` push a digit run accumulates by — the digit
+/// carrying its run's sign, so a negative run descends from zero and
+/// lands on `MIN` where the same digits climbed as positives would
+/// overflow — the same range tests the decimal dtype's own envelope
+/// rides, spelled here because the value-type package sits below the
+/// numeric package that owns the other copy. A `None` is the parser's
+/// refusal (a digit run whose value leaves `Int64`), never a wrap into a
+/// confidently wrong count.
 fn checked_push(v : Int64, d : Int64) -> Int64? {
   match checked_mul(v, 10L) {
     Some(t) => checked_add(t, d)

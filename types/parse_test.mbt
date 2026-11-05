@@ -137,10 +137,22 @@ test "parse_decimal_unscaled_opt reads the writer's form at the pin's scale" {
   assert_eq(@types.parse_decimal_unscaled_opt("-0.05", 2), Some(-5L))
   assert_eq(@types.parse_decimal_unscaled_opt("0.00", 2), Some(0L))
   // The renderer's own output round-trips at its own scale.
-  for unscaled in [1L, -1L, 12345L, -12345L, 9_223_372_036_854_775_807L] {
+  for
+    unscaled in [
+      1L, -1L, 12345L, -12345L, 9_223_372_036_854_775_807L, -9_223_372_036_854_775_808L,
+    ] {
     let rendered = @types.Scalar::Decimal(4, unscaled).to_string()
     assert_eq(@types.parse_decimal_unscaled_opt(rendered, 4), Some(unscaled))
   }
+  // `Int64::MIN` at the other scale shapes the writer gives it: the
+  // magnitude's digits are one past `MAX`, so they read only because the
+  // negative side accumulates in its own sign — bare integer and split
+  // fraction alike.
+  let min = -9_223_372_036_854_775_808L
+  let rendered_bare = @types.Scalar::Decimal(0, min).to_string()
+  assert_eq(@types.parse_decimal_unscaled_opt(rendered_bare, 0), Some(min))
+  let rendered_split = @types.Scalar::Decimal(1, min).to_string()
+  assert_eq(@types.parse_decimal_unscaled_opt(rendered_split, 1), Some(min))
 }
 
 ///|
@@ -173,4 +185,6 @@ test "parse_decimal_unscaled_opt refuses what the pin cannot hold" {
     @types.parse_decimal_unscaled_opt("9223372036854775.807", 3),
     Some(9_223_372_036_854_775_807L),
   )
+  // The negative side's own overflow: one unit past `Int64::MIN`.
+  assert_eq(@types.parse_decimal_unscaled_opt("-9223372036854775809", 0), None)
 }

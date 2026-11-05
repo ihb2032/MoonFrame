@@ -94,10 +94,11 @@ test "the concat family emits its three array keys and the wrap layout" {
         align=@chart.VegaAlignMode::Sides(
           @chart.VegaRowColAlign::VegaRowColAlign(
             row=@chart.VegaLayoutAlign::Each,
+            column=@chart.VegaLayoutAlign::All,
           ),
         ),
         center=@chart.VegaCenter::Sides(
-          @chart.VegaRowColBool::VegaRowColBool(column=true),
+          @chart.VegaRowColBool::VegaRowColBool(row=false, column=true),
         ),
         spacing=@chart.VegaSpacing::Sides(
           @chart.VegaRowColDouble::VegaRowColDouble(row=8, column=16),
@@ -107,8 +108,10 @@ test "the concat family emits its three array keys and the wrap layout" {
     ),
   )
   assert_true(wrapped.contains("\"concat\":["))
-  assert_true(wrapped.contains("\"align\":{\"row\":\"each\"}"))
-  assert_true(wrapped.contains("\"center\":{\"column\":true}"))
+  assert_true(
+    wrapped.contains("\"align\":{\"row\":\"each\",\"column\":\"all\"}"),
+  )
+  assert_true(wrapped.contains("\"center\":{\"row\":false,\"column\":true}"))
   assert_true(wrapped.contains("\"spacing\":{\"row\":8,\"column\":16}"))
   assert_true(wrapped.contains("\"columns\":2"))
 }
@@ -219,6 +222,25 @@ test "a count facet channel reads no column and carries no type" {
       "\"facet\":{\"row\":{\"aggregate\":\"count\",\"title\":\"Rows\"}}",
     ),
   )
+}
+
+///|
+test "a facet channel without a field resolves no column" {
+  // Neither a count aggregate nor a field: nothing to resolve, nothing
+  // to emit for the channel's own definition (the schema would reject
+  // the spec; the emission simply carries no keys).
+  let spec = @chart.format_vega_lite(
+    compose_df(),
+    @chart.Chart::Facet(
+      @chart.VegaFacet::VegaFacet(
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+        ),
+        row=@chart.VegaFacetChannel::VegaFacetChannel(title="Rows"),
+      ),
+    ),
+  )
+  assert_true(spec.contains("\"facet\":{\"row\":{\"title\":\"Rows\"}}"))
 }
 
 ///|

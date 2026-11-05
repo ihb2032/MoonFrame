@@ -1250,10 +1250,13 @@ fn resolve_facet(
   df : @frame.DataFrame,
   channel : VegaFacetChannel,
 ) -> @types.DataType? raise @types.DataError {
-  if channel.aggregate is Some(Count) || channel.field is None {
+  if channel.aggregate is Some(Count) {
     None
   } else {
-    Some(df.get_column(channel.field.unwrap()).dtype())
+    match channel.field {
+      Some(name) => Some(df.get_column(name).dtype())
+      None => None
+    }
   }
 }
 
@@ -1261,31 +1264,35 @@ fn resolve_facet(
 /// One facet channel's JSON: the emitted field definition plus its
 /// `type`, which a facet channel carries like any encoding channel —
 /// inferred from the column dtype, or overridden; a count facet channel
-/// carries no `type`.
+/// carries no `type`. The facet host has no bare-channel sort form, so
+/// `ByChannel` raises `InvalidOperation` here rather than emitting a
+/// string the schema's `FacetFieldDef.sort` would reject.
 fn facet_channel_json(
   channel : VegaFacetChannel,
   dtype : @types.DataType?,
-) -> Json {
+) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
-  if channel.field is Some(field) && !(channel.aggregate is Some(Count)) {
-    ch["field"] = Json::string(field)
-    // The type rides directly after the field, as in an encoding
-    // channel: inferred from the column dtype, or overridden; a count
-    // facet channel carries neither. Under a present, non-count field
-    // the resolved dtype is always present.
-    let d = dtype.unwrap()
-    let inferred : String = if channel.type_override is Some(t) {
-      vega_type_string(t)
-    } else if d.is_numeric() || d is @types.DataType::Decimal(_) {
-      "quantitative"
-    } else if d is @types.DataType::Date ||
-      d is @types.DataType::Timestamp ||
-      d is @types.DataType::Duration {
-      "temporal"
-    } else {
-      "nominal"
+  match (channel.field, dtype) {
+    (Some(field), Some(d)) => {
+      ch["field"] = Json::string(field)
+      // The type rides directly after the field, as in an encoding
+      // channel: inferred from the column dtype, or overridden; a count
+      // facet channel carries neither — `resolve_facet` hands back no
+      // dtype for one, so this arm is the present-field case alone.
+      let inferred : String = if channel.type_override is Some(t) {
+        vega_type_string(t)
+      } else if d.is_numeric() || d is @types.DataType::Decimal(_) {
+        "quantitative"
+      } else if d is @types.DataType::Date ||
+        d is @types.DataType::Timestamp ||
+        d is @types.DataType::Duration {
+        "temporal"
+      } else {
+        "nominal"
+      }
+      ch["type"] = Json::string(inferred)
     }
-    ch["type"] = Json::string(inferred)
+    _ => ()
   }
   if channel.aggregate is Some(op) {
     ch["aggregate"] = Json::string(aggregate_string(op))
@@ -1297,7 +1304,13 @@ fn facet_channel_json(
     ch["timeUnit"] = Json::string(time_unit_string(unit))
   }
   if channel.sort is Some(sort) {
-    ch["sort"] = sort_json(sort)
+    match sort {
+      ByChannel(_, _) =>
+        raise @types.DataError::InvalidOperation(
+          "a facet channel's sort cannot key on another channel (the schema's FacetFieldDef.sort has no bare-channel form); sort by a field or an explicit order instead",
+        )
+      _ => ch["sort"] = sort_json(sort)
+    }
   }
   if channel.title is Some(title) {
     ch["title"] = Json::string(title)
@@ -1307,15 +1320,6 @@ fn facet_channel_json(
   }
   if channel.header is Some(header) {
     ch["header"] = vega_header_emit_json(header)
-  }
-  if channel.align is Some(align) {
-    ch["align"] = vega_align_mode_emit_json(align)
-  }
-  if channel.center is Some(center) {
-    ch["center"] = vega_center_emit_json(center)
-  }
-  if channel.spacing is Some(spacing) {
-    ch["spacing"] = vega_spacing_emit_json(spacing)
   }
   Json::object(ch)
 }

@@ -925,11 +925,8 @@ pub struct VegaFacetChannel {
   title : String?
   band_position : Double?
   header : VegaHeader?
-  align : VegaAlignMode?
-  center : VegaCenter?
-  spacing : VegaSpacing?
 }
-pub fn VegaFacetChannel::VegaFacetChannel(field? : String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, band_position? : Double, header? : VegaHeader, align? : VegaAlignMode, center? : VegaCenter, spacing? : VegaSpacing) -> Self
+pub fn VegaFacetChannel::VegaFacetChannel(field? : String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, band_position? : Double, header? : VegaHeader) -> Self
 pub fn VegaFacetChannel::equal(Self, Self) -> Bool
 pub fn VegaFacetChannel::not_equal(Self, Self) -> Bool
 pub fn VegaFacetChannel::to_repr(Self) -> @debug.Repr

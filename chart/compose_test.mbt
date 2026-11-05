@@ -134,17 +134,18 @@ test "a facet resolves its channels against the frame, then the child" {
         column=@chart.VegaFacetChannel::VegaFacetChannel(
           field="cat",
           sort=@chart.VegaChannelSort::Ascending,
-          spacing=@chart.VegaSpacing::Px(10),
         ),
+        spacing=@chart.VegaSpacing::Px(10),
         columns=2,
       ),
     ),
   )
   assert_true(
     ok.contains(
-      "\"facet\":{\"row\":{\"field\":\"grp\",\"type\":\"nominal\",\"header\":{\"labelAngle\":-30,\"orient\":\"left\",\"title\":\"Group\"}},\"column\":{\"field\":\"cat\",\"type\":\"nominal\",\"sort\":\"ascending\",\"spacing\":10}}",
+      "\"facet\":{\"row\":{\"field\":\"grp\",\"type\":\"nominal\",\"header\":{\"labelAngle\":-30,\"orient\":\"left\",\"title\":\"Group\"}},\"column\":{\"field\":\"cat\",\"type\":\"nominal\",\"sort\":\"ascending\"}}",
     ),
   )
+  assert_true(ok.contains("\"spacing\":10"))
   assert_true(ok.contains("\"spec\":{\"mark\":\"bar\""))
   assert_true(ok.contains("\"columns\":2"))
   // A facet channel naming a missing column raises before the child
@@ -165,6 +166,35 @@ test "a facet resolves its channels against the frame, then the child" {
     e => Err(e)
   }
   assert_eq(result, Err(@types.DataError::ColumnNotFound("nofacet")))
+}
+
+///|
+test "a facet channel's by-channel sort raises rather than emits" {
+  // The facet host has no bare-channel sort form (FacetFieldDef.sort is
+  // an order, a field, an explicit list, or null), so ByChannel is
+  // refused loudly instead of shipping a spec the schema would reject.
+  let result = Ok(
+    @chart.format_vega_lite(
+      compose_df(),
+      @chart.Chart::Facet(
+        @chart.VegaFacet::VegaFacet(
+          @chart.Chart::of(
+            @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+          ),
+          row=@chart.VegaFacetChannel::VegaFacetChannel(
+            field="grp",
+            sort=@chart.VegaChannelSort::ByChannel(
+              @chart.VegaSortChannel::X,
+              Some(true),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }
 
 ///|
@@ -378,15 +408,6 @@ test "a header carries every property it declares" {
             title_orient=@chart.VegaOrient::Top,
             title_padding=6,
           ),
-          align=@chart.VegaAlignMode::Sides(
-            @chart.VegaRowColAlign::VegaRowColAlign(
-              row=@chart.VegaLayoutAlign::None,
-              column=@chart.VegaLayoutAlign::All,
-            ),
-          ),
-          center=@chart.VegaCenter::Sides(
-            @chart.VegaRowColBool::VegaRowColBool(row=false, column=true),
-          ),
           band_position=0.5,
         ),
       ),
@@ -403,8 +424,6 @@ test "a header carries every property it declares" {
   assert_true(spec.contains("\"orient\":\"bottom\""))
   assert_true(spec.contains("\"titleFontWeight\":400"))
   assert_true(spec.contains("\"titleOrient\":\"top\""))
-  assert_true(spec.contains("\"align\":{\"row\":\"none\",\"column\":\"all\"}"))
-  assert_true(spec.contains("\"center\":{\"row\":false,\"column\":true}"))
   assert_true(spec.contains("\"bandPosition\":0.5"))
 }
 

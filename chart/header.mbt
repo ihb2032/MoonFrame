@@ -1,10 +1,10 @@
 // The facet family: the header a faceted row / column draws
 // (`VegaHeader`) and the facet channel definition itself
-// (`VegaFacetChannel`, the schema's `RowColumnEncodingFieldDef` — a
-// field definition carrying its own header, alignment, centering, and
-// spacing). Transcribed from the vendored vega_lite_v6_5_0.schema.json
-// and schema-walked through the corpus guard; reached through `@chart`
-// qualification as part of the deep mirror family.
+// (`VegaFacetChannel`, the schema's `FacetFieldDef` — a field definition
+// carrying its own header). Transcribed from the vendored
+// vega_lite_v6_5_0.schema.json and schema-walked through the corpus
+// guard; reached through `@chart` qualification as part of the deep
+// mirror family.
 //
 // The static arms of the schema's unions are mirrored; expression and
 // parameter arms land with the params stage.
@@ -236,12 +236,17 @@ fn vega_header_emit_json(x : VegaHeader) -> Json {
 }
 
 ///|
-/// A facet channel definition, the schema's `RowColumnEncodingFieldDef` —
-/// the field a `row` / `column` facet groups by, with the aggregation /
-/// binning / time-unit / sorting modifiers of an encoding channel, plus the
-/// facet's own `header` and the per-facet alignment, centering, and
-/// spacing. Every property is optional except in spirit: a facet channel
-/// without a `field` facets on nothing, and the schema requires one.
+/// A facet channel definition, the schema's `FacetFieldDef` — the field a
+/// `row` / `column` facet groups by, with the aggregation / binning /
+/// time-unit / sorting modifiers of an encoding channel and the facet's
+/// own `header`. The grid-level alignment, centering, and spacing belong
+/// to the facet operator itself (`VegaFacet`), not to the channel — the
+/// schema's `FacetFieldDef` carries no such keys. The channel-host `sort`
+/// is narrower than an encoding channel's too: `FacetFieldDef.sort` has
+/// no bare-channel form, so a `ByChannel` sort raises `InvalidOperation`
+/// at emission (sort by a field or by an explicit order instead). Every
+/// property is optional except in spirit: a facet channel without a
+/// `field` facets on nothing, and the schema requires one.
 #derive(Eq, Debug)
 pub struct VegaFacetChannel {
   field : String?
@@ -253,9 +258,6 @@ pub struct VegaFacetChannel {
   title : String?
   band_position : Double?
   header : VegaHeader?
-  align : VegaAlignMode?
-  center : VegaCenter?
-  spacing : VegaSpacing?
 }
 
 ///|
@@ -278,9 +280,6 @@ pub fn VegaFacetChannel::VegaFacetChannel(
   title? : String,
   band_position? : Double,
   header? : VegaHeader,
-  align? : VegaAlignMode,
-  center? : VegaCenter,
-  spacing? : VegaSpacing,
 ) -> VegaFacetChannel {
   {
     field,
@@ -292,8 +291,5 @@ pub fn VegaFacetChannel::VegaFacetChannel(
     title,
     band_position,
     header,
-    align,
-    center,
-    spacing,
   }
 }

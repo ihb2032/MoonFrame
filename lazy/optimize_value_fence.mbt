@@ -284,7 +284,13 @@ priv struct DecimalRisk {
 ///|
 /// Whether any node of the expression reads a column from `risk` or is a
 /// decimal literal. Iterative over an explicit stack, so expression depths
-/// the engine pins walk without recursing.
+/// the engine pins walk without recursing. Exhaustive over the variant set
+/// on purpose: the descent is the "touches nothing decimal" verdict, and a
+/// variant added to `ExprNode` fails this match until it declares its
+/// children here rather than silently inheriting it. The operator tags
+/// carry no decision of their own — every member of `Unary` / `Str` / …
+/// reads the same operand — so the walk binds the operand and descends
+/// regardless of the member, `each_child`'s shape spelled inline.
 fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
   let stack : Array[@ir.ExprNode] = [expr]
   while stack.length() > 0 {
@@ -292,7 +298,64 @@ fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
     match node {
       @ir.ExprNode::Col(name) => if risk.contains(name) { return true }
       @ir.ExprNode::Lit(@types.Scalar::Decimal(_, _)) => return true
-      _ => node.each_child(kid => stack.push(kid))
+      // The other literals and a literal series are leaves that name no
+      // column — `each_child` walks nothing under them.
+      @ir.ExprNode::Lit(_) | @ir.ExprNode::LitSeries(_) => ()
+      @ir.ExprNode::Binary(_, l, r) => {
+        stack.push(l)
+        stack.push(r)
+      }
+      @ir.ExprNode::Unary(_, e)
+      | @ir.ExprNode::Agg(_, e)
+      | @ir.ExprNode::Str(_, e)
+      | @ir.ExprNode::Positional(_, e)
+      | @ir.ExprNode::Cast(e, _)
+      | @ir.ExprNode::Alias(e, _)
+      | @ir.ExprNode::Diff(e, _) => stack.push(e)
+      @ir.ExprNode::Ternary(c, t, fl) => {
+        stack.push(c)
+        stack.push(t)
+        stack.push(fl)
+      }
+      @ir.ExprNode::FillNull(o, v) | @ir.ExprNode::FillNan(o, v) => {
+        stack.push(o)
+        stack.push(v)
+      }
+      // Only the bounds that exist are walked, mirroring `each_child`: an
+      // omitted side is no node at all.
+      @ir.ExprNode::Clip(x, lo, hi) => {
+        stack.push(x)
+        if lo is Some(l) {
+          stack.push(l)
+        }
+        if hi is Some(h) {
+          stack.push(h)
+        }
+      }
+      // The members are values, not sub-nodes (`each_child` walks the
+      // operand alone), and a decimal *member* is a comparison operand the
+      // checked-op walk classifies, not a decimal column read: the descent
+      // keeps to the operand, the walk's established semantics.
+      @ir.ExprNode::IsIn(e, _) => stack.push(e)
+      @ir.ExprNode::IsBetween(x, lo, hi, _) => {
+        stack.push(x)
+        stack.push(lo)
+        stack.push(hi)
+      }
+      @ir.ExprNode::Map(_, inputs, _) =>
+        for e in inputs {
+          stack.push(e)
+        }
+      @ir.ExprNode::MapBatches(_, inputs, _, _) =>
+        for e in inputs {
+          stack.push(e)
+        }
+      @ir.ExprNode::Over(inner, keys) => {
+        stack.push(inner)
+        for k in keys {
+          stack.push(k)
+        }
+      }
     }
   }
   false
@@ -304,12 +367,23 @@ fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
 /// `Sum` aggregation — the shapes whose decimal operands carry the checked
 /// refusals. The shape test alone fences nothing: an `Int` sum wraps and a
 /// `Float` one absorbs, which is why the risk set decides alongside it.
+/// Exhaustive over the variant set on purpose — the descent is the "no
+/// checked refusal" verdict, and a variant added to `ExprNode` fails this
+/// match until it declares its place here rather than silently inheriting
+/// that verdict. Where a whole namespace's members share one verdict the
+/// tag is matched once for all of them: every non-checked unary descends
+/// (its refusals are dtype facts, scope-independent), every reduction but
+/// `sum` descends (the decimal `sum` alone folds with a checked add —
+/// `mean` refuses the dtype at factory time), and the string namespace is
+/// dtype-gated throughout. A member that splits one of these verdicts is a
+/// compile error in the fused analysis (`classify` enumerates them), whose
+/// unary comment names this walk as the fence's carrier.
 fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
   let stack : Array[@ir.ExprNode] = [expr]
   while stack.length() > 0 {
     let node = pop_top(stack)
     match node {
-      @ir.ExprNode::Binary(op, _, _) =>
+      @ir.ExprNode::Binary(op, l, r) =>
         match op {
           @ir.BinOp::Add
           | @ir.BinOp::Sub
@@ -333,10 +407,10 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
           @ir.BinOp::And
           | @ir.BinOp::Or
           | @ir.BinOp::Atan2
-          | @ir.BinOp::Hypot =>
-            for kid in node.children() {
-              stack.push(kid)
-            }
+          | @ir.BinOp::Hypot => {
+            stack.push(l)
+            stack.push(r)
+          }
         }
       // `is_between` and `is_in` are the comparison sugar: they descend into
       // the same `eval_compare` rescale a `Ge` / `Eq` takes, so a decimal
@@ -354,7 +428,40 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       @ir.ExprNode::Unary(@ir.UnOp::Neg, _) => return true
       @ir.ExprNode::Unary(@ir.UnOp::Abs, _) => return true
       @ir.ExprNode::Agg(@series.ReduceOp::Sum, _) => return true
-      _ => node.each_child(kid => stack.push(kid))
+      // The leaves carry no operand to check.
+      @ir.ExprNode::Col(_)
+      | @ir.ExprNode::Lit(_)
+      | @ir.ExprNode::LitSeries(_) => ()
+      @ir.ExprNode::Unary(_, e)
+      | @ir.ExprNode::Agg(_, e)
+      | @ir.ExprNode::Str(_, e)
+      | @ir.ExprNode::Positional(_, e)
+      | @ir.ExprNode::Cast(e, _)
+      | @ir.ExprNode::Alias(e, _) => stack.push(e)
+      @ir.ExprNode::Ternary(c, t, fl) => {
+        stack.push(c)
+        stack.push(t)
+        stack.push(fl)
+      }
+      @ir.ExprNode::FillNull(o, v) | @ir.ExprNode::FillNan(o, v) => {
+        stack.push(o)
+        stack.push(v)
+      }
+      @ir.ExprNode::Diff(e, _) => stack.push(e)
+      @ir.ExprNode::Map(_, inputs, _) =>
+        for e in inputs {
+          stack.push(e)
+        }
+      @ir.ExprNode::MapBatches(_, inputs, _, _) =>
+        for e in inputs {
+          stack.push(e)
+        }
+      @ir.ExprNode::Over(inner, keys) => {
+        stack.push(inner)
+        for k in keys {
+          stack.push(k)
+        }
+      }
     }
   }
   false

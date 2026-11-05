@@ -425,6 +425,40 @@ test "a REQUIRED column's pages carry no definition levels" {
 }
 
 ///|
+test "a bare INT32 column reads as Int" {
+  // INT32 with no converted annotation is a signed 32-bit integer —
+  // the shape every foreign writer emits for a plain int column, where
+  // MoonFrame's own writer rides INT64.
+  let body : Array[Byte] = plain_defs(3)
+  push_le_i32(body, -1)
+  push_le_i32(body, 2147483647)
+  push_le_i32(body, -2147483648)
+  let file = foreign_file({
+    physical: 1,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 3,
+        def_len: 0,
+      },
+    ],
+  })
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.dtype(), @types.DataType::Int)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(-1L),
+    @types.Scalar::Int(2147483647L),
+    @types.Scalar::Int(-2147483648L),
+  ])
+}
+
+///|
 test "a nested group element refuses the schema naming the group" {
   // A group element names children instead of a physical type; read as
   // a leaf, the absent type would decode as BOOLEAN and a same-named

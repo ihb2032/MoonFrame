@@ -553,9 +553,8 @@ test "PLAIN payloads shorter than num_values refuse per dtype" {
     e => Err(e)
   }
   assert_true(double_result is Err(@types.DataError::ParseError(_)))
-  // Int32 (physical 1): the DATE annotation rides it — a bare Int32 maps
-  // to nothing on the read side, so the short Int32 shape is a short
-  // DATE payload.
+  // Int32 (physical 1): the DATE annotation rides it — a short INT32
+  // payload under the DATE map.
   let int_short : Array[Byte] = plain_defs(2)
   push_le_i32(int_short, 1)
   let date_page : Array[Byte] = []

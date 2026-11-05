@@ -76,12 +76,11 @@ test "a theme carries its guide, view, and layout subtrees" {
       axis_quantitative=@chart.VegaAxis::VegaAxis(
         tick_count=@chart.VegaTickInterval::Count(5),
       ),
-      legend=@chart.VegaLegend::VegaLegend(
+      legend=@chart.VegaLegendConfig::VegaLegendConfig(
         orient=@chart.VegaLegendOrient::Right,
       ),
       header=@chart.VegaHeader::VegaHeader(label_angle=-30),
-      title=@chart.VegaTitleParams::VegaTitleParams(
-        text="T",
+      title=@chart.VegaTitleConfig::VegaTitleConfig(
         anchor=@chart.VegaAnchor::End,
       ),
       view=@chart.VegaViewConfig::VegaViewConfig(step=24, fill="#fff", stroke_dash=[
@@ -95,7 +94,7 @@ test "a theme carries its guide, view, and layout subtrees" {
         spacing=16,
       ),
       facet=@chart.VegaCompositionConfig::VegaCompositionConfig(spacing=12),
-      format=@chart.VegaFormatConfig::VegaFormatConfig(number_format="d"),
+      number_format="d",
     ),
   )
   assert_true(
@@ -108,7 +107,8 @@ test "a theme carries its guide, view, and layout subtrees" {
   assert_true(spec.contains("\"axisQuantitative\":{\"tickCount\":5}"))
   assert_true(spec.contains("\"legend\":{\"orient\":\"right\"}"))
   assert_true(spec.contains("\"header\":{\"labelAngle\":-30}"))
-  assert_true(spec.contains("\"title\":{\"text\":\"T\",\"anchor\":\"end\"}"))
+  assert_true(spec.contains("\"title\":{\"anchor\":\"end\"}"))
+  assert_true(spec.contains("\"numberFormat\":\"d\""))
   assert_true(spec.contains("\"step\":24"))
   assert_true(spec.contains("\"zoom\":\"wheel!\""))
   assert_true(spec.contains("\"concat\":{\"columns\":2,\"spacing\":16}"))
@@ -345,8 +345,8 @@ test "every config leaf fires: view, scale, range, format, composites" {
         clip=true,
         continuous_height=300,
         continuous_width=400,
-        discrete_height=@chart.VegaExtent::Step(20),
-        discrete_width=@chart.VegaExtent::Step(24),
+        discrete_height=@chart.VegaDiscreteSize::Step(20),
+        discrete_width=@chart.VegaDiscreteSize::Step(24),
         corner_radius=2,
         cursor=@chart.VegaCursor::Grab,
         fill_opacity=1,
@@ -477,13 +477,11 @@ test "theme chrome, format leaves, and accessors complete their arms" {
     @chart.VegaConfig::VegaConfig(
       autosize=@chart.VegaAutoSize::Fit,
       padding=@chart.VegaPadding::Px(10),
-      format=@chart.VegaFormatConfig::VegaFormatConfig(
-        number_format_type="currency",
-        normalized_number_format=".0%",
-        normalized_number_format_type="currency",
-        time_format="%Y",
-        time_format_type="time",
-      ),
+      number_format_type="currency",
+      normalized_number_format=".0%",
+      normalized_number_format_type="currency",
+      time_format="%Y",
+      time_format_type="time",
       header_row=@chart.VegaHeader::VegaHeader(labels=false),
       header_column=@chart.VegaHeader::VegaHeader(labels=false),
       header_facet=@chart.VegaHeader::VegaHeader(labels=false),
@@ -494,11 +492,11 @@ test "theme chrome, format leaves, and accessors complete their arms" {
   assert_true(spec.contains("\"headerRow\":{\"labels\":false}"))
   assert_true(spec.contains("\"headerColumn\":{\"labels\":false}"))
   assert_true(spec.contains("\"headerFacet\":{\"labels\":false}"))
-  assert_true(
-    spec.contains(
-      "\"format\":{\"numberFormatType\":\"currency\",\"normalizedNumberFormat\":\".0%\",\"normalizedNumberFormatType\":\"currency\",\"timeFormat\":\"%Y\",\"timeFormatType\":\"time\"}",
-    ),
-  )
+  assert_true(spec.contains("\"numberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"normalizedNumberFormat\":\".0%\""))
+  assert_true(spec.contains("\"normalizedNumberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"timeFormat\":\"%Y\""))
+  assert_true(spec.contains("\"timeFormatType\":\"time\""))
   // The view's stroke-dash and the range lists read their None arms.
   let bare_view = @chart.VegaViewConfig::VegaViewConfig()
   assert_eq(bare_view.stroke_dash(), None)

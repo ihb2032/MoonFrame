@@ -213,6 +213,192 @@ fn vega_title_params_emit_json(x : VegaTitleParams) -> Json {
 }
 
 ///|
+/// The config-side title defaults, the schema's `TitleConfig`
+/// (`BaseTitleNoValueRefs`) — the intersection of `VegaTitleParams`
+/// (the title a spec carries) with the keys the config host accepts. A
+/// spec's own title names its `text` and its `subtitle` and may pick a
+/// `style` index entry; the config default styles whatever title a spec
+/// ends up drawing, so it carries none of those — the keys do not exist
+/// on `TitleConfig` and the config type does not carry them either. The
+/// subtitle *styling* keys (`subtitleColor` and the rest) are styling,
+/// and stay. Every property is optional.
+#derive(Eq, Debug)
+pub struct VegaTitleConfig {
+  align : VegaAlign?
+  anchor : VegaAnchor?
+  angle : Double?
+  aria : Bool?
+  baseline : VegaBaseline?
+  color : String?
+  dx : Double?
+  dy : Double?
+  font : String?
+  font_size : Double?
+  font_style : String?
+  font_weight : VegaFontWeight?
+  frame : VegaTitleFrame?
+  limit : Double?
+  line_height : Double?
+  offset : Double?
+  orient : VegaTitleOrient?
+  subtitle_color : String?
+  subtitle_font : String?
+  subtitle_font_size : Double?
+  subtitle_font_style : String?
+  subtitle_font_weight : VegaFontWeight?
+  subtitle_line_height : Double?
+  subtitle_padding : Double?
+  zindex : Double?
+}
+
+///|
+pub extend VegaTitleConfig with Eq::{equal, not_equal}
+
+///|
+pub extend VegaTitleConfig with Debug::{to_repr}
+
+///|
+/// Build one with every property optional.
+pub fn VegaTitleConfig::VegaTitleConfig(
+  align? : VegaAlign,
+  anchor? : VegaAnchor,
+  angle? : Double,
+  aria? : Bool,
+  baseline? : VegaBaseline,
+  color? : String,
+  dx? : Double,
+  dy? : Double,
+  font? : String,
+  font_size? : Double,
+  font_style? : String,
+  font_weight? : VegaFontWeight,
+  frame? : VegaTitleFrame,
+  limit? : Double,
+  line_height? : Double,
+  offset? : Double,
+  orient? : VegaTitleOrient,
+  subtitle_color? : String,
+  subtitle_font? : String,
+  subtitle_font_size? : Double,
+  subtitle_font_style? : String,
+  subtitle_font_weight? : VegaFontWeight,
+  subtitle_line_height? : Double,
+  subtitle_padding? : Double,
+  zindex? : Double,
+) -> VegaTitleConfig {
+  {
+    align,
+    anchor,
+    angle,
+    aria,
+    baseline,
+    color,
+    dx,
+    dy,
+    font,
+    font_size,
+    font_style,
+    font_weight,
+    frame,
+    limit,
+    line_height,
+    offset,
+    orient,
+    subtitle_color,
+    subtitle_font,
+    subtitle_font_size,
+    subtitle_font_style,
+    subtitle_font_weight,
+    subtitle_line_height,
+    subtitle_padding,
+    zindex,
+  }
+}
+
+///|
+/// The emitted JSON object of a `VegaTitleConfig`, every set property
+/// under its schema key.
+fn vega_title_config_emit_json(x : VegaTitleConfig) -> Json {
+  let obj : Map[String, Json] = Map([])
+  if x.align is Some(v) {
+    obj["align"] = Json::string(vega_align_string(v))
+  }
+  if x.anchor is Some(v) {
+    obj["anchor"] = Json::string(vega_anchor_string(v))
+  }
+  if x.angle is Some(v) {
+    obj["angle"] = Json::number(v)
+  }
+  if x.aria is Some(v) {
+    obj["aria"] = Json::boolean(v)
+  }
+  if x.baseline is Some(v) {
+    obj["baseline"] = Json::string(vega_baseline_string(v))
+  }
+  if x.color is Some(v) {
+    obj["color"] = Json::string(v)
+  }
+  if x.dx is Some(v) {
+    obj["dx"] = Json::number(v)
+  }
+  if x.dy is Some(v) {
+    obj["dy"] = Json::number(v)
+  }
+  if x.font is Some(v) {
+    obj["font"] = Json::string(v)
+  }
+  if x.font_size is Some(v) {
+    obj["fontSize"] = Json::number(v)
+  }
+  if x.font_style is Some(v) {
+    obj["fontStyle"] = Json::string(v)
+  }
+  if x.font_weight is Some(v) {
+    obj["fontWeight"] = vega_font_weight_emit_json(v)
+  }
+  if x.frame is Some(v) {
+    obj["frame"] = Json::string(vega_title_frame_string(v))
+  }
+  if x.limit is Some(v) {
+    obj["limit"] = Json::number(v)
+  }
+  if x.line_height is Some(v) {
+    obj["lineHeight"] = Json::number(v)
+  }
+  if x.offset is Some(v) {
+    obj["offset"] = Json::number(v)
+  }
+  if x.orient is Some(v) {
+    obj["orient"] = Json::string(vega_title_orient_string(v))
+  }
+  if x.subtitle_color is Some(v) {
+    obj["subtitleColor"] = Json::string(v)
+  }
+  if x.subtitle_font is Some(v) {
+    obj["subtitleFont"] = Json::string(v)
+  }
+  if x.subtitle_font_size is Some(v) {
+    obj["subtitleFontSize"] = Json::number(v)
+  }
+  if x.subtitle_font_style is Some(v) {
+    obj["subtitleFontStyle"] = Json::string(v)
+  }
+  if x.subtitle_font_weight is Some(v) {
+    obj["subtitleFontWeight"] = vega_font_weight_emit_json(v)
+  }
+  if x.subtitle_line_height is Some(v) {
+    obj["subtitleLineHeight"] = Json::number(v)
+  }
+  if x.subtitle_padding is Some(v) {
+    obj["subtitlePadding"] = Json::number(v)
+  }
+  if x.zindex is Some(v) {
+    obj["zindex"] = Json::number(v)
+  }
+  Json::object(obj)
+}
+
+///|
 /// A chart title: plain text, or the parameter form with styling and a subtitle.
 #derive(Eq, Debug)
 pub(all) enum VegaTitle {

@@ -552,10 +552,20 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
             bar=@chart.VegaMarkStyle::VegaMarkStyle(bin_spacing=2),
             scale=@chart.VegaScaleConfig::VegaScaleConfig(clamp=true),
             axis=@chart.VegaAxis::VegaAxis(grid=false),
-            legend=@chart.VegaLegend::VegaLegend(
+            legend=@chart.VegaLegendConfig::VegaLegendConfig(
               orient=@chart.VegaLegendOrient::Right,
+              symbol_type="circle",
+              columns=2,
             ),
-            view=@chart.VegaViewConfig::VegaViewConfig(step=24, fill="#fff"),
+            title=@chart.VegaTitleConfig::VegaTitleConfig(
+              anchor=@chart.VegaAnchor::End,
+              subtitle_font_size=11,
+            ),
+            view=@chart.VegaViewConfig::VegaViewConfig(
+              step=24,
+              fill="#fff",
+              discrete_width=@chart.VegaDiscreteSize::Step(30),
+            ),
             range=@chart.VegaRangeConfig::VegaRangeConfig(category=[
               "#1f77b4", "#ff7f0e",
             ]),

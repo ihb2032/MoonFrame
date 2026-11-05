@@ -8,8 +8,12 @@
 /// and style index, the composition grid, the selection defaults, the
 /// locale and format defaults, and the top-level scalars (background,
 /// padding, autosize, font, countTitle, fieldTitle, aria, lineBreak).
-/// Every property is optional; unset ones fall to the runtime's own
-/// defaults. The `style` index maps a style name to its mark-style
+/// The `legend` and `title` blocks are the config hosts' own narrowed
+/// types (`VegaLegendConfig`, `VegaTitleConfig`) — the schema's
+/// `LegendConfig` / `TitleConfig` accept fewer keys than a channel
+/// legend or a spec title does, and the config types carry exactly
+/// those. Every property is optional; unset ones fall to the runtime's
+/// own defaults. The `style` index maps a style name to its mark-style
 /// block; the map is copied at construction and copied again on read.
 #derive(Eq, Debug)
 pub struct VegaConfig {
@@ -53,12 +57,12 @@ pub struct VegaConfig {
   axis_discrete : VegaAxis?
   axis_quantitative : VegaAxis?
   axis_temporal : VegaAxis?
-  legend : VegaLegend?
+  legend : VegaLegendConfig?
   header : VegaHeader?
   header_row : VegaHeader?
   header_column : VegaHeader?
   header_facet : VegaHeader?
-  title : VegaTitleParams?
+  title : VegaTitleConfig?
   view : VegaViewConfig?
   projection : VegaProjection?
   selection : VegaSelectionConfig?
@@ -67,7 +71,6 @@ pub struct VegaConfig {
   concat : VegaCompositionConfig?
   facet : VegaCompositionConfig?
   locale : VegaLocaleConfig?
-  format : VegaFormatConfig?
   number_format : String?
   number_format_type : String?
   normalized_number_format : String?
@@ -129,12 +132,12 @@ pub fn VegaConfig::VegaConfig(
   axis_discrete? : VegaAxis,
   axis_quantitative? : VegaAxis,
   axis_temporal? : VegaAxis,
-  legend? : VegaLegend,
+  legend? : VegaLegendConfig,
   header? : VegaHeader,
   header_row? : VegaHeader,
   header_column? : VegaHeader,
   header_facet? : VegaHeader,
-  title? : VegaTitleParams,
+  title? : VegaTitleConfig,
   view? : VegaViewConfig,
   projection? : VegaProjection,
   selection? : VegaSelectionConfig,
@@ -143,7 +146,6 @@ pub fn VegaConfig::VegaConfig(
   concat? : VegaCompositionConfig,
   facet? : VegaCompositionConfig,
   locale? : VegaLocaleConfig,
-  format? : VegaFormatConfig,
   number_format? : String,
   number_format_type? : String,
   normalized_number_format? : String,
@@ -211,7 +213,6 @@ pub fn VegaConfig::VegaConfig(
     concat,
     facet,
     locale,
-    format,
     number_format,
     number_format_type,
     normalized_number_format,
@@ -331,7 +332,7 @@ fn vega_config_emit_json(c : VegaConfig) -> Json {
     }
   }
   if c.legend is Some(v) {
-    obj["legend"] = vega_legend_emit_json(v)
+    obj["legend"] = vega_legend_config_emit_json(v)
   }
   if c.header is Some(v) {
     obj["header"] = vega_header_emit_json(v)
@@ -348,7 +349,7 @@ fn vega_config_emit_json(c : VegaConfig) -> Json {
     }
   }
   if c.title is Some(v) {
-    obj["title"] = vega_title_params_emit_json(v)
+    obj["title"] = vega_title_config_emit_json(v)
   }
   if c.view is Some(v) {
     obj["view"] = vega_view_config_emit_json(v)
@@ -378,9 +379,6 @@ fn vega_config_emit_json(c : VegaConfig) -> Json {
   }
   if c.locale is Some(v) {
     obj["locale"] = vega_locale_config_emit_json(v)
-  }
-  if c.format is Some(v) {
-    obj["format"] = vega_format_config_emit_json(v)
   }
   if c.number_format is Some(v) {
     obj["numberFormat"] = Json::string(v)

@@ -482,6 +482,7 @@ fn decode_column(
     let mut v2 = false
     let mut def_len = 0
     let mut rep_len = 0
+    let mut page_compressed = true
     let mut last = 0
     for ;; {
       let h = match r.field_header(last) {
@@ -614,6 +615,17 @@ fn decode_column(
                   Some(v) => rep_len = v
                   None => raise bad("a page level length is malformed")
                 }
+              7 =>
+                // The compact protocol's bool rides the field header's
+                // own type nibble — the wire type is the value.
+                match hi.wire {
+                  BoolTrue => page_compressed = true
+                  BoolFalse => page_compressed = false
+                  _ =>
+                    if !r.skip(hi.wire) {
+                      raise bad("a V2 page header is malformed")
+                    }
+                }
               _ =>
                 if !r.skip(hi.wire) {
                   raise bad("a V2 page header is malformed")
@@ -674,21 +686,29 @@ fn decode_column(
     } else {
       slice(chunk_bytes, body_in_chunk, compressed_size)
     }
-    let body = match chunk.codec {
-      0 => values_input
-      1 =>
-        match snappy_decompress(values_input) {
-          Some(b) => b
-          None => raise bad("a SNAPPY page body does not decompress")
-        }
-      2 =>
-        @gzip.decompress(values_input) catch {
-          _ => raise bad("a GZIP page body does not decompress")
-        }
-      c =>
-        raise @types.DataError::Unsupported(
-          "parquet column \"\{chunk.name}\" carries compression codec \{c}",
-        )
+    // The values ride the chunk's codec — unless the page is a V2 one
+    // whose header spells is_compressed=false, a page-level opt-out
+    // from the codec however the column metadata votes: its values are
+    // raw where they sit.
+    let body = if v2 && !page_compressed {
+      values_input
+    } else {
+      match chunk.codec {
+        0 => values_input
+        1 =>
+          match snappy_decompress(values_input) {
+            Some(b) => b
+            None => raise bad("a SNAPPY page body does not decompress")
+          }
+        2 =>
+          @gzip.decompress(values_input) catch {
+            _ => raise bad("a GZIP page body does not decompress")
+          }
+        c =>
+          raise @types.DataError::Unsupported(
+            "parquet column \"\{chunk.name}\" carries compression codec \{c}",
+          )
+      }
     }
     // A dictionary page's body is the PLAIN value set itself — no
     // levels, no indices — so it is handled before the level decoding

@@ -198,12 +198,13 @@ fn foreign_raw(
 
 ///|
 /// A complete V2 data-page header (with `def_len`) over a body of
-/// `body_len` bytes.
+/// `body_len` bytes, spelling is_compressed per `compressed~`.
 fn v2_page_header(
   num_values : Int32,
   encoding : Int32,
   def_len : Int32,
   body_len : Int32,
+  compressed~ : Bool = true,
 ) -> Bytes {
   let pw = thrift_writer()
   pw.i32_field(1, 0)
@@ -216,7 +217,8 @@ fn v2_page_header(
   pw.i32_field(4, encoding)
   pw.i32_field(5, def_len)
   pw.i32_field(6, 0)
-  pw.field_header(7, 1) // is_compressed = true
+  // is_compressed — the compact protocol's bool rides the type nibble.
+  pw.field_header(7, if compressed { 1 } else { 2 })
   pw.struct_end()
   pw.struct_end()
   pw.finish()
@@ -608,6 +610,66 @@ test "a V2 page whose def levels run past the chunk refuses at the bound" {
     e => Err(e)
   }
   assert_true(read is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a V2 page that opts out of compression reads raw under a codec" {
+  // is_compressed=false names a page whose values never rode the
+  // chunk's codec — the opt-out is the page's own, whatever the column
+  // metadata declares. The chunk says SNAPPY; the values are raw.
+  let body : Array[Byte] = [(0x04).to_byte(), (0x01).to_byte()] // RLE run of two ones
+  push_le_i64(body, 7L)
+  push_le_i64(body, 8L)
+  let page : Array[Byte] = []
+  for b in v2_page_header(2, 0, 2, body.length(), compressed=false) {
+    page.push(b)
+  }
+  for b in body {
+    page.push(b)
+  }
+  let read = read_parquet_columns(
+    foreign_raw(2, 1, Bytes::from_array(page), 2),
+    None,
+  )
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(8),
+  ])
+  // A field 7 arriving on a foreign wire (an i32, a writer's misspelling)
+  // skips forward-compatibly and leaves the codec in charge — an
+  // uncompressed chunk then reads the same raw values.
+  let wide : Array[Byte] = [(0x04).to_byte(), (0x01).to_byte()]
+  push_le_i64(wide, 7L)
+  push_le_i64(wide, 8L)
+  let pw = thrift_writer()
+  pw.i32_field(1, 0)
+  pw.i32_field(2, wide.length())
+  pw.i32_field(3, wide.length())
+  pw.struct_field_begin(8)
+  pw.i32_field(1, 2)
+  pw.i32_field(2, 0)
+  pw.i32_field(3, 2)
+  pw.i32_field(4, 0)
+  pw.i32_field(5, 2)
+  pw.i32_field(6, 0)
+  pw.i32_field(7, 1)
+  pw.struct_end()
+  pw.struct_end()
+  let wide_page : Array[Byte] = []
+  for b in pw.finish() {
+    wide_page.push(b)
+  }
+  for b in wide {
+    wide_page.push(b)
+  }
+  let wide_read = read_parquet_columns(
+    foreign_raw(2, 0, Bytes::from_array(wide_page), 2),
+    None,
+  )
+  assert_eq(wide_read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(8),
+  ])
 }
 
 ///|

@@ -136,7 +136,7 @@ pub fn DataFrame::drop(
   // `Map::from_array` collapses duplicate entries, matching the idempotent-drop
   // contract.
   let to_drop : Map[String, Unit] = Map::from_array(
-    self.resolve_subset_columns(columns).map(s => (s.name(), ())),
+    self.resolve_subset_columns(columns.exact_view()).map(s => (s.name(), ())),
   )
   // Columns and fields are index-aligned and name-for-name equal (INV3), so the
   // same predicate filters both: a survivor keeps the field it arrived with,

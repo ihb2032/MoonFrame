@@ -203,9 +203,11 @@ fn DataFrame::with_renamed_fields(
 /// contract behind the `subset` of `drop`, `drop_nulls`, and `unique`. A
 /// repeated key resolves the same column twice; each caller absorbs that (a
 /// collapsing drop set, an AND of validity masks, a repeated group-key cell).
+/// The keys arrive as a borrowed view — resolution reads each name once and
+/// never retains the caller's array.
 fn DataFrame::resolve_subset_columns(
   self : DataFrame,
-  keys : Array[@expr.Expr],
+  keys : ArrayView[@expr.Expr],
 ) -> Array[Series] raise @types.DataError {
   keys.map(key => self.get_column(key.output_name()))
 }

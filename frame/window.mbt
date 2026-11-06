@@ -214,8 +214,9 @@ pub fn DataFrame::gather(
     return self
   }
   // Indices were just validated against `self.nrows`, so the per-column
-  // gather is in-bounds.
-  let new_cols = self.columns.map(c => c.gather_series(indices))
+  // gather is in-bounds. The gather only reads them — it takes the array
+  // as a borrowed view, so the caller's indices are never retained.
+  let new_cols = self.columns.map(c => c.gather_series(indices.exact_view()))
   self.with_same_schema(new_cols, indices.length())
 }
 

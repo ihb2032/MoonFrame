@@ -174,6 +174,19 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
     (None, None) => ()
     _ => fail("mean_opt backend mismatch")
   }
+  // The NaN probe `has_nan` — the one public verb whose buffer read is
+  // branched per backend (a `Builtin` `Float` column scans under its
+  // validity mask, a `Numeric` one its all-valid buffer) — and the
+  // streaming read `iter`, one cell at a time beside `to_scalars`'
+  // materialising one (the primitive this harness compares in, and so not
+  // itself compared): both must answer the same on either backend.
+  assert_eq(bt.has_nan(), nu.has_nan())
+  let bt_cells = bt.iter().to_array()
+  let nu_cells = nu.iter().to_array()
+  assert_eq(bt_cells.length(), nu_cells.length())
+  for i in 0..<bt_cells.length() {
+    assert_true(same_scalar(bt_cells[i], nu_cells[i]))
+  }
 
   // Fallible reductions.
   assert_true(
@@ -226,17 +239,49 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
       },
     ),
   )
+  // `quantile` rides the same `reduce_present` window kernel as the
+  // reductions above (a `Builtin` column folds under its materialised
+  // validity, a `Numeric` one under the constant-`true` predicate), so every
+  // interpolation mode and several `q` values — endpoints, interior, and the
+  // out-of-range / `NaN` ones both sides refuse identically — must agree
+  // across backends.
+  let qnan = 0.0 / 0.0
+  for
+    interpolation in [
+      QuantileInterpolation::Nearest,
+      QuantileInterpolation::Linear,
+      QuantileInterpolation::Lower,
+      QuantileInterpolation::Higher,
+      QuantileInterpolation::Midpoint,
+    ] {
+    for q in [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, -0.25, qnan] {
+      assert_true(
+        same_double_result(
+          Ok(bt.quantile(q, interpolation~)) catch {
+            e => Err(e)
+          },
+          Ok(nu.quantile(q, interpolation~)) catch {
+            e => Err(e)
+          },
+        ),
+      )
+    }
+  }
 
   // Total transforms.
   assert_true(same_series(bt.drop_nulls(), nu.drop_nulls()))
   assert_true(same_series(bt.rename("z"), nu.rename("z")))
 
-  // Fallible transforms: cast to both numeric dtypes and to a non-numeric one.
+  // Fallible transforms: cast to both numeric dtypes, to a non-numeric one,
+  // and to `String` — the value-form rendering `to_string_column` performs
+  // (its `I64` / `F64` arms over these Int / Float columns; a `String` source
+  // never reaches it, the same-dtype cast being the identity).
   for
     target in [
       @types.DataType::Int,
       @types.DataType::Float,
       @types.DataType::Bool,
+      @types.DataType::String,
     ] {
     assert_true(
       same_series_result(
@@ -311,6 +356,15 @@ fn assert_backend_parity(bt : Series, nu : Series) -> Unit raise {
   }
   // An omitted length runs to the end on both backends.
   assert_true(same_series(bt.slice(-2), nu.slice(-2)))
+  // The bracket-slice spelling `s[a:b]`: half-open windows with omitted and
+  // negative bounds, a saturating and a crossed one — normalised per backend
+  // to the same (offset, length) the `slice` windows above ran.
+  assert_true(same_series(bt[1:], nu[1:]))
+  assert_true(same_series(bt[:n], nu[:n]))
+  assert_true(same_series(bt[-2:], nu[-2:]))
+  assert_true(same_series(bt[:-1], nu[:-1]))
+  assert_true(same_series(bt[1:n + 5], nu[1:n + 5]))
+  assert_true(same_series(bt[2:1], nu[2:1]))
   // A multi-index gather mixing valid and invalid indices.
   assert_true(
     same_series_result(

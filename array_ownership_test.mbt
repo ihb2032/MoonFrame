@@ -50,6 +50,7 @@ test "Series constructors copy their value arrays" {
   let float_options : Array[Double?] = [Some(1.5), None]
   let bool_options : Array[Bool?] = [Some(true), None]
   let string_options : Array[String?] = [Some("a"), None]
+  let scalars : Array[Scalar] = [Scalar::Int(1), Scalar::Null]
   let series : ReadOnlyArray[Series] = [
     Series::from_ints("i", ints),
     Series::from_floats("f", floats),
@@ -59,6 +60,7 @@ test "Series constructors copy their value arrays" {
     Series::from_float_options("fo", float_options),
     Series::from_bool_options("bo", bool_options),
     Series::from_string_options("so", string_options),
+    Series::from_scalars("sc", scalars),
   ]
   ints[0] = 99
   floats[0] = 99.5
@@ -68,6 +70,7 @@ test "Series constructors copy their value arrays" {
   float_options[0] = None
   bool_options[0] = None
   string_options[0] = None
+  scalars[0] = Scalar::Float(9.5)
   assert_eq(series[0].get(0), Scalar::Int(1))
   assert_eq(series[1].get(0), Scalar::Float(1.5))
   assert_eq(series[2].get(0), Scalar::Bool(true))
@@ -76,6 +79,7 @@ test "Series constructors copy their value arrays" {
   assert_eq(series[5].get(0), Scalar::Float(1.5))
   assert_eq(series[6].get(0), Scalar::Bool(true))
   assert_eq(series[7].get(0), Scalar::String("a"))
+  assert_eq(series[8].get(0), Scalar::Int(1))
 }
 
 ///|
@@ -166,6 +170,65 @@ test "lazy builders copy their expression arrays" {
   assert_eq(rename_plan.collect().columns(), ["x", "b"])
   assert_eq(group_plan.collect().columns(), ["a", "total"])
   assert_eq(drop_nulls_plan.collect().nrows(), 1)
+}
+
+///|
+/// The order / distinct / reshape builders retain their expression arrays
+/// the same way — `top_k` / `bottom_k` ranking keys, `unique`'s subset,
+/// `pivot`'s three key lists, `unpivot`'s two. Each assertion is chosen to
+/// move if the mutated array reached the plan: the ranking keys break the
+/// fixture's tie the other way, the extra subset key splits a group, the
+/// extra `on` key renames / adds pivot columns, and the extra unpivot key
+/// adds rows.
+test "lazy order, distinct, and reshape builders copy their expression arrays" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("a", [2, 1, 2]),
+    Series::from_ints("b", [1, 1, 3]),
+    Series::from_strings("k", ["x", "y", "x"]),
+  ])
+  let top_by = [col("a")]
+  let bottom_by = [col("b")]
+  let unique_keys = [col("a")]
+  let pivot_on = [col("k")]
+  let pivot_index = [col("a")]
+  let pivot_values = [col("b")]
+  let unpivot_on = [col("a"), col("b")]
+  let unpivot_index = [col("k")]
+  let top_plan = LazyFrame::LazyFrame(df).top_k(2, by=top_by)
+  let bottom_plan = LazyFrame::LazyFrame(df).bottom_k(1, by=bottom_by)
+  let unique_plan = LazyFrame::LazyFrame(df).unique(subset=unique_keys)
+  let pivot_plan = LazyFrame::LazyFrame(df).pivot(
+    on=pivot_on,
+    index=pivot_index,
+    values=pivot_values,
+    aggregate_function=Sum,
+  )
+  let unpivot_plan = LazyFrame::LazyFrame(df).unpivot(
+    on=unpivot_on,
+    index=unpivot_index,
+  )
+  top_by.push(col("b"))
+  bottom_by.push(col("a"))
+  unique_keys.push(col("b"))
+  pivot_on.push(col("a"))
+  pivot_index.push(col("b"))
+  pivot_values.push(col("a"))
+  unpivot_on.push(col("k"))
+  unpivot_index.push(col("a"))
+  // `by = [a]` keeps input order among the a = 2 tie, so the first row
+  // holds b = 1; a mutated `[a, b]` key would surface b = 3 first.
+  assert_eq(top_plan.collect().item(0, "b"), Scalar::Int(1))
+  // `by = [b]` keeps input order among the b = 1 tie, so the first row
+  // holds a = 2; a mutated `[b, a]` key would surface a = 1 first.
+  assert_eq(bottom_plan.collect().item(0, "a"), Scalar::Int(2))
+  // Distinct on `a` alone keeps two rows; adding `b` to the subset would
+  // keep all three.
+  assert_eq(unique_plan.collect().nrows(), 2)
+  assert_eq(pivot_plan.collect().columns(), ["a", "x", "y"])
+  assert_eq(unpivot_plan.collect().columns(), ["k", "variable", "value"])
+  // One output row per input row per `on` column: 3 × 2 = 6; a mutated
+  // `on` list holding `k` too would collect nine.
+  assert_eq(unpivot_plan.collect().nrows(), 6)
 }
 
 ///|

@@ -10,7 +10,8 @@
 
 ///|
 /// The child plans of a node, left-to-right — the `LogicalPlan` analogue of
-/// `Expr::children`, and the one place the IR's recursive shape is enumerated
+/// the expression side's `ExprNode::children`, and the one place this tree's
+/// recursive shape is enumerated
 /// for *traversal* (the rebuild passes enumerate it again to reassemble). A
 /// leaf (`Scan`) has none; `Join` has two; every
 /// other node has exactly one. Drives the explicit-stack walks (`render`,

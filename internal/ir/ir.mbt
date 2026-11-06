@@ -137,10 +137,9 @@ pub fn ExprNode::each_child(self : ExprNode, f : (ExprNode) -> Unit) -> Unit {
 ///|
 /// The immediate sub-nodes as an array, left to right — the convenience
 /// form of `each_child` for the walks that need the children together (the
-/// leftmost-name rule reads them in order; the public `Expr::children`
-/// wraps them). A fresh array every call, built over the same single shape
-/// encoding, so a caller cannot alias — and mutate — a `Map` node's own
-/// inputs.
+/// leftmost-name rule reads them in order). A fresh array every call, built
+/// over the same single shape encoding, so a caller cannot alias — and
+/// mutate — a `Map` node's own inputs.
 pub fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
   let kids : Array[ExprNode] = []
   self.each_child(k => kids.push(k))

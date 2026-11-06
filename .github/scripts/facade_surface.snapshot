@@ -1030,8 +1030,10 @@ impl Show for Field <- types
 impl Show for Scalar <- types
 impl Show for Schema <- types
 impl Sub for Expr <- expr
+intermediate FramePlot <- chart
 intermediate GroupedDataFrame <- frame
 intermediate LazyGroupBy <- lazy
+intermediate Plot <- chart
 intermediate WhenThen <- expr
 intermediate WhenThenElse <- expr
 method CellParseLocation::equal(Self, Self) -> Bool <- types
@@ -1986,8 +1988,6 @@ method VegaWindowTransform::to_repr(Self) -> @debug.Repr <- chart
 method VegaWindowTransform::window(Self) -> Array[VegaWindowField] <- chart
 method WhenThen::then(Self, Expr) -> WhenThenElse <- expr
 method WhenThenElse::otherwise(Self, Expr) -> Expr <- expr
-qualified FramePlot <- chart
-qualified Plot <- chart
 qualified VegaAggField <- chart
 qualified VegaAggregateTransform <- chart
 qualified VegaAlign <- chart

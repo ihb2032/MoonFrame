@@ -19,11 +19,14 @@ half of the mirror's fidelity contract:
 
 This walker implements the draft-07 subset a Vega-Lite spec actually uses —
 $ref (internal), type, enum, const, pattern, items, minItems/maxItems,
-properties, required, additionalProperties, anyOf/oneOf (any-branch-pass),
-allOf, and not-as-skip — which is enough to reject an unknown key, a
-misspelled enum string, or a value of the wrong JSON kind. It is
-deliberately not a full validator: exotic keywords are skipped, and a spec
-that passes here is proven schema-shaped, not proven renderable.
+minimum/maximum, properties, required, additionalProperties, anyOf/oneOf
+(any-branch-pass), allOf, and not-as-skip — which is enough to reject an
+unknown key, a misspelled enum string, a value of the wrong JSON kind, or a
+number outside the bounds the schema draws for it (opacity 0–1 and the
+like). It is deliberately not a full validator: exotic keywords are skipped
+(the schema itself never writes exclusiveMinimum / exclusiveMaximum, so the
+walker does not read them either), and a spec that passes here is proven
+schema-shaped, not proven renderable.
 
 Run:  python -B .github/scripts/check_vega_corpus.py            # the corpus
       python -B .github/scripts/check_vega_corpus.py --self-test  # the walker itself
@@ -109,6 +112,21 @@ def validate(value, schema, path, errors):
         if pattern is not None and isinstance(value, str):
             if not re.search(pattern, value):
                 errors.append((path, "%r does not match %r" % (value, pattern)))
+
+    # Numeric bounds, applied to any number the schema says is one — an
+    # integer violating `minimum: 2` is as much a violation as a float
+    # outside `0..1`, and the same check applies one level down inside a
+    # nested object. `bool` is not a number here even though Python says
+    # otherwise.
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        limit = schema.get("minimum")
+        if isinstance(limit, (int, float)) and not isinstance(limit, bool):
+            if value < limit:
+                errors.append((path, "%s < minimum %s" % (value, limit)))
+        limit = schema.get("maximum")
+        if isinstance(limit, (int, float)) and not isinstance(limit, bool):
+            if value > limit:
+                errors.append((path, "%s > maximum %s" % (value, limit)))
 
     if isinstance(value, list):
         items = schema.get("items")
@@ -231,6 +249,50 @@ SELF_TEST_CASES = [
             "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
             "mark": "bar",
             "encoding": {"x": {"fieldd": "a"}},
+            "data": {"values": []},
+        },
+        False,
+    ),
+    (
+        # numeric bound, float over maximum: mark opacity is 0..1
+        {
+            "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+            "mark": {"type": "bar", "opacity": 1.5},
+            "data": {"values": []},
+        },
+        False,
+    ),
+    (
+        # the bound itself is legal: opacity exactly 1 passes
+        {
+            "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+            "mark": {"type": "bar", "opacity": 1},
+            "data": {"values": []},
+        },
+        True,
+    ),
+    (
+        # numeric bound, int under minimum, nested in a transform:
+        # bin.maxbins is minimum 2, and an integer violates it as surely
+        # as a float would
+        {
+            "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+            "mark": "bar",
+            "transform": [{"bin": {"maxbins": 1}, "field": "a", "as": "a_bin"}],
+            "data": {"values": []},
+        },
+        False,
+    ),
+    (
+        # numeric bound one level deeper still: bandPosition inside an
+        # encoding channel definition is 0..1, and a negative one is out
+        {
+            "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+            "mark": "bar",
+            "encoding": {
+                "x": {"field": "a", "type": "nominal"},
+                "opacity": {"field": "a", "bandPosition": -0.5},
+            },
             "data": {"values": []},
         },
         False,

@@ -178,7 +178,7 @@ pub fn Bitmap::slice_view(
 /// exactly once. An out-of-range index reads as `false` via `is_valid_total`
 /// rather than aborting, so a caller that breaks the in-bounds contract still
 /// cannot panic.
-pub fn Bitmap::take_view(self : Bitmap, indices : Array[Int32]) -> Bitmap {
+pub fn Bitmap::take_view(self : Bitmap, indices : ArrayView[Int32]) -> Bitmap {
   pack(indices.length(), i => self.is_valid_total(indices[i]))
 }
 

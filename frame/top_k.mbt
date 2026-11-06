@@ -20,11 +20,13 @@
 
 ///|
 /// The shared ranking window: the first `k` rows of `self` sorted by `by`
-/// under `descending`, nulls pinned last.
+/// under `descending`, nulls pinned last. The keys arrive as a borrowed
+/// view — the window reads them once (emptiness, then the sort's key
+/// tuples) and never retains the caller's array.
 fn DataFrame::rank_window(
   self : DataFrame,
   k : Int32,
-  by : Array[@expr.Expr],
+  by : ArrayView[@expr.Expr],
   descending : Bool,
 ) -> DataFrame raise @types.DataError {
   if k < 0 {
@@ -53,7 +55,7 @@ pub fn DataFrame::top_k(
   by~ : Array[@expr.Expr],
   reverse~ : Bool = false,
 ) -> DataFrame raise @types.DataError {
-  self.rank_window(k, by, !reverse)
+  self.rank_window(k, by.exact_view(), !reverse)
 }
 
 ///|
@@ -66,5 +68,5 @@ pub fn DataFrame::bottom_k(
   by~ : Array[@expr.Expr],
   reverse~ : Bool = false,
 ) -> DataFrame raise @types.DataError {
-  self.rank_window(k, by, reverse)
+  self.rank_window(k, by.exact_view(), reverse)
 }

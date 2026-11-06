@@ -271,7 +271,7 @@ fn Series::rebuild_options(
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::gather_series(
   self : Series,
-  idx : Array[Int32],
+  idx : ArrayView[Int32],
 ) -> Series raise @types.DataError {
   // A `Numeric` source is all-valid, so when every index is in-bounds its
   // gather is itself all-valid: rebuild directly onto the `Numeric` backend,

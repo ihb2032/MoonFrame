@@ -162,8 +162,11 @@ the sweep to the push.
   breaks a caller leaves the names alone: a parameter type, a `raise`
   appearing, an optional parameter becoming required, a field widening to `?`.
   Four rules sit ahead of the snapshot, so regenerating cannot legalize them:
-  only the four fluent-chain types may be public without being re-exported;
-  every public free function or top-level value must have a facade counterpart
+  only the fluent-chain types on the guard's intermediates list may be public
+  without being re-exported — chart's `FramePlot` / `Plot` among them, which
+  is why the intermediates list is consulted ahead of the chart bucketing
+  below; every public free function or top-level value must have a facade
+  counterpart
   (nothing chains to one, so one the facade omits is unreachable through the
   supported surface) — the one deliberate exception being `io`'s string-level
   serialiser family, reached through `@io` qualification the way the chain
@@ -201,7 +204,8 @@ the sweep to the push.
   re-read the migration sections that describe it**: those are
   current-state prose that no guard scans, and they have shipped statements
   contradicting the interface they document.
-- **Internal packages** — the set of `internal/*` package *names* on disk must
+- **Internal packages** — the set of `internal/` package *names* on disk (at
+  any nesting depth) must
   equal the set README's repository-structure block names.
   They have no public surface, so no guard but layering notices one appearing or
   disappearing (and layering sees the edges, not the prose) — and an internal
@@ -325,13 +329,21 @@ python -B .github/scripts/check_array_copy_boundaries.py        # the guard
 ```
 
 The guard is a deliberately small lexical pass over one `///|` block at a time —
-it reads public `Array` parameters (positional, `subset?`, `keys~`) and rejects
-retaining one in a field or a constructor payload without a copy, treating
+every `pub fn` signature in the block, not just the first — and it reads public
+`Array` parameters (positional, `subset?`, `keys~`, `_`-prefixed spellings
+included) and rejects retaining one in a field or a constructor payload without
+a copy, treating
 `Some` / `Ok` / `Err` as transparent (nested transparently too), and reading
-the same retention through a same-block alias (`let v2 = values`) or a plain
-`=` assignment (`self.field = values`, `stash = values`) like the record
+the same retention through a same-block alias (`let v2 = values`, or the same
+right-hand side wrapped as `Some(values)` / `(values)`), a plain
+`=` assignment (`self.field = values`, `stash = values`), a conditional
+assignment whose branch expression names the parameter (`self.f = if c {
+values } else { other }`), or a method call whose argument is the parameter
+(`stash.push(values)`, `self.init(values)`) — all like the record
 literal it abbreviates. Being lexical, it is conservative: it can
-reject a shape that is actually safe, which is a prompt to make the copy visible
+reject a shape that is actually safe — a read-only method handed the array is
+flagged too, because which callee keeps its argument is behaviour, not text —
+which is a prompt to make the copy visible
 rather than to weaken the rule. What it cannot see is behaviour, so the runtime
 side is the root `array_ownership_test.mbt` (and `expr/expr_test.mbt` for
 `Expr::is_in`, pinned beside its own package) — mutate the array you passed in,
@@ -353,7 +365,8 @@ becomes an unreviewed default for the new one. The guard is a lexical scan over
 the match blocks in production sources (tests excluded — a wildcard there
 fails loud at assert time), attributing every catch-all arm — `_` / `..`, a
 bare lowercase binding (`other =>`, semantically the same catch-all), the
-`|`-continuation of either, a tuple whose every slot is a catch-all (`(_, _)`,
+`|`-continuation of either, including mid-alternation (`Int | _ =>`, the
+catch-all one alternative among several), a tuple whose every slot is a catch-all (`(_, _)`,
 the shape a two-enum scrutinee reaches for; a tuple naming a concrete variant
 in any slot pins that slot and is not one), including the `;`-separated arms
 of a single-line match — inside a block that names a dtype enum to its
@@ -394,7 +407,8 @@ facts of the format have one home — the vendored
 `.github/fixtures/vega_lite_v6_5_0.schema.json`, pinned to the exact
 Vega-Lite 6.5.0 release — and the guard is a draft-07-subset walker
 (`$ref` / `type` / `enum` / `const` / `pattern` / `items` / `properties` /
-`required` / `additionalProperties` / `anyOf`-any-branch / `allOf`;
+`required` / `additionalProperties` / `anyOf`-any-branch / `allOf` /
+`minimum` / `maximum`;
 deliberately not a full validator) that walks every committed spec in
 `chart/corpus/` against it. The corpus itself is golden: `moon test`
 re-emits each spec and compares byte for byte, so it cannot fall behind

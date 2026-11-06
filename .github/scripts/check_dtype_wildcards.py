@@ -10,7 +10,9 @@ CI name every silent swallow-point that a human must review.
 
 A wildcard arm is a catch-all arm: a line whose first token is `_ =>` / `.. =>
 ` / a bare lowercase binding (`other =>` — semantically the same catch-all,
-which is why it registers like one), or the `|`-continuation of either, inside
+which is why it registers like one), or the `|`-continuation of either —
+including mid-alternation (`Int | _ =>`), where the catch-all is one
+alternative among several, inside
 a match block that mentions one of the dtype enums anywhere in the block (the
 scrutinee is usually a bare variable). A single-line match (`match dt { A =>
 1; _ => 0 }`) is scanned on its own line — its `;`-separated segments never
@@ -32,6 +34,13 @@ import subprocess
 import sys
 
 ENUMS = [
+    # The dtype-carrying enums whose variant growth this guard exists to make
+    # loud. The list is deliberately hand-maintained rather than derived from
+    # the sources: a new dtype-carrying enum is a decision someone made about
+    # which matches deserve re-reading, and recording it here (with the same
+    # deliberateness as registering a wildcard) is part of that decision. When
+    # a new enum joins the set, add its name here — an enum the list omits is
+    # a whole family of silent swallow-points this guard never sees.
     'Scalar', 'DataType', 'ColumnData', 'StorageKind', 'NumericData',
     'PhysicalType', 'ColumnStorage',
 ]
@@ -46,23 +55,29 @@ MATCH_RE = re.compile(r'\bmatch\s+(.+?)\s*\{')
 # spelling of one. A guard (`_ if cond =>`) is the same catch-all with a
 # condition on it: `.*?` runs to the first `=>` or `|`, and either match
 # marks the line (a `|` inside the guard continues the same arm). The second
-# alternative is the `|`-continuation of a multi-pattern arm. The third
+# alternative is the `|`-continuation of a multi-pattern arm — anywhere in
+# the line, because the catch-all may sit mid-alternation (`Int | _ =>`,
+# `A | B | other =>`): requiring it first-on-the-line after the `|` left a
+# concrete pattern ahead of it invisible. The third
 # covers a tuple whose every element is a catch-all (`(_, _) =>`, the shape
 # a two-enum scrutinee reaches for): each element repeats the single-element
 # set, and a tuple naming a concrete variant in any slot is *not* a
 # catch-all — it pins that slot — so it stays outside the guard.
 WILD_RE = re.compile(
     r'^\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
-    r'|\|\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
+    r'|.*\|\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*(=>|\|)'
     r'|^\s*(?:\|\s*)?\(\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*'
     r'(?:,\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*)+\)\s*(?:if\b.*?)?\s*(=>|\|)'
 )
-# The same tests for one `;`-separated segment of a single-line match.
+# The same tests for one `;`-separated segment of a single-line match —
+# including the mid-alternation catch-all, which is where a single-line match
+# most often writes one.
 SEGMENT_RE = re.compile(
     r'^\s*(?:\|)?\s*(?:(_|\.\.|[_a-z][_a-z0-9_\']*)'
     r'|\(\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*'
     r'(?:,\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*)+\))'
     r'\s*(?:if\b.*?)?\s*=>'
+    r'|.*\|\s*(_|\.\.|[_a-z][_a-z0-9_\']*)\s*(?:if\b.*?)?\s*=>'
 )
 FN_RE = re.compile(r'^\s*(?:pub\s+)?(?:fn(?:\[[^\]]*\])?\s+)?([A-Za-z_][A-Za-z0-9_:]*)')
 

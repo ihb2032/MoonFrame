@@ -9,7 +9,9 @@
 # private, so the enum-surface lock, which reads generated interfaces,
 # cannot see either one. This guard does. A member added to one enum and
 # not the other is a lazy verb silently missing (or a tag spelling a verb
-# no eager reducer answers), caught here at the source instead of by the
+# no eager reducer answers), and so is a member whose payload grew on one
+# side only — the lazy tag would construct a shape no eager reducer
+# accepts — caught here at the source instead of by the
 # first user who notices the asymmetry.
 #
 # Usage: check_reduction_mirror.sh [repo-root]
@@ -19,13 +21,16 @@ set -eu
 
 root=$(cd "${1:-.}" && pwd)
 
-# members <file> <enum-name>: the variant identifiers of a private enum,
-# payloads and comments stripped (`Quantile(Double, …)` reads as
-# `Quantile`), declaration order irrelevant to the comparison. The opening
-# brace may sit on the declaration line or the next one (`fmt` moves it
-# without warning); a missing file is an error in its own right — two
-# empty sets compare equal, so a renamed or split source would otherwise
-# pass the mirror check vacuously.
+# members <file> <enum-name>: the variant identifiers of a private enum with
+# their payloads, whitespace and comments stripped (`Quantile(Double, X)`
+# stays whole) — declaration order irrelevant to the comparison. The payload
+# is part of the mirror: a member gaining or losing a payload argument
+# (`Quantile(Double)` → `Quantile(Double, Bool)`) changes what every executor
+# arm has to build, so a member renamed-and-rewritten on one side only must
+# not pass as the same member. The opening brace may sit on the declaration
+# line or the next one (`fmt` moves it without warning); a missing file is
+# an error in its own right — two empty sets compare equal, so a renamed or
+# split source would otherwise pass the mirror check vacuously.
 members() {
   file=$1
   name=$2
@@ -44,7 +49,6 @@ members() {
       sub(/\/\/.*/, "")
       gsub(/[[:space:]]/, "")
       if ($0 == "") next
-      sub(/\(.*/, "")
       print
     }
   ' "$root/$file")

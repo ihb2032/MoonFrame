@@ -49,11 +49,12 @@
 #
 # One thing a regenerable snapshot cannot express is a rule, and the
 # intermediates are one: a public type the facade does not name exists only
-# because the verb returning it must be `pub`, and there are exactly four.
-# `--write` would happily bless a fifth — a helper type that leaked out of an
-# implementation — as "intermediate" and, from then on, as part of the shipped
-# surface. So the allowlist below is checked *before* the snapshot, and an
-# unexpected non-facade public type fails whatever the snapshot says.
+# because the verb returning it must be `pub`, and every one of them is a
+# chain step. `--write` would happily bless a new one — a helper type that
+# leaked out of an implementation — as "intermediate" and, from then on, as
+# part of the shipped surface. So the allowlist below is checked *before*
+# the snapshot, and an unexpected non-facade public type fails whatever the
+# snapshot says.
 #
 # Scope. Every tracked `pkg.generated.mbti` outside `internal/` and
 # `examples/`: the six public packages plus the root facade. Internal packages
@@ -84,15 +85,21 @@ mbti="pkg.generated.mbti"
 facade_source="moonframe.mbt"
 
 # The public types the facade deliberately does not name: each is a step in a
-# fluent chain (`when(c).then(a).otherwise(b)`, `group_by(k).agg(e)`), `pub`
+# fluent chain (`when(c).then(a).otherwise(b)`, `group_by(k).agg(e)`,
+# `plot(df).bar(x=, y=)` and the refinement chain off the mark), `pub`
 # only because the verb returning it must be, and reached by chaining off that
-# verb's return value rather than by name. Widen this only alongside the facade
-# comment that explains why the type is unnameable — never to make a guard pass.
+# verb's return value rather than by name. This list is what decides the
+# intermediate tag for a type the facade does not re-export — ahead of the
+# chart bucketing below, so a chain step in `chart` is an intermediate (which
+# it is: `FramePlot` / `Plot` chain exactly the way `WhenThen` does), not a
+# deep-mirror type. Widen this only alongside the facade
+# comment that explains why the type is unnameable — never to make a guard
+# pass.
 #
 # Package-qualified, because a bare name is a weaker claim than it looks: the
 # allowlist says *this* type in *this* package is chained through, and `io`
 # growing its own `WhenThen` is a different symbol that nothing chains to.
-intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyGroupBy"
+intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyGroupBy chart/FramePlot chart/Plot"
 
 # The public free functions the facade deliberately does not re-export: the
 # string-level serialiser family. Building a frame from in-memory text is a
@@ -136,7 +143,8 @@ extract() {
     [ -n "$f" ] || continue
     pkg=$(dirname "$f")
     [ "$pkg" != "." ] || pkg=root
-    NAMED="$named" CHART_MAIN="$chart_main" awk -v pkg="$pkg" '
+    NAMED="$named" CHART_MAIN="$chart_main" INTERMEDIATES="$intermediates" \
+      awk -v pkg="$pkg" '
       BEGIN {
         n = split(ENVIRON["NAMED"], line, "\n")
         for (i = 1; i <= n; i++) if (line[i] != "") reexported[line[i]] = 1
@@ -145,6 +153,8 @@ extract() {
           split(entry[i], pair, "/")
           chartmain[pair[2]] = 1
         }
+        n = split(ENVIRON["INTERMEDIATES"], entry, " ")
+        for (i = 1; i <= n; i++) if (entry[i] != "") chainstep[entry[i]] = 1
       }
       # `#alias(x)` gives the next method a second callable spelling, so
       # dropping the attribute is as breaking as deleting a method.
@@ -211,12 +221,18 @@ extract() {
         tname = $3
         sub(/[{].*/, "", tname)
         key = tname " " pkg
-        # A chart type the facade does not name is a member of the deep
-        # mirror family (reached through `@chart` qualification) when it is
-        # off the `chart_main` list, and a main-surface type that lost its
-        # re-export when it is on it — the two-way pin below settles which.
+        # The intermediates list decides first: a type on it is a chain
+        # step whatever package it lives in — the chart `FramePlot` /
+        # `Plot` chain exactly the way `WhenThen` does, and the chart
+        # bucketing below must not sweep a chain step into the deep
+        # mirror. Off the list, a chart type the facade does not name is a
+        # member of the deep mirror family (reached through `@chart`
+        # qualification) when it is off the `chart_main` list, and a
+        # main-surface type that lost its re-export when it is on it — the
+        # two-way pin below settles which.
         tag = "intermediate "
-        if (!(key in reexported) && pkg == "chart" && !(tname in chartmain))
+        if (!(key in reexported) && pkg == "chart" &&
+            !(tname in chartmain) && !((pkg "/" tname) in chainstep))
           tag = "qualified "
         print (key in reexported ? "type " : tag) tname " <- " pkg
         alias = ""

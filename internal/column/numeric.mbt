@@ -180,10 +180,12 @@ fn NumericColumn::get(
 ///|
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`. Any
 /// out-of-bounds index `raise IndexOutOfBounds(idx)`, matching
-/// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather).
+/// `BuiltinColumn::take`. Stays a `NumericColumn` (no bitmap to gather),
+/// with the indices borrowed as a read-only view the way that twin takes
+/// them.
 fn NumericColumn::take(
   self : NumericColumn,
-  indices : Array[Int32],
+  indices : ArrayView[Int32],
 ) -> NumericColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   match self.data {

@@ -2,16 +2,28 @@
 """Reject public MoonBit boundaries that directly retain caller-owned arrays.
 
 This is intentionally a small lexical guard, not a MoonBit parser. It examines
-one top-level `///|` block at a time, finds public functions with `Array[...]`
+one top-level `///|` block at a time — *every* `pub fn` signature the block
+carries, not just the first — and finds public functions with `Array[...]`
 parameters — positional, optional (`subset? : Array[...]`), or labelled
-(`keys~ : Array[...]`) — and rejects direct retention in record fields or
-enum/constructor payloads unless the retained value is an explicit `.copy()`.
-`Some` / `Ok` / `Err` are transparent — nested transparently too, so
-`Ok(Some(values))` is one hand-off — and two more shapes count as retention
-like the record literal does: a plain `=` assignment whose whole right-hand
-side is the parameter (a `mut` field or a global stash), and retention through
-a same-block alias (`let v2 = values` followed by `Frame(cols = v2)`), where
-the alias binding is the hand-off point a shadow copy must precede.
+(`keys~ : Array[...]`), `_`-prefixed spellings included — and rejects direct
+retention in record fields or enum/constructor payloads unless the retained
+value is an explicit `.copy()`. `Some` / `Ok` / `Err` are transparent — nested
+transparently too, so `Ok(Some(values))` is one hand-off — and three more
+shapes count as retention like the record literal does: a plain `=` assignment
+whose whole right-hand side is the parameter (a `mut` field or a global
+stash); a conditional assignment whose `if` / `match` right-hand side mentions
+the parameter bare (`self.f = if c { values } else { other }`); and a method
+call whose argument list hands the parameter over (`stash.push(values)`,
+`self.init(values)`), read conservatively — the guard cannot see which callee
+keeps its argument, so a read-only method taking the array is flagged too, and
+the fix is the same visible copy. A `@pkg.fn(values)` call is not a method
+call: the qualifier makes it the free function it is, unqualified spelling
+and all. Retention through a same-block alias counts
+as well (`let v2 = values` followed by `Frame(cols = v2)`), where the alias
+binding is the hand-off point a shadow copy must precede — and the alias's
+right-hand side may wrap the parameter in a transparent wrapper or bare
+parentheses (`let v2 = Some(values)`, `let v2 = (values)`), the same shapes a
+constructor payload may.
 
 A `let values = values.copy()` shadow binding also clears the parameter, but
 only when it is at the body's top level *and* precedes every retention. Both
@@ -19,10 +31,11 @@ conditions matter: rebinding after the array was handed on leaves the original
 aliased, and a copy inside one branch says nothing about the others — neither
 of which this lexical guard could otherwise tell apart from the real idiom.
 
-Algorithms that only read an array are unaffected. If a future boundary
-delegates to a helper that copies, keep the copy visible at the public boundary
-instead of weakening this check — a copy hidden one call away is invisible here
-by design, and the runtime contracts in `array_ownership_test.mbt` are what pin
+Algorithms that only read an array are unaffected (a method *receiver* is a
+read; only the argument position counts). If a future boundary delegates to a
+helper that copies, keep the copy visible at the public boundary instead of
+weakening this check — a copy hidden one call away is invisible here by
+design, and the runtime contracts in `array_ownership_test.mbt` are what pin
 those boundaries.
 """
 
@@ -48,8 +61,10 @@ PUBLIC_FN = re.compile(
     r"|\bwith\s+fn(?:\[[^\]]*\])?\s+([A-Za-z0-9_:]+)\s*\("
 )
 # `?` marks an optional parameter and `~` a labelled one; both still hand the
-# callee a caller-owned array.
-ARRAY_PARAM = re.compile(r"\b([a-z][A-Za-z0-9_]*)\s*[?~]?\s*:\s*Array\s*\[")
+# callee a caller-owned array. A `_`-prefixed name (`_values`) is a binding the
+# body may still reference, so it is scanned like any other — only a bare `_`
+# discards, and a discarded parameter cannot be retained.
+ARRAY_PARAM = re.compile(r"\b(_?[a-z][A-Za-z0-9_]*)\s*[?~]?\s*:\s*Array\s*\[")
 TRANSPARENT_WRAPPERS = ("Some", "Ok", "Err")
 
 
@@ -207,6 +222,41 @@ def record_shorthand_retains(block: str, parameter: str) -> int | None:
     return None
 
 
+def method_argument_retains(block: str, parameter: str) -> int | None:
+    """Offset of the first method call loading `parameter` as an argument.
+
+    `stash.push(values)` and `self.init(values)` keep the array wherever the
+    callee decides — a setter, a builder, a growing buffer — and the retain
+    detectors that read fields and constructors never see an argument list.
+    The receiver is irrelevant to ownership, so only the argument position
+    counts: `values.copy()` and `values.fold(…)` are reads. Deliberately
+    conservative, like the guard as a whole: a read-only method that takes the
+    array (`others.zip(values)`) is flagged too, and the remedy is the same
+    visible `.copy()` the constructor case asks for. A `@pkg.fn(values)` call
+    is *not* one: the `@pkg.` prefix is a package qualifier, and the call a
+    free function under it — the same spelling `fn(values)` wears without the
+    qualifier, which this guard has never read. An import alias must not be
+    what decides whether a boundary is flagged.
+    """
+    code = mask_strings_and_comments(block)
+    call = re.compile(r"\.\s*[a-z][A-Za-z0-9_]*\s*\(")
+    qualified = re.compile(r"@[A-Za-z_][A-Za-z0-9_]*$")
+    for match in call.finditer(code):
+        if qualified.search(code, 0, match.start()):
+            continue
+        opening = code.find("(", match.start())
+        closing = matching_delimiter(code, opening)
+        if closing is None:
+            continue
+        parts = split_top_level(code[opening + 1 : closing])
+        direct = re.compile(
+            rf"^(?:[a-z][A-Za-z0-9_]*\s*=\s*)?{wrapped_forms(parameter)}$"
+        )
+        if any(direct.fullmatch(part) for part in parts):
+            return match.start()
+    return None
+
+
 def top_level_copy(code: str, parameter: str) -> int | None:
     """Offset of a `let p = p.copy()` shadow binding at the body's top level.
 
@@ -228,34 +278,53 @@ def top_level_copy(code: str, parameter: str) -> int | None:
     return None
 
 
-def retained_parameters(block: str) -> list[str]:
-    # Mask once, up front, and read only the masked text from here on. Splitting
-    # the signature off the body means counting parentheses, and a `Char`
-    # default like `fill? : Char = ')'` would otherwise close the parameter list
-    # early.
+def function_spans(block: str) -> list[tuple[str, str, str]]:
+    """Every public function a `///|` block declares, as (name, signature, body).
+
+    A block may carry more than one `pub fn` — stacking small functions under
+    one separator is ordinary style — and scanning only the first left the rest
+    outside the guard entirely. The body of each runs from its signature's
+    closing parenthesis to the next signature (or the block's end), so one
+    function's retentions are never read as another's. The text between two
+    signatures — attributes, doc comments, a `priv` helper — belongs to the
+    earlier function's body: lexically conservative, in this guard's usual
+    direction.
+    """
     masked = mask_strings_and_comments(block)
-    match = PUBLIC_FN.search(masked)
-    if match is None:
-        return []
-    opening = masked.find("(", match.start())
-    closing = matching_paren(masked, opening)
-    if closing is None:
-        return []
-    signature = masked[opening + 1 : closing]
+    matches = list(PUBLIC_FN.finditer(masked))
+    spans: list[tuple[str, str, str]] = []
+    for index, match in enumerate(matches):
+        opening = masked.find("(", match.start())
+        closing = matching_paren(masked, opening)
+        if closing is None:
+            continue
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(masked)
+        # Either alternative of PUBLIC_FN may have matched; the name sits in
+        # whichever group it filled.
+        name = match.group(1) or match.group(2)
+        spans.append((name, masked[opening + 1 : closing], masked[closing + 1 : end]))
+    return spans
+
+
+def retained_in(signature: str, code: str) -> list[str]:
+    """The Array parameters one public function body directly retains."""
     parameters = ARRAY_PARAM.findall(signature)
-    code = masked[closing + 1 :]
     retained: list[str] = []
     for parameter in parameters:
         # An alias hands the same array on under a second name, and the
         # binding itself is the hand-off: a shadow copy that runs later
         # rebinds the parameter, never the alias, so anything the alias
         # feeds afterwards still reaches the caller's array. An alias
-        # bound *after* the copy names the copy instead and is safe.
+        # bound *after* the copy names the copy instead and is safe. The
+        # right-hand side may wrap the parameter the way a constructor
+        # payload may (`Some(values)`, `(values)`) — the wrapper does not
+        # own the array either, only the copy does.
         copied_at = top_level_copy(code, parameter)
+        bare = re.escape(parameter)
         aliases: list[tuple[str, int]] = []
         for alias in re.finditer(
             rf"(?m)^\s*let\s+([a-z][A-Za-z0-9_]*)\s*=\s*"
-            rf"{re.escape(parameter)}\s*$",
+            rf"(?:{wrapped_forms(parameter)}|\(\s*{bare}\s*\))\s*$",
             code,
         ):
             if copied_at is not None and copied_at < alias.start():
@@ -289,6 +358,25 @@ def retained_parameters(block: str) -> list[str]:
             )
             if assignment is not None:
                 retained_via_name.append(assignment.start())
+            # A conditional write is the same hand-off spread over branches:
+            # the right-hand side is an `if` / `match` expression, so no
+            # single branch is "the whole right-hand side", and one that
+            # mentions the parameter bare still hands the caller's array
+            # into the field on the paths that take it. A `.copy()` inside
+            # the branch is the visible copy this guard asks for.
+            conditional = re.search(
+                rf"(?m)^[ \t]*(?!let\b)"
+                rf"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+                rf"\s*=\s*(?:if|match)\b.*"
+                rf"(?<![A-Za-z0-9_]){re.escape(name)}"
+                rf"(?![A-Za-z0-9_])(?!\s*\.\s*copy\s*\()",
+                code,
+            )
+            if conditional is not None:
+                retained_via_name.append(conditional.start())
+            via_method = method_argument_retains(code, name)
+            if via_method is not None:
+                retained_via_name.append(via_method)
             via_constructor = constructor_retains(code, name)
             if via_constructor is not None:
                 retained_via_name.append(via_constructor)
@@ -307,6 +395,14 @@ def retained_parameters(block: str) -> list[str]:
         if copied_at is not None and copied_at < min(sites):
             continue
         retained.append(parameter)
+    return retained
+
+
+def retained_parameters(block: str) -> list[str]:
+    """Every Array parameter any public function in the block retains."""
+    retained: list[str] = []
+    for _name, signature, code in function_spans(block):
+        retained.extend(retained_in(signature, code))
     return retained
 
 
@@ -342,18 +438,13 @@ def audit(root: Path = ROOT) -> list[str]:
     for path in source_files(root):
         text = path.read_text(encoding="utf-8")
         for block in re.split(r"(?m)^///\|\s*$", text):
-            fn_match = PUBLIC_FN.search(block)
-            if fn_match is None:
-                continue
-            for parameter in retained_parameters(block):
-                relative = path.relative_to(root).as_posix()
-                # Either alternative of PUBLIC_FN may have matched; the
-                # name sits in whichever group it filled.
-                name = fn_match.group(1) or fn_match.group(2)
-                failures.append(
-                    f"{relative}: {name} directly retains Array parameter "
-                    f"'{parameter}'; copy it at the public boundary"
-                )
+            for name, signature, code in function_spans(block):
+                for parameter in retained_in(signature, code):
+                    relative = path.relative_to(root).as_posix()
+                    failures.append(
+                        f"{relative}: {name} directly retains Array parameter "
+                        f"'{parameter}'; copy it at the public boundary"
+                    )
     return failures
 
 

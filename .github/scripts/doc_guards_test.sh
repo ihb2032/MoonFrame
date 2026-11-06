@@ -119,6 +119,36 @@ mkgit "$work/v_first"
 expect 0 'version: first release has no published predecessor' \
   sh "$scripts/check_version_identity.sh" "$work/v_first"
 
+# The newest section must be the *first* one. Appended at the bottom, a new
+# heading used to escape the arithmetic entirely: the guard read the top
+# heading (already released, no marker), matched it against `moon.mod`, and
+# never consulted the appended section — whose `(unreleased)` target and
+# published source went unchecked. The top section is what `moon.mod` pairs
+# with, and both agree here, so only the position check can refuse.
+mkfixture "$work/v_tail" 0.6.0 '## v0.5.8 → v0.6.0
+
+### Removed
+
+Nothing.
+
+## v0.6.0 → v0.7.0 (unreleased)'
+expect_out 1 'below the top heading' \
+  'version: a new section appended at the bottom is refused' \
+  sh "$scripts/check_version_identity.sh" "$work/v_tail"
+
+# The same document with the new section on top is the ordinary shape: the
+# marker sits on the first heading, history below it, `moon.mod` still on
+# the published version.
+mkfixture "$work/v_top" 0.6.0 '## v0.6.0 → v0.7.0 (unreleased)
+
+### Removed
+
+Nothing.
+
+## v0.5.8 → v0.6.0'
+expect 0 'version: the newest section on top, history below' \
+  sh "$scripts/check_version_identity.sh" "$work/v_top"
+
 # The other half of the rule: no third place names a release. The fixtures
 # above are already the clean case — each passes with only the two homes
 # tracked — so what is left is a stray, and the third-party versions that
@@ -555,10 +585,12 @@ expect 1 'facade surface: a public type outside the intermediate allowlist' \
 # spec-object family reached through `@chart` qualification, with chart_main
 # pinning both directions. The fixture chart carries exactly the main-surface
 # set — every name the real list pins — plus one deep tree (VegaScale, as a
-# type, a method, and a free function) the pin must leave qualified. The
-# facade's type re-exports are read from the root interface (one exploded
-# `pub using @chart {type X}` line per type) and its function re-exports from
-# the facade source, so the fixture carries both.
+# type, a method, and a free function) the pin must leave qualified, and the
+# two chain steps (`FramePlot`, `Plot`) the intermediates list classifies
+# ahead of the chart bucketing. The facade's type re-exports are read from
+# the root interface (one exploded `pub using @chart {type X}` line per
+# type) and its function re-exports from the facade source, so the fixture
+# carries both.
 fs_chart_types="Chart ChartKind ChartSpec VegaAggregate VegaAutoSize VegaBin VegaBinParams VegaChannel VegaChannelSort VegaExtent VegaPadding VegaSort VegaSortChannel VegaStack VegaTimeUnit VegaType"
 fs_chart_mbti="$(
   for t in $fs_chart_types; do
@@ -599,8 +631,8 @@ fs_chart_snap="$( {
       'fn plot(String) -> FramePlot <- chart' \
       'fn write_vega_html(String) -> Unit <- chart' \
       'fn write_vega_lite(String) -> Unit <- chart' \
-      'qualified FramePlot <- chart' \
-      'qualified Plot <- chart' \
+      'intermediate FramePlot <- chart' \
+      'intermediate Plot <- chart' \
       'qualified VegaScale <- chart' \
       'method VegaScale::log(Self) -> Self <- chart' \
       'fn scale_key(String) -> Int <- chart'
@@ -676,6 +708,25 @@ expect 1 'internal packages: a package missing from the structure block' \
 mkinternal "$work/ip_stale" "column" "$ip_readme"
 expect 1 'internal packages: a documented package that no longer exists' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_stale"
+
+# A nested home is the same architectural fact the README owes a line: the
+# disk-side glob used to see one level only, so `internal/column/vector/`
+# existed unlisted without a word from this guard. The README pattern takes
+# the whole path, digits included — `vector32` below pins both halves.
+mkinternal "$work/ip_nested" "column kernel column/vector32" \
+'types/      value types
+internal/column/   Arrow-style storage
+internal/column/vector32/   vectorized kernels for one dtype family
+internal/kernel/   vectorized expression kernels'
+expect 0 'internal packages: a nested package documented by its full path' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_nested"
+
+mkinternal "$work/ip_nested_missing" "column kernel column/vector32" \
+'types/      value types
+internal/column/   Arrow-style storage
+internal/kernel/   vectorized expression kernels'
+expect 1 'internal packages: a nested package the doc never mentions' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_nested_missing"
 
 # ── production layering ───────────────────────────────────────────────────
 mklayering() {
@@ -1897,6 +1948,22 @@ mkmirror "$work/m_extra" \
 }'
 expect 1 'mirror: a member beyond NullCount on the lazy side' \
   sh "$scripts/check_reduction_mirror.sh" "$work/m_extra"
+
+# The same name on both sides is not the same member: a payload argument
+# gained on one side only changes what every executor arm has to build, and
+# stripping payloads made the drift read as agreement.
+mkmirror "$work/m_payload" \
+'priv enum FrameReduceOp {
+  Sum
+  Quantile(Double)
+}' \
+'priv enum LazyReduceOp {
+  Sum
+  NullCount
+  Quantile(Double, Bool)
+}'
+expect 1 'mirror: a payload that drifted on one side only' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_payload"
 
 # A renamed or split source must fail the read: two empty sets compare
 # equal, so a missing file would otherwise pass the mirror vacuously.

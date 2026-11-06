@@ -49,7 +49,10 @@ pub fn Series::gather(
   self : Series,
   indices : Array[Int32],
 ) -> Series raise @types.DataError {
-  { name: self.name, storage: self.storage.take(indices), }.try_column_to_numeric()
+  // The gather borrows the indices (`take` reads them once and builds new
+  // buffers), so a view hands it the read-only borrow that chain states —
+  // the caller's array is never retained.
+  { name: self.name, storage: self.storage.take(indices.exact_view()), }.try_column_to_numeric()
 }
 
 ///|

@@ -67,7 +67,12 @@ pub fn VegaPredicate::any_of(
 ///|
 /// The JSON of a predicate: the expression / parameter reference as an
 /// object, the field comparisons with their optional `timeUnit`, and
-/// the compositions as their arrays.
+/// the compositions as their arrays. The comparison fields are escaped
+/// like every other field reference (`escape_vega_field`) — a
+/// comparison against a column literally named `a.b` reads that column,
+/// not a nested path. An `Expr` arm stays verbatim: it is Vega
+/// expression source, and a field it references is the caller's to
+/// spell escaped.
 fn vega_predicate_emit_json(p : VegaPredicate) -> Json {
   let obj : Map[String, Json] = Map([])
   match p {
@@ -77,50 +82,50 @@ fn vega_predicate_emit_json(p : VegaPredicate) -> Json {
       Json::object(obj)
     }
     Equal(field, value, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["equal"] = value
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Lt(field, bound, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["lt"] = Json::number(bound)
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Lte(field, bound, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["lte"] = Json::number(bound)
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Gt(field, bound, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["gt"] = Json::number(bound)
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Gte(field, bound, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["gte"] = Json::number(bound)
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Range(field, bounds, time_unit) => {
       let (lo, hi) = bounds
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["range"] = Json::array([Json::number(lo), Json::number(hi)])
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     OneOf(field, values, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["oneOf"] = Json::array(values.copy())
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Valid(field, valid, time_unit) => {
-      obj["field"] = Json::string(field)
+      obj["field"] = Json::string(escape_vega_field(field))
       obj["valid"] = Json::boolean(valid)
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)

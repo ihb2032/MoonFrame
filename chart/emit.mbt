@@ -15,37 +15,62 @@ fn channel_dtype(
   df : @frame.DataFrame,
   channel : VegaChannel,
 ) -> @types.DataType? raise @types.DataError {
-  if channel.aggregate is Some(Count) || channel.field is None {
-    None
-  } else {
-    Some(df.get_column(channel.field.unwrap()).dtype())
+  match (channel.aggregate, channel.field) {
+    (Some(Count), _) => None
+    (_, Some(name)) => Some(df.get_column(name).dtype())
+    (_, None) => None
   }
 }
 
 ///|
 /// Build one Vega-Lite encoding-channel object. A constant channel emits
 /// only its `value` (the schema's value definition carries no `type`; the
-/// `constant` builder sets nothing else). A datum channel emits its
-/// `datum`. A field channel emits `{"field": <name>, "type": <vega-type>}`
-/// plus its declared modifiers — `aggregate`, `bin`, `timeUnit`, `sort`,
-/// `stack`, `bandPosition`, `title`, `format` — each present only when
-/// set; a `Count` aggregate emits no `field` key (its aggregate tallies
-/// rows per group) and its ignored `field` never reaches the spec. The
-/// `type` follows the dtype→type rule — a numeric column (`Int` / `Float`
-/// / `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
+/// `constant` builder sets nothing else) — and on a position channel the
+/// value must be a number or the strings `"width"` / `"height"` (the
+/// schema's `PositionValueDef` allows nothing else), so any other JSON
+/// value raises `InvalidOperation` rather than emitting a constant the
+/// schema would reject. A datum channel emits its `datum`. A field
+/// channel emits `{"field": <name>, "type": <vega-type>}` plus its
+/// declared modifiers — `aggregate`, `bin`, `timeUnit`, `sort`, `stack`,
+/// `bandPosition`, `title`, `format` — each present only when set; a
+/// `Count` aggregate emits no `field` key (its aggregate tallies rows per
+/// group) and its ignored `field` never reaches the spec. The `type`
+/// follows the dtype→type rule — a numeric column (`Int` / `Float` /
+/// `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
 /// `"temporal"` (its ISO cells sort chronologically, and a temporal axis
-/// orders by time rather than by first appearance), every other dtype is
-/// `"nominal"` — unless the channel carries an explicit `type_override`;
-/// a channel with no column to read (count, and anything the builders
-/// cannot build) is `"quantitative"` — a row count is a quantity by
-/// definition.
+/// orders by time rather than by first appearance), a `Duration` column
+/// is `"quantitative"` (its `data.values` cells leave as microsecond
+/// counts — Vega's temporal has no ISO-duration parser), and every other
+/// dtype is `"nominal"` — unless the channel carries an explicit
+/// `type_override`; a channel with no column to read (count, and
+/// anything the builders cannot build) is `"quantitative"` — a row
+/// count is a quantity by definition.
 fn encoding_channel(
   key : String,
   channel : VegaChannel,
   dtype : @types.DataType?,
-) -> Json {
+) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
   if channel.value is Some(value) {
+    if is_position_key(key) {
+      // The position value definition: a number, or the plot's own
+      // width / height by name — the schema's PositionValueDef allows
+      // nothing else, and a constant of any other shape is refused
+      // loudly rather than silently shipped.
+      match value {
+        Number(_, ..) => ()
+        String(s) =>
+          if s != "width" && s != "height" {
+            raise @types.DataError::InvalidOperation(
+              "a constant on the position channel \{key} must be a number or the string \"width\" / \"height\" (the schema's PositionValueDef allows nothing else)",
+            )
+          }
+        _ =>
+          raise @types.DataError::InvalidOperation(
+            "a constant on the position channel \{key} must be a number or the string \"width\" / \"height\" (the schema's PositionValueDef allows nothing else)",
+          )
+      }
+    }
     // The value definition: the constant itself, nothing else — the
     // `constant` builder sets no modifiers, and the schema's ValueDef
     // carries no `type`.
@@ -94,7 +119,9 @@ fn encoding_channel(
   if channel.legend is Some(legend) && allows_legend_key(key) {
     ch["legend"] = vega_legend_ref_emit_json(legend)
   }
-  if channel.condition is Some(condition) && !(channel.value is Some(_)) {
+  if channel.condition is Some(condition) &&
+    !(channel.value is Some(_)) &&
+    !is_secondary_key(key) {
     ch["condition"] = vega_condition_emit_json(condition)
   }
   if !is_secondary_key(key) {
@@ -107,10 +134,10 @@ fn encoding_channel(
 /// The secondary channels — the `2` / error forms that share their
 /// primary's scale (`x2`, `y2`, `theta2`, `radius2`, the four error
 /// channels, the far geo corners). The schema's field definition for one
-/// carries no `type` (the primary's scale decides it), no `sort`, no
-/// `format`, no `stack`; a modifier set on a secondary channel through a
-/// struct the builders cannot build is dropped here rather than emitted
-/// into a spec the schema would reject.
+/// (`SecondaryFieldDef`) carries no `type` (the primary's scale decides
+/// it), no `sort`, no `format`, no `stack`, and no `condition` — a
+/// modifier of those names set on a secondary channel is dropped here
+/// rather than emitted into a spec the schema would reject.
 fn is_secondary_key(key : String) -> Bool {
   key == "x2" ||
   key == "y2" ||
@@ -122,6 +149,22 @@ fn is_secondary_key(key : String) -> Bool {
   key == "yError2" ||
   key == "longitude2" ||
   key == "latitude2"
+}
+
+///|
+/// The position channels — the two primary positions, their far ends,
+/// and the polar pair — whose value definition is the schema's
+/// `PositionValueDef`: a number, or the plot's own `"width"` / `"height"`
+/// by name, and nothing else.
+fn is_position_key(key : String) -> Bool {
+  key == "x" ||
+  key == "y" ||
+  key == "x2" ||
+  key == "y2" ||
+  key == "theta" ||
+  key == "radius" ||
+  key == "theta2" ||
+  key == "radius2"
 }
 
 ///|
@@ -191,7 +234,12 @@ fn allows_legend_key(key : String) -> Bool {
 ///|
 /// The field `type` of a channel: an explicit `type_override` wins;
 /// otherwise the dtype→type rule over the channel's column, or
-/// `"quantitative"` when there is no column to read.
+/// `"quantitative"` when there is no column to read. A `Duration`
+/// column is `"quantitative"`: its `data.values` cells leave as their
+/// microsecond count (see `chart_data_values`), and a number is what a
+/// quantitative scale reads — Vega's temporal has no ISO-duration
+/// parser, so typing it temporal would hand the runtime strings it
+/// cannot parse.
 fn channel_type_string(
   channel : VegaChannel,
   dtype : @types.DataType?,
@@ -199,11 +247,11 @@ fn channel_type_string(
   if channel.type_override is Some(t) {
     vega_type_string(t)
   } else if dtype is Some(d) {
-    if d.is_numeric() || d is @types.DataType::Decimal(_) {
-      "quantitative"
-    } else if d is @types.DataType::Date ||
-      d is @types.DataType::Timestamp ||
+    if d.is_numeric() ||
+      d is @types.DataType::Decimal(_) ||
       d is @types.DataType::Duration {
+      "quantitative"
+    } else if d is @types.DataType::Date || d is @types.DataType::Timestamp {
       "temporal"
     } else {
       "nominal"
@@ -275,7 +323,8 @@ fn bin_json(bin : VegaBin) -> Json {
 ///|
 /// The JSON of a channel `sort`: the bare orders as strings, a by-channel
 /// sort as the channel's name (prefixed `-` for the descending form), a
-/// by-field sort as `{"field", "order"?}`, an explicit list as the array
+/// by-field sort as `{"field", "order"?}` (the field escaped like any
+/// other reference — it names a column), an explicit list as the array
 /// itself (in that order), and `Off` as `null`.
 fn sort_json(sort : VegaChannelSort) -> Json {
   match sort {
@@ -290,7 +339,7 @@ fn sort_json(sort : VegaChannelSort) -> Json {
     }
     ByField(field_name, order) => {
       let obj : Map[String, Json] = Map([])
-      obj["field"] = Json::string(field_name)
+      obj["field"] = Json::string(escape_vega_field(field_name))
       if order is Some(o) {
         obj["order"] = Json::string(
           if o is Ascending {

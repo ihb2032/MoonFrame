@@ -103,6 +103,56 @@ Source-level note:
   mirror emits; the data work (filter, aggregate) stays on the frame
   ahead of `plot`, and `.chart()` / `.spec()` hand the underlying mirror
   values back for composition and the deep trees.
+- The chart mirror now refuses to emit keys its Vega-Lite host does not
+  carry, and the builders lost the parameters that could only produce
+  them. A facet channel (`@chart.VegaFacetChannel`) no longer takes
+  `align` / `center` / `spacing` — those belong to the facet operator
+  (`VegaFacet::VegaFacet(…, spacing=…)`) — and a by-channel sort on a
+  facet channel (`sort=ByChannel(..)`) raises
+  `DataError::InvalidOperation` at emission, because the schema's
+  `FacetFieldDef.sort` has no bare-channel form (sort by a field or an
+  explicit order instead). `VegaConfig` lost its `format` parameter
+  (the config host has no such key — the number / time / tooltip format
+  defaults are `number_format` / `time_format` / `tooltip_format`), and
+  its `legend` / `title` blocks take the config hosts' own narrowed
+  types, `@chart.VegaLegendConfig` (a channel legend's `format` /
+  `format_type` / `label_expr` / `tick_min_step` / `type_` / `values`
+  do not exist there) and `@chart.VegaTitleConfig` (a spec title's
+  `text` / `subtitle` / `style` do not). The view frame's
+  `discrete_height` / `discrete_width` take `@chart.VegaDiscreteSize`
+  (`Px(n)` / `Step(n)`) — the config host has no responsive
+  `"container"` form for them.
+- More free strings and optional halves narrowed to the schema's own
+  enums and requireds: a mark style's `interpolate` (and an errorband
+  config's) is `@chart.VegaMarkInterpolate` (the schema's fifteen line /
+  area methods), `@chart.VegaInterpolateParams` takes a required
+  `type_~ : @chart.VegaInterpolateParamType` (`rgb` / `cubehelix` /
+  `cubehelix-long` — the parameter form's own three), and a window
+  field's `op` is the union `@chart.VegaWindowFieldOp` —
+  `Aggregate(VegaAggregate)` or `WindowOnly(VegaWindowOnlyOp)` — which
+  is what makes the window-only functions (`rank`, `row_number`, `lag`,
+  …) reachable at all; `VegaWindowField` also carries the window
+  functions' numeric `param` (a `lag` / `lead` offset, an `nth_value`
+  index).
+- Three emission rules changed what existing builders produce, not just
+  what they accept. A `Duration` column now types `"quantitative"` and
+  its `data.values` cells leave as microsecond counts (Vega's temporal
+  has no ISO-duration parser). A nested child emits only the chrome its
+  host carries — `autosize` / `background` / `padding` / `config` /
+  `usermeta` never nest, and a `layer` member additionally drops
+  `width` / `height` / `view`; a nested selection parameter drops its
+  `views` key (it exists only on the top-level parameter form). A
+  constant on a position channel (`x` / `y`, the `2` / polar forms)
+  must be a number or the string `"width"` / `"height"` — anything else
+  raises `InvalidOperation` — and a secondary channel (`x2`, the error
+  forms, …) drops a `condition` the way it already dropped `sort` /
+  `format` / `stack`. Field references escape consistently now: a facet
+  channel's field, a repeat's row / column lists, a predicate's
+  comparison field, and every transform field reference (group-by keys,
+  aggregate inputs, sort fields) escape dots / brackets the way encoding
+  channels always have, so a column literally named `a.b` resolves to
+  itself everywhere; output names (`as`) and the expression inside a
+  `calculate` stay as written.
 
 What has landed on `main`:
 

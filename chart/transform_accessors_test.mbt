@@ -19,7 +19,7 @@ test "the transform accessors read every list back, set and unset" {
   let window = @chart.VegaWindowTransform::VegaWindowTransform(
     window=[
       @chart.VegaWindowField::VegaWindowField(
-        op=@chart.VegaAggregate::Sum,
+        op=@chart.VegaWindowFieldOp::Aggregate(@chart.VegaAggregate::Sum),
         as_="running",
       ),
     ],
@@ -242,7 +242,7 @@ test "a bare construction of every family leaves every optional list unset" {
     @chart.VegaTransform::Window(
       @chart.VegaWindowTransform::VegaWindowTransform(window=[
         @chart.VegaWindowField::VegaWindowField(
-          op=@chart.VegaAggregate::Sum,
+          op=@chart.VegaWindowFieldOp::Aggregate(@chart.VegaAggregate::Sum),
           as_="running",
         ),
       ]),
@@ -358,7 +358,7 @@ test "every optional accessor reads None on its bare family" {
   assert_eq(stack.sort(), None)
   let window = @chart.VegaWindowTransform::VegaWindowTransform(window=[
     @chart.VegaWindowField::VegaWindowField(
-      op=@chart.VegaAggregate::Sum,
+      op=@chart.VegaWindowFieldOp::Aggregate(@chart.VegaAggregate::Sum),
       as_="running",
     ),
   ])

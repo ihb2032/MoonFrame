@@ -15,8 +15,10 @@ including mid-alternation (`Int | _ =>`), where the catch-all is one
 alternative among several, inside
 a match block that mentions one of the dtype enums anywhere in the block (the
 scrutinee is usually a bare variable). A single-line match (`match dt { A =>
-1; _ => 0 }`) is scanned on its own line — its `;`-separated segments never
-enter the multi-line walk. Closure parameter underscores (`makei(n, _ =>
+1; _ => 0 }`) is scanned on its own line, and so is the same spelling folded
+into a line *inside* a multi-line block (`Int => "i"; _ => "?"`): the
+`;`-separated segments are scanned per line in both places, one entry per
+matching segment. Closure parameter underscores (`makei(n, _ =>
 None)`) share the shape; the guard attributes the line to its enclosing
 function and lets the allowlist carry those with their reason, keeping the
 scanner deliberately lexical, like the array-copy boundary guard. String and
@@ -166,7 +168,18 @@ def find_wildcards(root='.'):
                     ll = strip_line(lines[j])
                     depth += ll.count('{') - ll.count('}')
                     block.append(ll)
-                    if WILD_RE.match(ll):
+                    if ';' in ll:
+                        # A `;` on a line *inside* a multi-line block is the
+                        # same single-line-match spelling folded into an arm
+                        # body — `Int => "i"; _ => "?"` — and the whole-line
+                        # WILD_RE never sees it: the catch-all is not the
+                        # line's first token. The segment scanner reads it
+                        # instead, one entry per matching segment so a line
+                        # carrying two catch-all arms registers two.
+                        for seg in ll.split(';'):
+                            if SEGMENT_RE.match(seg):
+                                found.append(j + 1)
+                    elif WILD_RE.match(ll):
                         found.append(j + 1)
                 text = '\n'.join(block)
                 # Attribution names a dtype enum through the block's own

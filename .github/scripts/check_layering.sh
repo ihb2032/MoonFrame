@@ -57,6 +57,11 @@
 
 set -eu
 
+# Shared with the engine-seam and internal-surface guards: all three read the
+# same manifests, and none of them may get its own answer to "what does this
+# package depend on". The reader fails loud on a manifest it cannot parse.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moon_pkg.sh"
+
 root="."
 write=0
 for arg in "$@"; do
@@ -122,46 +127,39 @@ if [ -n "$json_manifests" ]; then
   exit 1
 fi
 
-edges=$(git ls-files '*moon.pkg' |
+# One `<pkg> <dep>` edge per production import of a package in this module.
+# The reader (lib_moon_pkg.sh) accepts the canonical `moon fmt` block — and
+# the single-line spelling — and *refuses* anything else about dependencies:
+# an indented closer, a nested brace, a dependency keyword it has not been
+# told about. A manifest it refuses fails the run here, because a dependency
+# no reader saw is a dependency none of the rules below can.
+# `git ls-files` never lists a `_build` copy; `examples/` are programs built on
+# the facade, not layers of it, and neither is the `.github/fixtures/` consumer
+# module that builds against the published facade.
+raw_edges=$(git ls-files '*moon.pkg' |
   grep -v '^examples/' |
   grep -v '^.github/fixtures/' |
   while IFS= read -r manifest; do
     pkg=$(dirname "$manifest")
     [ "$pkg" != "." ] || pkg=root
-    awk -v pkg="$pkg" -v module="$module" '
-      /^import \{/ { inblock = 1; n = 0; next }
-      # A block closed by a `for "test"` / `for "wbtest"` marker is a test
-      # configuration: buffered and dropped, so only production edges are
-      # emitted. The marker is read off a comment-stripped copy of the
-      # closing line: `} // for "test"` is a test block wearing a comment,
-      # and a comment must not be able to disguise — or forge — the marker.
-      inblock && /^\}/ {
-        closer = $0
-        sub(/\/\/.*/, "", closer)
-        if (closer !~ /for "(wb)?test"/) {
-          for (i = 1; i <= n; i++) print pkg " -> " dep[i]
-        }
-        inblock = 0
-        next
-      }
-      inblock {
-        want = "\"" module "/"
-        exact = "\"" module "\""
-        if (index($0, want) > 0) {
-          d = substr($0, index($0, want) + length(want))
-          sub(/".*/, "", d)
-          dep[++n] = d
-        } else if (index($0, exact) > 0) {
-          # The root facade package: its path *is* the module name, with nothing
-          # after it, so the prefix above — which needs a `/` — cannot see it.
-          # Left unseen it would be an import no rule below could reject, which
-          # is the one direction the stack must not run. Keyed `root`, as the
-          # manifest in the repository root is.
-          dep[++n] = "root"
-        }
-      }
-    ' "$manifest"
+    moon_pkg_imports "$manifest" "$pkg" "$module"
   done | LC_ALL=C sort -u)
+
+case "$raw_edges" in
+  *'FAIL '*)
+    printf 'layering: a moon.pkg manifest the import reader refuses:\n'
+    printf '%s\n' "$raw_edges" | sed -n 's/^FAIL /  /p'
+    printf '  The reader accepts the canonical `moon fmt` form — `import {`\n'
+    printf '  opening at column 0, one quoted package path per line, `}`\n'
+    printf '  closing at column 0, optionally `} for "test"` / `} for\n'
+    printf '  "wbtest"` for a test-only block (a single-line `import { … }`\n'
+    printf '  is read too) — and refuses every other spelling of a dependency\n'
+    printf '  rather than dropping it from the graph.\n'
+    exit 1
+    ;;
+esac
+
+edges=$(printf '%s\n' "$raw_edges" | sed 's/ / -> /')
 
 in_list() {
   # in_list <needle> <space-separated haystack>

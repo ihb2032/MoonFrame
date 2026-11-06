@@ -18,7 +18,15 @@ call whose argument list hands the parameter over (`stash.push(values)`,
 keeps its argument, so a read-only method taking the array is flagged too, and
 the fix is the same visible copy. A `@pkg.fn(values)` call is not a method
 call: the qualifier makes it the free function it is, unqualified spelling
-and all. Retention through a same-block alias counts
+and all — and an *unqualified* lower-case free call (`take_values(values)`)
+is followed into its callee when that `fn` is declared in the same file:
+whether the helper keeps its argument is decidable by running the same
+detectors over its body, recursively, so a helper that hands the array one
+step further down is the same hand-off; only a callee that provably retains
+flags the boundary, while a callee this file does not declare stays outside
+the rule, as it always was — nothing here can read it, and flagging every
+one of them would demand copies at boundaries that only read their arrays.
+Retention through a same-block alias counts
 as well (`let v2 = values` followed by `Frame(cols = v2)`), where the alias
 binding is the hand-off point a shadow copy must precede — and the alias's
 right-hand side may wrap the parameter in a transparent wrapper or bare
@@ -86,14 +94,22 @@ def wrapped_forms(parameter: str) -> str:
 
 
 def mask_strings_and_comments(text: str) -> str:
-    """Blank string literals, `Char` literals and line comments, keeping offsets.
+    """Blank string literals, `Char` literals, line comments and block-string
+    segment lines, keeping offsets.
 
     `Char` literals matter as much as strings: `'}'` would otherwise close a
     brace that was never opened (making a nested shadow copy look top-level to
     `top_level_copy`), `'{'` would open one that never closes, and `'"'` would
-    start a string that swallows the rest of the block. Every structural scan
-    here — brace depth, `matching_paren`, `matching_delimiter` — reads the
-    masked text, so they all agree on what is code.
+    start a string that swallows the rest of the block. A multi-line string
+    segment marker — `#|` (raw) or `$|` (interpolated), wherever it appears on
+    the line — is text to the end of that line, not code, and a brace inside
+    one would skew every depth count the same way; the rest of the line is
+    blanked, `\{…}` interpolations included, exactly as the contents of an
+    ordinary `"…\{…}"` literal are. (`#|` and `$|` are not code in any other
+    position, so the marker cannot be mistaken for one.)
+    Every structural scan here — brace depth, `matching_paren`,
+    `matching_delimiter` — reads the masked text, so they all agree on what is
+    code.
 
     Masking is idempotent: the pass leaves no quote or comment marker behind,
     so re-masking already-masked text changes nothing.
@@ -101,8 +117,13 @@ def mask_strings_and_comments(text: str) -> str:
     chars = list(text)
     index = 0
     while index < len(chars):
-        if chars[index] in ('"', "'"):
-            quote = chars[index]
+        char = chars[index]
+        if char in "#$" and index + 1 < len(chars) and chars[index + 1] == "|":
+            while index < len(chars) and chars[index] != "\n":
+                chars[index] = " "
+                index += 1
+        elif char in ('"', "'"):
+            quote = char
             chars[index] = " "
             index += 1
             escaped = False
@@ -116,7 +137,7 @@ def mask_strings_and_comments(text: str) -> str:
                     escaped = True
                 elif char == quote:
                     break
-        elif chars[index] == "/" and index + 1 < len(chars) and chars[index + 1] == "/":
+        elif char == "/" and index + 1 < len(chars) and chars[index + 1] == "/":
             while index < len(chars) and chars[index] != "\n":
                 chars[index] = " "
                 index += 1
@@ -257,6 +278,138 @@ def method_argument_retains(block: str, parameter: str) -> int | None:
     return None
 
 
+# Statement keywords that can be followed by a parenthesis — `match (x) {…}`,
+# `if (c) {…}` — and are therefore shaped exactly like a call without being
+# one. A scrutinee mentioning the parameter is a read, not a hand-off.
+KEYWORD_CALLS = {
+    "if", "match", "while", "for", "loop", "guard", "return", "break",
+    "continue", "else", "catch", "try",
+}
+
+TOP_LEVEL_DECL = (
+    r"(?m)^(///\||pub |fn |let |const |struct |enum |impl |type |test |"
+    r"suberror |extern |})"
+)
+
+
+def helper_spans(text: str) -> dict[str, tuple[str, str]]:
+    """Every top-level private `fn name(…)` in the text, as name → (signature, body).
+
+    The lower-case free function declared beside a public boundary is the one
+    callee whose body this guard can read: whether it keeps its argument is a
+    question about *this file's* text, which is what makes the free-call rule
+    below lexically decidable where a method call is not. `pub` functions are
+    not helpers — each is a boundary the audit asks about on its own — and a
+    private *method* (`fn Type::name`) is keyed by its simple name only when
+    that is how a caller must spell it, which for a free call it is not.
+    """
+    masked = mask_strings_and_comments(text)
+    helpers: dict[str, tuple[str, str]] = {}
+    for match in re.finditer(
+        r"(?m)^fn(?:\[[^\]]+\])?\s+([a-z][A-Za-z0-9_]*)\s*\(", masked
+    ):
+        opening = masked.find("(", match.start())
+        closing = matching_paren(masked, opening)
+        if closing is None:
+            continue
+        rest = masked[closing + 1 :]
+        # The body runs to the next top-level declaration (its own closing `}`
+        # at column 0 among them) — over-running into trailing text can only
+        # add questions, never hide one.
+        nxt = re.search(TOP_LEVEL_DECL, rest)
+        body = rest[: nxt.start()] if nxt else rest
+        helpers[match.group(1)] = (masked[opening + 1 : closing], body)
+    return helpers
+
+
+def _param_names(signature: str) -> list[tuple[str, bool]]:
+    """(name, labelled?) for each of a helper's parameters, in order."""
+    names: list[tuple[str, bool]] = []
+    for part in split_top_level(signature):
+        m = re.match(r"^(_?[a-z][A-Za-z0-9_]*)\s*([?~])?\s*:", part)
+        if m:
+            names.append((m.group(1), m.group(2) == "~"))
+        else:
+            names.append(("", False))
+    return names
+
+
+def free_call_retains(
+    code: str,
+    parameter: str,
+    helpers: dict[str, tuple[str, str]] | None,
+    visiting: frozenset[str],
+    retained_in,
+) -> int | None:
+    """Offset of the first call handing `parameter` whole to a same-file helper
+    that retains it.
+
+    The bypass this closes: a boundary passing its Array parameter to a
+    lower-case free function in the same file was invisible — the constructor
+    and method detectors never read an unqualified `name(values)`. Unlike a
+    method call, though, the callee here is *readable*: it is declared in the
+    same file, so whether it keeps its argument is decidable by running the
+    same detectors over its body, recursively (a helper that hands the array
+    one step further down is the same hand-off). A call whose callee is not a
+    same-file `fn` — a builtin, another package's function — stays outside the
+    rule: nothing here can read that callee, and flagging every one of them
+    would ask for copies at boundaries that only read their arrays
+    (`names_of_exprs(keys)`), which is not what the rest of this guard does.
+    """
+    if not helpers:
+        return None
+    call = re.compile(
+        r"(?<![A-Za-z0-9_@.:])\b[a-z][A-Za-z0-9_]*\s*\("
+    )
+    direct = re.compile(
+        rf"^(?:{wrapped_forms(parameter)})$"
+    )
+    for match in call.finditer(code):
+        name = re.match(r"[a-z][A-Za-z0-9_]*", code[match.start() :]).group(0)
+        if name in KEYWORD_CALLS or name in TRANSPARENT_WRAPPERS:
+            continue
+        callee = helpers.get(name)
+        if callee is None or name in visiting:
+            continue
+        opening = code.find("(", match.start())
+        closing = matching_delimiter(code, opening)
+        if closing is None:
+            continue
+        cparams = _param_names(callee[0])
+        unlabelled = [pname for pname, labelled in cparams if not labelled]
+        arg_position = 0
+        for part in split_top_level(code[opening + 1 : closing]):
+            label = None
+            expr = part
+            m = re.match(r"^([a-z][A-Za-z0-9_]*)\s*~?\s*=\s*(.+)$", part, re.S)
+            if m:
+                label, expr = m.group(1), m.group(2)
+            elif re.match(r"^[a-z][A-Za-z0-9_]*~[^=]", part):
+                lm = re.match(r"^([a-z][A-Za-z0-9_]*)~\s*(.+)$", part, re.S)
+                if lm:
+                    label, expr = lm.group(1), lm.group(2)
+            if direct.fullmatch(expr.strip()):
+                target = None
+                if label is not None:
+                    for pname, _labelled in cparams:
+                        if pname == label:
+                            target = pname
+                            break
+                elif arg_position < len(unlabelled):
+                    target = unlabelled[arg_position]
+                if (
+                    target
+                    and target
+                    in retained_in(
+                        callee[0], callee[1], helpers, visiting | {name}
+                    )
+                ):
+                    return match.start()
+            if label is None:
+                arg_position += 1
+    return None
+
+
 def top_level_copy(code: str, parameter: str) -> int | None:
     """Offset of a `let p = p.copy()` shadow binding at the body's top level.
 
@@ -306,8 +459,18 @@ def function_spans(block: str) -> list[tuple[str, str, str]]:
     return spans
 
 
-def retained_in(signature: str, code: str) -> list[str]:
-    """The Array parameters one public function body directly retains."""
+def retained_in(
+    signature: str,
+    code: str,
+    helpers: dict[str, tuple[str, str]] | None = None,
+    _visiting: frozenset[str] = frozenset(),
+) -> list[str]:
+    """The Array parameters one public function body directly retains.
+
+    `helpers` is the same file's private free functions (see `helper_spans`);
+    the free-call detector reads a callee's body through it, recursively, with
+    `_visiting` holding the call chain so a helper calling itself cannot loop.
+    """
     parameters = ARRAY_PARAM.findall(signature)
     retained: list[str] = []
     for parameter in parameters:
@@ -377,6 +540,11 @@ def retained_in(signature: str, code: str) -> list[str]:
             via_method = method_argument_retains(code, name)
             if via_method is not None:
                 retained_via_name.append(via_method)
+            via_free = free_call_retains(
+                code, name, helpers, _visiting, retained_in
+            )
+            if via_free is not None:
+                retained_via_name.append(via_free)
             via_constructor = constructor_retains(code, name)
             if via_constructor is not None:
                 retained_via_name.append(via_constructor)
@@ -399,10 +567,16 @@ def retained_in(signature: str, code: str) -> list[str]:
 
 
 def retained_parameters(block: str) -> list[str]:
-    """Every Array parameter any public function in the block retains."""
+    """Every Array parameter any public function in the block retains.
+
+    The helpers are taken from the same text, so a private `fn` declared in
+    the block is read when a boundary in it is asked about — `audit` builds
+    the index once per file, where the same-file rule is the same rule.
+    """
+    helpers = helper_spans(block)
     retained: list[str] = []
     for _name, signature, code in function_spans(block):
-        retained.extend(retained_in(signature, code))
+        retained.extend(retained_in(signature, code, helpers))
     return retained
 
 
@@ -437,9 +611,10 @@ def audit(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     for path in source_files(root):
         text = path.read_text(encoding="utf-8")
+        helpers = helper_spans(text)
         for block in re.split(r"(?m)^///\|\s*$", text):
             for name, signature, code in function_spans(block):
-                for parameter in retained_in(signature, code):
+                for parameter in retained_in(signature, code, helpers):
                     relative = path.relative_to(root).as_posix()
                     failures.append(
                         f"{relative}: {name} directly retains Array parameter "

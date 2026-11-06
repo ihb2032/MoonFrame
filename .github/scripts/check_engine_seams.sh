@@ -75,6 +75,11 @@ set -eu
 # Shared with the internal-surface guard: both look for callers, and neither
 # should count a name inside a string or a comment as one.
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moonbit_source.sh"
+# Shared with the layering and internal-surface guards: the manifest reader,
+# which refuses a dependency block it cannot parse rather than dropping the
+# edge — a caller scan over an under-read graph credits seams with callers
+# they do not have.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moon_pkg.sh"
 
 root="."
 write=0
@@ -121,10 +126,16 @@ extract() {
       function flush_attrs() { hidden = 0; internal = 0 }
       # A block separator ends whatever attribute run preceded it.
       /^\/\/\/\|/ { flush_attrs(); next }
-      /^#doc\(hidden\)/ { hidden = 1; next }
-      /^#internal\(engine/ { internal = 1; next }
-      # Any other attribute (`#alias`, `#deprecated`, …) rides along.
-      /^#/ { next }
+      # Both attributes may sit on one line — `#doc(hidden)` and
+      # `#internal(engine, …)` side by side — so each is recognised
+      # independently of where on the line the other one is. Matching only
+      # line-leading spellings let the first attribute swallow the line and
+      # the second go unrecorded, which read the pair as half-marked.
+      /^#/ {
+        if ($0 ~ /#doc\(hidden\)/) hidden = 1
+        if ($0 ~ /#internal\(engine/) internal = 1
+        next
+      }
       # A declaration consumes the run. Only `pub` ones are seams; a private
       # one still clears the attributes so they cannot leak onto a later
       # declaration.
@@ -183,29 +194,22 @@ production_edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
   while IFS= read -r manifest; do
     pkg=$(dirname "$manifest")
     [ "$pkg" != "." ] || pkg=root
-    awk -v pkg="$pkg" '
-      /^import \{/ { inblock = 1; n = 0; next }
-      inblock && /^\}/ {
-        # The marker is read off a comment-stripped copy of the closing line
-        # (the check_layering rule): `} // for "test"` is a test block
-        # wearing a comment, and a comment must not be able to disguise — or
-        # forge — the marker.
-        closer = $0
-        sub(/\/\/.*/, "", closer)
-        if (closer !~ /for "(wb)?test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
-        inblock = 0
-        next
-      }
-      inblock {
-        want = "\"ihb2032/MoonFrame/"
-        if (index($0, want) > 0) {
-          d = substr($0, index($0, want) + length(want))
-          sub(/".*/, "", d)
-          dep[++n] = d
-        }
-      }
-    ' "$manifest"
+    moon_pkg_imports "$manifest" "$pkg" "ihb2032/MoonFrame"
   done | LC_ALL=C sort -u)
+
+# A manifest the reader refuses means edges this scan never saw — a seam could
+# read as caller-less (or as called) because a whole package's imports
+# vanished — so it fails here, before any conclusion is drawn from the graph.
+case "$production_edges" in
+  *'FAIL '*)
+    printf 'engine seams: a moon.pkg manifest the import reader refuses:\n'
+    printf '%s\n' "$production_edges" | sed -n 's/^FAIL /  /p'
+    printf '  The caller scan reads this graph; a dependency block it never\n'
+    printf '  saw makes every conclusion drawn from it unsound. The reader\n'
+    printf '  accepts the canonical `moon fmt` form — see lib_moon_pkg.sh.\n'
+    exit 1
+    ;;
+esac
 
 dependents_of() {
   printf '%s\n' "$production_edges" | awk -v want="$1" '$2 == want { print $1 }'

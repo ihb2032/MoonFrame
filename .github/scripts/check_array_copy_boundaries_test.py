@@ -347,6 +347,128 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }"""
         self.assertEqual(self.retained(source), [])
 
+    def test_free_fn_handoff_that_retains_is_retention(self) -> None:
+        # `hand_off(values)` — the bypass this rule closes: an unqualified
+        # lower-case free call was invisible to every detector, and the helper
+        # here keeps the array. Same-file, so the callee is readable and the
+        # retention decidable.
+        source = """fn hand_off(items : Array[Int]) -> Box {
+  { items }
+}
+
+pub fn make(values : Array[Int]) -> Box {
+  hand_off(values)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_free_fn_hand_off_two_hops_down_is_retention(self) -> None:
+        # A helper handing the array one step further down is the same
+        # hand-off; the recursion follows the chain rather than stopping at
+        # the first callee, which retains nothing itself.
+        source = """fn stash(items : Array[Int]) -> Unit {
+  sink = items
+}
+
+fn hand_off(items : Array[Int]) -> Unit {
+  stash(items)
+}
+
+pub fn make(values : Array[Int]) -> Unit {
+  hand_off(values)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_free_fn_that_only_reads_is_not_retention(self) -> None:
+        # The precision half of the rule: a same-file helper that only reads
+        # its argument (`names_of_exprs(keys)` is the shape this repository
+        # actually carries) does not make the boundary a retention — which is
+        # what keeps the rule from demanding copies at every read-only
+        # delegation.
+        source = """fn total(items : Array[Int]) -> Int {
+  items.fold(0, (a, b) => a + b)
+}
+
+pub fn sum(values : Array[Int]) -> Int {
+  total(values)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_free_fn_hand_off_after_a_visible_copy_is_safe(self) -> None:
+        source = """fn hand_off(items : Array[Int]) -> Box {
+  { items }
+}
+
+pub fn make(values : Array[Int]) -> Box {
+  let values = values.copy()
+  hand_off(values)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_free_fn_hand_off_with_a_labelled_argument_is_retention(self) -> None:
+        source = """fn hand_off(keys~ : Array[Int], name : String) -> Box {
+  { keys }
+}
+
+pub fn make(values : Array[Int]) -> Box {
+  hand_off(keys~ = values, "k")
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_a_helper_outside_the_file_is_not_followed(self) -> None:
+        # A builtin or another package's function is not declared here, so
+        # nothing can read it: the call stays outside the rule, as it has
+        # always been — the documented limit, pinned as a test.
+        source = """pub fn make(values : Array[Int]) -> Int {
+  println(values)
+  0
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_match_scrutinee_mentioning_the_parameter_is_not_a_call(self) -> None:
+        # `match (flag, values) { … }` is shaped exactly like a call to a
+        # function named `match`; the scrutinee is a read, not a hand-off.
+        source = """fn first(items : Array[Int]) -> Int {
+  items[0]
+}
+
+pub fn make(flag : Bool, values : Array[Int]) -> Int {
+  match (flag, values) {
+    (true, _) => first(values)
+    (false, _) => 0
+  }
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_block_string_brace_does_not_skew_the_depth_count(self) -> None:
+        # A `#|` segment is text: a `}` inside one must not close the body,
+        # which would make the branch-local copy below look top-level and
+        # report a safe boundary that is not.
+        source = '''pub fn Box::new(flag : Bool, values : Array[Int]) -> Box {
+  let doc = #| }
+  ignore(doc)
+  if flag {
+    let values = values.copy()
+    Box(values)
+  } else {
+    Box(values)
+  }
+}'''
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_block_string_content_is_not_code(self) -> None:
+        # Nothing written inside a `#|` segment is a hand-off — not even a
+        # line that would flag itself as one if it were code.
+        source = '''fn hand_off(items : Array[Int]) -> Box {
+  { items }
+}
+
+pub fn make(values : Array[Int]) -> Box {
+  let note = #| hand_off(values) { values }
+  ignore(note)
+  Box(0)
+}'''
+        self.assertEqual(self.retained(source), [])
+
     def test_second_pub_fn_in_a_block_is_scanned(self) -> None:
         # One `///|` block may stack two public functions; only the first
         # signature used to be read, leaving the second's boundary unguarded.

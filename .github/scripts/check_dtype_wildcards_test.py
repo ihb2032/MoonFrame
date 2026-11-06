@@ -356,6 +356,63 @@ class DtypeWildcardScannerTests(unittest.TestCase):
         })
         self.assertEqual(arms, [])
 
+    def test_semicolon_segment_inside_a_multi_line_block_is_scanned(self) -> None:
+        # `A => 1; _ => 2` on a line *inside* a multi-line dtype block is the
+        # single-line-match spelling folded into the walk; WILD_RE cannot see
+        # it (the catch-all is not the line's first token), so the segment
+        # scanner must run on in-block lines too.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => "i"\n'
+                '    @types.DataType::Float => "f"; _ => "?"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
+    def test_semicolon_segment_with_only_concrete_arms_is_not_flagged(self) -> None:
+        # The segment scanner must not widen the inventory: two concrete
+        # variants sharing a line are still a specific pair.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => "i"; @types.DataType::Float => "f"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [])
+
+    def test_two_catch_all_segments_on_one_line_register_twice(self) -> None:
+        # One entry per arm: a line carrying two catch-all segments is two
+        # swallow-points, and the allowlist counts arms, not lines.
+        root = self.repo({
+            '.github/scripts/dtype_wildcards.allowlist': (
+                'a/a.mbt label first arm reason\n'
+            ),
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => "i"\n'
+                '    other => "o"; _ => "?"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        with self.assertRaises(SystemExit) as caught:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                main(allowlist=str(root / '.github/scripts/dtype_wildcards.allowlist'),
+                     argv=[], root=str(root))
+        self.assertTrue(caught.exception.code != 0)
+        self.assertIn('UNREGISTERED', out.getvalue())
+
     def test_second_arm_of_a_registered_function_is_unknown(self) -> None:
         # The inventory counts arms, not functions: a second catch-all in
         # an already-registered function is the shape a one-line-per-key

@@ -431,10 +431,12 @@ fn BuiltinColumn::slice_unchecked(
 
 ///|
 /// Gather: produce a new column whose i-th entry is `self[indices[i]]`.
-/// Any out-of-bounds index `raise IndexOutOfBounds(idx)`.
+/// Any out-of-bounds index `raise IndexOutOfBounds(idx)`. The indices ride
+/// a borrowed view — the gather reads them and never retains the caller's
+/// array, and the borrow states that in the type.
 fn BuiltinColumn::take(
   self : BuiltinColumn,
-  indices : Array[Int32],
+  indices : ArrayView[Int32],
 ) -> BuiltinColumn raise @types.DataError {
   validate_gather_indices(indices, self.len())
   let data_out : ColumnData = match self.data {

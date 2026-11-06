@@ -316,7 +316,7 @@ pub fn Utf8Array::slice_view(
 /// this constructor is the cheap road to the bound.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
-  indices : Array[Int32],
+  indices : ArrayView[Int32],
 ) -> Utf8Array raise @types.DataError {
   let n = indices.length()
   let lens : FixedArray[Int32] = FixedArray::make(n, 0)

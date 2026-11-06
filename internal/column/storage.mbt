@@ -332,10 +332,13 @@ fn clamp_bound(i : Int32, len : Int32) -> Int32 {
 ///|
 /// Gather: output cell `i` is `self[indices[i]]`, keeping the backend (a
 /// gather of an all-valid `Numeric` column is still all-valid). Any
-/// out-of-bounds index `raise IndexOutOfBounds(idx)`.
+/// out-of-bounds index `raise IndexOutOfBounds(idx)`. The indices arrive as
+/// a borrowed view: a gather only reads them, and the borrow makes that
+/// read-only-ness structural — a callee handed a view cannot retain the
+/// caller's array even by accident.
 pub fn ColumnStorage::take(
   self : ColumnStorage,
-  indices : Array[Int32],
+  indices : ArrayView[Int32],
 ) -> ColumnStorage raise @types.DataError {
   match self {
     Builtin(c) => Builtin(c.take(indices))
@@ -370,7 +373,7 @@ pub fn ColumnStorage::cast(
 /// out-of-range index `raise IndexOutOfBounds(idx)`. Shared by both backends'
 /// `take` so the diagnostic is identical.
 fn validate_gather_indices(
-  indices : Array[Int32],
+  indices : ArrayView[Int32],
   len : Int32,
 ) -> Unit raise @types.DataError {
   for i in indices {

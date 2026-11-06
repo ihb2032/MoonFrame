@@ -13,8 +13,8 @@
 /// never its data. A file source (a `Csv` / `Ndjson` scan) prints its label
 /// and path (quoted and escaped like a string literal) and, once the
 /// optimizer has filled them, the projected column list and any absorbed
-/// predicate — `SCAN_CSV "sales.csv" [region, revenue] WHERE (col(qty) > 50)`
-/// — but never reads the file. Total:
+/// predicate — `SCAN_CSV "sales.csv" ["region", "revenue"] WHERE
+/// (col(qty) > 50)` — but never reads the file. Total:
 /// rendering walks plain data, including plans that would fail to `collect`.
 fn LogicalPlan::render(
   self : LogicalPlan,
@@ -72,9 +72,9 @@ fn LogicalPlan::render(
 /// Write a single plan node's own label (its inputs excluded) into `buf` — the
 /// per-node half of `render`, split out so the iterative walk emits each label
 /// and schedules its children separately. Expressions render through
-/// `@expr.Expr`'s `Show`; `Scan` prints only its frame's shape and a file source
-/// its label, path, and (once the optimizer fills them) projection and absorbed
-/// predicate — never data.
+/// `@expr.Expr`'s `Show`; `Scan` prints only its frame's shape and a file
+/// source its label, path, and (once the optimizer fills them) projection
+/// and absorbed predicate — never data.
 fn LogicalPlan::write_plan_label(
   self : LogicalPlan,
   buf : StringBuilder,
@@ -188,11 +188,13 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
     Drop(exprs) => buf <+ "DROP \{exprs_label(exprs)}"
     Rename(pairs) => {
       // One `from -> to` per rename, reusing the bracketed-list shape of
-      // the other plan labels.
+      // the other plan labels. Both spellings render quoted and escaped
+      // like a string literal (the row-index column's own convention): a
+      // column name with a break or a quote stays unambiguous on one line.
       let items = list_label(
         pairs.map(p => {
           let (from, to) = p
-          "\{from} -> \{to}"
+          "\"\{@text.escape_debug(from)}\" -> \"\{@text.escape_debug(to)}\""
         }),
       )
       buf <+ "RENAME \{items}"
@@ -291,9 +293,11 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
 
 ///|
 /// Bracketed, comma-separated display list — the shared shape of the
-/// `SELECT` / `WITH_COLUMNS` expression lists, the `SORT` key list, and
-/// the join key list. Items arrive pre-rendered: explain output is
-/// display syntax, so nothing here is debug-quoted.
+/// `SELECT` / `WITH_COLUMNS` expression lists, the `SORT` key list, the
+/// join key list, the rename pairs, and a scan's projected columns. Items
+/// arrive pre-rendered: expression lists in their `Show` form, the rename
+/// spellings and projected columns already quoted-and-escaped by the
+/// callers that name columns — the list shape itself adds no quoting.
 fn list_label(items : Array[String]) -> String {
   "[\{items.join(", ")}]"
 }
@@ -339,12 +343,14 @@ fn join_label(options : JoinOptions) -> String {
 ///|
 /// Render a file-source leaf — `SCAN_<format> "path"` plus, once the
 /// optimizer has filled them, the projected column list and the absorbed
-/// predicate (`SCAN_CSV "path" [a, b] WHERE (...)`). Shared by every file
-/// driver, which differ only in the label head their driver supplies (the
-/// path is quoted and escaped there, like a string literal); the projection
-/// (when present) reuses the `SELECT` / `SORT` bracketed-list shape, and an
-/// absorbed predicate prints after it, so the leaf reads "which columns,
-/// then which rows". Total — never reads the file.
+/// predicate (`SCAN_CSV "path" ["a", "b"] WHERE (...)`). Shared by every
+/// file driver, which differ only in the label head their driver supplies
+/// (the path is quoted and escaped there, like a string literal); the
+/// projection (when present) reuses the `SELECT` / `SORT` bracketed-list
+/// shape with each column quoted and escaped the same way — a header
+/// spelling with a break or a quote stays unambiguous on one line — and
+/// an absorbed predicate prints after it, so the leaf reads "which
+/// columns, then which rows". Total — never reads the file.
 fn render_scan_source(
   buf : StringBuilder,
   head : String,
@@ -354,7 +360,8 @@ fn render_scan_source(
   buf.write_string(head)
   match projection {
     None => ()
-    Some(columns) => buf <+ " \{list_label(columns)}"
+    Some(columns) =>
+      buf <+ " \{list_label(columns.map(c => "\"\{@text.escape_debug(c)}\""))}"
   }
   // An absorbed predicate prints after the projection, so the leaf reads
   // "which columns, then which rows".

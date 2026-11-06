@@ -6,10 +6,10 @@
 // and sink a predicate into a side that lacks its column, so every arm
 // either computes the precise set or gives up (`None`), and `None`
 // propagates — a side whose names are unknown is a side nothing splits
-// into. This is the name-set counterpart of the decimal value-fence's
-// risk walk (`decimal_names_in_plan`): that one propagates a *risk*
-// over-approximation (a file source reads as no decimal columns), while
-// this one computes
+// into. This is the name-set counterpart of the value-fence's
+// risk walk (`value_risk_in_plan`): that one propagates a *risk*
+// over-approximation (a file source's columns are suspect, not named),
+// while this one computes
 // names exactly (a file source's header is known only at collect, so its
 // set is `None`); the two answer different questions at different
 // precisions and neither could serve the other's callers. They do agree
@@ -18,19 +18,26 @@
 // name set (`sequential_rename` below) and the risk walk spells over its
 // decimal subset.
 //
-// The `Join` arm is the *exact* union — left names, a clash-free right
-// name under its own name, a clashing one under `name + suffix` only. The
+// The `Join` arm's union is exact for every name it *offers* — left
+// names, a clash-free right name under its own name, a clashing one under
+// `name + suffix` only — and it deliberately under-reports one shape: a
+// bare clashing `on` key offers no suffixed spelling. That spelling is
+// genuinely absent exactly when key coalescing drops the right key column
+// (the inner / left / right default); when coalescing is off — an outer
+// join keeps both key columns so unmatched rows stay distinguishable, an
+// explicit `coalesce=false` forces the same — the suffixed key column is
+// live at collect and still unoffered. That is the safe direction: the
 // split's attribution and the requirement split both make *positive*
 // claims from this set ("this name is a left/right output column"), so an
-// over-offered name — a suffix spelling no clash actually produced — would
-// attribute a predicate to a side that lacks its column, and a good plan
-// would break (the suffixed spelling may be perfectly live one join up,
-// reading a genuinely clashing column of *that* join). Key coalescing is
-// deliberately *not* resolved here: a coalesced key keeps the left
-// spelling (already in the left set), and the suffixed right spelling of a
-// clashing key is then genuinely absent — exactly what this set says —
-// while resolving it would duplicate frame's `coalesce_key_names` rule on
-// this side of the package boundary.
+// unoffered name only declines a sink, while an over-offered name — a
+// suffix spelling no clash actually produced — would attribute a
+// predicate to a side that lacks its column, and a good plan would break
+// (the suffixed spelling may be perfectly live one join up, reading a
+// genuinely clashing column of *that* join). Resolving coalescing here
+// would duplicate frame's `coalesce_key_names` rule on this side of the
+// package boundary; the coalesced key keeps the left spelling either way
+// (already in the left set), and the under-report pays for that boundary
+// with a declined sink no consumer has asked for.
 
 ///|
 /// The column names a plan stage outputs, or `None` when they are not
@@ -102,9 +109,11 @@ fn LogicalPlan::output_names(self : LogicalPlan) -> @set.Set[String]? {
                   // key coalescing may drop from the right (frame's rule,
                   // resolved at collect), so neither spelling is offered for
                   // it — the left spelling is already in the set, and offering
-                  // the suffixed one could attribute a predicate to a name the
-                  // join never outputs. Under-offering is the safe direction:
-                  // it only declines a sink.
+                  // the suffixed one could attribute a predicate to a name
+                  // the join does not reliably output (coalescing drops it on
+                  // the default; turned off, the spelling is live at collect
+                  // and still unoffered). Under-offering is the safe
+                  // direction: it only declines a sink.
                   let on_keys = bare_on_key_names(options)
                   let merged = @set.Set([])
                   l.each(name => merged.add(name))
@@ -259,8 +268,13 @@ fn bare_on_key_names(options : JoinOptions) -> @set.Set[String] {
 ///|
 /// The output spelling one right column takes through a join: its own name
 /// when the left does not clash, the suffixed spelling when it does — and
-/// no spelling at all for a bare clashing `on` key, whose right column key
-/// coalescing may drop at collect. This is the one home of the
+/// no spelling at all for a bare clashing `on` key: coalescing drops that
+/// right key column at collect on the inner / left / right default, and
+/// when a caller turns coalescing off (an outer join, an explicit
+/// `coalesce=false`) the suffixed key column is live but still unoffered —
+/// the safe under-report direction, since a name this walk does not offer
+/// only declines a sink while a spelling the join does not reliably output
+/// would misattribute. This is the one home of the
 /// clash-renaming rule: the name walk offers the spellings a join outputs,
 /// and the predicate split builds its suffixed→bare rewrite map from the
 /// same spellings, so the two can only agree.
@@ -283,9 +297,11 @@ fn right_output_spelling(
 /// The mirror spelling a *left* column takes through a right join: its own
 /// name when the right does not clash, the suffixed spelling when it does —
 /// and no spelling at all for a bare clashing `on` key, whose left column
-/// key coalescing may drop at collect. The right join's swapped-left-join
-/// reading moved the rename onto the left side, so this is
-/// `right_output_spelling` with the sides exchanged.
+/// key coalescing may drop at collect (and when coalescing is off, the
+/// suffixed key column is live at collect and still unoffered — the same
+/// safe under-report `right_output_spelling` states). The right join's
+/// swapped-left-join reading moved the rename onto the left side, so this
+/// is `right_output_spelling` with the sides exchanged.
 fn left_output_spelling(
   name : String,
   right_names : @set.Set[String],

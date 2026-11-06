@@ -181,7 +181,7 @@ test "scan_csv builders are total; a missing file fails only at collect" {
   // though the path does not exist).
   assert_eq(
     @io.scan_csv(absent).select([@expr.col("a")]).explain(optimized=true),
-    "SELECT [col(a)]\n  SCAN_CSV \"_build/lazy_scan_csv_absent.csv\" [a]",
+    "SELECT [col(a)]\n  SCAN_CSV \"_build/lazy_scan_csv_absent.csv\" [\"a\"]",
   )
   // Collect surfaces the missing file as IoError — through the CSV driver
   // when a projection fired…
@@ -544,7 +544,7 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
   // Building and explaining never touch the file.
   assert_eq(
     @io.scan_ndjson(absent).select([@expr.col("a")]).explain(optimized=true),
-    "SELECT [col(a)]\n  SCAN_NDJSON \"_build/lazy_scan_ndjson_absent.ndjson\" [a]",
+    "SELECT [col(a)]\n  SCAN_NDJSON \"_build/lazy_scan_ndjson_absent.ndjson\" [\"a\"]",
   )
   // Collect surfaces the missing file as IoError — through the NDJSON driver
   // when a projection fired…
@@ -728,7 +728,7 @@ test "scan_json builders are total; a missing file fails only at collect" {
   // the JSON source and the columns the projection narrowed to.
   assert_eq(
     @io.scan_json(absent).select([@expr.col("a")]).explain(optimized=true),
-    "SELECT [col(a)]\n  SCAN_JSON \"_build/lazy_scan_json_absent.json\" [a]",
+    "SELECT [col(a)]\n  SCAN_JSON \"_build/lazy_scan_json_absent.json\" [\"a\"]",
   )
   assert_true(
     (Ok(@io.scan_json(absent).select([@expr.col("a")]).collect()) catch {
@@ -949,6 +949,6 @@ test "a parquet scan still absorbs a bare-column predicate beside a projection" 
     .select([@expr.col("i")])
     .explain(optimized=true),
     "SELECT [col(i)]\n" +
-    "  SCAN_PARQUET \"_build/lazy_scan_parquet_bool_pred.parquet\" [i] WHERE col(flag)",
+    "  SCAN_PARQUET \"_build/lazy_scan_parquet_bool_pred.parquet\" [\"i\"] WHERE col(flag)",
   )
 }

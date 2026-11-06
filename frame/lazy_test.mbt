@@ -438,7 +438,7 @@ test "the column / row verbs render in explain, with each fill-value form" {
   inspect(
     LazyFrame::LazyFrame(df).rename([("qty", "quantity")]).explain(),
     content=(
-      #|RENAME [qty -> quantity]
+      #|RENAME ["qty" -> "quantity"]
       #|  SCAN [4×3]
     ),
   )

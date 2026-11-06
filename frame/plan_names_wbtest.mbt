@@ -211,6 +211,38 @@ test "output_names: a coalescible bare on-key offers no suffixed spelling" {
 }
 
 ///|
+test "output_names: a non-coalescing join under-reports the suffixed key" {
+  // An outer join never coalesces (both key columns stay, so an unmatched
+  // row keeps its side's key beside the other side's null), and an
+  // explicit `coalesce=false` forces the same on any how — so the right
+  // `a` survives at collect under its suffixed spelling `a_right`, a live
+  // output column. The walk still offers no spelling for it: resolving
+  // frame's coalesce rule here would duplicate it across the package
+  // boundary, and the under-report is the safe direction — a name the
+  // walk does not offer only declines a sink.
+  let outer = LazyFrame::LazyFrame(names_frame()).join(
+      LazyFrame::LazyFrame(names_other()),
+      JoinOptions::on([@expr.col("a")], how=Outer),
+    ).plan
+  assert_output_names(outer, ["a", "b", "c", "d"])
+  let forced = LazyFrame::LazyFrame(names_frame()).join(
+      LazyFrame::LazyFrame(names_other()),
+      JoinOptions::on([@expr.col("a")], coalesce=false),
+    ).plan
+  assert_output_names(forced, ["a", "b", "c", "d"])
+  // Pinned against the collect reality: the non-coalescing join's output
+  // *does* carry the suffixed key column — exactly the live name the walk
+  // declines to offer.
+  let outer_df = LazyFrame::LazyFrame(names_frame())
+    .join(
+      LazyFrame::LazyFrame(names_other()),
+      JoinOptions::on([@expr.col("a")], how=Outer),
+    )
+    .collect()
+  assert_true(outer_df.columns().contains("a_right"))
+}
+
+///|
 test "output_names: a join over an unknowable side gives up" {
   let plan = LazyFrame::LazyFrame(names_frame()).join(
       @io.scan_csv("names.csv"),

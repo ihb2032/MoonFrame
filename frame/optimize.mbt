@@ -18,8 +18,9 @@
 /// each scan — the in-memory `Scan` and the `Csv` / `Ndjson` file sources
 /// alike — to the columns its consumers provably read, so dead columns never
 /// ride through row-level work (and, for a file source, are never even
-/// parsed). The rules then fold column-free expression subtrees to their
-/// literal values and merge adjacent `with_columns` stages that commute.
+/// parsed). The rules then run in one sweep, in table order — clustering
+/// first, merging adjacent `with_columns` stages that commute, then
+/// folding column-free expression subtrees to their literal values.
 /// The inviolable contract is the executor's own:
 /// `execute(optimize(p))` is equal to `execute(p)` for every plan that
 /// collects. No pass ever alters a user-written node's *content* (predicates,

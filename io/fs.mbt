@@ -2,14 +2,17 @@
 // translates `@fs`'s `IOError` into the library's `DataError::IoError`, so the
 // `read_*` / `write_*` entry points don't each repeat the catch. It is also
 // the one place compressed files change shape: a read whose bytes carry the
-// gzip magic is decompressed before the UTF-8 decode, and a write to a
-// `.gz`-suffixed path compresses the encoded bytes — every reader, writer,
-// and lazy scan inherits both through the two choke points below.
+// gzip magic is decompressed before the UTF-8 decode (under the output cap
+// below), and a write to a `.gz`-suffixed path compresses the encoded
+// bytes — every reader, writer, and lazy scan inherits both through the two
+// choke points below.
 //
-// One-file-one-test exemption: this shared plumbing has no dedicated
-// test file of its own. (doc-guard: unresolved) It is covered through the
-// file-backed `read_csv` / `write_csv` / `write_json` / `write_ndjson`
-// tests in the per-format suites and the surrogate-refusal corpus.
+// The per-format suites and the surrogate-refusal corpus cover this shared
+// plumbing end to end (file-backed `read_csv` / `write_csv` / `write_json` /
+// `write_ndjson`); the output cap's own refusal fires only past a
+// production-sized expansion, which no end-to-end test should pay for, so
+// it is exercised through the private parameterised entry below with a
+// small cap instead.
 
 ///|
 /// Read a whole file as a string, mapping a file-system `IOError` to
@@ -41,6 +44,15 @@ fn read_text(path : String) -> String raise @types.DataError {
 }
 
 ///|
+/// The most decompressed bytes one gzip read may produce — the
+/// decompression-bomb guard, aligned with the parquet SNAPPY codec's own
+/// 1 GiB declared-length cap (`snappy_decompress`'s `0x4000_0000`). A
+/// compressed file of a few megabytes can name gigabytes of payload; past
+/// this cap the read refuses instead of letting the expansion run the
+/// process out of memory.
+const GUNZIP_MAX_OUTPUT : Int32 = 0x4000_0000
+
+///|
 /// Decompress `bytes` when they open with the gzip magic (`1f 8b`), pass
 /// them through otherwise. A stream that claims the magic but does not
 /// decompress — truncated, corrupt header, failed checksum — raises
@@ -49,11 +61,43 @@ fn read_text(path : String) -> String raise @types.DataError {
 /// read them as confidently wrong cells. The sniff is on the content, not
 /// the file name, so a misnamed source still reads and a plain file that
 /// happens to sit under a `.gz` name is not mistaken for one.
+///
+/// The output rides a cap, enforced by the inflater itself
+/// (`@gzip.decompress`'s `max_output`), never by the trailer's declared
+/// ISIZE: that 4-byte little-endian length is best-effort by format —
+/// stored modulo 2^32, so an expansion can wrap it to any value, and a
+/// multi-member stream declares only its *last* member's length — so a
+/// bomb can name a small size as freely as an honest file names its real
+/// one. Only the count of bytes actually produced cannot lie; past
+/// `GUNZIP_MAX_OUTPUT` of them the read refuses with `ParseError` naming
+/// the cap (the stream may be perfectly valid — its expansion is simply
+/// past what one read accepts).
 fn gunzip_bytes(path : String, bytes : Bytes) -> Bytes raise @types.DataError {
+  gunzip_bytes_capped(path, bytes, GUNZIP_MAX_OUTPUT)
+}
+
+///|
+/// `gunzip_bytes` with the output cap as a parameter — production reads
+/// pass `GUNZIP_MAX_OUTPUT`; the whitebox tests pass a small one, because
+/// inflating a real gigabyte past the production cap is exactly the cost
+/// the guard exists to spare.
+fn gunzip_bytes_capped(
+  path : String,
+  bytes : Bytes,
+  cap : Int32,
+) -> Bytes raise @types.DataError {
   if bytes.length() < 2 || bytes[0] != b'\x1f' || bytes[1] != b'\x8b' {
     return bytes
   }
-  @gzip.decompress(bytes) catch {
+  @gzip.decompress(bytes, max_output=cap) catch {
+    // The cap's refusal, kept apart from the malformed-stream arm: the
+    // message names the cap rather than claiming the stream is invalid.
+    @gzip.GzipError(OutputLimitExceeded(limit~, observed~), _detail) =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "file \{path} inflates past the \{limit}-byte decompression cap (already \{observed} bytes produced); refusing the read",
+        ),
+      )
     @gzip.GzipError(_kind, detail) =>
       raise @types.DataError::ParseError(
         @types.ParseErrorDetail::Message(

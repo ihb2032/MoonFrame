@@ -37,8 +37,10 @@
 ///
 /// Not public API. It exists for the in-module test assertions and the fuzz /
 /// property suites, which reach it across package boundaries — `frame`'s own
-/// blackbox tests, and `io` / `lazy` / the examples asserting on frames they
-/// built. The `INV1..INV5` numbering and the `String` diagnostics are
+/// blackbox tests, and `io` / `lazy` asserting on frames they built (the
+/// examples assert the public-surface shape instead — every column carrying
+/// the frame's height — which a downstream test can copy). The `INV1..INV5`
+/// numbering and the `String` diagnostics are
 /// test-facing detail, not a stable surface, and a future *user-facing*
 /// validator would be a separate `raise DataError` method.
 ///

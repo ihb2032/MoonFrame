@@ -1052,3 +1052,45 @@ test "blank JSON still checks its dtype pins" {
     assert_eq(df.ncols(), 0)
   }
 }
+
+// ── deep-nesting pre-scan ───────────────────────────────────
+
+///|
+test "nesting past 512 brackets refuses before the parse, not with an abort" {
+  // 600 open brackets: the parser's per-level recursion would exhaust the
+  // stack (a core abort nothing here could catch), so the pre-scan refuses
+  // at the 513th with a located ParseError instead.
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_json_str(String::make(600, '[')),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(
+        m, "invalid JSON: nesting deeper than 512 brackets at line 1, column 513",
+      )
+    _ => fail("expected a deep-nesting ParseError")
+  }
+}
+
+///|
+test "a 500-deep nested array still parses under the cap" {
+  // The wrapper array and object add two levels on top of the 500 — 502
+  // total, under the 512 cap — so the read succeeds and the nested value
+  // lands as its string fallback.
+  let inner = String::make(500, '[') + String::make(500, ']')
+  let payload = "[{\"v\":" + inner + "}]"
+  let df = @io.parse_json_str(payload)
+  assert_eq(df.shape(), (1, 1))
+}
+
+///|
+test "brackets inside string literals do not count toward the depth" {
+  // 600 open brackets, all inside one string cell: the scan tracks
+  // quoting, so the payload parses and the cell carries them verbatim.
+  let brackets = String::make(600, '[')
+  let df = @io.parse_json_str("[{\"a\":\"\{brackets}\"}]")
+  assert_eq(df.shape(), (1, 1))
+  assert_eq(df.item(0, "a"), @types.Scalar::String(brackets))
+}

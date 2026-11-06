@@ -2,6 +2,8 @@
 
 ///|
 test "cast Int identity on Int" {
+  // The identity is the cast entry's gate — the column returns before any
+  // conversion dispatch (`to_int` no longer carries an identity arm).
   let col = BuiltinColumn::from_int_options([Some(1), None])
   assert_eq(col.cast(@types.DataType::Int), col)
 }
@@ -50,8 +52,31 @@ test "cast Float promotes Int" {
 
 ///|
 test "cast Float identity on Float" {
+  // The cast entry's identity gate again — `to_float` has no identity arm.
   let col = BuiltinColumn::from_floats([1.0, 2.0])
   assert_eq(col.cast(@types.DataType::Float), col)
+}
+
+///|
+test "to_int / to_float answer a refusal where the identity arms lived" {
+  // The cast entry owns same-dtype identity and refuses a non-numeric I64
+  // rider before dispatching, so `to_int`'s `I64` arm and `to_float`'s
+  // `F64` arm are unreachable through `cast` — they stay for
+  // exhaustiveness and answer the entry's refusal, the same shape the
+  // temporal casts' unreachable arms take. Reached here by direct call on
+  // legal constructions (a rider column, an Int column, a Float column) —
+  // the old identity arm would have handed the rider column back as
+  // though it were an Int result.
+  let days = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(19000L),
+  ])
+  assert_true((Ok(days.to_int()) catch { e => Err(e) }) is Err(Unsupported(_)))
+  let ints = BuiltinColumn::from_int_options([Some(1)])
+  assert_true((Ok(ints.to_int()) catch { e => Err(e) }) is Err(Unsupported(_)))
+  let floats = BuiltinColumn::from_floats([1.5])
+  assert_true(
+    (Ok(floats.to_float()) catch { e => Err(e) }) is Err(Unsupported(_)),
+  )
 }
 
 ///|
@@ -389,4 +414,52 @@ test "the temporal casts refuse a construction the invariants rule out" {
     (Ok(bogus_ts.cast(@types.DataType::Date)) catch { e => Err(e) })
     is Err(Unsupported(_)),
   )
+}
+
+// ── Float -> String -> Float round-trip ──────────────────────────────
+
+///|
+/// Round-trip one `Double` through the cast path — `cast(String)` renders
+/// the value form, `cast(Float)` parses it back — demanding bit equality
+/// (`reinterpret_as_int64`), which `==` cannot promise for the zeros:
+/// `-0.0 == 0.0` numerically while carrying a different bit form.
+fn roundtrip_bits(x : Double) -> Int64 raise @types.DataError {
+  let text = BuiltinColumn::from_floats([x]).cast(@types.DataType::String)
+  let back = text.cast(@types.DataType::Float)
+  match back.get(0) {
+    @types.Scalar::Float(v) => v.reinterpret_as_int64()
+    _ => abort("unreachable: the Float cast's cells are Float by construction")
+  }
+}
+
+///|
+test "float value-form rendering round-trips bit-exactly" {
+  // 0.1 and its adjacent ulp up: each renders to its own shortest exact
+  // text and parses back to the same bits — and the two strings differ,
+  // so the pair cannot collapse into one value through the round trip.
+  let near = (0.1.reinterpret_as_int64() + 1L).reinterpret_as_double()
+  assert_eq(roundtrip_bits(0.1), 0.1.reinterpret_as_int64())
+  assert_eq(roundtrip_bits(near), near.reinterpret_as_int64())
+  // The first doubles past 2^53, where the integer text is 16 digits and
+  // a naive renderer could round to 2^53: exact text, exact bits.
+  let big = (0x4340_0000_0000_0000L + 2L).reinterpret_as_double()
+  assert_eq(roundtrip_bits(big), big.reinterpret_as_int64())
+  // The extremes of the format: the smallest normal (2^-1022) and the
+  // smallest subnormal (5e-324), both through exponent-notation text.
+  let min_normal = 0x0010_0000_0000_0000L.reinterpret_as_double()
+  assert_eq(roundtrip_bits(min_normal), 0x0010_0000_0000_0000L)
+  let min_subnormal = 1L.reinterpret_as_double()
+  assert_eq(roundtrip_bits(min_subnormal), 1L)
+}
+
+///|
+test "negative zero loses its sign through the value form" {
+  // A recorded loss, not a round-trip claim: core documents
+  // `(-0.0).to_string()` as `"0"`, so the value form carries no sign for
+  // zero and the parse back lands on +0.0 — numerically equal (and equal
+  // in the IEEE total order), bit-form different. Pinned here so a future
+  // renderer change that preserves the sign turns this assert around.
+  let back = roundtrip_bits(-0.0)
+  assert_eq(back, 0L)
+  assert_true((-0.0).reinterpret_as_int64() != back)
 }

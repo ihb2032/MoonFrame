@@ -106,3 +106,18 @@ test "a gather that amplifies past the Int32 bound refuses" {
   let result = Ok(ignore(a.take_view(indices))) catch { e => Err(e) }
   assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "construction past the payload bound refuses" {
+  // Crossing the production bound needs two gigabytes of resident strings,
+  // which no test can hold — so the capacity is parameterised and this
+  // drives the same core `from_strings` delegates to with a small cap. The
+  // refusal is the constructor's own, before any allocation; the bound is
+  // inclusive (a total exactly at the cap builds).
+  let over = Ok(ignore(Utf8Array::from_strings_capped(["aaaa", "bb"], 5L))) catch {
+    e => Err(e)
+  }
+  assert_true(over is Err(@types.DataError::InvalidOperation(_)))
+  let at = Utf8Array::from_strings_capped(["aaaa", "b"], 5L)
+  assert_eq(at.to_strings(), ["aaaa", "b"])
+}

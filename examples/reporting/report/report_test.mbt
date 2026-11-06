@@ -30,7 +30,11 @@ test "revenue_by_region: sums per region and orders by revenue desc" {
   assert_eq(summary.item(1, "revenue"), @moonframe.Scalar::Int(80))
   assert_eq(summary.item(2, "region"), @moonframe.Scalar::String("north"))
   assert_eq(summary.item(2, "revenue"), @moonframe.Scalar::Int(40))
-  assert_eq(summary.check_invariants(), Ok(()))
+  // The structural shape a downstream test can assert through the public
+  // surface: every column carries the frame's height.
+  for name in summary.columns() {
+    assert_eq(summary.get_column(name).len(), summary.nrows())
+  }
 }
 
 ///|

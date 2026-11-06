@@ -626,7 +626,9 @@ test "left_on / right_on TypeMismatch names both sides' keys" {
     Series::from_ints("rv", [10, 20]),
   ])
   // Differently-named keys with mismatched dtypes: the diagnostic names both
-  // the left and the right key (an `on` join shares one name).
+  // the left and the right key (an `on` join shares one name), and the
+  // remedy points at the key-cell encoding — keys hash by their own dtype,
+  // so the cast to one dtype is what makes the pair joinable at all.
   assert_eq(
     Ok(
       left.join(
@@ -639,7 +641,7 @@ test "left_on / right_on TypeMismatch names both sides' keys" {
     Err(
       @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
-          "join key \"lk\" (left) / \"rk\" (right) has dtype Int on the left but String on the right",
+          "join key \"lk\" (left) / \"rk\" (right) has dtype Int on the left but String on the right; join keys hash by their own dtype, so cells of two dtypes never match even at equal values — cast both sides to one dtype first",
         ),
       ),
     ),

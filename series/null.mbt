@@ -184,7 +184,11 @@ pub fn Series::fill_null(
 /// numeric result — now necessarily all-valid — canonicalises onto `Numeric`
 /// (`gather_series`), so dropping nulls cannot leave a numeric column off the
 /// fast path.
-pub fn Series::drop_nulls(self : Series) -> Series {
+///
+/// Raises `InvalidOperation` past the string layout's payload bound (via the
+/// underlying `gather_series`): a kept-cells rebuild of a string column whose
+/// payload passes `2^31 - 1` bytes refuses rather than wraps.
+pub fn Series::drop_nulls(self : Series) -> Series raise @types.DataError {
   // No nulls → nothing to drop; return `self` instead of gathering every row
   // into an identical rebuild. `null_count` is O(1) for a `Numeric` column
   // (always 0, so it short-circuits here and stays on the fast path) and a

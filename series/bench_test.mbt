@@ -69,7 +69,12 @@ test "series windowing: gather / slice" (b : @bench.T) {
   let n = 100000
   let s = Series::from_ints("x", scrambled_ints(n))
   let reverse = Array::makei(n, i => n - 1 - i)
-  b.bench(name="gather/reverse/\{n}", () => b.keep(s.gather_series(reverse)))
+  // The gather's raise is the string payload bound; this `Int` column can
+  // never take it, so the `catch` fallback is dead — the same concession
+  // the raising stats benches above make to core's total bench callback.
+  b.bench(name="gather/reverse/\{n}", () => {
+    b.keep(s.gather_series(reverse) catch { _ => s })
+  })
   b.bench(name="slice/first-half/\{n}", () => b.keep(s.slice_series(0, n / 2)))
   // A nullable `Builtin` column slid off byte alignment: its validity is a
   // zero-copy view whose `offset` is not a multiple of 8, which is the input the

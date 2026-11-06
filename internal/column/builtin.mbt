@@ -130,7 +130,11 @@ pub fn BuiltinColumn::from_bool_options(values : Array[Bool?]) -> BuiltinColumn 
 ///|
 /// Build a `String` column from raw values (no nulls). `values` is copied, so
 /// the column owns its data and is unaffected by later mutation of the array.
-pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
+/// Raises `InvalidOperation` past the string layout's payload bound
+/// (`Utf8Array::from_strings`'s `2^31 - 1` bytes).
+pub fn BuiltinColumn::from_strings(
+  values : Array[String],
+) -> BuiltinColumn raise @types.DataError {
   {
     dtype: @types.DataType::String,
     data: Utf8(@buffer.Utf8Array::from_strings(values)),
@@ -140,10 +144,12 @@ pub fn BuiltinColumn::from_strings(values : Array[String]) -> BuiltinColumn {
 
 ///|
 /// Build a `String` column where `None` entries are nulls. `None` slots
-/// receive `""` as the data placeholder.
+/// receive `""` as the data placeholder. Raises `InvalidOperation` past the
+/// string layout's payload bound (`Utf8Array::from_strings`'s `2^31 - 1`
+/// bytes).
 pub fn BuiltinColumn::from_string_options(
   values : Array[String?],
-) -> BuiltinColumn {
+) -> BuiltinColumn raise @types.DataError {
   {
     dtype: @types.DataType::String,
     data: Utf8(@buffer.Utf8Array::from_string_options(values)),

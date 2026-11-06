@@ -24,7 +24,11 @@ test "clean: drops rows with null `score` and fills remaining null `note` cells"
   // 4 rows survive the `score` gate; columns stay in declaration order.
   assert_eq(cleaned.shape(), (4, 4))
   assert_eq(cleaned.columns(), ["id", "name", "score", "note"])
-  assert_eq(cleaned.check_invariants(), Ok(()))
+  // The structural shape a downstream test can assert through the public
+  // surface: every column carries the frame's height.
+  for name in cleaned.columns() {
+    assert_eq(cleaned.get_column(name).len(), cleaned.nrows())
+  }
 
   // `score` survivors are 1 / 3 / 4 / 6, in source order.
   assert_eq(cleaned.item(0, "id"), @moonframe.Scalar::Int(1))
@@ -94,5 +98,7 @@ test "clean: passes through a frame that already has no nulls" {
   assert_eq(cleaned.shape(), (2, 3))
   assert_eq(cleaned.columns(), ["id", "note", "score"])
   assert_eq(cleaned.item(0, "note"), @moonframe.Scalar::String("a"))
-  assert_eq(cleaned.check_invariants(), Ok(()))
+  for name in cleaned.columns() {
+    assert_eq(cleaned.get_column(name).len(), cleaned.nrows())
+  }
 }

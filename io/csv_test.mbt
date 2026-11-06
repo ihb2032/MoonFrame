@@ -1225,3 +1225,29 @@ test "an Int-then-Bool mixed column still infers String" {
   let df = @io.parse_csv_str(content)
   assert_eq(df.get_column("x").dtype(), @types.DataType::String)
 }
+
+///|
+test "an integer literal past Int64 narrows its column to Float" {
+  // The inference-ladder caveat the parse_csv_str docstring states: the
+  // Int probe refuses 2^63, the Float probe accepts it, and one
+  // out-of-range cell retypes the whole column — value kept as the
+  // nearest Double (exact for 2^63 itself).
+  let df = @io.parse_csv_str("n\n9223372036854775808\n")
+  assert_eq(df.get_column("n").dtype(), @types.DataType::Float)
+  assert_eq(df.item(0, "n"), @types.Scalar::Float(9223372036854775808.0))
+}
+
+///|
+test "parse_csv_str: a spaces-only line is a header record, not empty" {
+  // NyaCSV's skip_empty_lines drops only *empty* lines, so "  \n" is not
+  // the line-empty case two tests up: the spaces parse as a header cell,
+  // yielding one zero-row String column named "  " — pinned here because
+  // the `ncols == 0` early-return's comment once claimed all
+  // whitespace-only input collapsed to 0x0.
+  let df = @io.parse_csv_str("  \n")
+  assert_eq(df.check_invariants(), Ok(()))
+  assert_eq(df.shape(), (0, 1))
+  let col = df.get_column("  ")
+  assert_eq(col.dtype(), @types.DataType::String)
+  assert_eq(col.len(), 0)
+}

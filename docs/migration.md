@@ -197,6 +197,20 @@ What has landed on `main`:
   `InvalidOperation`, and a `Series::gather` whose repeated indices
   would amplify a String column past `2^31 - 1` payload bytes refuses
   the same way instead of wrapping the buffer's `Int32` offsets.
+- The string layout's payload bound now refuses everywhere a build can
+  reach it, not only at the gather: `Series::from_strings` (and the
+  engine-seam `from_string_options`) raises `InvalidOperation` when the
+  cells' combined UTF-8 payload passes `2^31 - 1` bytes, where the
+  `Int32` offset total used to wrap and abort inside the allocator. The
+  refusal propagates honestly instead of being swallowed, so the verbs
+  whose rebuild rides the same constructors are now `raise`ing too —
+  `Series::sort` / `reverse` / `drop_nulls` and
+  `DataFrame::reverse` / `shuffle` gain `raise @types.DataError` in
+  their signatures (a call inside a raising function needs no change;
+  a total caller adds `raise` or `catch`). The bound itself is
+  unchanged and unreachable for any column the layout could already
+  hold: a reversal gathers each cell once, so only a multi-gigabyte
+  resident build or an amplifying gather ever meets the refusal.
 - `DataType::Duration` / `Scalar::Duration` — the fourth I64 rider: a
   span of whole microseconds. The temporal arithmetic reads it:
   `Timestamp − Timestamp` and `Date − Date` produce one, `Timestamp ±

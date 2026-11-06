@@ -28,12 +28,16 @@ set -eu
 root="${1:-.}"
 cd "$root"
 
-# On disk: one `internal/<name>` per build manifest. `git ls-files` never lists
-# a `_build` copy, so this is the tracked set.
-disk=$(git ls-files 'internal/*/moon.pkg' | sed 's#/moon\.pkg$##' | LC_ALL=C sort)
+# On disk: one package per build manifest, at any depth under `internal/` —
+# a nested home (`internal/column/vector/`) is the same architectural fact
+# the README owes a line, and a one-level glob used to see none of them.
+# `git ls-files` never lists a `_build` copy, so this is the tracked set.
+disk=$(git ls-files -- internal | grep '/moon\.pkg$' | sed 's#/moon\.pkg$##' |
+  LC_ALL=C sort)
 
 # In README: the repository-structure block lists a package at line start,
-# `internal/<name>/` followed by its description. The trailing `/` is what makes
+# `internal/<path>/` followed by its description — segments may carry digits
+# and nest, matching the disk side's depth. The trailing `/` is what makes
 # it an inventory line: prose and the layering diagram name a package without
 # one, so only the inventory counts. The README is the tested single source
 # `README.mbt.md`; `README.md` is a symlink to it, which a checkout without
@@ -44,7 +48,7 @@ readme_file=README.md
 if [ "$(cat README.md)" = "README.mbt.md" ]; then
   readme_file=README.mbt.md
 fi
-readme=$(sed -n 's#^\(internal/[a-z_]*\)/[ \t].*#\1#p' "$readme_file" |
+readme=$(sed -n 's#^\(internal/[a-z0-9_/]*\)/[ \t].*#\1#p' "$readme_file" |
   LC_ALL=C sort -u)
 
 fail=0

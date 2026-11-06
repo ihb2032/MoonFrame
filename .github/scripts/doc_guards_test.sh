@@ -707,6 +707,25 @@ mkinternal "$work/ip_stale" "column" "$ip_readme"
 expect 1 'internal packages: a documented package that no longer exists' \
   sh "$scripts/check_internal_packages.sh" "$work/ip_stale"
 
+# A nested home is the same architectural fact the README owes a line: the
+# disk-side glob used to see one level only, so `internal/column/vector/`
+# existed unlisted without a word from this guard. The README pattern takes
+# the whole path, digits included — `vector32` below pins both halves.
+mkinternal "$work/ip_nested" "column kernel column/vector32" \
+'types/      value types
+internal/column/   Arrow-style storage
+internal/column/vector32/   vectorized kernels for one dtype family
+internal/kernel/   vectorized expression kernels'
+expect 0 'internal packages: a nested package documented by its full path' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_nested"
+
+mkinternal "$work/ip_nested_missing" "column kernel column/vector32" \
+'types/      value types
+internal/column/   Arrow-style storage
+internal/kernel/   vectorized expression kernels'
+expect 1 'internal packages: a nested package the doc never mentions' \
+  sh "$scripts/check_internal_packages.sh" "$work/ip_nested_missing"
+
 # ── production layering ───────────────────────────────────────────────────
 mklayering() {
   # mklayering <dir> <frame-manifest> <internal-kernel-manifest> <root-manifest>

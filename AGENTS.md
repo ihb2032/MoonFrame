@@ -201,7 +201,8 @@ the sweep to the push.
   re-read the migration sections that describe it**: those are
   current-state prose that no guard scans, and they have shipped statements
   contradicting the interface they document.
-- **Internal packages** — the set of `internal/*` package *names* on disk must
+- **Internal packages** — the set of `internal/` package *names* on disk (at
+  any nesting depth) must
   equal the set README's repository-structure block names.
   They have no public surface, so no guard but layering notices one appearing or
   disappearing (and layering sees the edges, not the prose) — and an internal

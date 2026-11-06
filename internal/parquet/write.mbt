@@ -75,8 +75,9 @@ pub fn write_parquet_bytes(
 
 ///|
 /// One column's data page: the v1 page header (thrift), then the RLE
-/// definition levels (bit width 1 — max def level 1 under OPTIONAL) and
-/// the PLAIN values, compressed per the codec.
+/// definition levels (bit width 1 — max def level 1 under OPTIONAL)
+/// behind the 4-byte little-endian length a V1 page prefixes every
+/// level run with, and the PLAIN values, compressed per the codec.
 fn encode_data_page(
   column : @series.Series,
   map : DtypeMap,
@@ -120,6 +121,10 @@ fn encode_data_page(
     }
   }
   let page_body : Array[Byte] = []
+  // The V1 page's own shape: each level run opens with a 4-byte
+  // little-endian length naming the encoded run's byte count — the
+  // prefix every foreign reader strips before decoding the levels.
+  push_le_i32(page_body, level_bytes.length())
   for b in level_bytes {
     page_body.push(b)
   }

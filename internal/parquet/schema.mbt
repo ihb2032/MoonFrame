@@ -150,8 +150,10 @@ fn physical_from_tag(tag : Int32) -> Physical? {
 
 ///|
 /// The mapping a thrift schema row names, when MoonFrame carries it. A
-/// `FLOAT` (4), `INT96` (3), or `FIXED_LEN_BYTE_ARRAY` (7) physical type
-/// refuses — the first would narrow, the latter two carry dtypes
+/// bare `INT32` reads as `Int` (signed — the UINT annotations refuse
+/// instead of re-reading the bits unsigned); a bare `INT64` the same.
+/// A `FLOAT` (4), `INT96` (3), or `FIXED_LEN_BYTE_ARRAY` (7) physical
+/// type refuses — the first would narrow, the latter two carry dtypes
 /// (`TIMESTAMP` pre-converted, `DECIMAL` over bytes) MoonFrame does not
 /// spell. A `BYTE_ARRAY` without `UTF8` also refuses (a raw binary
 /// column is not a `String`).
@@ -165,6 +167,8 @@ fn map_from_schema(
     None => return None
   }
   match (physical, converted_value) {
+    (Int32P, None) =>
+      Some({ dtype: Int, physical: Int32P, converted: None, decimal_scale: -1, })
     (Int64P, None) =>
       Some({ dtype: Int, physical: Int64P, converted: None, decimal_scale: -1, })
     (DoubleP, None) =>

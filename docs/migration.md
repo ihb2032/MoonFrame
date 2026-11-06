@@ -202,6 +202,27 @@ What has landed on `main`:
   decode even when the projection above drops them, the same key-column
   contract the text scans' pruner honours, so a filtered select or a
   filtered group-by collects to exactly its eager spelling.
+- The parquet codec reads and writes the spec's own level encodings. A
+  V1 data page prefixes its RLE definition-level run with the 4-byte
+  little-endian length the format defines (a file MoonFrame wrote
+  before this change carried the run bare — those files now refuse on
+  read instead of mis-decoding), and a V2 page decodes its levels as
+  the RLE / bit-packed hybrid stream the page header itself sizes — no
+  prefix, never compressed — where the reader once read a bare bitmap
+  no parquet writer emits, under the page type (3) a foreign V2 page
+  actually declares. The schema walk reads the repetition type
+  and child count too: a REQUIRED column's pages carry no level section
+  at all and their values begin at the body's first byte (a foreign
+  REQUIRED column was mis-refused before), a group element refuses
+  naming the group instead of pairing a chunk under the BOOLEAN the
+  absent physical type once defaulted to, and a REPEATED leaf refuses
+  the same way. A dictionary page no longer counts its entries into the
+  chunk's value total (a dictionary chunk with several data pages
+  reads now), a V2 page whose header spells `is_compressed=false`
+  decodes its values raw however the chunk's codec votes, a bare INT32
+  column reads as a signed `Int`, and the thrift skipper bounds its
+  nesting so a footer spelled to recurse refuses with a located
+  `ParseError` instead of exhausting the stack.
 - The chart export gains a browser page: `format_vega_html` /
   `write_vega_html` wrap the specification `format_vega_lite` emits in a
   standalone HTML document that loads the Vega runtime from three pinned

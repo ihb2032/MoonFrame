@@ -407,7 +407,8 @@ facts of the format have one home — the vendored
 `.github/fixtures/vega_lite_v6_5_0.schema.json`, pinned to the exact
 Vega-Lite 6.5.0 release — and the guard is a draft-07-subset walker
 (`$ref` / `type` / `enum` / `const` / `pattern` / `items` / `properties` /
-`required` / `additionalProperties` / `anyOf`-any-branch / `allOf`;
+`required` / `additionalProperties` / `anyOf`-any-branch / `allOf` /
+`minimum` / `maximum`;
 deliberately not a full validator) that walks every committed spec in
 `chart/corpus/` against it. The corpus itself is golden: `moon test`
 re-emits each spec and compares byte for byte, so it cannot fall behind

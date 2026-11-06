@@ -182,20 +182,20 @@ test "explain: aggregate composes mid-pipeline with multiple keys and expression
 ///|
 test "explain: a CSV scan prints its quoted, escaped path and no projection until optimized" {
   // The path renders quoted and escaped like a string literal, on one line.
-  assert_eq(scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
+  assert_eq(@io.scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
   // The read options never appear in the plan, only the path.
-  assert_eq(scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
+  assert_eq(@io.scan_csv("sales.csv").explain(), "SCAN_CSV \"sales.csv\"")
   // Each special character escapes exactly like `@expr` / `@types` do, so a
   // path stays unambiguous on one line.
-  assert_eq(scan_csv("a\"b").explain(), "SCAN_CSV \"a\\\"b\"")
-  assert_eq(scan_csv("a\\b").explain(), "SCAN_CSV \"a\\\\b\"")
-  assert_eq(scan_csv("a\tb").explain(), "SCAN_CSV \"a\\tb\"")
-  assert_eq(scan_csv("a\rb").explain(), "SCAN_CSV \"a\\rb\"")
-  assert_eq(scan_csv("a\nb").explain(), "SCAN_CSV \"a\\nb\"")
+  assert_eq(@io.scan_csv("a\"b").explain(), "SCAN_CSV \"a\\\"b\"")
+  assert_eq(@io.scan_csv("a\\b").explain(), "SCAN_CSV \"a\\\\b\"")
+  assert_eq(@io.scan_csv("a\tb").explain(), "SCAN_CSV \"a\\tb\"")
+  assert_eq(@io.scan_csv("a\rb").explain(), "SCAN_CSV \"a\\rb\"")
+  assert_eq(@io.scan_csv("a\nb").explain(), "SCAN_CSV \"a\\nb\"")
   // As built, a CSV scan composes under any verb like any other leaf — the
   // projection is empty until the optimizer fills it.
   assert_eq(
-    scan_csv("sales.csv").select([@expr.col("region")]).explain(),
+    @io.scan_csv("sales.csv").select([@expr.col("region")]).explain(),
     "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\"",
   )
 }
@@ -205,15 +205,15 @@ test "explain: an NDJSON scan prints SCAN_NDJSON and composes like the CSV sourc
   // Same `render_scan_source` shape as `scan_csv`, only the label differs;
   // path escaping is pinned by the CSV scan test.
   assert_eq(
-    scan_ndjson("events.ndjson").explain(),
+    @io.scan_ndjson("events.ndjson").explain(),
     "SCAN_NDJSON \"events.ndjson\"",
   )
   assert_eq(
-    scan_ndjson("events.ndjson").explain(),
+    @io.scan_ndjson("events.ndjson").explain(),
     "SCAN_NDJSON \"events.ndjson\"",
   )
   assert_eq(
-    scan_ndjson("events.ndjson").select([@expr.col("region")]).explain(),
+    @io.scan_ndjson("events.ndjson").select([@expr.col("region")]).explain(),
     "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\"",
   )
 }

@@ -580,7 +580,7 @@ test "a scan-source path with control characters is escaped in explain" {
   // A hostile file path cannot inject a control sequence or a line break into
   // a rendered plan: the ESC and the newline both become escapes, so the line stays single and safe.
   inspect(
-    scan_csv("a\u{1b}\nb").explain(),
+    @io.scan_csv("a\u{1b}\nb").explain(),
     content=(
       #|SCAN_CSV "a\u001b\nb"
     ),

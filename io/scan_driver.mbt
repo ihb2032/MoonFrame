@@ -1,10 +1,10 @@
 // The file-format scan drivers behind the lazy scan sources: a driver is the
 // `ScanDriver` face one readable format puts on its read, and these three
-// are the whole of what `lazy` knows about CSV, NDJSON, and JSON. A new
-// scannable format adds a driver here (beside its options type) plus its
-// `scan_*` builder in `lazy` — execution, projection / predicate push-down
-// and plan rendering come from the driver interface, not from per-format
-// branches in the engine.
+// are the whole of what the lazy engine learns about CSV, NDJSON, and JSON.
+// A new scannable format adds a driver here (beside its options type) plus
+// its `scan_*` builder in `io/scan.mbt` — execution, projection / predicate
+// push-down and plan rendering come from the driver interface, not from
+// per-format branches in the engine.
 //
 // Taking the predicate as an `Expr` looks like a layering exception, but
 // only its column names and a row-selection callback reach the reader core:
@@ -77,13 +77,9 @@ fn file_scan_driver(
 ///|
 /// The CSV scan driver: a path plus the options to parse it under, read at
 /// `scan` time through the same projected / pruned core the eager reader
-/// uses. Built by `csv_scan_driver`, which hands `lazy` the driver record.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn csv_scan_driver(
-  path : String,
-  options : CsvReadOptions,
-) -> @scan.ScanDriver {
+/// uses. Served to `scan_csv` in `io/scan.mbt`, which hands the engine the
+/// driver record.
+fn csv_scan_driver(path : String, options : CsvReadOptions) -> @scan.ScanDriver {
   file_scan_driver(path, "CSV \"\{@text.escape_debug(path)}\"", (
     content,
     projection,
@@ -94,9 +90,7 @@ pub fn csv_scan_driver(
 ///|
 /// The NDJSON scan driver — the line-oriented twin of `csv_scan_driver`,
 /// reading through the NDJSON projected / pruned core.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn ndjson_scan_driver(
+fn ndjson_scan_driver(
   path : String,
   options : JsonReadOptions,
 ) -> @scan.ScanDriver {
@@ -115,9 +109,7 @@ pub fn ndjson_scan_driver(
 /// rows' cells are parsed past the predicate's own columns), never the
 /// parse itself — the same assembly-level pruning the NDJSON driver's
 /// line-by-line read ends up doing once its records are collected.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn json_scan_driver(
+fn json_scan_driver(
   path : String,
   options : JsonReadOptions,
 ) -> @scan.ScanDriver {

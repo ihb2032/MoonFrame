@@ -1275,9 +1275,9 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
     let check_source = (use_ndjson : Bool) => {
       let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
         let source = if use_ndjson {
-          scan_ndjson(ndjson_path)
+          @io.scan_ndjson(ndjson_path)
         } else {
-          scan_csv(csv_path)
+          @io.scan_csv(csv_path)
         }
         source.head(c.head).select([@expr.col(c.missing)])
       }
@@ -1411,7 +1411,7 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
         // schema, so even an empty or all-null frame round-trips faithfully —
         // both sides read identical data and any divergence is the reader's own.
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
-          scan_csv(csv_path).filter(c.pred)
+          @io.scan_csv(csv_path).filter(c.pred)
         }
         let eager_chain = () => @io.read_csv(csv_path).filter(c.pred)
         // The absorption is the rewrite under test — the plan's own
@@ -1525,7 +1525,7 @@ test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
       Ok(_) => {
         let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
-          scan_csv(path, options=opts).filter(
+          @io.scan_csv(path, options=opts).filter(
             @expr.col("a").gt(@expr.lit_int(0)),
           )
         }
@@ -1572,7 +1572,7 @@ test "a doubly-dirty CSV: both reads raise ParseError, whichever column each nam
   }
   let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
   let lazy_err = Ok(
-    scan_csv(path, options=opts)
+    @io.scan_csv(path, options=opts)
     .filter(@expr.col("a").gt(@expr.lit_int(0)))
     .collect(),
   ) catch {

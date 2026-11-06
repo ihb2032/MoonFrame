@@ -30,8 +30,7 @@
 // `VegaSort`, …) plus every free function a caller reaches by name — the
 // expression constructors, the frame's column selectors, the io layer's
 // file-level readers and writers, the chart's channel builder, its
-// spec / HTML export, and the plot entry, plus the lazy
-// layer's file sources. (The chart package keeps a second, deliberate
+// spec / HTML export, and the plot entry. (The chart package keeps a second, deliberate
 // surface off this facade: the deep Vega mirror family — the
 // spec-object trees behind `@chart.VegaSides` and its kin — is reached
 // through `@chart` qualification alone, the way io's string-level
@@ -81,10 +80,11 @@
 // sits below the expression layer), so it is re-exported from there. The
 // expression AST itself — `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags —
 // is module-internal, unreachable downstream and named by no public API, so
-// there is nothing to re-export for it. The lazy layer needs
-// the `scan_csv` / `scan_ndjson` / `scan_json` file sources, whose optional
-// options parameters ride along with the io layer; its own entry point rides
-// along with `type LazyFrame` as that type's constructor.
+// there is nothing to re-export for it. The lazy layer's entry point rides
+// along with `type LazyFrame` as that type's constructor; its
+// `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` file sources
+// live in the io layer, listed there, beside the readers and drivers they
+// defer.
 
 ///|
 pub using @types {
@@ -146,6 +146,10 @@ pub using @io {
   read_json,
   read_ndjson,
   read_parquet,
+  scan_csv,
+  scan_json,
+  scan_ndjson,
+  scan_parquet,
   write_csv,
   write_json,
   write_ndjson,
@@ -181,11 +185,4 @@ pub using @chart {
 }
 
 ///|
-pub using @lazy {
-  type LazyFrame,
-  type Optimizations,
-  scan_csv,
-  scan_ndjson,
-  scan_json,
-  scan_parquet,
-}
+pub using @lazy {type LazyFrame, type Optimizations}

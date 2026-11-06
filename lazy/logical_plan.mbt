@@ -81,10 +81,10 @@ priv struct FileScan {
   // Whether this read may produce decimal columns whose names the plan
   // cannot know — the decimal value-fence's `any` flag for the leaf, raised
   // by the risk walk's `Scan(File(_))` arm. The text sources carry decimal
-  // only through a `dtypes` pin, which the builder reads off the options it
-  // already captures (`pins_decimal`, beside the scan builders); a parquet
-  // footer can name decimal columns the builder cannot read without
-  // breaking its totality, so that source carries the conservative `true`.
+  // only through a `dtypes` pin, which the io scan builder reads off the
+  // options it already captures; a parquet footer can name decimal columns
+  // the builder cannot read without breaking its totality, so that source
+  // carries the conservative `true`.
   may_carry_decimal : Bool
 }
 

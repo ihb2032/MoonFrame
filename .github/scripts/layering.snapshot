@@ -35,6 +35,7 @@ io -> internal/numeric
 io -> internal/parquet
 io -> internal/scan
 io -> internal/text
+io -> lazy
 io -> series
 io -> types
 lazy -> expr
@@ -42,7 +43,6 @@ lazy -> frame
 lazy -> internal/ir
 lazy -> internal/scan
 lazy -> internal/text
-lazy -> io
 lazy -> series
 lazy -> types
 root -> chart

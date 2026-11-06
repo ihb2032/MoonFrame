@@ -830,34 +830,10 @@ test "CSV file readers forward strict quote validation" {
   ) catch {
     e => Err(e)
   }
-  let projected = Ok(
-    @io.csv_scan_driver(
-      path,
-      @io.CsvReadOptions::CsvReadOptions(strict_quotes=true),
-    ).scan(projection=Some(["a"])),
-  ) catch {
-    e => Err(e)
-  }
+  // The driver face halves of these checks — package-private since the
+  // drivers moved behind the `scan_*` builders — are pinned in
+  // `scan_driver_wbtest.mbt`.
   assert_true(eager is Err(@types.DataError::ParseError(_)))
-  assert_true(projected is Err(@types.DataError::ParseError(_)))
-}
-
-///|
-test "a projection matching no header reads the rows and no columns" {
-  // Building zero columns used to lose the file's height, so the reader had to
-  // fall back to materialising every column instead. The `N×0` frame carries
-  // the row count on its own, so nothing unrelated is inferred or parsed.
-  let path = "_build/io_csv_zero_match_projection.csv"
-  @fs.write_string_to_file(path, "a,b\n1,x\n2,y\n3,z")
-  let opts = @io.CsvReadOptions::CsvReadOptions()
-  // Through the driver face the lazy engine reads: the batch keeps the row
-  // count on its own, so nothing unrelated is inferred or parsed.
-  let driver = @io.csv_scan_driver(path, opts)
-  let none_match = driver.scan(projection=Some(["nope"]))
-  assert_eq((none_match.columns().length(), none_match.height()), (0, 3))
-  // Partial-match leniency is untouched: the matched column, the same height.
-  let partial = driver.scan(projection=Some(["b", "nope"]))
-  assert_eq((partial.columns().length(), partial.height()), (1, 3))
 }
 
 ///|
@@ -883,16 +859,6 @@ test "read_csv: a file that is not UTF-8 surfaces as ParseError" {
   @fs.write_bytes_to_file(path, b"a,b\n1,\xC3")
   let truncated = Ok(@io.read_csv(path)) catch { e => Err(e) }
   assert_true(truncated is Err(@types.DataError::ParseError(_)))
-  // The scan driver reads through the same gate: the refusal happens before
-  // any projection or pruning, so the lazy path cannot bypass it.
-  let scanned = Ok(
-    @io.csv_scan_driver(path, @io.CsvReadOptions::CsvReadOptions()).scan(
-      projection=Some(["a"]),
-    ),
-  ) catch {
-    e => Err(e)
-  }
-  assert_true(scanned is Err(@types.DataError::ParseError(_)))
   // Well-formed multi-byte content still reads back unchanged.
   @fs.write_string_to_file(path, "city,kg\n北京,42\nZürich,7\n")
   let cities = @io.read_csv(path)

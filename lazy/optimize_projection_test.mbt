@@ -447,7 +447,7 @@ test "nested selects: the outer requirement never prunes the inner expression li
 
 ///|
 test "scan_csv: a selection writes its columns into the scan, no inserted select" {
-  let plan = scan_csv("sales.csv").select([@expr.col("region")])
+  let plan = @io.scan_csv("sales.csv").select([@expr.col("region")])
   // As built there is no projection; optimized, the read narrows in place —
   // and (unlike an in-memory Scan) no extra SELECT is inserted.
   assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\"")
@@ -461,7 +461,7 @@ test "scan_csv: a selection writes its columns into the scan, no inserted select
 test "scan_csv: the written projection is sorted for a deterministic explain" {
   // One expression reads two columns; the file's order is unknown at optimize
   // time, so the projection is sorted (bonus before qty).
-  let plan = scan_csv("sales.csv").select([
+  let plan = @io.scan_csv("sales.csv").select([
     (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
   ])
   assert_eq(
@@ -473,7 +473,9 @@ test "scan_csv: the written projection is sorted for a deterministic explain" {
 
 ///|
 test "scan_csv guard: an all-literal selection writes no projection" {
-  let plan = scan_csv("sales.csv").select([@expr.lit_int(1).with_alias("one")])
+  let plan = @io.scan_csv("sales.csv").select([
+    @expr.lit_int(1).with_alias("one"),
+  ])
   // No source column is read, so the scan stays whole — it still yields rows.
   assert_eq(
     plan.explain(optimized=true),
@@ -484,14 +486,14 @@ test "scan_csv guard: an all-literal selection writes no projection" {
 ///|
 test "scan_csv: a bare scan at the root writes no projection" {
   assert_eq(
-    scan_csv("sales.csv").explain(optimized=true),
+    @io.scan_csv("sales.csv").explain(optimized=true),
     "SCAN_CSV \"sales.csv\"",
   )
 }
 
 ///|
 test "scan_csv: an aggregation narrows the scan to its keys and reads" {
-  let plan = scan_csv("sales.csv")
+  let plan = @io.scan_csv("sales.csv")
     .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
@@ -505,14 +507,14 @@ test "scan_csv: an aggregation narrows the scan to its keys and reads" {
 test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   // The shared narrow_scan / render_scan_source path serves both sources, so a
   // selection writes the projection straight onto the SCAN_NDJSON node.
-  let plan = scan_ndjson("events.ndjson").select([@expr.col("region")])
+  let plan = @io.scan_ndjson("events.ndjson").select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
   )
   // A filter is absorbed here too, leaving the projection at the consumer's
   // own columns.
-  let with_filter = scan_ndjson("events.ndjson")
+  let with_filter = @io.scan_ndjson("events.ndjson")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
@@ -522,7 +524,7 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   )
   // Bare at the root: no requirement, so no projection is written.
   assert_eq(
-    scan_ndjson("events.ndjson").explain(optimized=true),
+    @io.scan_ndjson("events.ndjson").explain(optimized=true),
     "SCAN_NDJSON \"events.ndjson\"",
   )
 }
@@ -600,7 +602,10 @@ test "a file source side keeps its whole read (its names are unknowable)" {
   let plan = l
     |> LazyFrame::LazyFrame
     |> lf => {
-      lf.join(scan_csv("cities.csv"), @frame.JoinOptions::on([@expr.col("id")]))
+      lf.join(
+        @io.scan_csv("cities.csv"),
+        @frame.JoinOptions::on([@expr.col("id")]),
+      )
     }
     |> lf => { lf.select([@expr.col("amount")]) }
   assert_eq(
@@ -656,7 +661,7 @@ test "a derived on-key and an unknowable left side keep their sides whole" {
     @series.Series::from_strings("note", ["a", "b", "c"]),
   ])
   let opts = @frame.JoinOptions::on([@expr.col("id") + @expr.lit_int(0)])
-  let plan = scan_csv("orders.csv")
+  let plan = @io.scan_csv("orders.csv")
     .join(LazyFrame::LazyFrame(r), opts)
     .select([@expr.col("amount")])
   assert_eq(

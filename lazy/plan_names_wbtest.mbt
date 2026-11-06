@@ -42,7 +42,7 @@ test "output_names: the in-memory scan names its frame's columns" {
 test "output_names: a file source's header is not statically knowable" {
   // `scan_csv` builds the deferred file scan without reading anything, so
   // no file needs to exist for its name set to read `None`.
-  let scanned = scan_csv("names.csv")
+  let scanned = @io.scan_csv("names.csv")
   assert_true(scanned.plan.output_names() is None)
 }
 
@@ -213,7 +213,7 @@ test "output_names: a coalescible bare on-key offers no suffixed spelling" {
 ///|
 test "output_names: a join over an unknowable side gives up" {
   let plan = LazyFrame::LazyFrame(names_frame()).join(
-      scan_csv("names.csv"),
+      @io.scan_csv("names.csv"),
       @frame.JoinOptions::on([@expr.col("a")]),
     ).plan
   assert_true(plan.output_names() is None)
@@ -224,7 +224,7 @@ test "output_names: an unknowable input gives up through every reshaper" {
   // A file source's `None` rides up through the reshaping verbs — each
   // one's `None` arm is the give-up, so a join above any of them sees an
   // unattributable side.
-  let base = scan_csv("names.csv")
+  let base = @io.scan_csv("names.csv")
   let unknowable : Array[LogicalPlan] = [
     base.with_columns([(@expr.col("a") + @expr.lit_int(1)).with_alias("d")]).plan,
     base.drop([@expr.col("a")]).plan,
@@ -288,13 +288,13 @@ test "output_names: a right join leads with the right side's names" {
 test "output_names: a right join over an unknowable side gives up" {
   // Either side unknowable, in either slot — the swapped merge propagates
   // the give-up just as the unswapped one does.
-  let left_unknowable = scan_csv("names.csv").join(
+  let left_unknowable = @io.scan_csv("names.csv").join(
       LazyFrame::LazyFrame(names_other()),
       @frame.JoinOptions::on([@expr.col("a")], how=Right),
     ).plan
   assert_true(left_unknowable.output_names() is None)
   let right_unknowable = LazyFrame::LazyFrame(names_frame()).join(
-      scan_csv("names.csv"),
+      @io.scan_csv("names.csv"),
       @frame.JoinOptions::on([@expr.col("a")], how=Right),
     ).plan
   assert_true(right_unknowable.output_names() is None)

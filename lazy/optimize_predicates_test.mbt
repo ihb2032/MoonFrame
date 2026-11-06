@@ -1162,7 +1162,7 @@ test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
   // The selection reads `region`; the filter needs `qty`. The predicate rides
   // *into* the scan, which reads `qty` itself to prune rows — so the written
   // projection is the consumer's `region` alone and no FILTER node remains.
-  let plan = scan_csv("sales.csv")
+  let plan = @io.scan_csv("sales.csv")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
@@ -1174,7 +1174,7 @@ test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
 
 ///|
 test "scan_csv absorbs a filter directly on it; a second one stays above" {
-  let plan = scan_csv("sales.csv").filter(
+  let plan = @io.scan_csv("sales.csv").filter(
     @expr.col("qty").gt(@expr.lit_int(50)),
   )
   // As built the filter is its own node; optimized, the scan carries it.
@@ -1198,9 +1198,9 @@ test "scan_csv: a column-less predicate is absorbed like any other" {
   // A predicate that names no column rides into the scan too: the pruner's
   // zero-column key frame carries the file's row count (`N×0`), so the literal
   // broadcasts over the real height. Both sources behave alike.
-  let csv = scan_csv("sales.csv").filter(@expr.lit_bool(true))
+  let csv = @io.scan_csv("sales.csv").filter(@expr.lit_bool(true))
   assert_eq(csv.explain(optimized=true), "SCAN_CSV \"sales.csv\" WHERE true")
-  let ndjson = scan_ndjson("events.ndjson").filter(@expr.lit_bool(false))
+  let ndjson = @io.scan_ndjson("events.ndjson").filter(@expr.lit_bool(false))
   assert_eq(
     ndjson.explain(optimized=true),
     "SCAN_NDJSON \"events.ndjson\" WHERE false",

@@ -8,12 +8,9 @@ frame | doc_hidden internal_engine | pub fn DataFrame::filter_row_indices( self 
 frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int32, ) -> DataFrame raise @types.DataError | used by: io,lazy
 frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]] | used by: io
 frame | doc_hidden internal_engine | pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? | used by: lazy
-io | doc_hidden internal_engine | pub fn csv_scan_driver( path : String, options : CsvReadOptions, ) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] | used by: chart
-io | doc_hidden internal_engine | pub fn json_scan_driver( path : String, options : JsonReadOptions, ) -> @scan.ScanDriver | used by: lazy
-io | doc_hidden internal_engine | pub fn ndjson_scan_driver( path : String, options : JsonReadOptions, ) -> @scan.ScanDriver | used by: lazy
-io | doc_hidden internal_engine | pub fn parquet_scan_driver(path : String) -> @scan.ScanDriver | used by: lazy
 io | doc_hidden internal_engine | pub fn write_text( path : String, content : String, ) -> Unit raise @types.DataError | used by: chart
+lazy | doc_hidden internal_engine | pub fn LazyFrame::file_scan( driver : @scan.ScanDriver, may_carry_decimal~ : Bool, ) -> LazyFrame | used by: io
 series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}

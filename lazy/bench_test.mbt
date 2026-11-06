@@ -100,7 +100,7 @@ test "star-shared vs independent csv scans @ 100k" (b : @bench.T) {
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
   fn shared() -> @frame.DataFrame raise @types.DataError {
-    let lf = scan_csv(path)
+    let lf = @io.scan_csv(path)
     lf
     .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
     .join(
@@ -110,8 +110,8 @@ test "star-shared vs independent csv scans @ 100k" (b : @bench.T) {
     .collect()
   }
   fn independent() -> @frame.DataFrame raise @types.DataError {
-    let l = scan_csv(path)
-    let r = scan_csv(path)
+    let l = @io.scan_csv(path)
+    let r = @io.scan_csv(path)
     l
     .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
     .join(

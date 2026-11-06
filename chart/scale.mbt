@@ -360,10 +360,41 @@ fn vega_interpolate_kind_string(v : VegaInterpolateKind) -> String {
 }
 
 ///|
-/// The parameter form of cubehelix interpolation: the kind and a gamma.
+/// The interpolation kinds the parameter form may name — the schema's
+/// `ScaleInterpolateParams.type` enum, narrower than the named kinds
+/// (`VegaInterpolateKind`): the parameter form carries the gamma-carrying
+/// rgb and cubehelix interpolations alone. `pub(all)` so callers can name
+/// the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaInterpolateParamType {
+  Rgb
+  Cubehelix
+  Cubehelix_long
+}
+
+///|
+pub extend VegaInterpolateParamType with Eq::{equal, not_equal}
+
+///|
+pub extend VegaInterpolateParamType with Debug::{to_repr}
+
+///|
+/// The schema string for each variant, one arm per variant.
+fn vega_interpolate_param_type_string(v : VegaInterpolateParamType) -> String {
+  match v {
+    Rgb => "rgb"
+    Cubehelix => "cubehelix"
+    Cubehelix_long => "cubehelix-long"
+  }
+}
+
+///|
+/// The parameter form of an rgb / cubehelix interpolation: the kind
+/// (required — the schema's `ScaleInterpolateParams` demands its `type`)
+/// and a gamma.
 #derive(Eq, Debug)
 pub struct VegaInterpolateParams {
-  type_ : VegaInterpolateKind?
+  type_ : VegaInterpolateParamType
   gamma : Double?
 }
 
@@ -374,11 +405,10 @@ pub extend VegaInterpolateParams with Eq::{equal, not_equal}
 pub extend VegaInterpolateParams with Debug::{to_repr}
 
 ///|
-/// Build one with every property optional; the array
-/// properties are copied, so an array the caller mutates
-/// afterwards cannot move a chart already built.
+/// Build one: the interpolation kind is required (an emission without
+/// one is a spec the schema would reject), the gamma optional.
 pub fn VegaInterpolateParams::VegaInterpolateParams(
-  type_? : VegaInterpolateKind,
+  type_~ : VegaInterpolateParamType,
   gamma? : Double,
 ) -> VegaInterpolateParams {
   { type_, gamma, }
@@ -389,9 +419,7 @@ pub fn VegaInterpolateParams::VegaInterpolateParams(
 /// under its schema key.
 fn vega_interpolate_params_emit_json(x : VegaInterpolateParams) -> Json {
   let obj : Map[String, Json] = Map([])
-  if x.type_ is Some(v) {
-    obj["type"] = Json::string(vega_interpolate_kind_string(v))
-  }
+  obj["type"] = Json::string(vega_interpolate_param_type_string(x.type_))
   if x.gamma is Some(v) {
     obj["gamma"] = Json::number(v)
   }
@@ -399,7 +427,8 @@ fn vega_interpolate_params_emit_json(x : VegaInterpolateParams) -> Json {
 }
 
 ///|
-/// A scale interpolation: a named kind, or cubehelix with a gamma.
+/// A scale interpolation: a named kind, or an rgb / cubehelix
+/// interpolation with a gamma.
 #derive(Eq, Debug)
 pub(all) enum VegaInterpolate {
   Kind(VegaInterpolateKind)

@@ -209,6 +209,8 @@ VegaCursor | enum | ZoomIn
 VegaCursor | enum | ZoomOut
 VegaDirection | enum | Horizontal
 VegaDirection | enum | Vertical
+VegaDiscreteSize | enum | Px(Double)
+VegaDiscreteSize | enum | Step(Double)
 VegaDomain | enum | Unaggregated
 VegaDomain | enum | Values(Array[@json.Json])
 VegaExtent | enum | Container
@@ -231,6 +233,9 @@ VegaInterpolateKind | enum | Hsl
 VegaInterpolateKind | enum | Hsl_long
 VegaInterpolateKind | enum | Lab
 VegaInterpolateKind | enum | Rgb
+VegaInterpolateParamType | enum | Cubehelix
+VegaInterpolateParamType | enum | Cubehelix_long
+VegaInterpolateParamType | enum | Rgb
 VegaJoin | enum | Bevel
 VegaJoin | enum | Miter
 VegaJoin | enum | Round
@@ -260,6 +265,21 @@ VegaLegendType | enum | Gradient
 VegaLegendType | enum | Symbol
 VegaLookupFrom | enum | Data(VegaLookupData)
 VegaLookupFrom | enum | Param(String)
+VegaMarkInterpolate | enum | Basis
+VegaMarkInterpolate | enum | BasisClosed
+VegaMarkInterpolate | enum | BasisOpen
+VegaMarkInterpolate | enum | Bundle
+VegaMarkInterpolate | enum | Cardinal
+VegaMarkInterpolate | enum | CardinalClosed
+VegaMarkInterpolate | enum | CardinalOpen
+VegaMarkInterpolate | enum | CatmullRom
+VegaMarkInterpolate | enum | Linear
+VegaMarkInterpolate | enum | LinearClosed
+VegaMarkInterpolate | enum | Monotone
+VegaMarkInterpolate | enum | Natural
+VegaMarkInterpolate | enum | Step
+VegaMarkInterpolate | enum | StepAfter
+VegaMarkInterpolate | enum | StepBefore
 VegaNice | enum | Bool(Bool)
 VegaNice | enum | Interval(VegaTimeInterval)
 VegaNice | enum | Step(VegaTimeInterval, Double)
@@ -488,3 +508,16 @@ VegaType | enum | Nominal
 VegaType | enum | Ordinal
 VegaType | enum | Quantitative
 VegaType | enum | Temporal
+VegaWindowFieldOp | enum | Aggregate(VegaAggregate)
+VegaWindowFieldOp | enum | WindowOnly(VegaWindowOnlyOp)
+VegaWindowOnlyOp | enum | CumeDist
+VegaWindowOnlyOp | enum | DenseRank
+VegaWindowOnlyOp | enum | FirstValue
+VegaWindowOnlyOp | enum | Lag
+VegaWindowOnlyOp | enum | LastValue
+VegaWindowOnlyOp | enum | Lead
+VegaWindowOnlyOp | enum | NthValue
+VegaWindowOnlyOp | enum | Ntile
+VegaWindowOnlyOp | enum | PercentRank
+VegaWindowOnlyOp | enum | Rank
+VegaWindowOnlyOp | enum | RowNumber

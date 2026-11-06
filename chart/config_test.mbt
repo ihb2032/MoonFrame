@@ -76,12 +76,11 @@ test "a theme carries its guide, view, and layout subtrees" {
       axis_quantitative=@chart.VegaAxis::VegaAxis(
         tick_count=@chart.VegaTickInterval::Count(5),
       ),
-      legend=@chart.VegaLegend::VegaLegend(
+      legend=@chart.VegaLegendConfig::VegaLegendConfig(
         orient=@chart.VegaLegendOrient::Right,
       ),
       header=@chart.VegaHeader::VegaHeader(label_angle=-30),
-      title=@chart.VegaTitleParams::VegaTitleParams(
-        text="T",
+      title=@chart.VegaTitleConfig::VegaTitleConfig(
         anchor=@chart.VegaAnchor::End,
       ),
       view=@chart.VegaViewConfig::VegaViewConfig(step=24, fill="#fff", stroke_dash=[
@@ -95,7 +94,7 @@ test "a theme carries its guide, view, and layout subtrees" {
         spacing=16,
       ),
       facet=@chart.VegaCompositionConfig::VegaCompositionConfig(spacing=12),
-      format=@chart.VegaFormatConfig::VegaFormatConfig(number_format="d"),
+      number_format="d",
     ),
   )
   assert_true(
@@ -108,7 +107,8 @@ test "a theme carries its guide, view, and layout subtrees" {
   assert_true(spec.contains("\"axisQuantitative\":{\"tickCount\":5}"))
   assert_true(spec.contains("\"legend\":{\"orient\":\"right\"}"))
   assert_true(spec.contains("\"header\":{\"labelAngle\":-30}"))
-  assert_true(spec.contains("\"title\":{\"text\":\"T\",\"anchor\":\"end\"}"))
+  assert_true(spec.contains("\"title\":{\"anchor\":\"end\"}"))
+  assert_true(spec.contains("\"numberFormat\":\"d\""))
   assert_true(spec.contains("\"step\":24"))
   assert_true(spec.contains("\"zoom\":\"wheel!\""))
   assert_true(spec.contains("\"concat\":{\"columns\":2,\"spacing\":16}"))
@@ -129,7 +129,7 @@ test "a theme carries its composite marks, ranges, style index, locale" {
       ),
       errorbar=@chart.VegaErrorBarConfig::VegaErrorBarConfig(thickness=2),
       errorband=@chart.VegaErrorBandConfig::VegaErrorBandConfig(
-        interpolate="linear",
+        interpolate=@chart.VegaMarkInterpolate::Linear,
       ),
       range=@chart.VegaRangeConfig::VegaRangeConfig(
         category=["#1f77b4", "#ff7f0e"],
@@ -259,7 +259,7 @@ test "a mark-style block carries its every property" {
     height=10,
     href="https://example.com",
     inner_radius=4,
-    interpolate="linear",
+    interpolate=@chart.VegaMarkInterpolate::Linear,
     invalid="filter",
     limit=100,
     line=true,
@@ -345,8 +345,8 @@ test "every config leaf fires: view, scale, range, format, composites" {
         clip=true,
         continuous_height=300,
         continuous_width=400,
-        discrete_height=@chart.VegaExtent::Step(20),
-        discrete_width=@chart.VegaExtent::Step(24),
+        discrete_height=@chart.VegaDiscreteSize::Step(20),
+        discrete_width=@chart.VegaDiscreteSize::Step(24),
         corner_radius=2,
         cursor=@chart.VegaCursor::Grab,
         fill_opacity=1,
@@ -477,13 +477,11 @@ test "theme chrome, format leaves, and accessors complete their arms" {
     @chart.VegaConfig::VegaConfig(
       autosize=@chart.VegaAutoSize::Fit,
       padding=@chart.VegaPadding::Px(10),
-      format=@chart.VegaFormatConfig::VegaFormatConfig(
-        number_format_type="currency",
-        normalized_number_format=".0%",
-        normalized_number_format_type="currency",
-        time_format="%Y",
-        time_format_type="time",
-      ),
+      number_format_type="currency",
+      normalized_number_format=".0%",
+      normalized_number_format_type="currency",
+      time_format="%Y",
+      time_format_type="time",
       header_row=@chart.VegaHeader::VegaHeader(labels=false),
       header_column=@chart.VegaHeader::VegaHeader(labels=false),
       header_facet=@chart.VegaHeader::VegaHeader(labels=false),
@@ -494,11 +492,11 @@ test "theme chrome, format leaves, and accessors complete their arms" {
   assert_true(spec.contains("\"headerRow\":{\"labels\":false}"))
   assert_true(spec.contains("\"headerColumn\":{\"labels\":false}"))
   assert_true(spec.contains("\"headerFacet\":{\"labels\":false}"))
-  assert_true(
-    spec.contains(
-      "\"format\":{\"numberFormatType\":\"currency\",\"normalizedNumberFormat\":\".0%\",\"normalizedNumberFormatType\":\"currency\",\"timeFormat\":\"%Y\",\"timeFormatType\":\"time\"}",
-    ),
-  )
+  assert_true(spec.contains("\"numberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"normalizedNumberFormat\":\".0%\""))
+  assert_true(spec.contains("\"normalizedNumberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"timeFormat\":\"%Y\""))
+  assert_true(spec.contains("\"timeFormatType\":\"time\""))
   // The view's stroke-dash and the range lists read their None arms.
   let bare_view = @chart.VegaViewConfig::VegaViewConfig()
   assert_eq(bare_view.stroke_dash(), None)
@@ -536,4 +534,178 @@ test "theme chrome, format leaves, and accessors complete their arms" {
     @chart.VegaConfig::VegaConfig(mark=cursor_style),
   )
   assert_true(cursor_spec.contains("\"cursor\":\"crosshair\""))
+}
+
+///|
+test "the config legend block fires every leaf it carries" {
+  let symbol_dash = [2.0]
+  let spec = themed_spec(
+    @chart.VegaConfig::VegaConfig(
+      legend=@chart.VegaLegendConfig::VegaLegendConfig(
+        aria=true,
+        clip_height=20,
+        column_padding=4,
+        columns=2,
+        corner_radius=3,
+        description="legend",
+        direction=@chart.VegaDirection::Vertical,
+        fill_color="#eee",
+        gradient_length=100,
+        gradient_opacity=0.9,
+        gradient_stroke_color="#ccc",
+        gradient_stroke_width=1,
+        gradient_thickness=20,
+        grid_align=@chart.VegaLayoutAlign::Each,
+        label_align=@chart.VegaAlign::Left,
+        label_baseline=@chart.VegaBaseline::Middle,
+        label_color="#333",
+        label_font="sans",
+        label_font_size=11,
+        label_font_style="italic",
+        label_font_weight=@chart.VegaFontWeight::Bold,
+        label_limit=90,
+        label_offset=8,
+        label_opacity=0.8,
+        label_overlap=@chart.VegaLabelOverlap::Greedy,
+        label_padding=2,
+        label_separation=6,
+        legend_x=1,
+        legend_y=2,
+        offset=10,
+        orient=@chart.VegaLegendOrient::TopRight,
+        padding=5,
+        row_padding=3,
+        stroke_color="#999",
+        symbol_dash~,
+        symbol_dash_offset=1,
+        symbol_fill_color="#fff",
+        symbol_limit=30,
+        symbol_offset=4,
+        symbol_opacity=0.9,
+        symbol_size=64,
+        symbol_stroke_color="#000",
+        symbol_stroke_width=1,
+        symbol_type="circle",
+        tick_count=@chart.VegaTickInterval::Count(5),
+        title="Legend",
+        title_align=@chart.VegaAlign::Right,
+        title_anchor=@chart.VegaAnchor::End,
+        title_baseline=@chart.VegaBaseline::Top,
+        title_color="#111",
+        title_font="serif",
+        title_font_size=13,
+        title_font_style="normal",
+        title_font_weight=@chart.VegaFontWeight::Weight(400),
+        title_limit=100,
+        title_line_height=16,
+        title_opacity=0.9,
+        title_orient=@chart.VegaTitleOrient::Top,
+        title_padding=6,
+        zindex=3,
+      ),
+    ),
+  )
+  for
+    needle in [
+      "\"aria\":true", "\"clipHeight\":20", "\"columnPadding\":4", "\"columns\":2",
+      "\"cornerRadius\":3", "\"description\":\"legend\"", "\"direction\":\"vertical\"",
+      "\"fillColor\":\"#eee\"", "\"gradientLength\":100", "\"gradientOpacity\":0.9",
+      "\"gradientStrokeColor\":\"#ccc\"", "\"gradientStrokeWidth\":1", "\"gradientThickness\":20",
+      "\"gridAlign\":\"each\"", "\"labelAlign\":\"left\"", "\"labelBaseline\":\"middle\"",
+      "\"labelColor\":\"#333\"", "\"labelFont\":\"sans\"", "\"labelFontSize\":11",
+      "\"labelFontStyle\":\"italic\"", "\"labelFontWeight\":\"bold\"", "\"labelLimit\":90",
+      "\"labelOffset\":8", "\"labelOpacity\":0.8", "\"labelOverlap\":\"greedy\"",
+      "\"labelPadding\":2", "\"labelSeparation\":6", "\"legendX\":1", "\"legendY\":2",
+      "\"offset\":10", "\"orient\":\"top-right\"", "\"padding\":5", "\"rowPadding\":3",
+      "\"strokeColor\":\"#999\"", "\"symbolDash\":[2]", "\"symbolDashOffset\":1",
+      "\"symbolFillColor\":\"#fff\"", "\"symbolLimit\":30", "\"symbolOffset\":4",
+      "\"symbolOpacity\":0.9", "\"symbolSize\":64", "\"symbolStrokeColor\":\"#000\"",
+      "\"symbolStrokeWidth\":1", "\"symbolType\":\"circle\"", "\"tickCount\":5",
+      "\"title\":\"Legend\"", "\"titleAlign\":\"right\"", "\"titleAnchor\":\"end\"",
+      "\"titleBaseline\":\"top\"", "\"titleColor\":\"#111\"", "\"titleFont\":\"serif\"",
+      "\"titleFontSize\":13", "\"titleFontStyle\":\"normal\"", "\"titleFontWeight\":400",
+      "\"titleLimit\":100", "\"titleLineHeight\":16", "\"titleOpacity\":0.9", "\"titleOrient\":\"top\"",
+      "\"titlePadding\":6", "\"zindex\":3",
+    ] {
+    assert_true(spec.contains(needle))
+  }
+  // The dash list is copied at construction and copies back on read.
+  symbol_dash.set(0, 9)
+  let legend = @chart.VegaLegendConfig::VegaLegendConfig(symbol_dash=[1])
+  assert_eq(legend.symbol_dash(), Some([1]))
+  assert_eq(@chart.VegaLegendConfig::VegaLegendConfig().symbol_dash(), None)
+}
+
+///|
+test "the config title block fires every leaf it carries" {
+  let spec = themed_spec(
+    @chart.VegaConfig::VegaConfig(
+      title=@chart.VegaTitleConfig::VegaTitleConfig(
+        align=@chart.VegaAlign::Center,
+        anchor=@chart.VegaAnchor::Middle,
+        angle=15,
+        aria=false,
+        baseline=@chart.VegaBaseline::Bottom,
+        color="#222",
+        dx=1,
+        dy=2,
+        font="sans",
+        font_size=14,
+        font_style="italic",
+        font_weight=@chart.VegaFontWeight::Bold,
+        frame=@chart.VegaTitleFrame::Group,
+        limit=120,
+        line_height=18,
+        offset=8,
+        orient=@chart.VegaTitleOrient::Bottom,
+        subtitle_color="#666",
+        subtitle_font="sans",
+        subtitle_font_size=11,
+        subtitle_font_style="normal",
+        subtitle_font_weight=@chart.VegaFontWeight::Weight(300),
+        subtitle_line_height=14,
+        subtitle_padding=4,
+        zindex=2,
+      ),
+    ),
+  )
+  for
+    needle in [
+      "\"align\":\"center\"", "\"anchor\":\"middle\"", "\"angle\":15", "\"aria\":false",
+      "\"baseline\":\"bottom\"", "\"color\":\"#222\"", "\"dx\":1", "\"dy\":2", "\"font\":\"sans\"",
+      "\"fontSize\":14", "\"fontStyle\":\"italic\"", "\"fontWeight\":\"bold\"", "\"frame\":\"group\"",
+      "\"limit\":120", "\"lineHeight\":18", "\"offset\":8", "\"orient\":\"bottom\"",
+      "\"subtitleColor\":\"#666\"", "\"subtitleFont\":\"sans\"", "\"subtitleFontSize\":11",
+      "\"subtitleFontStyle\":\"normal\"", "\"subtitleFontWeight\":300", "\"subtitleLineHeight\":14",
+      "\"subtitlePadding\":4", "\"zindex\":2",
+    ] {
+    assert_true(spec.contains(needle))
+  }
+}
+
+///|
+test "the tooltip format block fires every leaf, and a fixed discrete size" {
+  let spec = themed_spec(
+    @chart.VegaConfig::VegaConfig(
+      tooltip_format=@chart.VegaFormatConfig::VegaFormatConfig(
+        number_format="d",
+        number_format_type="currency",
+        normalized_number_format=".0%",
+        normalized_number_format_type="currency",
+        time_format="%Y",
+        time_format_type="time",
+      ),
+      view=@chart.VegaViewConfig::VegaViewConfig(
+        discrete_height=@chart.VegaDiscreteSize::Px(200),
+      ),
+    ),
+  )
+  assert_true(spec.contains("\"tooltipFormat\":{"))
+  assert_true(spec.contains("\"numberFormat\":\"d\""))
+  assert_true(spec.contains("\"numberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"normalizedNumberFormat\":\".0%\""))
+  assert_true(spec.contains("\"normalizedNumberFormatType\":\"currency\""))
+  assert_true(spec.contains("\"timeFormat\":\"%Y\""))
+  assert_true(spec.contains("\"timeFormatType\":\"time\""))
+  assert_true(spec.contains("\"discreteHeight\":200"))
 }

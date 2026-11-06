@@ -982,9 +982,13 @@ pub fn ChartSpec::of(
 /// `Decimal`) is `"quantitative"`, a `Date` / `Timestamp` column is
 /// `"temporal"` (its ISO cells — `data.values`' date units, via the JSON
 /// records' ISO mapping — sort chronologically, and a temporal axis
-/// orders by time rather than by first appearance), and every other
-/// dtype is `"nominal"` — unless the channel carries an explicit
-/// `type_override`. A count channel reads no column and is
+/// orders by time rather than by first appearance), a `Duration` column
+/// is `"quantitative"` (its `data.values` cells leave as microsecond
+/// counts, `chart_data_values`'s one departure from the shared JSON
+/// records walk — Vega's temporal has no ISO-duration parser, so a
+/// temporal type would hand the runtime strings it cannot read), and
+/// every other dtype is `"nominal"` — unless the channel carries an
+/// explicit `type_override`. A count channel reads no column and is
 /// `"quantitative"`.
 ///
 /// The spec's channels are resolved in the fixed order the `ChartSpec`
@@ -1004,46 +1008,111 @@ pub fn format_vega_lite(
   obj["$schema"] = Json::string(
     "https://vega.github.io/schema/vega-lite/v6.json",
   )
-  chart_emit(chart, df, obj)
+  chart_emit(chart, df, obj, None)
   let data : Map[String, Json] = Map([])
-  data["values"] = Json::array(@io.df_to_json_records(df))
+  data["values"] = Json::array(chart_data_values(df))
   obj["data"] = Json::object(data)
   Json::object(obj).stringify()
+}
+
+///|
+/// The frame as Vega-Lite `data.values`: the shared JSON-records walk
+/// (`@io`'s `df_to_json_records` seam, so every other cell convention
+/// matches `format_json` exactly), with one chart-specific departure —
+/// a `Duration` column's cells leave as their microsecond count instead
+/// of the ISO string the records walk writes. A duration channel is
+/// typed `"quantitative"` (see `format_vega_lite`'s dtype→type rule),
+/// and a quantitative scale reads numbers: Vega's temporal has no
+/// ISO-duration parser, so both halves have to move together.
+fn chart_data_values(
+  df : @frame.DataFrame,
+) -> Array[Json] raise @types.DataError {
+  let records = @io.df_to_json_records(df)
+  let duration_cols : Array[String] = []
+  for series in df.iter() {
+    if series.dtype() is @types.DataType::Duration {
+      duration_cols.push(series.name())
+    }
+  }
+  if duration_cols.length() > 0 {
+    // Rebuild each duration column's cells from the series itself — the
+    // record holds the ISO spelling, and the count is not derivable
+    // from it here. A null cell stays null.
+    for col in duration_cols {
+      let series = df.get_column(col)
+      let len = series.len()
+      let micros : Array[Json] = Array::make(len, Json::null())
+      for i in 0..<len {
+        micros[i] = match series.get(i) {
+          Duration(v) => Json::number(v.to_double(), repr=v.to_string())
+          _ => Json::null()
+        }
+      }
+      for r in 0..<records.length() {
+        // The records walk yields objects only; the `is` keeps the
+        // patch total without inventing a fallback for a shape that
+        // cannot occur.
+        if records[r] is Object(obj) {
+          obj[col] = micros[r]
+        }
+      }
+    }
+  }
+  records
+}
+
+///|
+/// Where a nested child is being placed — the host decides which of a
+/// `ChartSpec`'s chrome keys the child may still carry. `LayerMember` is
+/// the schema's `UnitSpec` (a member of a `layer` array): no view-frame
+/// chrome at all. `CompositionChild` is the frame-carrying child host
+/// (the `spec` of a facet / repeat, a concat member — the schema's
+/// `FacetedUnitSpec` / `UnitSpecWithFrame`): the view frame is allowed,
+/// the top-level-only chrome is not.
+priv enum VegaChildHost {
+  LayerMember
+  CompositionChild
 }
 
 ///|
 /// Emit one chart into `obj` — a single view's fields, or a composition
 /// operator's own shape — without `$schema` and `data`: those belong to
 /// the top level alone, so a nested child (a layer member, a facet's
-/// spec) reuses this same emission over the shared frame.
+/// spec) reuses this same emission over the shared frame. `host` says
+/// which nested shape the chart is being emitted into (`None` is the
+/// top level, where every chrome key is legal); a unit child's chrome is
+/// filtered against its host's allowed set, and a nested child's
+/// selection params drop their `views` key (it exists only on the
+/// top-level parameter form).
 fn chart_emit(
   chart : Chart,
   df : @frame.DataFrame,
   obj : Map[String, Json],
+  host : VegaChildHost?,
 ) -> Unit raise @types.DataError {
   match chart {
-    Single(spec) => unit_emit(spec, df, obj)
+    Single(spec) => unit_emit(spec, df, obj, host)
     Layer(layer) => {
       obj["layer"] = Json::array(
-        layer.layer.map(child => chart_child(child, df)),
+        layer.layer.map(child => chart_child(child, df, LayerMember)),
       )
       put_layer_chrome(layer, obj)
     }
     VConcat(concat) => {
       obj["vconcat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     HConcat(concat) => {
       obj["hconcat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     Concat(concat) => {
       obj["concat"] = Json::array(
-        concat.concat.map(child => chart_child(child, df)),
+        concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, true)
     }
@@ -1062,21 +1131,26 @@ fn chart_emit(
         )
       }
       obj["facet"] = Json::object(facet_obj)
-      obj["spec"] = chart_child(facet.spec, df)
+      obj["spec"] = chart_child(facet.spec, df, CompositionChild)
       put_facet_chrome(facet, obj)
     }
     Repeat(repeat) => {
       let repeat_obj : Map[String, Json] = Map([])
+      // The repeat lists name columns, so they escape like any other
+      // field reference — a dotted column repeats on itself, not on a
+      // nested path.
       if repeat.row is Some(row) {
-        repeat_obj["row"] = Json::array(row.map(fn(f) { Json::string(f) }))
+        repeat_obj["row"] = Json::array(
+          row.map(fn(f) { Json::string(escape_vega_field(f)) }),
+        )
       }
       if repeat.column is Some(column) {
         repeat_obj["column"] = Json::array(
-          column.map(fn(f) { Json::string(f) }),
+          column.map(fn(f) { Json::string(escape_vega_field(f)) }),
         )
       }
       obj["repeat"] = Json::object(repeat_obj)
-      obj["spec"] = chart_child(repeat.spec, df)
+      obj["spec"] = chart_child(repeat.spec, df, CompositionChild)
       put_repeat_chrome(repeat, obj)
     }
   }
@@ -1084,13 +1158,15 @@ fn chart_emit(
 
 ///|
 /// One nested child as a JSON object — the same emission as the top
-/// level, minus the `$schema` / `data` that belong there alone.
+/// level, minus the `$schema` / `data` that belong there alone and the
+/// chrome its host does not carry.
 fn chart_child(
   chart : Chart,
   df : @frame.DataFrame,
+  host : VegaChildHost,
 ) -> Json raise @types.DataError {
   let obj : Map[String, Json] = Map([])
-  chart_emit(chart, df, obj)
+  chart_emit(chart, df, obj, Some(host))
   Json::object(obj)
 }
 
@@ -1250,10 +1326,13 @@ fn resolve_facet(
   df : @frame.DataFrame,
   channel : VegaFacetChannel,
 ) -> @types.DataType? raise @types.DataError {
-  if channel.aggregate is Some(Count) || channel.field is None {
+  if channel.aggregate is Some(Count) {
     None
   } else {
-    Some(df.get_column(channel.field.unwrap()).dtype())
+    match channel.field {
+      Some(name) => Some(df.get_column(name).dtype())
+      None => None
+    }
   }
 }
 
@@ -1261,31 +1340,44 @@ fn resolve_facet(
 /// One facet channel's JSON: the emitted field definition plus its
 /// `type`, which a facet channel carries like any encoding channel —
 /// inferred from the column dtype, or overridden; a count facet channel
-/// carries no `type`.
+/// carries no `type`. The field name is escaped the way an encoding
+/// channel's is (`escape_vega_field`), so a column literally named
+/// `a.b` facets on `a.b` and not on a nested path. The facet host has
+/// no bare-channel sort form, so `ByChannel` raises `InvalidOperation`
+/// here rather than emitting a string the schema's `FacetFieldDef.sort`
+/// would reject.
 fn facet_channel_json(
   channel : VegaFacetChannel,
   dtype : @types.DataType?,
-) -> Json {
+) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
-  if channel.field is Some(field) && !(channel.aggregate is Some(Count)) {
-    ch["field"] = Json::string(field)
-    // The type rides directly after the field, as in an encoding
-    // channel: inferred from the column dtype, or overridden; a count
-    // facet channel carries neither. Under a present, non-count field
-    // the resolved dtype is always present.
-    let d = dtype.unwrap()
-    let inferred : String = if channel.type_override is Some(t) {
-      vega_type_string(t)
-    } else if d.is_numeric() || d is @types.DataType::Decimal(_) {
-      "quantitative"
-    } else if d is @types.DataType::Date ||
-      d is @types.DataType::Timestamp ||
-      d is @types.DataType::Duration {
-      "temporal"
-    } else {
-      "nominal"
-    }
-    ch["type"] = Json::string(inferred)
+  match channel.field {
+    Some(field) =>
+      match dtype {
+        Some(d) => {
+          ch["field"] = Json::string(escape_vega_field(field))
+          // The type rides directly after the field, as in an encoding
+          // channel: inferred from the column dtype, or overridden; a
+          // count facet channel carries neither — `resolve_facet`
+          // hands back no dtype for one, so this arm is the
+          // present-field case alone.
+          let inferred : String = if channel.type_override is Some(t) {
+            vega_type_string(t)
+          } else if d.is_numeric() ||
+            d is @types.DataType::Decimal(_) ||
+            d is @types.DataType::Duration {
+            "quantitative"
+          } else if d is @types.DataType::Date ||
+            d is @types.DataType::Timestamp {
+            "temporal"
+          } else {
+            "nominal"
+          }
+          ch["type"] = Json::string(inferred)
+        }
+        None => ()
+      }
+    None => ()
   }
   if channel.aggregate is Some(op) {
     ch["aggregate"] = Json::string(aggregate_string(op))
@@ -1297,7 +1389,14 @@ fn facet_channel_json(
     ch["timeUnit"] = Json::string(time_unit_string(unit))
   }
   if channel.sort is Some(sort) {
-    ch["sort"] = sort_json(sort)
+    match sort {
+      ByChannel(_, _) =>
+        raise @types.DataError::InvalidOperation(
+          "a facet channel's sort cannot key on another channel (the schema's FacetFieldDef.sort has no bare-channel form); sort by a field or an explicit order instead",
+        )
+      Ascending | Descending | ByField(_, _) | Values(_) | Off =>
+        ch["sort"] = sort_json(sort)
+    }
   }
   if channel.title is Some(title) {
     ch["title"] = Json::string(title)
@@ -1308,15 +1407,6 @@ fn facet_channel_json(
   if channel.header is Some(header) {
     ch["header"] = vega_header_emit_json(header)
   }
-  if channel.align is Some(align) {
-    ch["align"] = vega_align_mode_emit_json(align)
-  }
-  if channel.center is Some(center) {
-    ch["center"] = vega_center_emit_json(center)
-  }
-  if channel.spacing is Some(spacing) {
-    ch["spacing"] = vega_spacing_emit_json(spacing)
-  }
   Json::object(ch)
 }
 
@@ -1325,11 +1415,18 @@ fn facet_channel_json(
 /// `title`, `autosize`, `background`, `padding`, `width`, `height`,
 /// `view`, `projection`), the `mark`, and the `encoding` with its
 /// channels resolved in the fixed order — everything but `$schema` and
-/// `data`, which belong to the top level.
+/// `data`, which belong to the top level. A nested child (`host` set)
+/// keeps only the chrome its host carries: `autosize`, `background`,
+/// `padding`, `config`, and `usermeta` exist on the top-level specs
+/// alone, and a `layer` member (the schema's `UnitSpec`) carries no
+/// `width` / `height` / `view` either — the layer itself sizes the
+/// shared frame. `name`, `description`, `title`, `projection`,
+/// `transform`, and `params` are legal at every host.
 fn unit_emit(
   spec : ChartSpec,
   df : @frame.DataFrame,
   obj : Map[String, Json],
+  host : VegaChildHost?,
 ) -> Unit raise @types.DataError {
   if spec.name is Some(name) {
     obj["name"] = Json::string(name)
@@ -1340,23 +1437,37 @@ fn unit_emit(
   if spec.title is Some(title) {
     obj["title"] = vega_title_emit_json(title)
   }
-  if spec.autosize is Some(autosize) {
-    obj["autosize"] = autosize_json(autosize)
+  if host is None {
+    // The top-level-only chrome: no nested host the schema defines
+    // carries these keys.
+    if spec.autosize is Some(autosize) {
+      obj["autosize"] = autosize_json(autosize)
+    }
+    if spec.background is Some(background) {
+      obj["background"] = Json::string(background)
+    }
+    if spec.padding is Some(padding) {
+      obj["padding"] = padding_json(padding)
+    }
+    if spec.config is Some(config) {
+      obj["config"] = vega_config_emit_json(config)
+    }
+    if spec.usermeta is Some(usermeta) {
+      obj["usermeta"] = usermeta
+    }
   }
-  if spec.background is Some(background) {
-    obj["background"] = Json::string(background)
-  }
-  if spec.padding is Some(padding) {
-    obj["padding"] = padding_json(padding)
-  }
-  if spec.width is Some(width) {
-    obj["width"] = extent_json(width)
-  }
-  if spec.height is Some(height) {
-    obj["height"] = extent_json(height)
-  }
-  if spec.view is Some(view) {
-    obj["view"] = vega_view_background_emit_json(view)
+  if host is None || host is Some(CompositionChild) {
+    // The view frame: a facet / repeat / concat child sizes itself; a
+    // layer member shares its parent's frame and carries none of it.
+    if spec.width is Some(width) {
+      obj["width"] = extent_json(width)
+    }
+    if spec.height is Some(height) {
+      obj["height"] = extent_json(height)
+    }
+    if spec.view is Some(view) {
+      obj["view"] = vega_view_background_emit_json(view)
+    }
   }
   if spec.projection is Some(projection) {
     obj["projection"] = vega_projection_emit_json(projection)
@@ -1365,13 +1476,9 @@ fn unit_emit(
     obj["transform"] = vega_transforms_emit_json(transforms)
   }
   if spec.params is Some(params) {
-    obj["params"] = vega_params_emit_json(params)
-  }
-  if spec.config is Some(config) {
-    obj["config"] = vega_config_emit_json(config)
-  }
-  if spec.usermeta is Some(usermeta) {
-    obj["usermeta"] = usermeta
+    // A nested child's selection params carry no `views` key — it exists
+    // only on the top-level parameter form.
+    obj["params"] = vega_params_emit_json(params, host is Some(_))
   }
   // The Vega-Lite `mark` string for the chart kind.
   obj["mark"] = Json::string(mark_string(spec.kind))

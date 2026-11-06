@@ -516,8 +516,10 @@ pub extend VegaSelectionParam with Debug::{to_repr}
 
 ///|
 /// Build a selection parameter: the name, the trigger, and any binding,
-/// initial value (per projected field), or facet views it spans. The
-/// array properties are copied.
+/// initial value (per projected field), or facet views it spans — the
+/// `views` key belongs to the top-level parameter form alone, so a
+/// parameter emitted inside a nested child spec drops it. The array
+/// properties are copied.
 pub fn VegaSelectionParam::VegaSelectionParam(
   name~ : String,
   select~ : VegaSelect,
@@ -748,8 +750,13 @@ fn vega_brush_emit_json(b : VegaBrush) -> Json {
 }
 
 ///|
-/// The JSON of a parameter declaration.
-fn vega_param_emit_json(p : VegaParam) -> Json {
+/// The JSON of a parameter declaration. `nested` says the parameter is
+/// being emitted inside a child spec rather than the top level: the
+/// schema's `views` key (which facet views a selection spans) exists
+/// only on the top-level selection-parameter form, so a nested emission
+/// drops it — the selection simply spans the views of the spec that
+/// declares it.
+fn vega_param_emit_json(p : VegaParam, nested : Bool) -> Json {
   let obj : Map[String, Json] = Map([])
   match p {
     Variable(v) => {
@@ -777,7 +784,7 @@ fn vega_param_emit_json(p : VegaParam) -> Json {
       if s.value is Some(value) {
         obj["value"] = Json::array(value.copy())
       }
-      if s.views is Some(views) {
+      if !nested && s.views is Some(views) {
         obj["views"] = Json::array(views.map(fn(v) { Json::string(v) }))
       }
       Json::object(obj)
@@ -786,9 +793,10 @@ fn vega_param_emit_json(p : VegaParam) -> Json {
 }
 
 ///|
-/// A parameter list as the schema's `params` array.
-fn vega_params_emit_json(params : Array[VegaParam]) -> Json {
-  Json::array(params.map(fn(p) { vega_param_emit_json(p) }))
+/// A parameter list as the schema's `params` array, each parameter
+/// nested or top-level per `nested`.
+fn vega_params_emit_json(params : Array[VegaParam], nested : Bool) -> Json {
+  Json::array(params.map(fn(p) { vega_param_emit_json(p, nested) }))
 }
 
 ///|

@@ -23,6 +23,12 @@ fn corpus_df() -> @frame.DataFrame raise @types.DataError {
       Some(1_704_067_200_000_000L),
       Some(1_704_075_840_000_000L),
     ]),
+    // A duration column rides every spec's data.values so the corpus
+    // pins its cell form: the microsecond count, not the ISO spelling.
+    @series.Series::from_duration_options("dur", [Some(3600_000_000_000L), None]),
+    // A dotted column name, so the corpus pins the escaping of
+    // references to it while the record keys stay raw.
+    @series.Series::from_strings("price.usd", ["3", "4"]),
   ])
 }
 
@@ -175,6 +181,7 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
           ]),
         ),
         y=@chart.field("val", stack=@chart.VegaStack::Normalize, format="d"),
+        y2=@chart.constant(Json::number(0)),
         color=@chart.constant(Json::string("steelblue")),
         size=@chart.datum(Json::number(60.0)),
       ),
@@ -212,6 +219,12 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
               clamp=true,
               zero=false,
               nice=@chart.VegaNice::Ticks(7),
+              interpolate=@chart.VegaInterpolate::Params(
+                @chart.VegaInterpolateParams::VegaInterpolateParams(
+                  type_=@chart.VegaInterpolateParamType::Cubehelix_long,
+                  gamma=0.5,
+                ),
+              ),
             ),
           ),
         ),
@@ -277,6 +290,51 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
       "boxplot_plain.json",
       @chart.ChartSpec::boxplot(@chart.field("cat"), @chart.field("val")),
     ),
+    (
+      "duration_quantitative.json",
+      // A duration column types quantitative and its cells leave as
+      // microsecond counts — Vega's temporal has no ISO-duration parser.
+      @chart.ChartSpec::line(@chart.field("dur"), @chart.field("val")),
+    ),
+    (
+      "field_escape.json",
+      // A column literally named `price.usd` escapes in every reference
+      // — the encoding field, the by-field sort, the filter predicate,
+      // the aggregate's input and group-by — while the record key in
+      // data.values stays raw.
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field(
+          "price.usd",
+          type_override=@chart.VegaType::Quantitative,
+          sort=@chart.VegaChannelSort::ByField("grp", None),
+        ),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Filter(
+            @chart.VegaFilterTransform::VegaFilterTransform(
+              filter=@chart.VegaPredicate::OneOf(
+                "price.usd",
+                [Json::string("3"), Json::string("4")],
+                None,
+              ),
+            ),
+          ),
+          @chart.VegaTransform::Aggregate(
+            @chart.VegaAggregateTransform::VegaAggregateTransform(
+              aggregate=[
+                @chart.VegaAggField::VegaAggField(
+                  op=@chart.VegaAggregate::Sum,
+                  field="val",
+                  as_="total",
+                ),
+              ],
+              groupby=["price.usd"],
+            ),
+          ),
+        ],
+      ),
+    ),
   ]
 }
 
@@ -323,6 +381,14 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               label_angle=-30.0,
             ),
           ),
+          column=@chart.VegaFacetChannel::VegaFacetChannel(
+            field="cat",
+            sort=@chart.VegaChannelSort::ByField(
+              "val",
+              Some(@chart.VegaSort::Descending),
+            ),
+            bin=@chart.VegaBin::On,
+          ),
           columns=2,
           spacing=@chart.VegaSpacing::Px(8),
         ),
@@ -339,7 +405,7 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               title="Dummy",
             ),
           ),
-          column=["val", "ts"],
+          column=["val", "ts", "price.usd"],
           spacing=@chart.VegaSpacing::Px(6),
         ),
       ),
@@ -430,9 +496,23 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               @chart.VegaWindowTransform::VegaWindowTransform(
                 window=[
                   @chart.VegaWindowField::VegaWindowField(
-                    op=@chart.VegaAggregate::Sum,
+                    op=@chart.VegaWindowFieldOp::Aggregate(
+                      @chart.VegaAggregate::Sum,
+                    ),
                     field="val",
                     as_="running",
+                  ),
+                  // The window-only half of the op union: a field-less
+                  // rank, and a lag with its param offset.
+                  @chart.VegaWindowField::VegaWindowField(
+                    op=@chart.VegaWindowFieldOp::WindowOnly(Rank),
+                    as_="rank",
+                  ),
+                  @chart.VegaWindowField::VegaWindowField(
+                    op=@chart.VegaWindowFieldOp::WindowOnly(Lag),
+                    field="val",
+                    as_="previous",
+                    param=1,
                   ),
                 ],
                 sort=[
@@ -527,6 +607,74 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
       ),
     ),
     (
+      "layer_nested_chrome.json",
+      @chart.Chart::Layer(
+        @chart.VegaLayer::VegaLayer(
+          [
+            // A member built with the full top-level chrome: every
+            // host-disallowed key (width, height, autosize, background,
+            // padding, config, usermeta) is filtered at emission — the
+            // corpus spec pins the filtered shape against the schema.
+            @chart.Chart::of(
+              @chart.ChartSpec::of(
+                @chart.ChartKind::Bar,
+                x=@chart.field("cat"),
+                y=@chart.field("val"),
+                name="member",
+                title=@chart.VegaTitle::Text("Chrome-heavy member"),
+                width=@chart.VegaExtent::Px(400),
+                height=@chart.VegaExtent::Step(20),
+                autosize=@chart.VegaAutoSize::Fit,
+                background="#123456",
+                padding=@chart.VegaPadding::Px(5),
+                config=@chart.VegaConfig::VegaConfig(background="#654321"),
+                usermeta=Json::object({ "k": Json::string("v") }),
+              ),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::line(@chart.field("val"), @chart.field("val")),
+            ),
+          ],
+          title=@chart.VegaTitle::Text("Layered"),
+        ),
+      ),
+    ),
+    (
+      "facet_nested_params.json",
+      @chart.Chart::Facet(
+        @chart.VegaFacet::VegaFacet(
+          // The facet child keeps its view frame but drops top-level
+          // chrome, and its selection param drops the `views` key that
+          // only the top-level parameter form carries.
+          @chart.Chart::of(
+            @chart.ChartSpec::of(
+              @chart.ChartKind::Point,
+              x=@chart.field("val"),
+              y=@chart.field("val"),
+              width=@chart.VegaExtent::Px(150),
+              view=@chart.VegaViewBackground::VegaViewBackground(fill="#eee"),
+              autosize=@chart.VegaAutoSize::FitX,
+              config=@chart.VegaConfig::VegaConfig(background="#000000"),
+              params=[
+                @chart.VegaParam::Selection(
+                  @chart.VegaSelectionParam::VegaSelectionParam(
+                    name="brush",
+                    select=@chart.VegaSelect::Interval(
+                      @chart.VegaIntervalSelect::VegaIntervalSelect(encodings=[
+                        "x",
+                      ]),
+                    ),
+                    views=["view_1", "view_2"],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+        ),
+      ),
+    ),
+    (
       "config_theme.json",
       @chart.Chart::of(
         @chart.ChartSpec::of(
@@ -540,14 +688,25 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
             mark=@chart.VegaMarkStyle::VegaMarkStyle(
               color="steelblue",
               fill_opacity=0.8,
+              interpolate=@chart.VegaMarkInterpolate::Monotone,
             ),
             bar=@chart.VegaMarkStyle::VegaMarkStyle(bin_spacing=2),
             scale=@chart.VegaScaleConfig::VegaScaleConfig(clamp=true),
             axis=@chart.VegaAxis::VegaAxis(grid=false),
-            legend=@chart.VegaLegend::VegaLegend(
+            legend=@chart.VegaLegendConfig::VegaLegendConfig(
               orient=@chart.VegaLegendOrient::Right,
+              symbol_type="circle",
+              columns=2,
             ),
-            view=@chart.VegaViewConfig::VegaViewConfig(step=24, fill="#fff"),
+            title=@chart.VegaTitleConfig::VegaTitleConfig(
+              anchor=@chart.VegaAnchor::End,
+              subtitle_font_size=11,
+            ),
+            view=@chart.VegaViewConfig::VegaViewConfig(
+              step=24,
+              fill="#fff",
+              discrete_width=@chart.VegaDiscreteSize::Step(30),
+            ),
             range=@chart.VegaRangeConfig::VegaRangeConfig(category=[
               "#1f77b4", "#ff7f0e",
             ]),

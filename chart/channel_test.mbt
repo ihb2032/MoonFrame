@@ -775,3 +775,102 @@ test "padding's two forms and a band position complete their arms" {
   )
   assert_eq(channel_key(spec, "x", "bandPosition"), "0.5")
 }
+
+///|
+test "a secondary channel drops the modifiers its host disallows" {
+  // SecondaryFieldDef carries no condition (nor sort / format / stack /
+  // type): a builder that sets one on the `2` / error forms is dropped
+  // at emission rather than shipped into a spec the schema would
+  // reject.
+  let spec = @chart.format_vega_lite(
+    channel_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Rule,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        x2=@chart.field(
+          "val",
+          sort=@chart.VegaChannelSort::Descending,
+          condition=@chart.VegaCondition::When(
+            @chart.VegaPredicate::Expr("datum.val > 1"),
+            Json::number(2),
+          ),
+        ),
+      ),
+    ),
+  )
+  let parsed = @json.parse(spec) catch { _ => Json::null() }
+  let x2 = match parsed {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get("x2") {
+            Some(v) => v
+            _ => Json::null()
+          }
+        _ => Json::null()
+      }
+    _ => Json::null()
+  }
+  assert_eq(x2.stringify(), "{\"field\":\"val\"}")
+}
+
+///|
+test "a position channel constant must be a number or width / height" {
+  // The schema's PositionValueDef allows a number, or the plot's own
+  // "width" / "height" by name — anything else is refused loudly.
+  let df = channel_df()
+  let number = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(
+        @chart.field("cat"),
+        @chart.constant(Json::number(2)),
+      ),
+    ),
+  )
+  assert_eq(channel_key(number, "y", "value"), "2")
+  let named = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.constant(Json::string("height")),
+        y2=@chart.constant(Json::number(0)),
+      ),
+    ),
+  )
+  assert_eq(channel_key(named, "y", "value"), "height")
+  assert_eq(channel_key(named, "y2", "value"), "0")
+  let refused = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.field("cat"),
+          @chart.constant(Json::string("steelblue")),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused is Err(@types.DataError::InvalidOperation(_)))
+  // And so does a non-string, non-number JSON value.
+  let refused_too = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::bar(
+          @chart.constant(Json::boolean(true)),
+          @chart.field("val"),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_too is Err(@types.DataError::InvalidOperation(_)))
+}

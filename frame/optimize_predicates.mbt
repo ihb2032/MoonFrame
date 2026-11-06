@@ -100,12 +100,13 @@
 ///   stays a node above the scan.
 fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
-  // The decimal risk of each rebuilt subtree, stepped alongside the
-  // rebuild: a `Filter` consumes the risk of its already-rewritten input
-  // directly instead of re-walking the whole subtree for it (a stack of F
-  // filters paid one full walk each), and every rebuild step runs the same
-  // single-source `plan_risk_step` the standalone walk runs, so the
-  // incremental value and a fresh walk agree node for node.
+  // The value risk (both dtype families) of each rebuilt subtree, stepped
+  // alongside the rebuild: a `Filter` consumes the risk of its
+  // already-rewritten input directly instead of re-walking the whole
+  // subtree for it (a stack of F filters paid one full walk each), and
+  // every rebuild step runs the same single-source `plan_risk_step` the
+  // standalone walk runs, so the incremental value and a fresh walk agree
+  // node for node.
   let risks : Array[PlanRisk] = []
   for node in self.post_order() {
     match node {
@@ -120,12 +121,7 @@ fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
       Unary(_, Filter(predicate)) => {
         let input = pop_top(values)
         let risk = pop_top(risks)
-        values.push(
-          input.place_filter(predicate, decimal_names={
-            names: risk.union,
-            any: risk.any,
-          }),
-        )
+        values.push(input.place_filter(predicate, value_risk=flat_risk(risk)))
         risks.push(risk)
       }
       Unary(_, op) => {
@@ -161,21 +157,21 @@ fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
 fn LogicalPlan::place_filter(
   self : LogicalPlan,
   predicate : @expr.Expr,
-  decimal_names? : DecimalRisk,
+  value_risk? : ValueRisk,
 ) -> LogicalPlan {
-  // The decimal value-fence, predicate half: a predicate whose own
-  // evaluation refuses on values keeps its row set — sinking it would
-  // prune the very rows the refusal lives on, and the crossing gates
-  // below are structural and cannot see it. The pass hands in the risk it
-  // already maintains for this subtree (`push_predicates`'s incremental
-  // stack — the hops reproduce stages verbatim, so the input's risk is the
-  // output's); the join split's recursive calls below walk their own
-  // sides, the rare path paying for itself.
-  let decimal_names = match decimal_names {
+  // The value fence, predicate half: a predicate whose own evaluation
+  // refuses on values — decimal or temporal — keeps its row set — sinking
+  // it would prune the very rows the refusal lives on, and the crossing
+  // gates below are structural and cannot see it. The pass hands in the
+  // risk it already maintains for this subtree (`push_predicates`'s
+  // incremental stack — the hops reproduce stages verbatim, so the input's
+  // risk is the output's); the join split's recursive calls below walk
+  // their own sides, the rare path paying for itself.
+  let value_risk = match value_risk {
     Some(risk) => risk
-    None => decimal_names_in_plan(self)
+    None => value_risk_in_plan(self)
   }
-  if value_raises_on_decimal(predicate.node(), decimal_names) {
+  if value_raises_on_values(predicate.node(), value_risk) {
     return Unary(self, Filter(predicate))
   }
   // The crossing gates, each local to the only walk that asks them:
@@ -217,7 +213,7 @@ fn LogicalPlan::place_filter(
   while descending {
     match cur {
       Unary(inner, Select(exprs)) =>
-        if select_stage_crossable(exprs, decimal_names) &&
+        if select_stage_crossable(exprs, value_risk) &&
           reads_only_bare_columns(predicate, exprs) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
@@ -225,7 +221,7 @@ fn LogicalPlan::place_filter(
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if withcolumns_stage_rowwise(exprs, decimal_names) &&
+        if withcolumns_stage_rowwise(exprs, value_risk) &&
           defines_none_of(exprs, predicate) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
@@ -259,12 +255,12 @@ fn LogicalPlan::place_filter(
           all_row_stable(keys) &&
           reads_only_bare_columns(predicate, keys) &&
           all_group_cells_stable(exprs) &&
-          // The decimal value-fence, stage half: the keys and the stitched
-          // cells evaluate over the child's rows, and a decimal sum or
-          // arithmetic refuses on the cells of exactly the groups a
+          // The value fence, stage half: the keys and the stitched cells
+          // evaluate over the child's rows, and a decimal or temporal
+          // checked operation refuses on the cells of exactly the groups a
           // sunken predicate would drop.
-          !stage_value_raises(keys, decimal_names) &&
-          !stage_value_raises(exprs, decimal_names) {
+          !stage_value_raises(keys, value_risk) &&
+          !stage_value_raises(exprs, value_risk) {
           crossed.push(ni => Aggregate(ni, keys, exprs))
           cur = inner
         } else {
@@ -304,7 +300,7 @@ fn LogicalPlan::place_filter(
     // them, the join floors the filter like any other node.
     Join(left, right, options) =>
       match
-        split_filter_into_join(left, right, options, predicate, decimal_names) {
+        split_filter_into_join(left, right, options, predicate, value_risk) {
         Some(joined) => joined
         None => Unary(cur, Filter(predicate))
       }
@@ -350,9 +346,9 @@ fn LogicalPlan::place_filter(
 /// `right_output_spelling`; a bare clashing `on` key offers no spelling, so
 /// a predicate naming either of its spellings does not sink). A side whose
 /// names are not statically knowable cannot be attributed and does not sink.
-/// The rewrite needs no re-read against the decimal value-fence: the risk
-/// walk collects every right decimal name under *both* spellings
-/// unconditionally, so a suffixed reference that renames to a decimal
+/// The rewrite needs no re-read against the value fence: the risk
+/// walk collects every right name of either family under *both* spellings
+/// unconditionally, so a suffixed reference that renames to a family's
 /// column was already fenced at the top of `place_filter`, before the
 /// split ever ran.
 ///
@@ -360,10 +356,10 @@ fn LogicalPlan::place_filter(
 /// `row_stable` excludes the expressions whose *raises* depend on which
 /// rows exist (a cast's values, a map's closure, a literal series' height —
 /// a sunk predicate would evaluate at the side's height, not the join's
-/// output height), and the decimal value-fence at the top of `place_filter`
-/// has already checked the predicate against the *whole* subtree's decimal
+/// output height), and the value fence at the top of `place_filter`
+/// has already checked the predicate against the *whole* subtree's family
 /// names — a superset of either side's — so a split can only sink into a
-/// side whose decimal refusals the predicate has already been cleared
+/// side whose value refusals the predicate has already been cleared
 /// against. The join's *keys* carry the same two gates, and for a stronger
 /// reason than error faithfulness: after a sink, the keys re-evaluate on
 /// the filtered side, so an aggregation key broadcasts over a different
@@ -371,7 +367,7 @@ fn LogicalPlan::place_filter(
 /// neighbours, and a literal-series key meets a different height — the
 /// *matching itself* changes, not just the errors. `all_row_stable` over
 /// every key (`on` keys evaluate on both sides, so they gate the split as
-/// a whole), plus the decimal fence read against the same whole-subtree
+/// a whole), plus the value fence read against the same whole-subtree
 /// risk set, keep those keys' evaluations — values and refusals alike —
 /// identical below the sink. What remains raises, if at all, on
 /// scope-independent facts (a dtype, a regex pattern's compile) that hold
@@ -386,14 +382,14 @@ fn split_filter_into_join(
   right : LogicalPlan,
   options : JoinOptions,
   predicate : @expr.Expr,
-  decimal_names : DecimalRisk,
+  value_risk : ValueRisk,
 ) -> LogicalPlan? {
   if !row_stable(predicate.node()) {
     return None
   }
   // The keys re-evaluate on each side once the predicate sinks into one,
   // so they carry the aggregate crossing's own key gate (`all_row_stable`)
-  // and the decimal fence — see the header.
+  // and the value fence — see the header.
   let keys : Array[@expr.Expr] = []
   for key in options.on_keys() {
     keys.push(key)
@@ -407,7 +403,7 @@ fn split_filter_into_join(
   if !all_row_stable(keys) {
     return None
   }
-  if keys.any(k => value_raises_on_decimal(k.node(), decimal_names)) {
+  if keys.any(k => value_raises_on_values(k.node(), value_risk)) {
     return None
   }
   let reads = predicate.referenced_columns()
@@ -428,7 +424,7 @@ fn split_filter_into_join(
   // does — so a predicate naming either spelling attributes to the right.
   // The suffixed spellings name columns the *join* renamed: the side itself
   // still bears the bare name, so those references are rewritten back
-  // before the sink. The decimal fence above needs no replay for the
+  // before the sink. The value fence above needs no replay for the
   // rewritten spellings — see the header. A right join's right columns keep
   // their names outright (the rename moved to the left side), so the plain
   // containment test covers them there.

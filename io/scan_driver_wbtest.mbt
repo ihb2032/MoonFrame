@@ -55,3 +55,26 @@ test "the scan driver refuses a file that is not UTF-8 before any pruning" {
   }
   assert_true(scanned is Err(@types.DataError::ParseError(_)))
 }
+
+///|
+test "the rider probes read the dtypes pins they answer for" {
+  // The two probes the scan builders hand the file_scan seam answer one
+  // question each — may this read carry a decimal column, may it carry a
+  // temporal one — and a text read carries either family only through a
+  // pin (its inference never picks a rider). `Duration` has no text
+  // parser at all, so no pin can name one and the temporal probe stays
+  // false beside a `Date` / `Timestamp` pin that raises it.
+  let plain = CsvReadOptions::CsvReadOptions().dtypes()
+  assert_false(pins_decimal(plain))
+  assert_false(pins_temporal(plain))
+  let decimal_pin = CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("d", @types.DataType::Decimal(2))]),
+  ).dtypes()
+  assert_true(pins_decimal(decimal_pin))
+  assert_false(pins_temporal(decimal_pin))
+  let temporal_pin = CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("t", @types.DataType::Timestamp)]),
+  ).dtypes()
+  assert_false(pins_decimal(temporal_pin))
+  assert_true(pins_temporal(temporal_pin))
+}

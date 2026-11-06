@@ -33,9 +33,11 @@
 /// confined to a dropped column, or to a row the predicate drops in a column the
 /// predicate does not read, does not surface. Dtype inference still walks the
 /// whole file, so dtypes and the surviving cells match the eager read exactly.
-/// The one pin that fences this back is `Decimal`: decimal arithmetic and
-/// comparison refuse on *values*, so above a scan whose pin carries one, the
-/// decimal value-fence holds any predicate or stage expression with such an
+/// The pins that fence this back are `Decimal` and the temporal riders
+/// (`Date` / `Timestamp`): decimal arithmetic and comparison refuse on
+/// *values*, and temporal `+` / `-` refuse on instants leaving the
+/// microsecond range, so above a scan whose pin carries one, the
+/// value-fence holds any predicate or stage expression with such an
 /// operation in place — a sunk one would prune away the very rows the refusal
 /// lives on, and a plan that fails to collect must still fail optimized.
 ///
@@ -57,6 +59,7 @@ pub fn scan_csv(
   @frame.LazyFrame::file_scan(
     csv_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
+    may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
 
@@ -82,7 +85,8 @@ pub fn scan_csv(
 /// starts `None` (read every column) — only the optimizer fills it. A
 /// `Decimal` dtypes pin fences the value half of the push-downs exactly as it
 /// does for `scan_csv` — the shared rider contract, read off the same options
-/// field.
+/// field — and a `Date` / `Timestamp` pin fences the temporal half the same
+/// way.
 pub fn scan_ndjson(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
@@ -90,6 +94,7 @@ pub fn scan_ndjson(
   @frame.LazyFrame::file_scan(
     ndjson_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
+    may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
 
@@ -118,7 +123,8 @@ pub fn scan_ndjson(
 /// projection push-down narrows which columns those options parse, never
 /// which options apply. A `Decimal` dtypes pin fences the value half of the
 /// push-downs exactly as it does for `scan_csv` — the shared rider contract,
-/// read off the same options field.
+/// read off the same options field — and a `Date` / `Timestamp` pin fences
+/// the temporal half the same way.
 pub fn scan_json(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
@@ -126,6 +132,7 @@ pub fn scan_json(
   @frame.LazyFrame::file_scan(
     json_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
+    may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
 
@@ -144,13 +151,18 @@ pub fn scan_json(
 /// column does not surface, exactly like the text scans' dropped
 /// columns. The dtypes come from the footer's schema, so a narrowed
 /// scan matches the eager read exactly — and the footer can name
-/// `Decimal` columns no plan-time fact can rule out (reading it at
-/// build would break the builder's totality), so this source takes the
-/// decimal value-fence's conservative arm: a predicate or stage
-/// expression carrying a decimal-checked operation stays above the
-/// scan, trading that push-down for a failing plan still failing.
+/// `Decimal` or temporal columns no plan-time fact can rule out (reading
+/// it at build would break the builder's totality), so this source takes
+/// both value-fences' conservative arms: a predicate or stage
+/// expression carrying a decimal- or temporal-checked operation stays
+/// above the scan, trading that push-down for a failing plan still
+/// failing.
 pub fn scan_parquet(path : String) -> @frame.LazyFrame {
-  @frame.LazyFrame::file_scan(parquet_scan_driver(path), may_carry_decimal=true)
+  @frame.LazyFrame::file_scan(
+    parquet_scan_driver(path),
+    may_carry_decimal=true,
+    may_carry_temporal=true,
+  )
 }
 
 ///|
@@ -163,6 +175,22 @@ pub fn scan_parquet(path : String) -> @frame.LazyFrame {
 fn pins_decimal(dtypes : Map[String, @types.DataType]) -> Bool {
   for _, dt in dtypes {
     if dt is @types.DataType::Decimal(_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Whether a read-options dtypes map pins some column to a temporal rider —
+/// the only way a text read produces a `Date` / `Timestamp` column (the
+/// temporal dtypes are riders a pin carries, never an inference verdict, the
+/// standing `Decimal` has; `Duration` has no text parser at all, so a pin
+/// refuses it). The scan builders read it off the options they already
+/// capture, the temporal value-fence's counterpart of the decimal probe.
+fn pins_temporal(dtypes : Map[String, @types.DataType]) -> Bool {
+  for _, dt in dtypes {
+    if dt is @types.DataType::Date || dt is @types.DataType::Timestamp {
       return true
     }
   }

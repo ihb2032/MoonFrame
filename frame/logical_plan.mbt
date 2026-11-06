@@ -46,9 +46,13 @@
 /// predicate's columns, prunes the rows, and parses the rest for the survivors
 /// alone (streaming the file itself is still future work). Unlike the
 /// in-memory `Scan`, whose narrowing *inserts* a `Select`, a file source
-/// narrows in place by carrying its own projection. (There is no JSON-array
-/// scan for the single-array shape `[{...}]`: a JSON array must be parsed
-/// whole to find its records, so there is nothing to prune at read time.)
+/// narrows in place by carrying its own projection. The single-array JSON
+/// shape `[{...}]` has its own file source beside this one (`io`'s
+/// `scan_json`): a JSON array must be parsed whole to find its records,
+/// so that source has no row window of its own to push down — its pruning
+/// happens at the assembly level (a pushed projection leaves dropped
+/// columns uninferred and unbuilt; an absorbed predicate leaves the
+/// dropped rows' remaining cells unparsed), never at the read.
 priv enum LogicalPlan {
   Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)
@@ -78,14 +82,16 @@ priv struct FileScan {
   driver : @scan.ScanDriver
   projection : Array[String]?
   predicate : @expr.Expr?
-  // Whether this read may produce decimal columns whose names the plan
-  // cannot know — the decimal value-fence's `any` flag for the leaf, raised
-  // by the risk walk's `Scan(File(_))` arm. The text sources carry decimal
-  // only through a `dtypes` pin, which the io scan builder reads off the
-  // options it already captures; a parquet footer can name decimal columns
-  // the builder cannot read without breaking its totality, so that source
-  // carries the conservative `true`.
+  // Whether this read may produce columns of a value-fence family whose
+  // names the plan cannot know — the risk walk's `any` flags for the
+  // leaf, raised by the `Scan(File(_))` arm. Both families reach a text
+  // read only through a `dtypes` pin (`Decimal` / `Date` / `Timestamp`
+  // are riders, never inference verdicts), which the io scan builder
+  // reads off the options it already captures; a parquet footer can name
+  // either family without the builder reading it, so that source carries
+  // the conservative `true` for both.
   may_carry_decimal : Bool
+  may_carry_temporal : Bool
 }
 
 ///|

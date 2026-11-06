@@ -104,3 +104,39 @@ test "the touch walk reads a risky name arriving as a clip bound" {
   assert_true(expr_touches_decimal(upper.node(), risk))
   assert_false(expr_touches_decimal(lower.node(), @set.Set([])))
 }
+
+///|
+test "the temporal checked-op walk descends through every container variant" {
+  // The temporal family's own shape walk, mirrored from the decimal one
+  // above: every container that carries no temporal decision of its own is
+  // transparent to it, so a shift `ts + dur` nested under any of them is
+  // still the checked operation the fence must see — while the containers
+  // over plain column reads alone find nothing, and a comparison over
+  // temporal cells is not a checked shape (it descends and refuses on
+  // nothing).
+  let shift = @expr.col("ts") + @expr.col("dur")
+  let nested : Array[@expr.Expr] = [
+    @expr.when(@expr.col("c")).then(shift).otherwise(@expr.col("v")),
+    @expr.col("v").fill_null(shift),
+    @expr.col("v").fill_nan(shift),
+    shift.diff(),
+    shift.map_elements(label="m", s => s),
+    shift.map_batches(label="m", col => col),
+    shift.over([@expr.col("k")]),
+    shift.clip(lower=@expr.col("lo"), upper=@expr.col("hi")),
+    shift.is_in([@types.Scalar::Int(1)]),
+    shift.is_between(@expr.col("lo"), @expr.col("hi")),
+  ]
+  for e in nested {
+    assert_true(expr_has_temporal_checked_op(e.node()))
+  }
+  let plain = @expr.when(@expr.col("c"))
+    .then(@expr.col("v"))
+    .otherwise(@expr.col("w"))
+  assert_false(expr_has_temporal_checked_op(plain.node()))
+  // The comparison arm: temporal cells ordered, not shifted — the descent
+  // finds no `Add` / `Sub`.
+  assert_false(
+    expr_has_temporal_checked_op(@expr.col("ts").gt(@expr.col("ts")).node()),
+  )
+}

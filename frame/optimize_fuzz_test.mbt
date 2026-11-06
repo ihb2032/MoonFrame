@@ -946,6 +946,18 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
     ),
     (
       1,
+      // The decimal `round` alone in its stage: the widening rescale past
+      // the 18-digit envelope (the pool's straining cell widened by
+      // `decimals=3` over `Decimal(2)`) is a checked refusal, so this is
+      // the round entry's own regression face — a stage whose only
+      // decimal-checked operation is the round, not the arithmetic the
+      // entry above already fences.
+      @gen.pure(
+        VWithColumns([@expr.col("dec").round(decimals=3).with_alias("dec_r3")]),
+      ),
+    ),
+    (
+      1,
       @gen.elements([
         [@expr.col("a").shift(1).with_alias("pos")],
         [@expr.col("a").cum_sum().with_alias("pos")],

@@ -7,9 +7,10 @@
 
 ///|
 /// The dtype backing a channel's type inference: a field channel's column
-/// dtype (`get_column` doubles as the existence check — the one reason
-/// `format_vega_lite` raises), `None` for a channel with no column to
-/// read — a `Count` aggregate (it tallies rows per group) or a
+/// dtype (`get_column` doubles as the existence check — one of the
+/// reasons `format_vega_lite` raises, per its doc), `None` for a channel
+/// with no column to read — a `Count` aggregate (it tallies rows per
+/// group), a repeat reference (the column varies per panel), or a
 /// constant / datum definition.
 fn channel_dtype(
   df : @frame.DataFrame,
@@ -27,12 +28,19 @@ fn channel_dtype(
 /// only its `value` (the schema's value definition carries no `type`; the
 /// `constant` builder sets nothing else) — and on a position channel the
 /// value must be a number or the strings `"width"` / `"height"` (the
-/// schema's `PositionValueDef` allows nothing else), so any other JSON
-/// value raises `InvalidOperation` rather than emitting a constant the
-/// schema would reject. A datum channel emits its `datum`. A field
-/// channel emits `{"field": <name>, "type": <vega-type>}` plus its
-/// declared modifiers — `aggregate`, `bin`, `timeUnit`, `sort`, `stack`,
+/// schema's `PositionValueDef` allows nothing else), while on an offset
+/// channel (`xOffset` / `yOffset`) it must be a number alone (the
+/// schema's `OffsetDef` value arm is the number-only `ValueDef<number>`,
+/// with no `"width"` / `"height"` exception); any other JSON value
+/// raises `InvalidOperation` rather than emitting a constant the schema
+/// would reject. A datum channel emits its `datum`. A field channel
+/// emits `{"field": <name>, "type": <vega-type>}` plus its declared
+/// modifiers — `aggregate`, `bin`, `timeUnit`, `sort`, `stack`,
 /// `bandPosition`, `title`, `format` — each present only when set; a
+/// repeat-reference channel emits the schema's placeholder object in the
+/// `field` slot (`{"field": {"repeat": "row"|"column"}}`) with the same
+/// modifiers, and a channel carrying both a `field` and a `repeat_ref`
+/// raises `InvalidOperation` (the slot holds one or the other); a
 /// `Count` aggregate emits no `field` key (its aggregate tallies rows per
 /// group) and its ignored `field` never reaches the spec. The `type`
 /// follows the dtype→type rule — a numeric column (`Int` / `Float` /
@@ -42,15 +50,20 @@ fn channel_dtype(
 /// is `"quantitative"` (its `data.values` cells leave as microsecond
 /// counts — Vega's temporal has no ISO-duration parser), and every other
 /// dtype is `"nominal"` — unless the channel carries an explicit
-/// `type_override`; a channel with no column to read (count, and
-/// anything the builders cannot build) is `"quantitative"` — a row
-/// count is a quantity by definition.
+/// `type_override`; a channel with no column to read (count, a repeat
+/// reference, and anything the builders cannot build) is
+/// `"quantitative"` — a row count is a quantity by definition.
 fn encoding_channel(
   key : String,
   channel : VegaChannel,
   dtype : @types.DataType?,
 ) -> Json raise @types.DataError {
   let ch : Map[String, Json] = Map([])
+  if channel.field is Some(_) && channel.repeat_ref is Some(_) {
+    raise @types.DataError::InvalidOperation(
+      "a channel cannot carry both a field and a repeat reference — the schema's field slot holds one or the other; build the channel with `field` or with `VegaChannel::repeat`, not both",
+    )
+  }
   if channel.value is Some(value) {
     if is_position_key(key) {
       // The position value definition: a number, or the plot's own
@@ -71,6 +84,16 @@ fn encoding_channel(
           )
       }
     }
+    if is_offset_key(key) {
+      // The offset value definition: a number alone — the schema's
+      // OffsetDef value arm is ValueDef<number>, so even the position
+      // channels' "width" / "height" strings are refused here.
+      if !(value is Number(_, ..)) {
+        raise @types.DataError::InvalidOperation(
+          "a constant on the offset channel \{key} must be a number (the schema's OffsetDef allows nothing else — not even \"width\" / \"height\")",
+        )
+      }
+    }
     // The value definition: the constant itself, nothing else — the
     // `constant` builder sets no modifiers, and the schema's ValueDef
     // carries no `type`.
@@ -85,6 +108,15 @@ fn encoding_channel(
   }
   if channel.field is Some(field) && !(channel.aggregate is Some(Count)) {
     ch["field"] = Json::string(escape_vega_field(field))
+  }
+  if channel.repeat_ref is Some(reference) &&
+    !(channel.aggregate is Some(Count)) {
+    // The repeat placeholder occupies the field slot as an object — the
+    // schema's Field union is a name or a RepeatRef, and the panel's
+    // runtime substitutes the repeated field for it.
+    let ref_obj : Map[String, Json] = Map([])
+    ref_obj["repeat"] = Json::string(repeat_ref_string(reference))
+    ch["field"] = Json::object(ref_obj)
   }
   if channel.aggregate is Some(op) {
     ch["aggregate"] = Json::string(aggregate_string(op))
@@ -165,6 +197,15 @@ fn is_position_key(key : String) -> Bool {
   key == "radius" ||
   key == "theta2" ||
   key == "radius2"
+}
+
+///|
+/// The offset channels — `xOffset` / `yOffset` — whose value definition
+/// is the number-only arm of the schema's `OffsetDef`: a constant there
+/// must be a number, without the position channels' `"width"` /
+/// `"height"` exception.
+fn is_offset_key(key : String) -> Bool {
+  key == "xOffset" || key == "yOffset"
 }
 
 ///|

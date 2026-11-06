@@ -874,3 +874,127 @@ test "a position channel constant must be a number or width / height" {
   }
   assert_true(refused_too is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+/// One slot of one encoding channel, stringified whole — the reader the
+/// repeat-reference test needs, since its `field` value is an object
+/// rather than a string.
+fn encoding_slot(spec : String, channel : String, key : String) -> String {
+  let parsed = @json.parse(spec) catch { _ => return "<missing>" }
+  match parsed {
+    Object(obj) =>
+      match obj.get("encoding") {
+        Some(Object(enc)) =>
+          match enc.get(channel) {
+            Some(Object(c)) =>
+              match c.get(key) {
+                Some(v) => v.stringify()
+                None => "<missing>"
+              }
+            _ => "<missing>"
+          }
+        _ => "<missing>"
+      }
+    _ => "<missing>"
+  }
+}
+
+///|
+test "a repeat-reference channel emits the placeholder in the field slot" {
+  // The schema's Field union is a name or a RepeatRef, and the repeat
+  // placeholder rides the field slot as an object — each panel of a
+  // Repeat composition resolves it to the field that panel repeats over.
+  let column_ref = @chart.format_vega_lite(
+    channel_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(
+        @chart.field("cat"),
+        @chart.VegaChannel::repeat(
+          repeat_ref=@chart.VegaRepeatRef::Column,
+          aggregate=Mean,
+        ),
+      ),
+    ),
+  )
+  assert_eq(encoding_slot(column_ref, "y", "field"), "{\"repeat\":\"column\"}")
+  assert_eq(channel_key(column_ref, "y", "aggregate"), "mean")
+  // No column is read (the column varies per panel), so the dtype rule
+  // types it quantitative — and a type_override replaces that.
+  assert_eq(channel_key(column_ref, "y", "type"), "quantitative")
+  let row_ref = @chart.format_vega_lite(
+    channel_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(
+        @chart.VegaChannel::repeat(repeat_ref=@chart.VegaRepeatRef::Row),
+        @chart.field("val"),
+        title="Per row",
+      ),
+    ),
+  )
+  assert_eq(encoding_slot(row_ref, "x", "field"), "{\"repeat\":\"row\"}")
+  let overridden = @chart.format_vega_lite(
+    channel_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::line(
+        @chart.field("cat"),
+        @chart.VegaChannel::repeat(
+          repeat_ref=@chart.VegaRepeatRef::Column,
+          type_override=@chart.VegaType::Temporal,
+        ),
+      ),
+    ),
+  )
+  assert_eq(channel_key(overridden, "y", "type"), "temporal")
+}
+
+///|
+test "an offset channel constant must be a number alone" {
+  // The schema's OffsetDef value arm is the number-only
+  // ValueDef<number> — without the position channels' "width" /
+  // "height" exception, so even those strings are refused.
+  let df = channel_df()
+  let number = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        x_offset=@chart.constant(Json::number(12)),
+      ),
+    ),
+  )
+  assert_eq(channel_key(number, "xOffset", "value"), "12")
+  let refused = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Point,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          y_offset=@chart.constant(Json::string("width")),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused is Err(@types.DataError::InvalidOperation(_)))
+  let refused_too = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Point,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          y_offset=@chart.constant(Json::boolean(true)),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_too is Err(@types.DataError::InvalidOperation(_)))
+}

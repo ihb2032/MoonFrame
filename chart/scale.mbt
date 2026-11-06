@@ -142,12 +142,13 @@ fn vega_range_emit_json(v : VegaRange) -> Json {
 }
 
 ///|
-/// The parameter form of a color scheme: the scheme's name, an extent
-/// pair into a diverging scheme, and a color count for discrete ones. The
-/// `extent` array is copied at construction and copied again on read.
+/// The parameter form of a color scheme: the scheme's name (required —
+/// the schema's `SchemeParams` demands it), an extent pair into a
+/// diverging scheme, and a color count for discrete ones. The `extent`
+/// array is copied at construction and copied again on read.
 #derive(Eq, Debug)
 pub struct VegaSchemeParams {
-  name : String?
+  name : String
   priv extent : Array[Double]?
   count : Double?
 }
@@ -159,11 +160,12 @@ pub extend VegaSchemeParams with Eq::{equal, not_equal}
 pub extend VegaSchemeParams with Debug::{to_repr}
 
 ///|
-/// Build one with every property optional; the array
-/// properties are copied, so an array the caller mutates
-/// afterwards cannot move a chart already built.
+/// Build one: the scheme's name is required (an emission without one is
+/// a spec the schema would reject — the same rule `VegaInterpolateParams`
+/// applies to its `type`), the extent array is copied, and the count is
+/// optional.
 pub fn VegaSchemeParams::VegaSchemeParams(
-  name? : String,
+  name~ : String,
   extent? : Array[Double],
   count? : Double,
 ) -> VegaSchemeParams {
@@ -189,12 +191,11 @@ pub fn VegaSchemeParams::extent(self : VegaSchemeParams) -> Array[Double]? {
 
 ///|
 /// The emitted JSON object of a `VegaSchemeParams`, every set property
-/// under its schema key.
+/// under its schema key; the name always rides (the constructor made it
+/// required).
 fn vega_scheme_params_emit_json(x : VegaSchemeParams) -> Json {
   let obj : Map[String, Json] = Map([])
-  if x.name is Some(v) {
-    obj["name"] = Json::string(v)
-  }
+  obj["name"] = Json::string(x.name)
   if x.extent is Some(v) {
     obj["extent"] = Json::array(v.map(fn(n) { Json::number(n) }))
   }
@@ -451,10 +452,12 @@ fn vega_interpolate_emit_json(v : VegaInterpolate) -> Json {
 }
 
 ///|
-/// Explicit bin boundaries for a scale: a step size, or start and stop bounds.
+/// Explicit bin boundaries for a scale: the step size defining the bin
+/// width (required — the schema's `ScaleBinParams` demands it), with
+/// optional start and stop bounds.
 #derive(Eq, Debug)
 pub struct VegaBinsParams {
-  step : Double?
+  step : Double
   start : Double?
   stop : Double?
 }
@@ -466,11 +469,11 @@ pub extend VegaBinsParams with Eq::{equal, not_equal}
 pub extend VegaBinsParams with Debug::{to_repr}
 
 ///|
-/// Build one with every property optional; the array
-/// properties are copied, so an array the caller mutates
-/// afterwards cannot move a chart already built.
+/// Build one: the step size is required (an emission without one is a
+/// spec the schema would reject — the same rule `VegaInterpolateParams`
+/// applies to its `type`), the bounds are optional.
 pub fn VegaBinsParams::VegaBinsParams(
-  step? : Double,
+  step~ : Double,
   start? : Double,
   stop? : Double,
 ) -> VegaBinsParams {
@@ -479,12 +482,11 @@ pub fn VegaBinsParams::VegaBinsParams(
 
 ///|
 /// The emitted JSON object of a `VegaBinsParams`, every set property
-/// under its schema key.
+/// under its schema key; the step always rides (the constructor made it
+/// required).
 fn vega_bins_params_emit_json(x : VegaBinsParams) -> Json {
   let obj : Map[String, Json] = Map([])
-  if x.step is Some(v) {
-    obj["step"] = Json::number(v)
-  }
+  obj["step"] = Json::number(x.step)
   if x.start is Some(v) {
     obj["start"] = Json::number(v)
   }

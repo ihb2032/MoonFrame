@@ -86,11 +86,16 @@ fn vega_tick_band_string(v : VegaTickBand) -> String {
 /// axis title, each styled, plus the orientation, the offset, explicit tick
 /// `values`, and a tick count in any of its three forms (a number, a
 /// calendar interval, or an interval with a step multiplier). Every property
-/// is optional; unset ones fall to the runtime's defaults. The
-/// array-carrying ones (`domain_dash`, `grid_dash`, `tick_dash`, `values`)
-/// are copied at construction and copied again on read.
+/// is optional; unset ones fall to the runtime's defaults. The one
+/// exception is `disable`: the schema carries it on the config axis alone
+/// (`AxisConfig`, the default every axis inherits), not on a channel's
+/// own axis definition — so the channel-side emission drops a set one
+/// and only the config emitters place it. The array-carrying ones
+/// (`domain_dash`, `grid_dash`, `tick_dash`, `values`) are copied at
+/// construction and copied again on read.
 #derive(Eq, Debug)
 pub struct VegaAxis {
+  disable : Bool?
   aria : Bool?
   band_position : Double?
   description : String?
@@ -182,6 +187,7 @@ pub extend VegaAxis with Debug::{to_repr}
 /// properties are copied, so an array the caller mutates
 /// afterwards cannot move a chart already built.
 pub fn VegaAxis::VegaAxis(
+  disable? : Bool,
   aria? : Bool,
   band_position? : Double,
   description? : String,
@@ -262,6 +268,7 @@ pub fn VegaAxis::VegaAxis(
   zindex? : Double,
 ) -> VegaAxis {
   {
+    disable,
     aria,
     band_position,
     description,
@@ -397,9 +404,16 @@ pub fn VegaAxis::values(self : VegaAxis) -> Array[Json]? {
 
 ///|
 /// The emitted JSON object of a `VegaAxis`, every set property
-/// under its schema key.
-fn vega_axis_emit_json(x : VegaAxis) -> Json {
+/// under its schema key. `config_side` says whether the emission is a
+/// config axis (`config.axis` and its per-orientation keys, the schema's
+/// `AxisConfig`) — the one shape that carries `disable`. A channel's own
+/// axis definition does not, so that side leaves a set `disable` out
+/// rather than emitting a key the schema would reject.
+fn vega_axis_emit_json(x : VegaAxis, config_side : Bool) -> Json {
   let obj : Map[String, Json] = Map([])
+  if config_side && x.disable is Some(v) {
+    obj["disable"] = Json::boolean(v)
+  }
   if x.aria is Some(v) {
     obj["aria"] = Json::boolean(v)
   }
@@ -652,10 +666,12 @@ pub extend VegaAxisRef with Eq::{equal, not_equal}
 pub extend VegaAxisRef with Debug::{to_repr}
 
 ///|
-/// The JSON of each form, per the schema's union arms.
+/// The JSON of each form, per the schema's union arms. A channel axis is
+/// the config-side-`false` emission: a `disable` set on it is left out
+/// (see `vega_axis_emit_json`).
 fn vega_axis_ref_emit_json(v : VegaAxisRef) -> Json {
   match v {
     Off => Json::null()
-    Config(a) => vega_axis_emit_json(a)
+    Config(a) => vega_axis_emit_json(a, false)
   }
 }

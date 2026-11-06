@@ -223,6 +223,11 @@ VegaFontWeight | enum | Normal
 VegaFontWeight | enum | Weight(Int32)
 VegaFrameLimit | enum | Num(Double)
 VegaFrameLimit | enum | Open
+VegaImputeMethod | enum | Max
+VegaImputeMethod | enum | Mean
+VegaImputeMethod | enum | Median
+VegaImputeMethod | enum | Min
+VegaImputeMethod | enum | Value
 VegaInterpolate | enum | Kind(VegaInterpolateKind)
 VegaInterpolate | enum | Params(VegaInterpolateParams)
 VegaInterpolateKind | enum | Cubehelix
@@ -264,7 +269,7 @@ VegaLegendRef | enum | Off
 VegaLegendType | enum | Gradient
 VegaLegendType | enum | Symbol
 VegaLookupFrom | enum | Data(VegaLookupData)
-VegaLookupFrom | enum | Param(String)
+VegaLookupFrom | enum | Param(String, String)
 VegaMarkInterpolate | enum | Basis
 VegaMarkInterpolate | enum | BasisClosed
 VegaMarkInterpolate | enum | BasisOpen
@@ -295,10 +300,10 @@ VegaParam | enum | Variable(VegaVariableParam)
 VegaPredicate | enum | And(Array[VegaPredicate])
 VegaPredicate | enum | Equal(String, @json.Json, VegaTimeUnit?)
 VegaPredicate | enum | Expr(String)
-VegaPredicate | enum | Gt(String, Double, VegaTimeUnit?)
-VegaPredicate | enum | Gte(String, Double, VegaTimeUnit?)
-VegaPredicate | enum | Lt(String, Double, VegaTimeUnit?)
-VegaPredicate | enum | Lte(String, Double, VegaTimeUnit?)
+VegaPredicate | enum | Gt(String, @json.Json, VegaTimeUnit?)
+VegaPredicate | enum | Gte(String, @json.Json, VegaTimeUnit?)
+VegaPredicate | enum | Lt(String, @json.Json, VegaTimeUnit?)
+VegaPredicate | enum | Lte(String, @json.Json, VegaTimeUnit?)
 VegaPredicate | enum | Not(VegaPredicate)
 VegaPredicate | enum | OneOf(String, Array[@json.Json], VegaTimeUnit?)
 VegaPredicate | enum | Or(Array[VegaPredicate])
@@ -321,6 +326,8 @@ VegaProjectionType | enum | NaturalEarth1
 VegaProjectionType | enum | Orthographic
 VegaProjectionType | enum | Stereographic
 VegaProjectionType | enum | TransverseMercator
+VegaRadioSelectInput | enum | Radio
+VegaRadioSelectInput | enum | Select
 VegaRange | enum | Named(VegaRangeName)
 VegaRange | enum | Values(Array[@json.Json])
 VegaRangeBound | enum | Named(String)
@@ -333,6 +340,14 @@ VegaRangeName | enum | Ordinal
 VegaRangeName | enum | Ramp
 VegaRangeName | enum | Symbol
 VegaRangeName | enum | Width
+VegaRegressionMethod | enum | Exp
+VegaRegressionMethod | enum | Linear
+VegaRegressionMethod | enum | Log
+VegaRegressionMethod | enum | Poly
+VegaRegressionMethod | enum | Pow
+VegaRegressionMethod | enum | Quad
+VegaRepeatRef | enum | Column
+VegaRepeatRef | enum | Row
 VegaResolveMode | enum | Independent
 VegaResolveMode | enum | Shared
 VegaRotate | enum | LonLat(Double, Double)
@@ -382,6 +397,9 @@ VegaStack | enum | Center
 VegaStack | enum | Normalize
 VegaStack | enum | Off
 VegaStack | enum | Zero
+VegaStackOffset | enum | Center
+VegaStackOffset | enum | Normalize
+VegaStackOffset | enum | Zero
 VegaTickBand | enum | Center
 VegaTickBand | enum | Extent
 VegaTickInterval | enum | Count(Double)

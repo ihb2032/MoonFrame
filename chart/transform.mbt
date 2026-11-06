@@ -505,7 +505,7 @@ fn vega_calculate_transform_emit_json(x : VegaCalculateTransform) -> Json {
 }
 
 ///|
-/// The density transform: a kernel density estimate over `density`, optionally grouped, cumulative, as counts, over an extent or a step budget.
+/// The density transform: a kernel density estimate over `density`, optionally grouped, cumulative, as counts, over an extent or a step budget, with multiple densities resolved independently or over a shared domain.
 #derive(Eq, Debug)
 pub struct VegaDensityTransform {
   density : String
@@ -518,6 +518,7 @@ pub struct VegaDensityTransform {
   steps : Double?
   minsteps : Double?
   maxsteps : Double?
+  resolve : VegaResolveMode?
 }
 
 ///|
@@ -542,6 +543,7 @@ pub fn VegaDensityTransform::VegaDensityTransform(
   steps? : Double,
   minsteps? : Double,
   maxsteps? : Double,
+  resolve? : VegaResolveMode,
 ) -> VegaDensityTransform {
   {
     density,
@@ -563,6 +565,7 @@ pub fn VegaDensityTransform::VegaDensityTransform(
     steps,
     minsteps,
     maxsteps,
+    resolve,
   }
 }
 
@@ -640,6 +643,9 @@ fn vega_density_transform_emit_json(x : VegaDensityTransform) -> Json {
   }
   if x.maxsteps is Some(v) {
     obj["maxsteps"] = Json::number(v)
+  }
+  if x.resolve is Some(v) {
+    obj["resolve"] = Json::string(vega_resolve_mode_string(v))
   }
   Json::object(obj)
 }
@@ -861,6 +867,38 @@ fn vega_fold_transform_emit_json(x : VegaFoldTransform) -> Json {
 }
 
 ///|
+/// An imputation method, the schema's `ImputeMethod` enum:
+/// `Value → "value"` (the constant `value` property, the default),
+/// `Median → "median"`, `Max → "max"`, `Min → "min"`, `Mean → "mean"`.
+/// `pub(all)` so callers can name the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaImputeMethod {
+  Value
+  Median
+  Max
+  Min
+  Mean
+}
+
+///|
+pub extend VegaImputeMethod with Eq::{equal, not_equal}
+
+///|
+pub extend VegaImputeMethod with Debug::{to_repr}
+
+///|
+/// The schema's `ImputeMethod` string for a variant, one arm per variant.
+fn vega_impute_method_string(v : VegaImputeMethod) -> String {
+  match v {
+    Value => "value"
+    Median => "median"
+    Max => "max"
+    Min => "min"
+    Mean => "mean"
+  }
+}
+
+///|
 /// The impute transform: fill missing `impute` values, keyed by `key`, with a method or a constant, over a frame or a generated sequence, optionally per group.
 #derive(Eq, Debug)
 pub struct VegaImputeTransform {
@@ -868,7 +906,7 @@ pub struct VegaImputeTransform {
   key : String
   priv keyvals : Array[Json]?
   keyvals_sequence : VegaImputeSequence?
-  method_ : String?
+  method_ : VegaImputeMethod?
   value : Json?
   priv groupby : Array[String]?
   priv frame : Array[Double]?
@@ -890,7 +928,7 @@ pub fn VegaImputeTransform::VegaImputeTransform(
   key~ : String,
   keyvals? : Array[Json],
   keyvals_sequence? : VegaImputeSequence,
-  method_? : String,
+  method_? : VegaImputeMethod,
   value? : Json,
   groupby? : Array[String],
   frame? : Array[Double],
@@ -971,7 +1009,7 @@ fn vega_impute_transform_emit_json(x : VegaImputeTransform) -> Json {
     obj["keyvals"] = vega_impute_sequence_emit_json(v)
   }
   if x.method_ is Some(v) {
-    obj["method"] = Json::string(v)
+    obj["method"] = Json::string(vega_impute_method_string(v))
   }
   if x.value is Some(v) {
     obj["value"] = json_identity(v)
@@ -1400,6 +1438,42 @@ fn vega_quantile_transform_emit_json(x : VegaQuantileTransform) -> Json {
 }
 
 ///|
+/// A regression model's functional form, the `RegressionTransform.method`
+/// enum: `Linear → "linear"` (the default), `Log → "log"`, `Exp → "exp"`,
+/// `Pow → "pow"`, `Quad → "quad"`, and `Poly → "poly"` (whose order the
+/// transform's `order` property names). `pub(all)` so callers can name
+/// the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaRegressionMethod {
+  Linear
+  Log
+  Exp
+  Pow
+  Quad
+  Poly
+}
+
+///|
+pub extend VegaRegressionMethod with Eq::{equal, not_equal}
+
+///|
+pub extend VegaRegressionMethod with Debug::{to_repr}
+
+///|
+/// The schema's `RegressionTransform.method` string for a variant, one
+/// arm per variant.
+fn vega_regression_method_string(v : VegaRegressionMethod) -> String {
+  match v {
+    Linear => "linear"
+    Log => "log"
+    Exp => "exp"
+    Pow => "pow"
+    Quad => "quad"
+    Poly => "poly"
+  }
+}
+
+///|
 /// The regression transform: fit `regression` against `on` (linear, poly, exp, log, pow, or quad), optionally grouped, over an extent, keeping the model parameters.
 #derive(Eq, Debug)
 pub struct VegaRegressionTransform {
@@ -1407,7 +1481,7 @@ pub struct VegaRegressionTransform {
   on : String
   priv as_ : Array[String]?
   priv extent : Array[Double]?
-  method_ : String?
+  method_ : VegaRegressionMethod?
   order : Double?
   priv groupby : Array[String]?
   params : Bool?
@@ -1429,7 +1503,7 @@ pub fn VegaRegressionTransform::VegaRegressionTransform(
   on~ : String,
   as_? : Array[String],
   extent? : Array[Double],
-  method_? : String,
+  method_? : VegaRegressionMethod,
   order? : Double,
   groupby? : Array[String],
   params? : Bool,
@@ -1514,7 +1588,7 @@ fn vega_regression_transform_emit_json(x : VegaRegressionTransform) -> Json {
     obj["extent"] = Json::array(v.map(fn(n) { Json::number(n) }))
   }
   if x.method_ is Some(v) {
-    obj["method"] = Json::string(v)
+    obj["method"] = Json::string(vega_regression_method_string(v))
   }
   if x.order is Some(v) {
     obj["order"] = Json::number(v)
@@ -1567,13 +1641,44 @@ fn vega_sample_transform_emit_json(x : VegaSampleTransform) -> Json {
 }
 
 ///|
+/// A stack-transform `offset`, the schema's `StackOffset` enum:
+/// `Zero → "zero"` (stack from 0, the default), `Center → "center"`
+/// (center the stacks), `Normalize → "normalize"` (each stack rescaled to
+/// percentages). A dedicated enum rather than the channel `VegaStack`
+/// because the transform's enum has no `null` arm — `Off` there would be
+/// a variant this emitter could never place in a spec the schema accepts.
+/// `pub(all)` so callers can name the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaStackOffset {
+  Zero
+  Center
+  Normalize
+}
+
+///|
+pub extend VegaStackOffset with Eq::{equal, not_equal}
+
+///|
+pub extend VegaStackOffset with Debug::{to_repr}
+
+///|
+/// The schema's `StackOffset` string for a variant, one arm per variant.
+fn vega_stack_offset_string(v : VegaStackOffset) -> String {
+  match v {
+    Zero => "zero"
+    Center => "center"
+    Normalize => "normalize"
+  }
+}
+
+///|
 /// The stack transform: stack `stack` end to end within groups, sorted, offset (zero, center, or normalize), writing the start / end pair.
 #derive(Eq, Debug)
 pub struct VegaStackTransform {
   stack : String
   priv groupby : Array[String]
   as_ : VegaAsField
-  offset : String?
+  offset : VegaStackOffset?
   priv sort : Array[VegaSortField]?
 }
 
@@ -1592,7 +1697,7 @@ pub fn VegaStackTransform::VegaStackTransform(
   stack~ : String,
   groupby~ : Array[String],
   as_~ : VegaAsField,
-  offset? : String,
+  offset? : VegaStackOffset,
   sort? : Array[VegaSortField],
 ) -> VegaStackTransform {
   {
@@ -1648,7 +1753,7 @@ fn vega_stack_transform_emit_json(x : VegaStackTransform) -> Json {
     obj["as"] = vega_as_field_emit_json(v)
   }
   if x.offset is Some(v) {
-    obj["offset"] = Json::string(v)
+    obj["offset"] = Json::string(vega_stack_offset_string(v))
   }
   if x.sort is Some(v) {
     obj["sort"] = Json::array(v.map(fn(e) { vega_sort_field_emit_json(e) }))
@@ -1811,11 +1916,15 @@ fn vega_window_transform_emit_json(x : VegaWindowTransform) -> Json {
 }
 
 ///|
-/// The lookup source: a named data table, or a parameter reference.
+/// The lookup source: a named data table, or a parameter-driven selection
+/// (the schema's `LookupSelection`, whose `key` and `param` are both
+/// required — the `Param` payload carries the two as `(key, param)`: the
+/// field in the data to look up, and the selection parameter name to
+/// look up against).
 #derive(Eq, Debug)
 pub(all) enum VegaLookupFrom {
   Data(VegaLookupData)
-  Param(String)
+  Param(String, String)
 }
 
 ///|
@@ -1829,8 +1938,9 @@ pub extend VegaLookupFrom with Debug::{to_repr}
 fn vega_lookup_from_emit_json(v : VegaLookupFrom) -> Json {
   match v {
     Data(data) => vega_lookup_data_emit_json(data)
-    Param(name) => {
+    Param(key, name) => {
       let obj : Map[String, Json] = Map([])
+      obj["key"] = Json::string(escape_vega_field(key))
       obj["param"] = Json::string(name)
       Json::object(obj)
     }

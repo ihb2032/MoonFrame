@@ -57,6 +57,16 @@ pub struct VegaConfig {
   axis_discrete : VegaAxis?
   axis_quantitative : VegaAxis?
   axis_temporal : VegaAxis?
+  axis_x_band : VegaAxis?
+  axis_x_discrete : VegaAxis?
+  axis_x_point : VegaAxis?
+  axis_x_quantitative : VegaAxis?
+  axis_x_temporal : VegaAxis?
+  axis_y_band : VegaAxis?
+  axis_y_discrete : VegaAxis?
+  axis_y_point : VegaAxis?
+  axis_y_quantitative : VegaAxis?
+  axis_y_temporal : VegaAxis?
   legend : VegaLegendConfig?
   header : VegaHeader?
   header_row : VegaHeader?
@@ -132,6 +142,16 @@ pub fn VegaConfig::VegaConfig(
   axis_discrete? : VegaAxis,
   axis_quantitative? : VegaAxis,
   axis_temporal? : VegaAxis,
+  axis_x_band? : VegaAxis,
+  axis_x_discrete? : VegaAxis,
+  axis_x_point? : VegaAxis,
+  axis_x_quantitative? : VegaAxis,
+  axis_x_temporal? : VegaAxis,
+  axis_y_band? : VegaAxis,
+  axis_y_discrete? : VegaAxis,
+  axis_y_point? : VegaAxis,
+  axis_y_quantitative? : VegaAxis,
+  axis_y_temporal? : VegaAxis,
   legend? : VegaLegendConfig,
   header? : VegaHeader,
   header_row? : VegaHeader,
@@ -199,6 +219,16 @@ pub fn VegaConfig::VegaConfig(
     axis_discrete,
     axis_quantitative,
     axis_temporal,
+    axis_x_band,
+    axis_x_discrete,
+    axis_x_point,
+    axis_x_quantitative,
+    axis_x_temporal,
+    axis_y_band,
+    axis_y_discrete,
+    axis_y_point,
+    axis_y_quantitative,
+    axis_y_temporal,
     legend,
     header,
     header_row,
@@ -310,7 +340,7 @@ fn vega_config_emit_json(c : VegaConfig) -> Json {
     obj["scale"] = vega_scale_config_emit_json(v)
   }
   if c.axis is Some(v) {
-    obj["axis"] = vega_axis_emit_json(v)
+    obj["axis"] = vega_axis_emit_json(v, true)
   }
   for
     entry in [
@@ -325,10 +355,20 @@ fn vega_config_emit_json(c : VegaConfig) -> Json {
       ("axisDiscrete", c.axis_discrete),
       ("axisQuantitative", c.axis_quantitative),
       ("axisTemporal", c.axis_temporal),
+      ("axisXBand", c.axis_x_band),
+      ("axisXDiscrete", c.axis_x_discrete),
+      ("axisXPoint", c.axis_x_point),
+      ("axisXQuantitative", c.axis_x_quantitative),
+      ("axisXTemporal", c.axis_x_temporal),
+      ("axisYBand", c.axis_y_band),
+      ("axisYDiscrete", c.axis_y_discrete),
+      ("axisYPoint", c.axis_y_point),
+      ("axisYQuantitative", c.axis_y_quantitative),
+      ("axisYTemporal", c.axis_y_temporal),
     ] {
     let (key, axis) = entry
     if axis is Some(v) {
-      obj[key] = vega_axis_emit_json(v)
+      obj[key] = vega_axis_emit_json(v, true)
     }
   }
   if c.legend is Some(v) {

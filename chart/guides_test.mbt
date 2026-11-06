@@ -13,6 +13,28 @@ fn guides_df() -> @frame.DataFrame raise @types.DataError {
 }
 
 ///|
+/// One subtree of an emitted spec, navigated by key path and stringified
+/// whole. A kitchen-sink assert compares this against the exact expected
+/// object, so a misspelled key, a dropped key, or an extra one all turn
+/// the assert red — a `contains` check on a short needle passes beside
+/// any of those.
+fn emitted_subtree(spec : String, path : Array[String]) -> String {
+  let parsed = @json.parse(spec) catch { _ => return "<unparseable>" }
+  let mut node = parsed
+  for key in path {
+    node = match node {
+      Object(obj) =>
+        match obj.get(key) {
+          Some(v) => v
+          None => return "<missing key: " + key + ">"
+        }
+      _ => return "<not an object at: " + key + ">"
+    }
+  }
+  node.stringify()
+}
+
+///|
 test "VegaScale carries every property it declares" {
   let family = @chart.VegaScale::VegaScale(
     type_=@chart.VegaScaleType::Linear,
@@ -49,12 +71,21 @@ test "VegaScale carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("scale"))
+  // The whole scale object, key for key — every declared property under
+  // its schema key, and nothing else.
+  assert_eq(
+    emitted_subtree(spec, ["encoding", "x", "scale"]),
+    "{\"type\":\"linear\",\"domain\":\"unaggregated\",\"domainMin\":1.5,\"domainMax\":1.5,\"domainMid\":1.5,\"range\":\"width\",\"rangeMin\":1.5,\"rangeMax\":1.5,\"scheme\":\"blues\",\"reverse\":true,\"round\":true,\"clamp\":true,\"zero\":true,\"exponent\":1.5,\"base\":1.5,\"constant\":1.5,\"interpolate\":\"rgb\",\"nice\":true,\"align\":1.5,\"padding\":1.5,\"paddingInner\":1.5,\"paddingOuter\":1.5,\"bins\":[1]}",
+  )
 }
 
 ///|
 test "VegaAxis carries every property it declares" {
   let family = @chart.VegaAxis::VegaAxis(
+    // `disable` is config-axis-only (the schema's AxisConfig): the
+    // channel-side emission drops a set one, which the expected object
+    // below pins.
+    disable=true,
     aria=true,
     band_position=1.5,
     description="s",
@@ -144,7 +175,13 @@ test "VegaAxis carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("axis"))
+  // The whole channel-side axis object — every declared property under
+  // its schema key, `disable` left out (the config shape alone carries
+  // it), and nothing else.
+  assert_eq(
+    emitted_subtree(spec, ["encoding", "x", "axis"]),
+    "{\"aria\":true,\"bandPosition\":1.5,\"description\":\"s\",\"domain\":true,\"domainCap\":\"butt\",\"domainColor\":\"s\",\"domainDash\":[1,2],\"domainDashOffset\":1.5,\"domainOpacity\":1.5,\"domainWidth\":1.5,\"format\":\"s\",\"formatType\":\"s\",\"grid\":true,\"gridCap\":\"butt\",\"gridColor\":\"s\",\"gridDash\":[1,2],\"gridDashOffset\":1.5,\"gridOpacity\":1.5,\"gridWidth\":1.5,\"labelAlign\":\"left\",\"labelAngle\":1.5,\"labelBaseline\":\"alphabetic\",\"labelBound\":\"flush\",\"labelColor\":\"s\",\"labelExpr\":\"s\",\"labelFlush\":true,\"labelFlushOffset\":1.5,\"labelFont\":\"s\",\"labelFontSize\":1.5,\"labelFontStyle\":\"s\",\"labelFontWeight\":\"bold\",\"labelLimit\":1.5,\"labelLineHeight\":1.5,\"labelOffset\":1.5,\"labelOpacity\":1.5,\"labelOverlap\":\"parity\",\"labelPadding\":1.5,\"labelSeparation\":1.5,\"labels\":true,\"maxExtent\":1.5,\"minExtent\":1.5,\"offset\":1.5,\"orient\":\"top\",\"position\":1.5,\"style\":\"s\",\"tickBand\":\"center\",\"tickCap\":\"butt\",\"tickColor\":\"s\",\"tickCount\":5,\"tickDash\":[1,2],\"tickDashOffset\":1.5,\"tickExtra\":true,\"tickMinStep\":1.5,\"tickOffset\":1.5,\"tickOpacity\":1.5,\"tickRound\":true,\"tickSize\":1.5,\"tickWidth\":1.5,\"ticks\":true,\"title\":\"s\",\"titleAlign\":\"left\",\"titleAnchor\":\"start\",\"titleAngle\":1.5,\"titleBaseline\":\"alphabetic\",\"titleColor\":\"s\",\"titleFont\":\"s\",\"titleFontSize\":1.5,\"titleFontStyle\":\"s\",\"titleFontWeight\":\"bold\",\"titleLimit\":1.5,\"titleLineHeight\":1.5,\"titleOpacity\":1.5,\"titlePadding\":1.5,\"titleX\":1.5,\"titleY\":1.5,\"translate\":1.5,\"values\":[1,\"a\"],\"zindex\":1.5}",
+  )
 }
 
 ///|
@@ -228,7 +265,11 @@ test "VegaLegend carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("legend"))
+  // The whole legend object, key for key.
+  assert_eq(
+    emitted_subtree(spec, ["encoding", "color", "legend"]),
+    "{\"aria\":true,\"clipHeight\":1.5,\"columnPadding\":1.5,\"columns\":1.5,\"cornerRadius\":1.5,\"description\":\"s\",\"direction\":\"horizontal\",\"fillColor\":\"s\",\"format\":\"s\",\"formatType\":\"s\",\"gradientLength\":1.5,\"gradientOpacity\":1.5,\"gradientStrokeColor\":\"s\",\"gradientStrokeWidth\":1.5,\"gradientThickness\":1.5,\"gridAlign\":\"all\",\"labelAlign\":\"left\",\"labelBaseline\":\"alphabetic\",\"labelColor\":\"s\",\"labelExpr\":\"s\",\"labelFont\":\"s\",\"labelFontSize\":1.5,\"labelFontStyle\":\"s\",\"labelFontWeight\":\"bold\",\"labelLimit\":1.5,\"labelOffset\":1.5,\"labelOpacity\":1.5,\"labelOverlap\":\"parity\",\"labelPadding\":1.5,\"labelSeparation\":1.5,\"legendX\":1.5,\"legendY\":1.5,\"offset\":1.5,\"orient\":\"none\",\"padding\":1.5,\"rowPadding\":1.5,\"strokeColor\":\"s\",\"symbolDash\":[1,2],\"symbolDashOffset\":1.5,\"symbolFillColor\":\"s\",\"symbolLimit\":1.5,\"symbolOffset\":1.5,\"symbolOpacity\":1.5,\"symbolSize\":1.5,\"symbolStrokeColor\":\"s\",\"symbolStrokeWidth\":1.5,\"symbolType\":\"s\",\"tickCount\":5,\"tickMinStep\":1.5,\"title\":\"s\",\"titleAlign\":\"left\",\"titleAnchor\":\"start\",\"titleBaseline\":\"alphabetic\",\"titleColor\":\"s\",\"titleFont\":\"s\",\"titleFontSize\":1.5,\"titleFontStyle\":\"s\",\"titleFontWeight\":\"bold\",\"titleLimit\":1.5,\"titleLineHeight\":1.5,\"titleOpacity\":1.5,\"titleOrient\":\"none\",\"titlePadding\":1.5,\"type\":\"symbol\",\"values\":[1,\"a\"],\"zindex\":1.5}",
+  )
 }
 
 ///|
@@ -274,7 +315,11 @@ test "VegaTitleParams carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("subtitle"))
+  // The whole title-params object, key for key.
+  assert_eq(
+    emitted_subtree(spec, ["title"]),
+    "{\"text\":\"s\",\"align\":\"left\",\"anchor\":\"start\",\"angle\":1.5,\"aria\":true,\"baseline\":\"alphabetic\",\"color\":\"s\",\"dx\":1.5,\"dy\":1.5,\"font\":\"s\",\"fontSize\":1.5,\"fontStyle\":\"s\",\"fontWeight\":\"bold\",\"frame\":\"bounds\",\"limit\":1.5,\"lineHeight\":1.5,\"offset\":1.5,\"orient\":\"none\",\"style\":\"s\",\"subtitle\":\"s\",\"subtitleColor\":\"s\",\"subtitleFont\":\"s\",\"subtitleFontSize\":1.5,\"subtitleFontStyle\":\"s\",\"subtitleFontWeight\":\"bold\",\"subtitleLineHeight\":1.5,\"subtitlePadding\":1.5,\"zindex\":1.5}",
+  )
 }
 
 ///|
@@ -306,7 +351,11 @@ test "VegaViewBackground carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("view"))
+  // The whole view-background object, key for key.
+  assert_eq(
+    emitted_subtree(spec, ["view"]),
+    "{\"cornerRadius\":1.5,\"cursor\":\"auto\",\"fill\":\"s\",\"fillOpacity\":1.5,\"opacity\":1.5,\"stroke\":\"s\",\"strokeCap\":\"butt\",\"strokeDash\":[1,2],\"strokeDashOffset\":1.5,\"strokeJoin\":\"miter\",\"strokeMiterLimit\":1.5,\"strokeOpacity\":1.5,\"strokeWidth\":1.5,\"style\":\"s\"}",
+  )
 }
 
 ///|
@@ -347,5 +396,9 @@ test "VegaProjection carries every property it declares" {
       ),
     ),
   )
-  assert_true(spec.contains("projection"))
+  // The whole projection object, key for key.
+  assert_eq(
+    emitted_subtree(spec, ["projection"]),
+    "{\"type\":\"albers\",\"center\":[1.5,2.5],\"clipAngle\":1.5,\"clipExtent\":[[1.5,2.5],[3.5,4.5]],\"coefficient\":1.5,\"distance\":1.5,\"extent\":[[1.5,2.5],[3.5,4.5]],\"fraction\":1.5,\"lobes\":1.5,\"parallel\":1.5,\"parallels\":[1,2],\"pointRadius\":1.5,\"precision\":1.5,\"radius\":1.5,\"ratio\":1.5,\"reflectX\":true,\"reflectY\":true,\"rotate\":[1,2],\"scale\":1.5,\"size\":[1.5,2.5],\"spacing\":1.5,\"tilt\":1.5,\"translate\":[1.5,2.5]}",
+  )
 }

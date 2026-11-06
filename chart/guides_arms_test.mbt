@@ -462,7 +462,7 @@ test "the guide array accessors hand back fresh copies" {
   let bare_legend = @chart.VegaLegend::VegaLegend()
   assert_eq(bare_legend.symbol_dash(), None)
   assert_eq(bare_legend.values(), None)
-  let bare_scheme = @chart.VegaSchemeParams::VegaSchemeParams()
+  let bare_scheme = @chart.VegaSchemeParams::VegaSchemeParams(name="blues")
   assert_eq(bare_scheme.extent(), None)
   let bare_projection = @chart.VegaProjection::VegaProjection()
   assert_eq(bare_projection.parallels(), None)

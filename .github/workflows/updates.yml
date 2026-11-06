@@ -17,6 +17,15 @@
 # without the permission (the first drift after the bot landed caught
 # exactly this). It never touches releases, issues, or secrets.
 #
+# No CI runs on the PRs this opens, and none can: they are created with this
+# workflow's own `github.token`, and GitHub fires no `pull_request` — or
+# `push` — event for anything the default token creates (a bot must not be
+# able to review its own work). A PAT or App installation token would lift
+# that, and the repository deliberately carries neither, so each PR body
+# says so and carries the local verification recipe a human runs before
+# merging instead. Widening ci.yml's `on:` to the bot branches cannot work
+# for the same reason: the bot's pushes are as token-authored as its PRs.
+#
 # Cadence: Monday 03:00 UTC, and on demand via workflow_dispatch.
 
 name: updates
@@ -38,6 +47,10 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    # The probe installs a toolchain, refreshes an index, and pushes at most
+    # a handful of one-commit branches — minutes of work. The cap is for a
+    # hung install or a stalled network call, not for the happy path.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         # Pinned to a full commit SHA rather than the movable `v5` tag, so a

@@ -2,7 +2,10 @@
 _build/
 .mooncakes/
 .moonagent/
-*.txt
+# The coverage step's tee target (ci.yml) — the one .txt artifact the build
+# produces. A global `*.txt` used to sit here and hid every other text file a
+# contributor might leave behind, which is not what an ignore list is for.
+/coverage-analyze.txt
 .claude/
 PLAN*.md
 

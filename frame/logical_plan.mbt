@@ -128,29 +128,7 @@ priv enum FrameOp {
   Pivot(Array[@expr.Expr], Array[@expr.Expr]?, Array[@expr.Expr]?, PivotAgg?)
   Unpivot(Array[@expr.Expr]?, Array[@expr.Expr]?, String, String)
   FillNan(Double)
-  Reduce(LazyReduceOp)
-}
-
-///|
-/// Which whole-frame reduction a `Reduce` node defers — one per `LazyFrame`
-/// reduction method, each executing as the matching eager `DataFrame` verb
-/// (`sum` / `mean` / `min` / `max` / `count` / `null_count` / `median` /
-/// `quantile` / `std` / `variance` / `n_unique`) so `collect` is bit-for-bit
-/// the eager result. A closed set mirroring `frame`'s private
-/// `FrameReduceOp` (plus `NullCount`), kept lazy-local because that tag is
-/// `priv` to `frame`.
-priv enum LazyReduceOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  NullCount
-  Median
-  Quantile(Double, @series.QuantileInterpolation)
-  Std
-  Var
-  NUnique
+  Reduce(FrameReduceOp)
 }
 
 ///|

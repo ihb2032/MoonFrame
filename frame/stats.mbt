@@ -48,7 +48,7 @@
 /// The fixed set of whole-frame reductions, one per public method below. Kept
 /// separate from the kernel's open-ended `ReduceOp` (which the expression
 /// aggregations also feed) on purpose: the whole-frame verbs are a closed
-/// set — `sum` / `mean` / `min` / `max` / `count` /
+/// set — `sum` / `mean` / `min` / `max` / `count` / `null_count` /
 /// `median` / `std` / `variance` / `n_unique` / `quantile` — and they dispatch
 /// to the `Series` accessors here rather than routing through `reducer_for`,
 /// so a kernel reduction with no frame-level reading (`first` / `last`)
@@ -56,12 +56,20 @@
 /// decision explicit. `Quantile` is the one payload-carrying member: the frame
 /// method forwards its `q` / `interpolation` through the tag to the per-column
 /// call.
+///
+/// The tag is also what the deferred plan's `Reduce` node carries — one set
+/// of spellings for both faces. `NullCount` rides the tag for that side
+/// alone: the eager `null_count` keeps its own total verb (it never raises,
+/// unlike the shared per-column driver), and a collected `Reduce(NullCount)`
+/// is the same Int column the eager verb builds, reached through the arm
+/// below.
 priv enum FrameReduceOp {
   Sum
   Mean
   Min
   Max
   Count
+  NullCount
   Median
   Std
   Var
@@ -250,6 +258,11 @@ fn reduce_column(
   let (cell, probe) = match op {
     FrameReduceOp::Count =>
       (@types.Scalar::Int(s.count().to_int64()), @types.DataType::Int)
+    // Null counting needs no dtype gate — it reads the validity of any
+    // column — so the arm the deferred plan's `Reduce(NullCount)` rides
+    // is total by construction, matching the eager verb it mirrors.
+    FrameReduceOp::NullCount =>
+      (@types.Scalar::Int(s.null_count().to_int64()), @types.DataType::Int)
     // `Series::sum` raises for a dtype outside the `summable` gate — kept
     // away by the `if` — and, inside the gate, for a `Decimal` total past
     // the `Int64` range (the checked fold's `InvalidOperation`, the one

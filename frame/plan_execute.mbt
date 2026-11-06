@@ -190,21 +190,15 @@ fn apply_frame_op(
       }
     FillNan(value) => df.fill_nan(value)
     FillNull(value) => df.fill_null(value)
-    // Each reduction executes as its eager `DataFrame` verb on the collected
-    // input, so `collect` is bit-for-bit the eager 1-row result.
+    // Each reduction rides the shared per-column driver its eager verb is —
+    // `reduce_to_row` is the whole body of every one of them — so `collect`
+    // is bit-for-bit the eager 1-row result. `Quantile` is the one arm kept
+    // on the public verb: its `q ∈ [0, 1]` check lives there, and a plan
+    // that fails to collect must still fail collected.
     Reduce(op) =>
       match op {
-        Sum => df.sum()
-        Mean => df.mean()
-        Min => df.min()
-        Max => df.max()
-        Count => df.count()
-        NullCount => df.null_count()
-        Median => df.median()
         Quantile(q, interpolation) => df.quantile(q, interpolation~)
-        Std => df.std()
-        Var => df.variance()
-        NUnique => df.n_unique()
+        _ => df.reduce_to_row(op)
       }
   }
 }

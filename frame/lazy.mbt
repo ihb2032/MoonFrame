@@ -336,41 +336,41 @@ pub fn LazyFrame::unpivot(
 /// sum (numeric columns their sum in the source dtype, non-numeric columns a
 /// `Null` cell). `collect` equals the eager `df.sum()`.
 pub fn LazyFrame::sum(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Sum)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Sum)), }
 }
 
 ///|
 /// Defer `DataFrame::mean`: a 1-row frame of each numeric column's mean as
 /// `Float` (empty / all-null → `Null`), non-numeric columns a `Null` cell.
 pub fn LazyFrame::mean(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Mean)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Mean)), }
 }
 
 ///|
 /// Defer `DataFrame::min`: a 1-row frame of each numeric column's minimum
 /// (`NaN` skipped, source dtype kept), non-numeric columns a `Null` cell.
 pub fn LazyFrame::min(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Min)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Min)), }
 }
 
 ///|
 /// Defer `DataFrame::max`: the maximum counterpart of `min`.
 pub fn LazyFrame::max(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Max)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Max)), }
 }
 
 ///|
 /// Defer `DataFrame::count`: a 1-row `Int` frame of each column's non-null cell
 /// count (every dtype).
 pub fn LazyFrame::count(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Count)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Count)), }
 }
 
 ///|
 /// Defer `DataFrame::null_count`: a 1-row `Int` frame of each column's null
 /// count — the complement of `count`.
 pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::NullCount)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::NullCount)), }
 }
 
 ///|
@@ -378,7 +378,7 @@ pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
 /// as `Float` (`NaN` propagating, the two middles averaged on an even
 /// count), non-numeric / empty / all-null columns a `Null` cell.
 pub fn LazyFrame::median(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Median)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Median)), }
 }
 
 ///|
@@ -391,7 +391,7 @@ pub fn LazyFrame::quantile(
   q : Double,
   interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Quantile(q, interpolation))), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Quantile(q, interpolation))), }
 }
 
 ///|
@@ -399,7 +399,7 @@ pub fn LazyFrame::quantile(
 /// standard deviation (`ddof = 1`) as `Float`; a column with fewer than two
 /// non-null cells — like a non-numeric one — takes a `Null` cell.
 pub fn LazyFrame::std(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Std)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Std)), }
 }
 
 ///|
@@ -407,7 +407,7 @@ pub fn LazyFrame::std(self : LazyFrame) -> LazyFrame {
 /// `Float`-or-`Null` cell rules. Spelled `variance` because `var` is a
 /// reserved MoonBit word.
 pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Var)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Var)), }
 }
 
 ///|
@@ -415,7 +415,7 @@ pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
 /// distinct value count (every dtype; a null counts as one distinct value,
 /// every `NaN` one bucket — the documented `n_unique` rule).
 pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::NUnique)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::NUnique)), }
 }
 
 ///|

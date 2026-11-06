@@ -361,7 +361,8 @@ becomes an unreviewed default for the new one. The guard is a lexical scan over
 the match blocks in production sources (tests excluded — a wildcard there
 fails loud at assert time), attributing every catch-all arm — `_` / `..`, a
 bare lowercase binding (`other =>`, semantically the same catch-all), the
-`|`-continuation of either, a tuple whose every slot is a catch-all (`(_, _)`,
+`|`-continuation of either, including mid-alternation (`Int | _ =>`, the
+catch-all one alternative among several), a tuple whose every slot is a catch-all (`(_, _)`,
 the shape a two-enum scrutinee reaches for; a tuple naming a concrete variant
 in any slot pins that slot and is not one), including the `;`-separated arms
 of a single-line match — inside a block that names a dtype enum to its

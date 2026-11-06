@@ -208,6 +208,98 @@ class DtypeWildcardScannerTests(unittest.TestCase):
         })
         self.assertEqual(arms, [('a/a.mbt', 'as_int')])
 
+    def test_catch_all_mid_alternation_is_flagged(self) -> None:
+        # `Int | _ =>` — the catch-all is one alternative among several, not
+        # the line's first token. Both pattern halves used to miss it: the
+        # first demands a lowercase line-leading token, the second demanded
+        # the `|` at the line's start.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int | _ => fallback()\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
+    def test_catch_all_mid_alternation_binding_is_flagged(self) -> None:
+        # The binding spelling of the same mid-alternation shape.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int | rest => fallback(rest)\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
+    def test_multi_alternation_with_trailing_catch_all_is_flagged(self) -> None:
+        # `A | B | _ =>` — the catch-all last among three; the leading
+        # alternatives are concrete, which is what hid the trailing one.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int | @types.DataType::Float | _ => "?"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
+    def test_concrete_alternation_without_catch_all_is_not_flagged(self) -> None:
+        # Every alternative concrete: a specific pair of variants, not a
+        # swallow point — the widened `|` pattern must not widen the
+        # inventory to it.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int | @types.DataType::Float => "n"\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [])
+
+    def test_alternation_in_a_body_expression_is_not_flagged(self) -> None:
+        # A `|` inside an arm body (`a | b` as operands, no `=>` after the
+        # catch-all-looking token) is not an arm pattern; the pattern still
+        # demands the `=>` that ends one.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> Bool {\n'
+                '  match dt {\n'
+                '    @types.DataType::Int => big | other\n'
+                '  }\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [])
+
+    def test_single_line_match_mid_alternation_is_scanned(self) -> None:
+        # The single-line spelling of the same shape: the `;`-separated
+        # segment scanner has its own mid-alternation gap.
+        arms = self.arms({
+            'a/moon.pkg': '{}',
+            'a/a.mbt': (
+                'fn label(dt : DataType) -> String {\n'
+                '  let v = match dt { @types.DataType::Int | _ => "1" }\n'
+                '  v\n'
+                '}\n'
+            ),
+        })
+        self.assertEqual(arms, [('a/a.mbt', 'label')])
+
     def test_wrapped_scrutinee_block_is_scanned(self) -> None:
         # moon fmt folds a long scrutinee onto its own lines, the `{`
         # landing below — the whole block sat outside the original

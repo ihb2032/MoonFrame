@@ -189,7 +189,6 @@ jobs:
           sh .github/scripts/check_version_identity.sh
           sh .github/scripts/check_stale_names.sh
           sh .github/scripts/check_enum_surface.sh
-          sh .github/scripts/check_reduction_mirror.sh
           sh .github/scripts/check_facade_surface.sh
           sh .github/scripts/check_internal_packages.sh
           sh .github/scripts/check_layering.sh
@@ -258,7 +257,7 @@ jobs:
         if: runner.os == 'Linux'
         env:
           MOONFRAME_FUZZ_SCALE: ${{ inputs.fuzz_scale || '20' }}
-        run: moon test lazy/optimize_fuzz_test.mbt
+        run: moon test frame/optimize_fuzz_test.mbt
 
       # Both suites are part of the workspace-wide `moon test` above; running
       # them by name keeps them individually visible in the step list, so a

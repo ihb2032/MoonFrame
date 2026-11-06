@@ -3,7 +3,6 @@ package "ihb2032/MoonFrame/io"
 
 import {
   "ihb2032/MoonFrame/frame",
-  "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
 }
@@ -31,13 +30,13 @@ pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn scan_csv(String, options? : CsvReadOptions) -> @lazy.LazyFrame
+pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 
-pub fn scan_json(String, options? : JsonReadOptions) -> @lazy.LazyFrame
+pub fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame
 
-pub fn scan_ndjson(String, options? : JsonReadOptions) -> @lazy.LazyFrame
+pub fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame
 
-pub fn scan_parquet(String) -> @lazy.LazyFrame
+pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 

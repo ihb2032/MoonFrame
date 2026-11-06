@@ -6,7 +6,6 @@ import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
-  "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/json",
@@ -53,13 +52,13 @@ pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame r
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
-pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame
+pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame
 
-pub fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
+pub fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
-pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame
+pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
-pub fn scan_parquet(String) -> @lazy.LazyFrame
+pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
@@ -114,11 +113,11 @@ pub using @io {type JsonReadOptions}
 
 pub using @frame {type KeepStrategy}
 
-pub using @lazy {type LazyFrame}
+pub using @frame {type LazyFrame}
 
 pub using @io {type OnParseError}
 
-pub using @lazy {type Optimizations}
+pub using @frame {type Optimizations}
 
 pub using @io {type ParquetCodec}
 

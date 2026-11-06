@@ -13,7 +13,7 @@
 fn write_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -60,7 +60,7 @@ test "scan_csv with projection push-down collects equal to the eager read then s
 ///|
 test "scan_csv honours its read options at collect time" {
   let path = "_build/lazy_scan_csv_options.csv"
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
@@ -84,7 +84,7 @@ test "scan_csv snapshots the null-token list from its options" {
   let path = "_build/lazy_scan_csv_aliasing.csv"
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
+    DataFrame::DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
   )
   let tokens = ["NA"]
   let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
@@ -110,7 +110,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   // `a` is clean throughout.
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_strings("a", ["1", "2"]),
       @series.Series::from_strings("b", ["10", "oops"]),
     ]),
@@ -383,12 +383,12 @@ test "a decimal-pinned CSV scan fences the stage a sunk predicate would prune" {
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_csv(path, options=opts).with_columns(derived).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     @io.scan_csv(path, options=opts)
     .with_columns(derived)
     .filter(predicate)
@@ -408,12 +408,12 @@ test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
   let path = "_build/lazy_scan_csv_decimal_fence_slice.csv"
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_csv(path, options=opts).with_columns(derived).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     @io.scan_csv(path, options=opts).with_columns(derived).head(1).collect(),
   ) catch {
     e => Err(e)
@@ -435,7 +435,7 @@ test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
 fn write_ndjson_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_ndjson(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -618,7 +618,7 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
   let path = "_build/lazy_scan_ndjson_dupkey.ndjson"
   @io.write_text(path, "{\"k\": 1, \"k\": 2}\n")
   let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
-  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let result : Result[DataFrame, @types.DataError] = Ok(
     @io.scan_ndjson(path, options=opts).collect(),
   ) catch {
     e => Err(e)
@@ -642,7 +642,7 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
 fn write_json_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_json(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -788,7 +788,7 @@ test "scan_csv honours a rider dtype pin, matching the eager reader" {
 
 ///|
 test "scan_parquet collects to the eager read and narrows its chunks" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), None, Some(3)]),
     @series.Series::from_string_options("s", [Some("a"), Some(""), None]),
   ])
@@ -830,7 +830,7 @@ test "scan_parquet keeps a filtered select and a filtered group equal to eager" 
   // projection above drops it, exactly the key-column contract the text
   // drivers' pruner honours; before that contract reached the parquet
   // driver this shape raised ColumnNotFound on the predicate's column.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
     @series.Series::from_int_options("v", [Some(10), None, Some(30)]),
     @series.Series::from_string_options("s", [Some("a"), Some("b"), Some("c")]),
@@ -869,7 +869,7 @@ test "scan_parquet keeps the eager error for a name the file lacks" {
   // chain's ColumnNotFound — the parquet projection is lenient like the
   // text readers' (a missing name builds no column), so the error comes
   // from the expression's own evaluation, not the scan.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1)]),
   ])
   let path = "_build/lazy_scan_parquet_missing_name.parquet"
@@ -900,7 +900,7 @@ test "a parquet footer's decimal column fences the stage a sunk predicate would 
   // pin carries, through a source whose decimal columns no plan-time fact
   // can rule out. Eager raises on the second row; the collected plan must
   // raise the same refusal rather than sink the predicate below the stage.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
@@ -911,12 +911,12 @@ test "a parquet footer's decimal column fences the stage a sunk predicate would 
   @io.write_parquet(df, path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_parquet(path).with_columns(derived).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     @io.scan_parquet(path).with_columns(derived).filter(predicate).collect(),
   ) catch {
     e => Err(e)
@@ -932,7 +932,7 @@ test "a parquet scan still absorbs a bare-column predicate beside a projection" 
   // itself supplies, so it keeps absorbing into the scan — and beside a
   // narrowed projection it exercises the driver's predicate-plus-projection
   // path, which the comparison predicates' fencing leaves cold.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
     @series.Series::from_bools("flag", [true, false, true]),
   ])

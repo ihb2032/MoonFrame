@@ -831,8 +831,8 @@ test "CSV file readers forward strict quote validation" {
     e => Err(e)
   }
   // The driver face halves of these checks — package-private since the
-  // drivers moved behind the `scan_*` builders — are pinned in
-  // `scan_driver_wbtest.mbt`.
+  // drivers moved behind the `scan_*` builders — are pinned in the
+  // scan-driver whitebox battery.
   assert_true(eager is Err(@types.DataError::ParseError(_)))
 }
 

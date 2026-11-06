@@ -17,9 +17,9 @@
 /// captured frames.
 ///
 /// The entry point is the type's own constructor, `LazyFrame::LazyFrame(df)`
-/// — not a `DataFrame` method, which would have to live in `frame` and close a
-/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a MoonBit
-/// reserved word.
+/// — not `lazy(df)`, since `lazy` is a MoonBit reserved word. The type
+/// shares this package with `DataFrame`, so the method form of the entry
+/// point is a thin step away.
 pub struct LazyFrame {
   priv plan : LogicalPlan
 }
@@ -29,7 +29,7 @@ pub struct LazyFrame {
 /// `LazyFrame::LazyFrame(df).filter(…).collect()`. Total — the frame is
 /// captured as-is, and frames are immutable, so the plan can never observe
 /// later state.
-pub fn LazyFrame::LazyFrame(df : @frame.DataFrame) -> LazyFrame {
+pub fn LazyFrame::LazyFrame(df : DataFrame) -> LazyFrame {
   { plan: Scan(InMemory(df)), }
 }
 
@@ -224,7 +224,7 @@ pub fn LazyFrame::with_row_index(
 pub fn LazyFrame::unique(
   self : LazyFrame,
   subset? : Array[@expr.Expr],
-  keep~ : @frame.KeepStrategy = First,
+  keep~ : KeepStrategy = First,
 ) -> LazyFrame {
   { plan: Unary(self.plan, Unique(keep, subset.map(keys => keys.copy()))), }
 }
@@ -291,7 +291,7 @@ pub fn LazyFrame::pivot(
   on~ : Array[@expr.Expr],
   index? : Array[@expr.Expr],
   values? : Array[@expr.Expr],
-  aggregate_function? : @frame.PivotAgg,
+  aggregate_function? : PivotAgg,
 ) -> LazyFrame {
   {
     plan: Unary(
@@ -426,7 +426,7 @@ pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
 pub fn LazyFrame::join(
   self : LazyFrame,
   other : LazyFrame,
-  options : @frame.JoinOptions,
+  options : JoinOptions,
 ) -> LazyFrame {
   { plan: Join(self.plan, other.plan, options), }
 }
@@ -626,7 +626,7 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 pub fn LazyFrame::collect(
   self : LazyFrame,
   optimizations~ : Optimizations = Optimizations::Optimizations(),
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   self.plan.optimize_with(optimizations).execute()
 }
 

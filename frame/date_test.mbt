@@ -308,7 +308,7 @@ test "every shape verb keeps a Date column a Date" {
   let df = date_frame()
   // Row windows: head / tail / slice, the saturating and negative-count
   // shapes included.
-  let verbs : Array[(String, @frame.DataFrame)] = [
+  let verbs : Array[(String, DataFrame)] = [
     ("head", df.head(2)),
     ("tail", df.tail(2)),
     ("negative tail", df.tail(-1)),

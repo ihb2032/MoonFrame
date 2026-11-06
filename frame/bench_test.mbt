@@ -83,3 +83,118 @@ test "frame group_by+sum scaling" (b : @bench.T) {
     })
   }
 }
+
+// Micro-benchmarks contrasting eager and lazy execution of the same pipeline.
+// The lazy path runs through the predicate/projection-pushdown optimizer
+// before executing. Run them with `moon bench`; under `moon test` every block
+// executes once, so the benches stay compiled and cannot bit-rot.
+// The fixture `fact_frame` above is shared with the eager benches, so the
+// eager side of each contrast below matches the operator benches over
+// there — change one, change both.
+
+///|
+test "eager vs lazy: filter + group_by + sum @ 100k" (b : @bench.T) {
+  let n = 100000
+  let df = fact_frame(n)
+  b.bench(name="eager/filter+groupby+sum/\{n}", () => {
+    b.keep(
+      df
+      .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
+      .group_by([@expr.col("key")])
+      .agg([@expr.col("value").sum()]) catch {
+        _ => df
+      },
+    )
+  })
+  b.bench(name="lazy/filter+groupby+sum/\{n}", () => {
+    b.keep(
+      LazyFrame::LazyFrame(df)
+      .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
+      .group_by([@expr.col("key")])
+      .agg([@expr.col("value").sum()])
+      .collect() catch {
+        _ => df
+      },
+    )
+  })
+}
+
+///|
+test "lazy: projection + filter collect @ 100k" (b : @bench.T) {
+  let n = 100000
+  let df = fact_frame(n)
+  b.bench(name="lazy/select+filter/\{n}", () => {
+    b.keep(
+      LazyFrame::LazyFrame(df)
+      .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
+      .select([@expr.col("key"), @expr.col("value")])
+      .collect() catch {
+        _ => df
+      },
+    )
+  })
+}
+
+///|
+/// The star-share question, measured where it could cost: over a file
+/// source. The same logical query spelled with a shared base — one
+/// `scan_csv` value on both sides of the join, the natural CTE-style
+/// reuse — against two independently built scans, whose optimizer runs
+/// free (the shared plan's stands down). The measured answer at 100k rows
+/// (eight columns, one filter, a two-column right projection): the shared
+/// side WINS by a fifth — the memoised executor parses the file once for
+/// both consumers, while the "optimised" independent pair parses it twice
+/// (the absorbed filter still walks every row for its predicate columns,
+/// and the narrowed right read is a second pass over the file). The
+/// star-share exit is a tax only on shapes whose pushdown would save more
+/// than a second parse — this pair pins the common shape where the
+/// as-built DAG path is already the better deal, the number any
+/// depth-limited DAG rewrite would have to beat before it is worth
+/// building.
+test "star-shared vs independent csv scans @ 100k" (b : @bench.T) {
+  let n = 100000
+  let fallback = fact_frame(1)
+  let path = "_build/lazy_star_share_bench.csv"
+  let buf = StringBuilder()
+  buf.write_string("key,value,fvalue,c1,c2,c3,c4,c5\n")
+  for i = 0; i < n; i = i + 1 {
+    let x = i.to_int64()
+    let value = (x * 2654435761L + 1013904223L) % 100000L
+    buf.write_string(
+      "\{i % 1000},\{value},\{(i % 100000) * 15},pad\{i},x,y,z,w\n",
+    )
+  }
+  @fs.write_string_to_file(path, buf.to_string()) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+  fn shared() -> DataFrame raise @types.DataError {
+    let lf = @io.scan_csv(path)
+    lf
+    .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
+    .join(
+      lf.select([@expr.col("key"), @expr.col("fvalue")]),
+      JoinOptions::on([@expr.col("key")]),
+    )
+    .collect()
+  }
+  fn independent() -> DataFrame raise @types.DataError {
+    let l = @io.scan_csv(path)
+    let r = @io.scan_csv(path)
+    l
+    .filter(@expr.col("value").gt(@expr.lit_int(25000L)))
+    .join(
+      r.select([@expr.col("key"), @expr.col("fvalue")]),
+      JoinOptions::on([@expr.col("key")]),
+    )
+    .collect()
+  }
+  // The two spellings are the same query: their results agree before the
+  // timings mean anything.
+  assert_eq(shared(), independent())
+  b.bench(name="star-shared/optimizer-stands-down/\{n}", () => {
+    b.keep(shared() catch { _ => fallback })
+  })
+  b.bench(name="star-independent/pushdown-runs/\{n}", () => {
+    b.keep(independent() catch { _ => fallback })
+  })
+}

@@ -22,15 +22,18 @@
 # The checks:
 #   1. `internal/column` is imported only by `series` and `internal/kernel`.
 #   2. `internal/kernel` is imported only by `frame`. It is the execution
-#      engine's private machinery; `io` or `lazy` reaching past `frame` for it
+#      engine's private machinery; `io` reaching past `frame` for it
 #      would route computation around the layer that owns what a verb means.
-#   3. No `internal/*` package imports `frame` / `io` / `lazy` — the internal
+#   3. No `internal/*` package imports `frame` / `io` — the internal
 #      layers stay below the verbs, never circling back.
 #   4. Every package depends only on what its declared set allows: the
 #      direction of the stack, package by package.
 #   5. The graph is acyclic — the property that gives "direction" a meaning,
 #      and the one no list of allowed edges can be trusted to imply.
-#   6. The root facade imports exactly the six public packages.
+#   6. The root facade imports exactly the six public packages. The deferred
+#      query plan (`LazyFrame`) lives in `frame` — the engine that executes
+#      its verbs — so the public packages are six, not seven: the plan layer
+#      merged into the verb layer that runs it.
 #   7. No public package's generated interface names an `internal/` package:
 #      an internal type reaching a public signature is the leak all of this
 #      exists to prevent.
@@ -68,7 +71,7 @@ snapshot=".github/scripts/layering.snapshot"
 module="ihb2032/MoonFrame"
 column_importers="series internal/kernel"
 kernel_importers="frame"
-public_packages="chart expr frame io lazy series types"
+public_packages="chart expr frame io series types"
 
 # What each package is allowed to depend on. The snapshot records the edges
 # that exist; this records the edges that *may* exist, which is the difference
@@ -76,14 +79,13 @@ public_packages="chart expr frame io lazy series types"
 # starting to depend on `series`, or `expr` on `frame`, is a snapshot away from
 # permanent — the direction of the whole stack is exactly what should not be
 # regenerable. A package absent here may depend on nothing inside the module.
-allowed_root="chart expr frame io lazy series types"
+allowed_root="chart expr frame io series types"
 allowed_types="internal/text internal/numeric"
 allowed_series="types internal/buffer internal/column internal/text internal/numeric internal/order"
 allowed_expr="types series internal/ir internal/literal internal/text"
-allowed_frame="types series expr internal/ir internal/kernel internal/order"
+allowed_frame="types series expr internal/ir internal/kernel internal/order internal/scan internal/text"
 allowed_chart="types frame io"
-allowed_io="types series frame lazy internal/parquet internal/scan internal/text internal/numeric"
-allowed_lazy="types series expr frame internal/ir internal/literal internal/scan internal/text"
+allowed_io="types series frame internal/parquet internal/scan internal/text internal/numeric"
 allowed_internal_column="types internal/buffer internal/text internal/numeric"
 allowed_internal_kernel="types series internal/column internal/ir internal/text internal/numeric"
 allowed_internal_ir="types series"
@@ -94,7 +96,7 @@ allowed_internal_order=""
 allowed_internal_buffer="types"
 allowed_internal_scan="types series expr"
 allowed_internal_parquet="types series internal/text"
-verb_packages="frame io lazy"
+verb_packages="frame io"
 
 fail=0
 report() {

@@ -48,9 +48,9 @@
 // surface.) The former ops package no longer exists (it was folded into the
 // frame layer).
 //
-// The expression / lazy layers follow the same rule for inherent methods:
-// `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` methods remain
-// available with their re-exported types. Trait-backed dot methods are
+// The expression layer and the lazy plan follow the same rule for inherent
+// methods: `Expr::{with_alias,cast,eq,sum,...}` and the `LazyFrame` methods
+// remain available with their re-exported types. Trait-backed dot methods are
 // different: the expression package exposes them through explicit
 // `pub extend Expr with Trait::{method}` declarations, while operator syntax is
 // provided by the corresponding trait impls (`Add` / `Sub` / `Mul` / `Div` /
@@ -80,9 +80,10 @@
 // sits below the expression layer), so it is re-exported from there. The
 // expression AST itself — `ExprNode` and its `BinOp` / `UnOp` / `StrOp` tags —
 // is module-internal, unreachable downstream and named by no public API, so
-// there is nothing to re-export for it. The lazy layer's entry point rides
-// along with `type LazyFrame` as that type's constructor; its
-// `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` file sources
+// there is nothing to re-export for it. The lazy layer rides along with
+// `type LazyFrame` (and its constructor) from the frame block above — the
+// deferred plan is executed by the same engine that owns the eager verbs;
+// its `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` file sources
 // live in the io layer, listed there, beside the readers and drivers they
 // defer.
 
@@ -125,6 +126,9 @@ pub using @expr {
 pub using @series {type Series, type QuantileInterpolation}
 
 ///|
+/// The lazy layer's deferred query plan lives in the frame package — the
+/// engine that executes its verbs — re-exported beside the eager face it
+/// defers.
 pub using @frame {
   type DataFrame,
   type KeepStrategy,
@@ -132,6 +136,8 @@ pub using @frame {
   type JoinOptions,
   type HtmlOptions,
   type PivotAgg,
+  type LazyFrame,
+  type Optimizations,
 }
 
 ///|
@@ -183,6 +189,3 @@ pub using @chart {
   write_vega_html,
   write_vega_lite,
 }
-
-///|
-pub using @lazy {type LazyFrame, type Optimizations}

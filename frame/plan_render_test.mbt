@@ -9,12 +9,12 @@
 
 ///|
 test "explain: a bare scan prints only the frame's shape" {
-  assert_eq(LazyFrame::LazyFrame(sales_df()).explain(), "SCAN [4×3]")
+  assert_eq(LazyFrame::LazyFrame(plan_sales_df()).explain(), "SCAN [4×3]")
 }
 
 ///|
 test "explain: a linear pipeline reads top-down from the last verb" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
     .select([@expr.col("dbl"), @expr.col("region")])
@@ -29,7 +29,7 @@ test "explain: a linear pipeline reads top-down from the last verb" {
 
 ///|
 test "explain: sort keys carry their order and null placement" {
-  let plan = LazyFrame::LazyFrame(sales_df()).sort([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).sort([
     (@expr.col("qty"), false, false),
     (@expr.col("region"), true, true),
   ])
@@ -41,7 +41,7 @@ test "explain: sort keys carry their order and null placement" {
 
 ///|
 test "explain: the row-window nodes" {
-  let base = LazyFrame::LazyFrame(sales_df())
+  let base = LazyFrame::LazyFrame(plan_sales_df())
   assert_eq(base.head(2).explain(), "HEAD 2\n  SCAN [4×3]")
   assert_eq(base.tail(1).explain(), "TAIL 1\n  SCAN [4×3]")
   assert_eq(base.slice(1, length=2).explain(), "SLICE [1: 2]\n  SCAN [4×3]")
@@ -53,7 +53,7 @@ test "explain: the row-window nodes" {
 
 ///|
 test "explain: the whole-frame reductions each print their verb" {
-  let base = LazyFrame::LazyFrame(sales_df())
+  let base = LazyFrame::LazyFrame(plan_sales_df())
   assert_eq(base.sum().explain(), "SUM\n  SCAN [4×3]")
   assert_eq(base.mean().explain(), "MEAN\n  SCAN [4×3]")
   assert_eq(base.min().explain(), "MIN\n  SCAN [4×3]")
@@ -94,47 +94,27 @@ test "explain: every join type's label, with and without keys" {
   let l = LazyFrame::LazyFrame(orders_df())
   let r = LazyFrame::LazyFrame(cities_df())
   let scans = "\n  SCAN [3×2]\n  SCAN [3×2]"
-  let on_id = @frame.JoinOptions::on([@expr.col("id")])
+  let on_id = JoinOptions::on([@expr.col("id")])
   assert_eq(l.join(r, on_id).explain(), "JOIN Inner on [col(id)]" + scans)
   assert_eq(
-    l
-    .join(
-      r,
-      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Left),
-    )
-    .explain(),
+    l.join(r, JoinOptions::on([@expr.col("id")], how=JoinType::Left)).explain(),
     "JOIN Left on [col(id)]" + scans,
   )
   assert_eq(
-    l
-    .join(
-      r,
-      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Right),
-    )
-    .explain(),
+    l.join(r, JoinOptions::on([@expr.col("id")], how=JoinType::Right)).explain(),
     "JOIN Right on [col(id)]" + scans,
   )
   assert_eq(
-    l
-    .join(
-      r,
-      @frame.JoinOptions::on([@expr.col("id")], how=@frame.JoinType::Outer),
-    )
-    .explain(),
+    l.join(r, JoinOptions::on([@expr.col("id")], how=JoinType::Outer)).explain(),
     "JOIN Outer on [col(id)]" + scans,
   )
   // The keyless Cartesian product renders without an `on` list…
-  assert_eq(
-    l.join(r, @frame.JoinOptions::cross()).explain(),
-    "JOIN Cross" + scans,
-  )
+  assert_eq(l.join(r, JoinOptions::cross()).explain(), "JOIN Cross" + scans)
   // …and a multi-key list renders comma-separated. Rendering is faithful
   // to the stored options and total — whether the keys resolve is purely
   // collect's business.
   assert_eq(
-    l
-    .join(r, @frame.JoinOptions::on([@expr.col("id"), @expr.col("city")]))
-    .explain(),
+    l.join(r, JoinOptions::on([@expr.col("id"), @expr.col("city")])).explain(),
     "JOIN Inner on [col(id), col(city)]" + scans,
   )
   // Paired keys render as `left_on … right_on …` (faithful to the stored
@@ -143,9 +123,7 @@ test "explain: every join type's label, with and without keys" {
     l
     .join(
       r,
-      @frame.JoinOptions::left_on([@expr.col("id")], right_on=[
-        @expr.col("city"),
-      ]),
+      JoinOptions::left_on([@expr.col("id")], right_on=[@expr.col("city")]),
     )
     .explain(),
     "JOIN Inner left_on [col(id)] right_on [col(city)]" + scans,
@@ -154,7 +132,7 @@ test "explain: every join type's label, with and without keys" {
 
 ///|
 test "explain: aggregate prints its expressions and keys" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
@@ -165,7 +143,7 @@ test "explain: aggregate prints its expressions and keys" {
 
 ///|
 test "explain: aggregate composes mid-pipeline with multiple keys and expressions" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .filter(@expr.col("qty").gt(@expr.lit_int(10)))
     .group_by([@expr.col("region"), @expr.col("bonus")])
     .agg([@expr.col("qty").mean().with_alias("avg"), @expr.col("qty").count()])
@@ -225,7 +203,7 @@ test "explain: join inputs stack at the same depth with their own sub-pipelines"
   )
   let r = LazyFrame::LazyFrame(cities_df()).head(2)
   assert_eq(
-    l.join(r, @frame.JoinOptions::on([@expr.col("id")])).explain(),
+    l.join(r, JoinOptions::on([@expr.col("id")])).explain(),
     "JOIN Inner on [col(id)]\n" +
     "  FILTER (col(amount) > 10)\n" +
     "    SCAN [3×2]\n" +

@@ -154,7 +154,7 @@ fn fold_node(node : @ir.ExprNode, kids : Array[Folded]) -> Folded {
     node is @ir.ExprNode::Positional(_, _) ||
     node is @ir.ExprNode::Diff(_, _) ||
     node is @ir.ExprNode::Lit(_)) {
-    match @frame.evaluate_column_free(@expr.Expr::of_node(rebuilt)) {
+    match evaluate_column_free(@expr.Expr::of_node(rebuilt)) {
       // A null result stays a subtree: `Lit(Null)` is the one literal the
       // engine cannot materialise (no Null-dtype column backend), so
       // folding to it would turn a collectable null cell into an

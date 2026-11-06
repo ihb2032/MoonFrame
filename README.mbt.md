@@ -49,7 +49,7 @@ method are available in that package.
 
 The facade package — what `import "ihb2032/MoonFrame" @moonframe` re-exports —
 is the supported surface; the public sub-packages (`@types`, `@series`,
-`@expr`, `@frame`, `@io`, `@chart`, `@lazy`) stay directly importable for a
+`@expr`, `@frame`, `@io`, `@chart`) stay directly importable for a
 slice of it. Two families are deliberately off the facade: the fluent-chain
 intermediates (`WhenThen` / `GroupedDataFrame` / … — chain through them without
 naming them), and the string-level serialisers, reached through `@io` by name.
@@ -324,10 +324,9 @@ internal/ir/       module-internal expression AST — ExprNode + the operator ta
 internal/parquet/  the native parquet codec — thrift compact metadata, RLE definition levels, PLAIN and dictionary values, snappy / gzip page bodies; wrapped by io's read / write / scan_parquet
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
-frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html
-io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types
+frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
+io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
-lazy/       deferred query plan — LazyFrame builders, collect / explain, predicate + projection pushdown
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```
 

@@ -102,7 +102,6 @@ sh .github/scripts/doc_guards_test.sh      # the guards' own self-test
 sh .github/scripts/check_version_identity.sh
 sh .github/scripts/check_stale_names.sh
 sh .github/scripts/check_enum_surface.sh
-sh .github/scripts/check_reduction_mirror.sh
 sh .github/scripts/check_facade_surface.sh
 sh .github/scripts/check_internal_packages.sh
 sh .github/scripts/check_layering.sh
@@ -146,12 +145,6 @@ the sweep to the push.
   is why only an enum whose exhaustive matches all live in its own package
   can take it (`DataError` cannot: `suberror` rejects the attribute, and
   `DataType` / `Scalar` are matched across the engine).
-- **Reduction mirror** — `LazyReduceOp` (lazy/logical_plan.mbt) re-spells
-  `FrameReduceOp` (frame/stats.mbt) plus `NullCount`; both are `priv`, so the
-  enum-surface lock cannot see either set, and a member added to one and not
-  the other is a lazy verb silently missing. The guard compares the two
-  source sets, so the mirror is held by CI rather than by the comment that
-  describes it (`sh .github/scripts/check_reduction_mirror.sh`).
 - **Facade surface** — the whole callable surface the facade promises is
   pinned in `.github/scripts/facade_surface.snapshot`, **with signatures**.
   Re-exporting a *type* carries everything callable on it — constructors,

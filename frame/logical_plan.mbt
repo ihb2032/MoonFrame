@@ -52,7 +52,7 @@
 priv enum LogicalPlan {
   Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)
-  Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
+  Join(LogicalPlan, LogicalPlan, JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
   AggregateAll(LogicalPlan, Array[@expr.Expr], LazyAggAll)
 }
@@ -90,7 +90,7 @@ priv struct FileScan {
 
 ///|
 priv enum ScanSource {
-  InMemory(@frame.DataFrame)
+  InMemory(DataFrame)
   File(FileScan)
 }
 
@@ -119,18 +119,13 @@ priv enum FrameOp {
   Drop(Array[@expr.Expr])
   Rename(Array[(String, String)])
   RenameWith((String) -> String)
-  Unique(@frame.KeepStrategy, Array[@expr.Expr]?)
+  Unique(KeepStrategy, Array[@expr.Expr]?)
   Reverse
   WithRowIndex(String, Int64)
   DropNulls(Array[@expr.Expr]?)
   FillNull(@types.Scalar)
   FillNullDir(Bool, Int32?)
-  Pivot(
-    Array[@expr.Expr],
-    Array[@expr.Expr]?,
-    Array[@expr.Expr]?,
-    @frame.PivotAgg?
-  )
+  Pivot(Array[@expr.Expr], Array[@expr.Expr]?, Array[@expr.Expr]?, PivotAgg?)
   Unpivot(Array[@expr.Expr]?, Array[@expr.Expr]?, String, String)
   FillNan(Double)
   Reduce(LazyReduceOp)

@@ -1,16 +1,15 @@
-expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode | used by: frame,lazy
-expr | doc_hidden internal_engine | pub fn Expr::of_node(node : @ir.ExprNode) -> Expr | used by: frame,lazy
-expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String | used by: frame,lazy
-expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: lazy
-expr | doc_hidden internal_engine | pub fn format_scalar(value : @types.Scalar) -> String | used by: lazy
+expr | doc_hidden internal_engine | pub fn Expr::node(self : Expr) -> @ir.ExprNode | used by: frame
+expr | doc_hidden internal_engine | pub fn Expr::of_node(node : @ir.ExprNode) -> Expr | used by: frame
+expr | doc_hidden internal_engine | pub fn Expr::output_name(self : Expr) -> String | used by: frame
+expr | doc_hidden internal_engine | pub fn Expr::referenced_columns(self : Expr) -> @set.Set[String] | used by: frame
+expr | doc_hidden internal_engine | pub fn format_scalar(value : @types.Scalar) -> String | used by: frame
 frame | doc_hidden internal_engine | pub fn DataFrame::check_invariants(self : DataFrame) -> Result[Unit, String] | used by: (no production caller outside frame)
 frame | doc_hidden internal_engine | pub fn DataFrame::filter_row_indices( self : DataFrame, predicate : @expr.Expr, ) -> Array[Int32] raise @types.DataError | used by: io
-frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int32, ) -> DataFrame raise @types.DataError | used by: io,lazy
+frame | doc_hidden internal_engine | pub fn DataFrame::from_parts( columns : Array[Series], nrows : Int32, ) -> DataFrame raise @types.DataError | used by: io
 frame | doc_hidden internal_engine | pub fn DataFrame::to_scalar_matrix( self : DataFrame, ) -> Array[Array[@types.Scalar]] | used by: io
-frame | doc_hidden internal_engine | pub fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? | used by: lazy
+frame | doc_hidden internal_engine | pub fn LazyFrame::file_scan( driver : @scan.ScanDriver, may_carry_decimal~ : Bool, ) -> LazyFrame | used by: io
 io | doc_hidden internal_engine | pub fn df_to_json_records(df : @frame.DataFrame) -> Array[Json] | used by: chart
 io | doc_hidden internal_engine | pub fn write_text( path : String, content : String, ) -> Unit raise @types.DataError | used by: chart
-lazy | doc_hidden internal_engine | pub fn LazyFrame::file_scan( driver : @scan.ScanDriver, may_carry_decimal~ : Bool, ) -> LazyFrame | used by: io
 series | doc_hidden internal_engine | pub enum SortKey
 series | doc_hidden internal_engine | pub extend KeyCell with Eq::{equal, not_equal}
 series | doc_hidden internal_engine | pub extend KeyCell with Hash::{hash, hash_combine}

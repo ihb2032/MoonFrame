@@ -4,8 +4,7 @@
 // here — beside the reader cores, the options types, and the drivers they
 // defer — while the plan leaf itself belongs to the lazy engine, reached
 // through the `LazyFrame::file_scan` engine seam. The engine keeps the
-// push-down contract; this file keeps the sources beside the readers they
-// defer.
+// push-down contract; the sources stay beside the readers they defer.
 
 ///|
 /// The lazy CSV source: `scan_csv(path)` builds a `LazyFrame` whose leaf is a
@@ -17,7 +16,7 @@
 /// still tokenises the whole file, and streaming it is tracked as future
 /// work.
 ///
-/// The payoff over `@lazy.LazyFrame::LazyFrame(read_csv(path))` is that this leaf
+/// The payoff over `@frame.LazyFrame::LazyFrame(read_csv(path))` is that this leaf
 /// absorbs both push-downs, so the work it skips is work the eager pipeline
 /// does:
 /// - **projection** — the optimizer narrows the leaf to the columns the
@@ -49,13 +48,13 @@
 pub fn scan_csv(
   path : String,
   options~ : CsvReadOptions = CsvReadOptions::CsvReadOptions(),
-) -> @lazy.LazyFrame {
+) -> @frame.LazyFrame {
   // The one mutable container in the options — the null-token list — is
   // already copied by `CsvReadOptions::CsvReadOptions(...)`, the only way to build one, so
   // the captured plan cannot observe a later mutation of the caller's array.
   // The driver record is plain data: building it reads nothing, so the
   // builder stays total like every other LazyFrame constructor.
-  @lazy.LazyFrame::file_scan(
+  @frame.LazyFrame::file_scan(
     csv_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
   )
@@ -87,8 +86,8 @@ pub fn scan_csv(
 pub fn scan_ndjson(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
-) -> @lazy.LazyFrame {
-  @lazy.LazyFrame::file_scan(
+) -> @frame.LazyFrame {
+  @frame.LazyFrame::file_scan(
     ndjson_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
   )
@@ -123,8 +122,8 @@ pub fn scan_ndjson(
 pub fn scan_json(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
-) -> @lazy.LazyFrame {
-  @lazy.LazyFrame::file_scan(
+) -> @frame.LazyFrame {
+  @frame.LazyFrame::file_scan(
     json_scan_driver(path, options),
     may_carry_decimal=pins_decimal(options.dtypes()),
   )
@@ -150,8 +149,8 @@ pub fn scan_json(
 /// decimal value-fence's conservative arm: a predicate or stage
 /// expression carrying a decimal-checked operation stays above the
 /// scan, trading that push-down for a failing plan still failing.
-pub fn scan_parquet(path : String) -> @lazy.LazyFrame {
-  @lazy.LazyFrame::file_scan(parquet_scan_driver(path), may_carry_decimal=true)
+pub fn scan_parquet(path : String) -> @frame.LazyFrame {
+  @frame.LazyFrame::file_scan(parquet_scan_driver(path), may_carry_decimal=true)
 }
 
 ///|

@@ -207,9 +207,9 @@ fn FrameOp::write_frame_op_label(self : FrameOp, buf : StringBuilder) -> Unit {
         buf.write_string(exprs_label(keys))
       }
       match keep {
-        @frame.KeepStrategy::First => ()
-        @frame.KeepStrategy::Last => buf <+ " keep=Last"
-        @frame.KeepStrategy::None => buf <+ " keep=None"
+        KeepStrategy::First => ()
+        KeepStrategy::Last => buf <+ " keep=Last"
+        KeepStrategy::None => buf <+ " keep=None"
       }
     }
     Reverse => buf <+ "REVERSE"
@@ -314,15 +314,15 @@ fn exprs_label(exprs : Array[@expr.Expr]) -> String {
 /// the stored `JoinOptions`: a malformed combination (say, keys with
 /// `Cross`) renders as stored and only fails at collect, exactly like the
 /// eager `join` it defers.
-fn join_label(options : @frame.JoinOptions) -> String {
+fn join_label(options : JoinOptions) -> String {
   let how = match options.how {
-    @frame.JoinType::Inner => "Inner"
-    @frame.JoinType::Left => "Left"
-    @frame.JoinType::Right => "Right"
-    @frame.JoinType::Outer => "Outer"
-    @frame.JoinType::Cross => "Cross"
-    @frame.JoinType::Semi => "Semi"
-    @frame.JoinType::Anti => "Anti"
+    JoinType::Inner => "Inner"
+    JoinType::Left => "Left"
+    JoinType::Right => "Right"
+    JoinType::Outer => "Outer"
+    JoinType::Cross => "Cross"
+    JoinType::Semi => "Semi"
+    JoinType::Anti => "Anti"
   }
   let on = options.on_keys()
   let left_on = options.left_keys()
@@ -367,7 +367,7 @@ fn render_scan_source(
 ///|
 /// The lowercase aggregation name a `Pivot` plan prints — `PivotAgg`'s
 /// spelling at the eager call site.
-fn pivot_agg_label(agg : @frame.PivotAgg) -> String {
+fn pivot_agg_label(agg : PivotAgg) -> String {
   match agg {
     First => "first"
     Last => "last"

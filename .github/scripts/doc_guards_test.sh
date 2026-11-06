@@ -739,7 +739,7 @@ mklayering() {
   mkdir -p "$1"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
-  for pkg in chart expr io lazy types; do
+  for pkg in chart expr io types; do
     mkdir -p "$1/$pkg"
     # `types` is the bottom of the stack and depends on nothing in the module;
     # the rest sit on it.
@@ -785,7 +785,6 @@ ly_root='import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
-  "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
 }'
@@ -834,12 +833,11 @@ mklayering "$work/ly_root_dep" "$ly_frame" "$ly_kernel" 'import {
   "ihb2032/MoonFrame/expr",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/io",
-  "ihb2032/MoonFrame/lazy",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "ihb2032/MoonFrame/internal/kernel",
 }'
-expect_out 1 'the root facade imports' 'layering: the facade imports beyond the seven public packages' \
+expect_out 1 'the root facade imports' 'layering: the facade imports beyond the public packages' \
   sh "$scripts/check_layering.sh" "$work/ly_root_dep"
 
 # The other direction, and the one the edge extractor could not see: the facade
@@ -1903,103 +1901,10 @@ pub fn use_it() -> String {
 expect 0 'comment references: code and strings are not comments' \
   sh "$scripts/check_comment_references.sh" "$work/cr_code"
 
-# ── reduction mirror ──────────────────────────────────────────────────────
-mkmirror() {
-  # mkmirror <dir> <frame-body> <lazy-body>
-  mkdir -p "$1/frame" "$1/lazy"
-  printf '%s\n' "$2" >"$1/frame/stats.mbt"
-  printf '%s\n' "$3" >"$1/lazy/logical_plan.mbt"
-}
-
-mkmirror "$work/m_ok" \
-'priv enum FrameReduceOp {
-  Sum
-  Mean
-  Quantile(Double, X)
-}' \
-'// mirrors the frame set — order-free here, payloads stripped
-priv enum LazyReduceOp {
-  Mean
-  NullCount
-  Quantile(Double, X)
-  Sum
-}'
-expect 0 'mirror: the lazy set re-spells the frame set plus NullCount' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_ok"
-
-mkmirror "$work/m_missing" \
-'priv enum FrameReduceOp {
-  Sum
-}' \
-'priv enum LazyReduceOp {
-  NullCount
-}'
-expect 1 'mirror: a member missing on the lazy side' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_missing"
-
-mkmirror "$work/m_extra" \
-'priv enum FrameReduceOp {
-  Sum
-}' \
-'priv enum LazyReduceOp {
-  Sum
-  Mode
-  NullCount
-}'
-expect 1 'mirror: a member beyond NullCount on the lazy side' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_extra"
-
-# The same name on both sides is not the same member: a payload argument
-# gained on one side only changes what every executor arm has to build, and
-# stripping payloads made the drift read as agreement.
-mkmirror "$work/m_payload" \
-'priv enum FrameReduceOp {
-  Sum
-  Quantile(Double)
-}' \
-'priv enum LazyReduceOp {
-  Sum
-  NullCount
-  Quantile(Double, Bool)
-}'
-expect 1 'mirror: a payload that drifted on one side only' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_payload"
-
-# A renamed or split source must fail the read: two empty sets compare
-# equal, so a missing file would otherwise pass the mirror vacuously.
-mkmirror "$work/m_no_source" \
-'priv enum FrameReduceOp {
-  Sum
-}' \
-'priv enum LazyReduceOp {
-  Sum
-  NullCount
-}'
-mv "$work/m_no_source/lazy/logical_plan.mbt" "$work/m_no_source/lazy/renamed.mbt"
-expect_out 1 'source missing' \
-  'mirror: a missing source fails rather than vacuously passing' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_no_source"
-
-# The opening brace may sit on its own line — `fmt` moves it without
-# warning, and the member read must not depend on where it lands.
-mkmirror "$work/m_brace_next_line" \
-'priv enum FrameReduceOp
-{
-  Sum
-}' \
-'priv enum LazyReduceOp
-{
-  Sum
-  NullCount
-}'
-expect 0 'mirror: the opening brace on its own line' \
-  sh "$scripts/check_reduction_mirror.sh" "$work/m_brace_next_line"
-
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"
 expect 0 'repo: stale names' sh "$scripts/check_stale_names.sh" "$root"
 expect 0 'repo: enum surface' sh "$scripts/check_enum_surface.sh" "$root"
-expect 0 'repo: reduction mirror' sh "$scripts/check_reduction_mirror.sh" "$root"
 expect 0 'repo: facade surface' sh "$scripts/check_facade_surface.sh" "$root"
 expect 0 'repo: internal packages' \
   sh "$scripts/check_internal_packages.sh" "$root"

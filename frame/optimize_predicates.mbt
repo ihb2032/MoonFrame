@@ -384,7 +384,7 @@ fn LogicalPlan::place_filter(
 fn split_filter_into_join(
   left : LogicalPlan,
   right : LogicalPlan,
-  options : @frame.JoinOptions,
+  options : JoinOptions,
   predicate : @expr.Expr,
   decimal_names : DecimalRisk,
 ) -> LogicalPlan? {

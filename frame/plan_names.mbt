@@ -245,7 +245,7 @@ fn frame_op_names(op : FrameOp, below : @set.Set[String]?) -> @set.Set[String]? 
 /// coalescing may drop from the right side at collect. Empty for a sided or
 /// cross join (those never coalesce) and for derived `on` keys (a computed
 /// key outputs no column of its own).
-fn bare_on_key_names(options : @frame.JoinOptions) -> @set.Set[String] {
+fn bare_on_key_names(options : JoinOptions) -> @set.Set[String] {
   let names = @set.Set([])
   for key in options.on_keys() {
     match key.node() {

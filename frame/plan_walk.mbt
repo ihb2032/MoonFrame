@@ -64,7 +64,7 @@ fn[T] pop_top(stack : Array[T]) -> T {
 /// Reassemble a `Join` from the two inputs a post-order fold leaves on its
 /// value stack — the right operand on top (pushed last), the left just below —
 /// the shape both optimizer passes' rebuild loops share.
-fn rejoin(values : Array[LogicalPlan], options : @frame.JoinOptions) -> Unit {
+fn rejoin(values : Array[LogicalPlan], options : JoinOptions) -> Unit {
   let right = pop_top(values)
   let left = pop_top(values)
   values.push(Join(left, right, options))
@@ -190,9 +190,9 @@ fn LogicalPlan::post_order_unique(self : LogicalPlan) -> Array[LogicalPlan] {
 /// node's frame — a wrong-entry answer would turn a broken walk into
 /// silently wrong data.
 fn memo_result(
-  memo : Array[(LogicalPlan, @frame.DataFrame)],
+  memo : Array[(LogicalPlan, DataFrame)],
   node : LogicalPlan,
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   for i = memo.length() - 1; i >= 0; i = i - 1 {
     if physical_equal(memo[i].0, node) {
       return memo[i].1

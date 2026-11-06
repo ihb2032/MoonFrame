@@ -2,7 +2,7 @@
 // `ScanDriver` face one readable format puts on its read, and these three
 // are the whole of what the lazy engine learns about CSV, NDJSON, and JSON.
 // A new scannable format adds a driver here (beside its options type) plus
-// its `scan_*` builder in `io/scan.mbt` — execution, projection / predicate
+// its `scan_*` builder beside it — execution, projection / predicate
 // push-down and plan rendering come from the driver interface, not from
 // per-format branches in the engine.
 //
@@ -77,7 +77,7 @@ fn file_scan_driver(
 ///|
 /// The CSV scan driver: a path plus the options to parse it under, read at
 /// `scan` time through the same projected / pruned core the eager reader
-/// uses. Served to `scan_csv` in `io/scan.mbt`, which hands the engine the
+/// uses. Served to the `scan_csv` source, which hands the engine the
 /// driver record.
 fn csv_scan_driver(path : String, options : CsvReadOptions) -> @scan.ScanDriver {
   file_scan_driver(path, "CSV \"\{@text.escape_debug(path)}\"", (

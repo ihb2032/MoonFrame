@@ -1,6 +1,6 @@
-// The deferred-read plan leaf. The io layer's `scan_*` sources (`io/scan.mbt`)
-// own the readers, the options, and the drivers; this file is the engine half
-// — the seam those builders reach through, and the leaf state it captures.
+// The deferred-read plan leaf. The io layer's `scan_*` sources own the
+// readers, the options, and the drivers; the engine half lives here — the
+// seam those builders reach through, and the leaf state it captures.
 
 ///|
 /// The engine seam the io layer's `scan_*` sources build on: a `LazyFrame`

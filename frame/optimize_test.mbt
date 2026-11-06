@@ -9,7 +9,7 @@
 
 ///|
 test "explain defaults to the plan as built; optimized=true is the before/after pair" {
-  let plan = LazyFrame::LazyFrame(sales_df()).select([@expr.col("qty")])
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).select([@expr.col("qty")])
   // Before: the chain verbatim — and the default is pinned to
   // `optimized=false` explicitly.
   assert_eq(plan.explain(), "SELECT [col(qty)]\n  SCAN [4×3]")
@@ -21,7 +21,7 @@ test "explain defaults to the plan as built; optimized=true is the before/after 
 
 ///|
 test "explain(optimized=true) rewrites a copy: the plan itself is unperturbed" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let plan = LazyFrame::LazyFrame(df).select([@expr.col("region")])
   let optimized = plan.explain(optimized=true)
   // Rendering the optimized form is stable across calls, and it perturbs
@@ -43,7 +43,7 @@ test "deep lazy plans collect without overflowing: execute and the optimizer are
   // (`explain` is not asserted at this depth: a plan's indentation grows per
   // level, so its rendered string is O(depth²) — too large to materialise. The
   // explain golden tests cover render at ordinary depths.)
-  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2])])
   let mut lf = LazyFrame::LazyFrame(df)
   for _ in 0..<100000 {
     lf = lf.head(1)
@@ -53,7 +53,7 @@ test "deep lazy plans collect without overflowing: execute and the optimizer are
 
 ///|
 test "the flagship pipeline sinks its filter and narrows its scan" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(3)).with_alias("adj")]
   let projection = [@expr.col("adj"), @expr.col("region")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
@@ -91,7 +91,7 @@ test "the flagship pipeline sinks its filter and narrows its scan" {
 
 ///|
 test "a trailing filter sinks below a string-namespace with_columns stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `upper` is derived from `region` by a row-stable `str_*` op, but the
   // predicate reads `qty`, so the filter crosses the stage with no
   // string-specific rule — the same swap arithmetic earns.
@@ -109,7 +109,7 @@ test "a trailing filter sinks below a string-namespace with_columns stage" {
 
 ///|
 test "a string predicate sinks below a selection passing its bare column" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The predicate `region.str_starts_with("w")` is row-stable and reads only
   // the bare `region` the selection passes through, so it crosses the SELECT;
   // the projection pass then narrows the scan below the sunk filter (`bonus`
@@ -129,7 +129,7 @@ test "a string predicate sinks below a selection passing its bare column" {
 
 ///|
 test "fence: a string op over an aggregation keeps a group filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The predicate reads the bare key `region` and is row-stable, so
   // group-cell-stability decides: `first(region)` can be null for an all-null
   // group, and the `str_*` wrapper inherits that — its cell is not

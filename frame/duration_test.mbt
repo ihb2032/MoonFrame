@@ -196,7 +196,7 @@ test "Duration orders, groups, joins, and reduces its extremes" {
       Series::from_duration_options("d", [Some(0L)]),
       Series::from_ints("w", [10]),
     ]),
-    @frame.JoinOptions::on([@expr.col("d")], how=@frame.JoinType::Inner),
+    JoinOptions::on([@expr.col("d")], how=JoinType::Inner),
   )
   assert_eq(joined.nrows(), 1)
   assert_eq(joined.item(0, "w"), @types.Scalar::Int(10))
@@ -325,11 +325,7 @@ test "a Duration literal evaluates, renders, and fills through the engine" {
       Series::from_duration_options("d", [Some(123L)]),
       Series::from_ints("w", [10]),
     ]),
-    @frame.JoinOptions::on(
-      [@expr.col("d")],
-      how=@frame.JoinType::Outer,
-      coalesce=true,
-    ),
+    JoinOptions::on([@expr.col("d")], how=JoinType::Outer, coalesce=true),
   )
   assert_true(joined.get_column("d").dtype() is @types.DataType::Duration)
   // Four left rows plus the right's unmatched span.

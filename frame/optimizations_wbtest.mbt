@@ -15,9 +15,7 @@ fn all_off() -> Optimizations {
 
 ///|
 fn flag_chain() -> LogicalPlan raise @types.DataError {
-  let df = @frame.DataFrame::DataFrame([
-    @series.Series::from_ints("v", [1, 2, 3, 4]),
-  ])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("v", [1, 2, 3, 4])])
   // No filter between the with_columns and the head — the slice pass
   // sinks a head across layout-preserving stages only, and a filter is
   // not one.
@@ -56,9 +54,7 @@ test "one flag off removes exactly that stage's rewrite" {
 test "collect carries the flags to the pipeline" {
   // The public seam: an all-off collect still answers the same frame
   // (every stage is semantics-preserving).
-  let df = @frame.DataFrame::DataFrame([
-    @series.Series::from_ints("v", [1, 2, 3, 4]),
-  ])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("v", [1, 2, 3, 4])])
   let chain = LazyFrame::LazyFrame(df)
     .filter(@expr.col("v").gt(@expr.lit_int(1)))
     .sort([(@expr.col("v"), true, true)])

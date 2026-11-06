@@ -520,10 +520,12 @@ pub fn Series::has_nan(self : Series) -> Bool {
   // Only a `Float` column can hold a `NaN` (a null cell is missing, not
   // NaN, and every other dtype's cells are finite by construction), so
   // the dtype and the buffer test are one fact — stated once, as one
-  // tuple pattern whose fallback is every non-Float series.
-  let valid = self.validity_bools()
+  // tuple pattern whose fallback is every non-Float series. The validity
+  // array is built inside the `Float` arm: a non-Float column never reads
+  // it, so it skips the O(n) allocation entirely.
   match (self.dtype(), self.storage.data()) {
     (@types.DataType::Float, @column.ColumnData::F64(buf)) => {
+      let valid = self.validity_bools()
       for i in 0..<buf.length() {
         if valid[i] && buf[i].is_nan() {
           return true

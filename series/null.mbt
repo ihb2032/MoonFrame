@@ -21,6 +21,11 @@ fn[T] fill_buffer(data : ArrayView[T], valid : Array[Bool], v : T) -> Array[T] {
 /// fully-valid bitmap and keeps the source storage backend
 /// (`preserve_backend`) — a no-op fill on an all-valid `Numeric` column
 /// stays `Numeric`.
+///
+/// Raises `InvalidOperation` past the string layout's payload bound (via
+/// the underlying `from_strings`): a string fill whose rebuilt column
+/// would carry more than `2^31 - 1` payload bytes refuses rather than
+/// wraps.
 pub fn Series::fill_null(
   self : Series,
   value : @types.Scalar,

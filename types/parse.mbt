@@ -2,9 +2,12 @@
 // back exactly. `Date`'s ISO `YYYY-MM-DD`, `Timestamp`'s
 // `YYYY-MM-DDTHH:MM:SS.ffffff` (an optional trailing `Z`, the one
 // real-world spelling the writer's own form admits), and `Decimal`'s plain
-// sign-digits-point-digits: each parser accepts the text its writer emits
-// and refuses everything else, so a written-back column pins back to its
-// own dtype and no other form silently retypes. Inference never calls
+// sign-digits-point-digits (leading zeros admitted — `007` and `00.5`
+// read as `7` and `0.5`, the one widening over the writer's exact form,
+// and a value-neutral one): each parser accepts the text its writer emits
+// — `Decimal`'s, that widening aside — and refuses everything else, so a
+// written-back column pins back to its own dtype and no other form
+// silently retypes. Inference never calls
 // these — a rider dtype enters a frame only through an explicit `dtypes`
 // pin — so their strictness is the pin's strictness, not inference's
 // windowed guess. The calendar half is the shared pair

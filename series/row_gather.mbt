@@ -224,7 +224,7 @@ fn Series::rebuild_options(
   float_cell : (ArrayView[Double], Int32) -> Double?,
   bool_cell : (ArrayView[Bool], Int32) -> Bool?,
   string_cell : (@buffer.Utf8Array, Int32) -> String?,
-) -> Series {
+) -> Series raise @types.DataError {
   let rebuilt = match self.storage.data() {
     // The I64 arm rebuilds through the *dtype*, not the variant: the
     // dtype-carrying constructor keeps a Date column a Date (an `Int`
@@ -262,9 +262,17 @@ fn Series::rebuild_options(
 /// row-gather DataFrame transforms. `Series::gather` keeps the same backend
 /// invariant by a different route (`ColumnStorage::take`, which *raises* on an
 /// out-of-range index rather than yielding a null cell).
+///
+/// The one raise a gather itself can produce is the string layout's payload
+/// bound: gathering a string column with repeated indices can amplify past
+/// `2^31 - 1` payload bytes, and the build refuses with `InvalidOperation`
+/// (`Utf8Array::from_strings`'s bound) rather than wrapping an `Int32` total.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Series::gather_series(self : Series, idx : Array[Int32]) -> Series {
+pub fn Series::gather_series(
+  self : Series,
+  idx : Array[Int32],
+) -> Series raise @types.DataError {
   // A `Numeric` source is all-valid, so when every index is in-bounds its
   // gather is itself all-valid: rebuild directly onto the `Numeric` backend,
   // materialising no validity mask and allocating no transient bitmap. A
@@ -318,7 +326,7 @@ fn Series::rebuild_by_row(
   name : String,
   n : Int32,
   row_at : (Int32) -> Int32?,
-) -> Series {
+) -> Series raise @types.DataError {
   self.rebuild_options(
     name,
     n,
@@ -358,14 +366,16 @@ fn collect_matched(idx : Array[Int32?], len : Int32) -> Array[Int32]? {
 /// unmatched (`None`) row takes the all-valid fast path straight onto the
 /// `Numeric` backend; everything else materialises through the option
 /// constructors (the shared `rebuild_by_row` skeleton → a `Builtin` column,
-/// which `join` re-converges via `preserve_backend`).
+/// which `join` re-converges via `preserve_backend`). The one raise is the
+/// string layout's payload bound, as `gather_series`' — a gathered string
+/// column past `2^31 - 1` payload bytes refuses with `InvalidOperation`.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::gather_series_opt(
   self : Series,
   idx : Array[Int32?],
   out_name : String,
-) -> Series {
+) -> Series raise @types.DataError {
   // `Numeric` fast path: a `Numeric` source is all-valid, so a gather with no
   // unmatched (`None`) row is itself all-valid — build the numeric array
   // straight onto the `Numeric` backend, skipping the `Array[T?]` + `Bitmap`

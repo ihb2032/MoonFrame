@@ -11,7 +11,8 @@
 /// Cast by target dtype — the single public cross-dtype conversion. `Int`
 /// truncates / parses, `Float` promotes / parses (per the file-private
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
-/// every dtype through the total `to_string_column`. The temporal pair is
+/// every dtype through the near-total `to_string_column` (its one refusal
+/// is the string layout's payload bound). The temporal pair is
 /// the one rider conversion offered: `Date` → `Timestamp` (each day count
 /// times the microseconds a day holds, checked — a day count whose product
 /// leaves `Int64` raises `ParseError`), and `Timestamp` → `Date` (the
@@ -32,11 +33,23 @@
 /// rescale) is a semantic decision that lands with the first consumer
 /// that needs one. The registry promise holds: a new I64 rider is refused
 /// here without a new arm to forget.
+///
+/// A cast onto the column's own dtype short-circuits to the identity before
+/// any arm runs — the column itself is returned, not a rebuild (a column is
+/// immutable, so sharing it is safe) — which is what makes `Bool`, `Date`,
+/// `Timestamp`, `Decimal`, and `Duration` cast to *themselves* succeed: they
+/// have no cross-dtype arm, and without the short-circuit their only path
+/// was the refusal below. `Decimal`'s identity is exact-dtype: the scale is
+/// part of the dtype, so `Decimal(2) → Decimal(3)` is a rescale (refused),
+/// not an identity.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
 ) -> BuiltinColumn raise @types.DataError {
   let source = self.dtype()
+  if source == target {
+    return self
+  }
   if source is @types.DataType::Date && target is @types.DataType::Timestamp {
     return self.cast_date_to_timestamp()
   }
@@ -125,19 +138,20 @@ fn BuiltinColumn::cast_timestamp_to_date(
 /// mask once, `makei` with a null guard, reuse the validity" shell shared by
 /// every cast, rather than written once per source dtype.
 ///
-/// The error effect follows `conv` (`raise?`): the fallible casts `to_int` /
-/// `to_float` pass a `conv` that `raise`s on an out-of-range or malformed cell,
-/// so those stay fallible; the total `to_string_column` passes a `conv` that
-/// never fails, so it stays total. One shell serves both — MoonBit's error
-/// polymorphism resolves the effect at each call site, so the total surface is
-/// not forced to adopt an error it never produces.
+/// Both `conv` and `wrap` may raise: the fallible casts pass a `conv` that
+/// `raise`s on an out-of-range or malformed cell, and `to_string_column`'s
+/// `wrap` refuses past the string layout's payload bound — a closure that
+/// never fails simply never exercises its raise. (The shell was once
+/// effect-polymorphic to keep `to_string_column` total; with its bound
+/// refusal it is fallible like the rest, and the polymorphism had no total
+/// caller left to serve.)
 fn[U] BuiltinColumn::cast_cells(
   self : BuiltinColumn,
   result_dtype : @types.DataType,
-  conv : (Int32) -> U raise?,
+  conv : (Int32) -> U raise @types.DataError,
   fill : U,
-  wrap : (Array[U]) -> ColumnData,
-) -> BuiltinColumn raise? {
+  wrap : (Array[U]) -> ColumnData raise @types.DataError,
+) -> BuiltinColumn raise @types.DataError {
   let valid = self.validity.to_bools()
   let buf : Array[U] = Array::makei(valid.length(), i => {
     if valid[i] {
@@ -152,7 +166,6 @@ fn[U] BuiltinColumn::cast_cells(
 ///|
 /// Convert to `Int` — the file-private implementation behind `cast(Int)`.
 /// Validity is preserved verbatim. Supported sources:
-/// - `Int`: identity, no copy.
 /// - `Float`: truncated towards zero. `NaN`, `+Inf`, `-Inf`, and values
 ///   outside the `Int64` range are rejected with `ParseError` — the
 ///   underlying `Double::to_int64` is implementation-defined on those
@@ -166,11 +179,22 @@ fn[U] BuiltinColumn::cast_cells(
 ///   grouping are rejected, as are leading/trailing whitespace, non-numeric
 ///   suffixes, empty strings, and decimal integers that overflow 64-bit
 ///   `Int64`.
+///
+/// An `Int` source never reaches here (the cast entry's identity gate
+/// returns it before dispatch), and neither does a non-numeric I64 rider
+/// (`Date` and kin — the entry's rider gate refuses it), so the `I64` arm
+/// below is unreachable through `cast`: it answers the entry's refusal —
+/// exhaustiveness requires the arm, and returning the rider column as
+/// though it were an Int result would misread its day counts.
 fn BuiltinColumn::to_int(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    I64(_) => self
+    // Unreachable through `cast` — the identity gate owns a same-dtype
+    // `Int`, the rider gate refuses every other I64 dtype — so the arm
+    // answers the entry's refusal, the same shape the temporal casts'
+    // unreachable arms take.
+    I64(_) => raise @types.DataError::Unsupported("cast from \{self.dtype()}")
     F64(a) =>
       self.cast_cells(
         @types.DataType::Int,
@@ -232,7 +256,6 @@ fn BuiltinColumn::to_int(
 ///|
 /// Convert to `Float` — the file-private implementation behind `cast(Float)`.
 /// Validity is preserved verbatim. Supported sources:
-/// - `Float`: identity, no copy.
 /// - `Int`: promoted via `Int64::to_double` (a `Double` has 52 bits of
 ///   significand, so `Int64`s with magnitude > 2^53 lose precision — this
 ///   is inherent to the target type and not flagged as an error).
@@ -243,11 +266,18 @@ fn BuiltinColumn::to_int(
 ///   slots return `ParseError`;
 ///   finite values beyond the `Double` range collapse to `±Infinity` per
 ///   IEEE 754.
+///
+/// A `Float` source never reaches here (the cast entry's identity gate
+/// returns it before dispatch, and the `F64` buffer has no riders), so the
+/// `F64` arm below is unreachable through `cast`: it answers the entry's
+/// refusal for exhaustiveness, `to_int`'s `I64` arm's twin.
 fn BuiltinColumn::to_float(
   self : BuiltinColumn,
 ) -> BuiltinColumn raise @types.DataError {
   match self.data {
-    F64(_) => self
+    // Unreachable through `cast` — the identity gate owns a same-dtype
+    // `Float` — so the arm answers a refusal, as `to_int`'s `I64` arm does.
+    F64(_) => raise @types.DataError::Unsupported("cast from \{self.dtype()}")
     I64(a) =>
       self.cast_cells(@types.DataType::Float, i => a[i].to_double(), 0.0, b => {
         F64(b)
@@ -292,18 +322,27 @@ fn BuiltinColumn::to_float(
 /// `Bool(true)` → `"true"`). Null slots get an empty placeholder and
 /// remain null in the validity bitmap.
 ///
-/// Total: every dtype has a value-form rendering, so there is no failure
-/// path. Unlike `to_int` / `to_float` (which can fail on out-of-range or
-/// malformed input) this never raises.
-fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
+/// Near-total: every dtype has a value-form rendering, so there is no
+/// per-cell failure path (unlike `to_int` / `to_float`, which can fail on
+/// out-of-range or malformed input). The one refusal is the buffer's: a
+/// result whose payload bytes pass the string layout's `2^31 - 1` bound
+/// raises `InvalidOperation` (`Utf8Array::from_strings`'s bound), reachable
+/// only by rendering billions of cells.
+fn BuiltinColumn::to_string_column(
+  self : BuiltinColumn,
+) -> BuiltinColumn raise @types.DataError {
   match self.data {
     Utf8(_) => self
     I64(a) =>
-      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
+      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", fn(
+        b : Array[String],
+      ) raise @types.DataError {
         Utf8(@buffer.Utf8Array::from_strings(b))
       })
     F64(a) =>
-      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", b => {
+      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", fn(
+        b : Array[String],
+      ) raise @types.DataError {
         Utf8(@buffer.Utf8Array::from_strings(b))
       })
     Bool(a) =>
@@ -311,7 +350,9 @@ fn BuiltinColumn::to_string_column(self : BuiltinColumn) -> BuiltinColumn {
         @types.DataType::String,
         i => if a[i] { "true" } else { "false" },
         "",
-        b => Utf8(@buffer.Utf8Array::from_strings(b)),
+        fn(b : Array[String]) raise @types.DataError {
+          Utf8(@buffer.Utf8Array::from_strings(b))
+        },
       )
   }
 }

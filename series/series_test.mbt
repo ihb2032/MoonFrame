@@ -584,6 +584,31 @@ test "cast to String renders value-style across dtypes" {
   assert_eq(s.cast(@types.DataType::String), s)
 }
 
+///|
+test "cast to the column's own dtype is the identity for every dtype" {
+  // `Bool` / `Date` / `Timestamp` / `Decimal` / `Duration` have no
+  // cross-dtype arm — the identity short-circuit at the cast entry is the
+  // only path they have to themselves, and it shares the column (equal to
+  // the source, nulls included) rather than rebuilding it. `Int` / `Float`
+  // / `String` were already value-identical; these five used to raise.
+  let b = Series::from_bool_options("x", [Some(true), None])
+  assert_eq(b.cast(@types.DataType::Bool), b)
+  let d = Series::from_date_options("x", [Some(19000), None])
+  assert_eq(d.cast(@types.DataType::Date), d)
+  let t = Series::from_timestamp_options("x", [Some(1700000000000000)])
+  assert_eq(t.cast(@types.DataType::Timestamp), t)
+  let du = Series::from_duration_options("x", [Some(123456), None])
+  assert_eq(du.cast(@types.DataType::Duration), du)
+  let dec = Series::from_decimal_options(2, "x", [Some(1505), None])
+  assert_eq(dec.cast(@types.DataType::Decimal(2)), dec)
+  // The identity is exact-dtype: a different scale is a rescale, and the
+  // rescale is one of the conversions this library does not offer.
+  assert_true(
+    (Ok(ignore(dec.cast(@types.DataType::Decimal(3)))) catch { e => Err(e) })
+    is Err(@types.DataError::Unsupported(_)),
+  )
+}
+
 // ── ordering verbs ────────────────────────────────────────────────────
 
 ///|

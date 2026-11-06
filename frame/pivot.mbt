@@ -76,6 +76,10 @@ pub extend PivotAgg with Debug::{to_repr}
 /// `values~` resolution that comes up empty (an explicit empty list, or
 /// defaults that name every column) `raise`s `InvalidOperation`: there
 /// is nothing to reshape.
+///
+/// A 0-row frame reshapes to the `index` columns alone at height 0: a
+/// reshaped column is named by its `on` value, and an empty frame has no
+/// distinct `on` value to name one by, so no value column is emitted.
 pub fn DataFrame::pivot(
   self : DataFrame,
   on~ : Array[@expr.Expr],
@@ -86,19 +90,11 @@ pub fn DataFrame::pivot(
   if on.is_empty() {
     raise @types.DataError::InvalidOperation("pivot needs at least one on key")
   }
-  if index is None && values is None {
-    raise @types.DataError::InvalidOperation(
-      "pivot needs an index or a values list",
-    )
-  }
-  // Materialise the `on` key columns (the `group_by` route: evaluate over
-  // the whole frame, broadcast a length-1 key, name by output name, and
-  // reject a duplicate name before any reshape work).
   let n = self.nrows()
   let scope = Array::makei(n, i => i)
-  let on_cols = materialize_pivot_keys(on, self, n, scope)
-  // An omitted side takes the columns the other two lists do not name —
-  // resolved against the original expr lists, each into its own set.
+  // The names an omitted side's default skips: `on`'s own names plus the
+  // given list's — resolved against the original expr lists, each into its
+  // own set.
   let skip_names = (extra : Array[@expr.Expr]) => {
     let m = names_of_exprs(on)
     for e in extra {
@@ -106,14 +102,38 @@ pub fn DataFrame::pivot(
     }
     m
   }
-  let index_cols = match index {
-    Some(keys) => materialize_pivot_keys(keys, self, n, scope)
-    None => columns_except(self, skip_names(values.unwrap()))
+  // Resolve the sides as a pair: a given side materialises its key columns
+  // (the `group_by` route — evaluate over the whole frame, broadcast a
+  // length-1 key, name by output name), an omitted side takes the columns
+  // the other two lists do not name, and both-omitted is refused right
+  // here — the entry check this match replaces, still ahead of any key
+  // evaluation. Matching the pair hands every arm its payload directly: no
+  // `unwrap`, which this library does not use.
+  let (index_cols, values_cols) = match (index, values) {
+    (Some(i), Some(v)) =>
+      (
+        materialize_pivot_keys(i, self, n, scope),
+        materialize_pivot_keys(v, self, n, scope),
+      )
+    (Some(i), None) =>
+      (
+        materialize_pivot_keys(i, self, n, scope),
+        columns_except(self, skip_names(i)),
+      )
+    (None, Some(v)) =>
+      (
+        columns_except(self, skip_names(v)),
+        materialize_pivot_keys(v, self, n, scope),
+      )
+    (None, None) =>
+      raise @types.DataError::InvalidOperation(
+        "pivot needs an index or a values list",
+      )
   }
-  let values_cols = match values {
-    Some(vs) => materialize_pivot_keys(vs, self, n, scope)
-    None => columns_except(self, skip_names(index.unwrap()))
-  }
+  // Materialise the `on` key columns (the same route), last of the three
+  // lists — the pair above has already refused the shape with nothing to
+  // reshape.
+  let on_cols = materialize_pivot_keys(on, self, n, scope)
   if values_cols.is_empty() {
     raise @types.DataError::InvalidOperation(
       "pivot resolved no values column to reshape",

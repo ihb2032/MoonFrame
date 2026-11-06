@@ -714,3 +714,33 @@ test "parse_ndjson_str: a rider pin reads its text form per line" {
     ),
   )
 }
+
+// ── deep-nesting pre-scan ───────────────────────────────────
+
+///|
+test "a record nesting past 512 brackets refuses naming the line" {
+  // The over-depth record sits on physical line 2, so the refusal carries
+  // that locator plus the in-record column — the parse never runs, where
+  // its per-level recursion would abort on stack exhaustion.
+  let payload = "{\"a\":1}\n" + String::make(600, '[') + "\n"
+  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.parse_ndjson_str(payload),
+  ) catch {
+    e => Err(e)
+  }
+  match result {
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_eq(
+        m, "line 2: invalid JSON: nesting deeper than 512 brackets at column 513",
+      )
+    _ => fail("expected a deep-nesting ParseError")
+  }
+}
+
+///|
+test "brackets inside an ndjson string cell do not count" {
+  let brackets = String::make(600, '[')
+  let df = @io.parse_ndjson_str("{\"a\":\"\{brackets}\"}\n")
+  assert_eq(df.shape(), (1, 1))
+  assert_eq(df.item(0, "a"), @types.Scalar::String(brackets))
+}

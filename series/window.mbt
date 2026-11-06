@@ -77,10 +77,12 @@ pub fn Series::tail(self : Series, n : Int32) -> Series {
 
 ///|
 /// The cells in reverse order, name unchanged.
-/// Total. Reads the series back to front through the same gather machine
+/// Near-total. Reads the series back to front through the same gather machine
 /// the window verbs above trim with — one spelling over the shared
-/// row-gather path, the `Series` twin of `DataFrame::reverse`.
-pub fn Series::reverse(self : Series) -> Series {
+/// row-gather path, the `Series` twin of `DataFrame::reverse`. The one raise
+/// is the string layout's payload bound (`gather_series`'s); a reversal
+/// gathers every cell once, so a column the layout could hold never hits it.
+pub fn Series::reverse(self : Series) -> Series raise @types.DataError {
   let len = self.len()
   self.gather_series(Array::makei(len, i => len - 1 - i))
 }

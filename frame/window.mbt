@@ -226,15 +226,19 @@ pub fn DataFrame::gather(
 /// is untouched, so a reversed frame is a frame
 /// with the same columns in the same order, read bottom-up.
 ///
-/// Total: the permutation is `[n-1, …, 0]`, in bounds by construction. A
+/// Near-total: the permutation is `[n-1, …, 0]`, in bounds by construction,
+/// so no index is ever refused; the one raise is the string layout's
+/// payload bound the underlying row gather carries (`gather_series`'s). A
 /// 0-row or 1-row frame is returned unchanged rather than gathered into an
 /// identical copy.
-pub fn DataFrame::reverse(self : DataFrame) -> DataFrame {
+pub fn DataFrame::reverse(self : DataFrame) -> DataFrame raise @types.DataError {
   let n = self.nrows()
   if n <= 1 {
     return self
   }
-  // Every index comes from `[0, n)`, so the gather cannot fail.
+  // Every index comes from `[0, n)`, so the gather's index contract holds;
+  // the raise it can still take is the string layout's payload-bound
+  // refusal `gather_series` carries, not a bounds one.
   let perm = Array::makei(n, i => n - 1 - i)
   let columns = self.column_series().map(c => c.gather_series(perm))
   self.with_same_schema(columns, n)

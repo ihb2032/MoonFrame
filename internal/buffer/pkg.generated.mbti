@@ -30,8 +30,8 @@ pub struct Utf8Array {
   // private fields
 }
 pub fn Utf8Array::cell_eq(Self, Int32, Self, Int32) -> Bool
-pub fn Utf8Array::from_string_options(Array[String?]) -> Self
-pub fn Utf8Array::from_strings(Array[String]) -> Self
+pub fn Utf8Array::from_string_options(Array[String?]) -> Self raise @types.DataError
+pub fn Utf8Array::from_strings(Array[String]) -> Self raise @types.DataError
 pub fn Utf8Array::get(Self, Int32) -> String
 pub fn Utf8Array::len(Self) -> Int32
 pub fn Utf8Array::slice_view(Self, Int32, Int32) -> Self

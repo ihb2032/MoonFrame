@@ -252,7 +252,7 @@ fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
 /// `Series`. Used for the parseable dtypes (`Int` / `Float` / `Bool`) and
 /// the total-constructor rider pins (`Date` / `Timestamp`); the `Decimal`
 /// pin's constructor validates its scale and so takes the dedicated shell
-/// below, and the `String` fallback goes through the total
+/// below, and the `String` fallback goes through the near-total
 /// `build_string_column` below (its `render` never fails, so it needs no
 /// `parse` / `err` / `on_parse_error`).
 ///
@@ -289,19 +289,22 @@ fn[Cell, T] build_typed_column(
 }
 
 ///|
-/// Materialise a `String` column from an abstract cell source — the total
-/// counterpart of `build_typed_column` for the `String` fallback dtype.
-/// `cell(i)` reads the raw cell, `is_null(c)` maps a null cell to `None`, and
-/// `render(c)` stringifies a non-null cell (it never fails, so there is no
-/// `parse` / `err` / `on_parse_error`). The CSV reader renders with the
-/// identity; the JSON reader with its value-to-string fallback.
+/// Materialise a `String` column from an abstract cell source — the
+/// near-total counterpart of `build_typed_column` for the `String` fallback
+/// dtype. `cell(i)` reads the raw cell, `is_null(c)` maps a null cell to
+/// `None`, and `render(c)` stringifies a non-null cell (it never fails, so
+/// there is no `parse` / `err` / `on_parse_error`). The CSV reader renders
+/// with the identity; the JSON reader with its value-to-string fallback.
+/// The one raise is the string layout's payload bound
+/// (`Series::from_string_options`'s `2^31 - 1` bytes) — a read whose text
+/// passes it refuses with `InvalidOperation` rather than wrapping.
 fn[Cell] build_string_column(
   name : String,
   n : Int32,
   cell : (Int32) -> Cell,
   is_null : (Cell) -> Bool,
   render : (Cell) -> String,
-) -> @series.Series {
+) -> @series.Series raise @types.DataError {
   @series.Series::from_string_options(
     name,
     Array::makei(n, i => {

@@ -32,33 +32,56 @@ pub extend Utf8Array with Debug::{to_repr}
 // ── Constructors ──────────────────────────────────────────────────────
 
 ///|
+/// The payload bound of the layout: offsets are `Int32`, so one string
+/// column indexes at most `2^31 - 1` payload bytes (and `2^31 - 1` cells).
+/// The one home for the number — both writers that can reach it (`from_strings`
+/// here, `take_view`'s amplification below) refuse against this bound with
+/// `InvalidOperation`, so the two refusals cannot drift apart.
+const UTF8_MAX_PAYLOAD : Int64 = 2_147_483_647L
+
+///|
 /// Encode `values` (already placeholder-filled: a null slot arrives as `""`)
 /// into one UTF-8 buffer. `values` is copied, so the buffer is unaffected by
 /// later mutation of the array.
 ///
 /// The layout's representable bound: offsets are `Int32`, so one column
 /// carries at most `2^31 - 1` payload bytes and `2^31 - 1` cells. The size
-/// arithmetic is exact everywhere under that bound. A larger request is
-/// outside this layout's contract — no `Int32`-indexed buffer can hold it —
-/// and its failure mode is stated plainly: the `Int32` total wraps, and the
-/// process aborts rather than returning an error. Where depends on the
-/// wrapped total: negative (the usual wrap past `2^31 - 1`) aborts inside
-/// `FixedArray::make`; a total wrapped past `2^32` back into the
-/// non-negative range allocates an undersized buffer and aborts at
-/// `encode_into`'s first out-of-range write — a bounds-checked trap either
-/// way, never silent corruption. Reaching it from this constructor needs
-/// multi-gigabyte resident strings, which the platform's memory ceiling
-/// stops first in practice (a gather's amplification — the cheap road —
-/// carries its own explicit refusal instead, in `take_view`).
-pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
+/// arithmetic is exact everywhere under that bound, and the total rides an
+/// `Int64` so a larger request refuses with `InvalidOperation` naming the
+/// bound — the same refusal `take_view` below carries, reached here by
+/// multi-gigabyte resident strings (a request the platform's memory ceiling
+/// usually stops first, but the refusal is the layout's contract, not the
+/// platform's mercy; the wrapped `Int32` total it replaces was a
+/// `FixedArray::make` on a negative size, a bounds-checked abort).
+pub fn Utf8Array::from_strings(
+  values : Array[String],
+) -> Utf8Array raise @types.DataError {
+  Utf8Array::from_strings_capped(values, UTF8_MAX_PAYLOAD)
+}
+
+///|
+/// `from_strings` with the capacity bound as a parameter — the production
+/// path above passes `UTF8_MAX_PAYLOAD`; the whitebox tests pass a small
+/// one, because the resident strings it would take to cross two gigabytes
+/// cannot be handed to a test. Same capacity, same refusal, reachable.
+fn Utf8Array::from_strings_capped(
+  values : Array[String],
+  cap : Int64,
+) -> Utf8Array raise @types.DataError {
   // Sum of the UTF-8 encodings' byte lengths — the exact value-buffer size,
   // allocated once instead of grown per cell. Same walk as `encode_into`, so
-  // the two always agree.
-  let mut total = 0
+  // the two always agree. Rides an `Int64` so the bound check below sees the
+  // true total, never a wrapped one.
+  let mut total : Int64 = 0L
   for v in values {
-    total = total + encoded_len(v)
+    total = total + encoded_len(v).to_int64()
   }
-  let bytes = FixedArray::make(total, (0 : Byte))
+  if total > cap {
+    raise @types.DataError::InvalidOperation(
+      "string column construction would build \{total} payload bytes, past the \{cap} an Int32-offset column can index",
+    )
+  }
+  let bytes = FixedArray::make(total.to_int(), (0 : Byte))
   let n = values.length()
   let offsets : FixedArray[Int32] = FixedArray::make(n + 1, 0)
   let mut at = 0
@@ -76,8 +99,11 @@ pub fn Utf8Array::from_strings(values : Array[String]) -> Utf8Array {
 
 ///|
 /// Encode optional strings, `None` slots as the empty byte range (the null
-/// placeholder paired with the column's validity bitmap).
-pub fn Utf8Array::from_string_options(values : Array[String?]) -> Utf8Array {
+/// placeholder paired with the column's validity bitmap). Refuses past the
+/// layout's payload bound exactly as `from_strings` does.
+pub fn Utf8Array::from_string_options(
+  values : Array[String?],
+) -> Utf8Array raise @types.DataError {
   Utf8Array::from_strings(values.map(v => v.unwrap_or("")))
 }
 
@@ -284,9 +310,10 @@ pub fn Utf8Array::slice_view(
 /// gathered a couple thousand times crosses it while the process holds a
 /// few megabytes, so no memory ceiling guards this path. The amplified
 /// total therefore rides an `Int64` and refuses with `InvalidOperation`
-/// naming the bound: a wrapped `Int32` total is a negative size inside
-/// `FixedArray::make`, a bounds-checked abort, and this constructor is the
-/// one place a gather could reach it.
+/// against the shared `UTF8_MAX_PAYLOAD` bound (the same refusal and the
+/// same number `from_strings` above carries): a wrapped `Int32` total is a
+/// negative size inside `FixedArray::make`, a bounds-checked abort, and
+/// this constructor is the cheap road to the bound.
 pub fn Utf8Array::take_view(
   self : Utf8Array,
   indices : Array[Int32],
@@ -300,9 +327,9 @@ pub fn Utf8Array::take_view(
     lens[k] = l
     total = total + l.to_int64()
   }
-  if total > 2147483647L {
+  if total > UTF8_MAX_PAYLOAD {
     raise @types.DataError::InvalidOperation(
-      "gather would build a string column of \{total} payload bytes, past the \{2147483647} an Int32-offset column can index",
+      "gather would build a string column of \{total} payload bytes, past the \{UTF8_MAX_PAYLOAD} an Int32-offset column can index",
     )
   }
   let bytes = FixedArray::make(total.to_int(), (0 : Byte))

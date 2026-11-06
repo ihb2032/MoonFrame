@@ -206,18 +206,28 @@ pub fn Series::from_bool_options(
 /// Build a `String` series from raw values (no nulls). `String` is
 /// non-numeric, so it lands on the `Builtin` backend. `values` is defensively
 /// copied, so the series is independent of the caller's array.
-pub fn Series::from_strings(name : String, values : Array[String]) -> Series {
+///
+/// Raises `InvalidOperation` when the cells' combined UTF-8 payload passes
+/// the string layout's bound of `2^31 - 1` bytes — no `Int32`-offset buffer
+/// can index more, so the build refuses rather than wraps (reachable only
+/// with multi-gigabyte resident strings).
+pub fn Series::from_strings(
+  name : String,
+  values : Array[String],
+) -> Series raise @types.DataError {
   Series::from_builtin(name, @column.BuiltinColumn::from_strings(values))
 }
 
 ///|
-/// Build a `String` series where `None` entries are nulls.
+/// Build a `String` series where `None` entries are nulls. Raises
+/// `InvalidOperation` past the string layout's `2^31 - 1` payload-byte
+/// bound, exactly as `Series::from_strings` does.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_string_options(
   name : String,
   values : Array[String?],
-) -> Series {
+) -> Series raise @types.DataError {
   Series::from_builtin(name, @column.BuiltinColumn::from_string_options(values))
 }
 

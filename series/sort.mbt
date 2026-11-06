@@ -185,13 +185,15 @@ fn compare_with_missing(
 /// and leading a descending one, never re-routed through the null
 /// placement — and ties keep their input order — the sort is stable.
 ///
-/// Total: every dtype has an order, and the permutation indexes the series
-/// itself, so nothing can fail.
+/// Near-total: every dtype has an order, and the permutation indexes the
+/// series itself, so no *ordering* can fail — the one raise is the string
+/// layout's payload bound (`gather_series`'s), reachable only re-ordering a
+/// multi-gigabyte string column that already sits at the bound.
 pub fn Series::sort(
   self : Series,
   descending~ : Bool = false,
   nulls_last~ : Bool = false,
-) -> Series {
+) -> Series raise @types.DataError {
   let key = self.build_sort_key(descending, nulls_last)
   let perm = @order.stable_mergesort_indices(self.len(), (i, j) => {
     key.compare_one_key(i, j)

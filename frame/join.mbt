@@ -118,9 +118,14 @@ fn index_by_join_key(
 /// - `ColumnNotFound(name)` — a key expression references an absent column.
 ///   Reported on the first offending key, in key order, evaluating the left
 ///   frame's key before the right's.
-/// - `TypeMismatch(detail)` — a key's left and right dtypes differ (so its
-///   values could never compare equal), or a derived key's own dtypes don't
-///   unify. Reported on the first such key, in key order.
+/// - `TypeMismatch(detail)` — a key's left and right dtypes differ, or a
+///   derived key's own dtypes don't unify. The per-key dtype equality is
+///   the key encoding's requirement, not a comparison claim (the comparison
+///   kernel equates any two numerics): a join key hashes through `KeyCell`,
+///   whose `KInt` and `KFloat` spellings never equate, so a mixed-dtype key
+///   pair would silently match nothing even at equal values — the check
+///   makes that loud and names the cast. Reported on the first such key, in
+///   key order.
 /// - `InvalidOperation(detail)` — no keys for a non-`Cross` join (use
 ///   `how = Cross` for a Cartesian product), any keys on a `Cross` join
 ///   (which takes none), or a sided pair of unequal length. (Mixing shared
@@ -464,8 +469,11 @@ fn DataFrame::assemble_join_output(
 /// effective key expressions (`join_key_exprs`: `on` applied to both sides,
 /// or the paired `left_on` / `right_on`), evaluates each over its own frame
 /// (broadcasting a length-1 key up to frame height, like `sort` /
-/// `group_by`), checks the left and right dtypes agree per key (so the
-/// values could compare equal), and returns the per-key left and right cell
+/// `group_by`), checks the left and right dtypes agree per key — the key
+/// encoding's requirement, not a comparison claim: keys match through the
+/// `KeyCell` map, where an `Int` cell and a `Float` cell never equate, so a
+/// mixed-dtype key would silently match nothing — and returns the per-key
+/// left and right cell
 /// vectors (`to_scalars`, total — callers index by plain `[i]`). Shared by
 /// the `Right` and `Inner` / `Left` / `Outer` row planners.
 ///
@@ -550,17 +558,20 @@ fn DataFrame::resolve_join_keys(
       } else {
         "join key \"\{name}\" (left) / \"\{right_exprs[i].output_name()}\" (right)"
       }
-      // Cross-scale decimals get the remedy spelled out: the comparison
-      // engine equates them exactly (both sides rescale to the larger
-      // scale), but a join key must hash, and the key cell folds to the
-      // unscaled magnitude — injective only within one scale — so the cast
-      // to a common scale has to happen before the join.
+      // The remedy names the real reason a mixed pair cannot join: keys
+      // match through the `KeyCell` hash map, whose `KInt` / `KFloat`
+      // spellings never equate, so a pair the comparison kernel would
+      // equate (any two numerics — see `comparable_with`) still matches
+      // nothing. Cross-scale decimals are that same rule at a finer grain:
+      // the key cell folds to the unscaled magnitude — injective only
+      // within one scale — so the cast to a common scale has to happen
+      // before the join.
       let cross_scale = lcol.dtype() is @types.DataType::Decimal(_) &&
         rcol.dtype() is @types.DataType::Decimal(_)
       let remedy = if cross_scale {
         "; decimals of different scales compare equal but join keys hash on the unscaled magnitude — cast both sides to one scale first"
       } else {
-        ""
+        "; join keys hash by their own dtype, so cells of two dtypes never match even at equal values — cast both sides to one dtype first"
       }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(

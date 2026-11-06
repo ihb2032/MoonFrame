@@ -107,7 +107,10 @@ pub fn JsonReadOptions::JsonReadOptions(
 ///
 /// Raises:
 /// - `ParseError(Message(...))` — malformed JSON, a top-level value that is
-///   not an array, or a record that is not an object.
+///   not an array, a record that is not an object, or nesting deeper than
+///   512 brackets (refused by a pre-scan before the parse, naming the
+///   line / column — the reader's own bound, in place of the parser's
+///   position-less default-depth refusal).
 /// - `InvalidOperation` — `options.dtypes` names a column the input does
 ///   not carry, or pins a dtype that has no read parser (anything but
 ///   `Int` / `Float` / `Bool` / `String`).
@@ -158,11 +161,31 @@ fn parse_json_str_projected(
     check_override_columns(options.dtypes, [])
     return @frame.DataFrame::DataFrame([])
   }
+  // Deep-nesting pre-scan: `@json.parse` refuses past its own default
+  // depth (1024) with a position-less diagnostic telling the caller to
+  // raise a parameter no MoonFrame reader exposes, so the reader pins the
+  // bound itself — a string-aware scan at `JSON_MAX_NESTING_DEPTH`
+  // refuses first with the line and column, in this reader's own
+  // diagnostic spelling (the whole document is one parse, so the scan's
+  // line is the file's own line numbering).
+  match json_nesting_violation(content.clamped_view(), JSON_MAX_NESTING_DEPTH) {
+    Some((line, column)) =>
+      raise @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "invalid JSON: nesting deeper than \{JSON_MAX_NESTING_DEPTH} brackets at line \{line}, column \{column}",
+        ),
+      )
+    None => ()
+  }
   // The strict duplicate-key reading rides the parser itself — it reports
   // the repeat with a line / column, and off by default (the common JSON
-  // last-wins reading) it costs nothing.
+  // last-wins reading) it costs nothing. The parse-level depth cap backs
+  // the pre-scan up at the same bound: the two count the same brackets
+  // (one recursion level per `[` / `{` outside a string), so whichever
+  // meets an over-deep payload first, the refusal is the reader's own.
   let json = @json.parse(
     content.clamped_view(),
+    max_nesting_depth=JSON_MAX_NESTING_DEPTH,
     reject_duplicate_keys=options.reject_duplicate_keys,
   ) catch {
     // The parser's repeat diagnostic, re-homed in this module's error type

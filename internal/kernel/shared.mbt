@@ -13,14 +13,23 @@
 // convergence — are methods, reached by dot syntax; the scalar projection
 // (`scalars_to_series`) is a free function, bound unqualified here.
 //
-// Backend convergence is a contract every kernel result keeps: a computed
-// all-valid numeric column lands on the `Numeric` fast path, either by
-// leaving through `scalars_to_series` (which converges) or by an explicit
-// convergence pass before the result crosses the package line. A new
-// kernel entry point that forgets the pass still computes correct values —
-// the backend tag is invisible to equality — and loses only the fast path
-// for the rest of the plan, which is why each kernel family's tests assert
-// the storage kind its outputs land on.
+// Backend convergence is a convention the elementwise kernels keep, not a
+// contract every kernel result carries. The hard contract is the values: a
+// kernel result holds correct cells whichever backend carries them — the
+// tag is invisible to equality. Convergence itself — a computed all-valid
+// numeric column landing on the `Numeric` fast path — reaches a result one
+// of two ways: through `scalars_to_series` (which converges), or by the
+// explicit `try_column_to_numeric` pass the elementwise families
+// (arithmetic, string, ternary) run before the result crosses the package
+// line; the evaluator tests pin the converging families' landing by storage
+// kind, and a new elementwise entry point owes the same assertion — one
+// that forgets the pass loses only the fast path, never a value.
+// Deliberately exempt are the kernels that fold into an `Option`-cell array
+// and return through the nullable constructors directly — the `cum_*`
+// family (`CumCount`'s output all-valid by construction), the rolling
+// statistics, and `unique_counts` — which land `Builtin` even when every
+// cell is present: re-walking a just-built column to relabel it buys only
+// the fast path for the rest of the plan, not a value either.
 
 ///|
 using @series {type Series, scalars_to_series}

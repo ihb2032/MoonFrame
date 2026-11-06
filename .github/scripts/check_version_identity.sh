@@ -46,10 +46,18 @@ note() {
 mod_version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' moon.mod | head -n 1)
 
 # `## v0.6.0 → v0.7.0 (unreleased)` → target `0.7.0`, source `0.6.0`, marker.
+# The heading the arithmetic reads is the *first* h2: the migration guide is
+# newest-first (each release's section is prepended when the release is cut),
+# so the top section is the one being prepared and every section below it is
+# history. That ordering is load-bearing — reading only the top heading means
+# a section appended at the bottom would never be consulted — so it is
+# enforced rather than assumed: an `(unreleased)` marker on any heading below
+# the first fails, because it marks a release this arithmetic never read.
 # The heading pattern is any `## ` section (the file's h2s are version
 # sections and nothing else); a first-release heading carries no source side
 # (`## → v0.1.0`), which the extraction below reports as an empty string.
-migration_heading=$(grep -m 1 '^## ' docs/migration.md || true)
+migration_headings=$(grep '^## ' docs/migration.md || true)
+migration_heading=$(printf '%s\n' "$migration_headings" | head -n 1)
 migration_version=$(printf '%s\n' "$migration_heading" |
   sed -n 's/.*→ *v\([0-9][0-9.]*\).*/\1/p')
 published_version=$(printf '%s\n' "$migration_heading" |
@@ -58,6 +66,16 @@ case "$migration_heading" in
 *'(unreleased)'*) unreleased=yes ;;
 *) unreleased=no ;;
 esac
+
+# New sections go at the top: a heading below the first is history, and an
+# `(unreleased)` marker on one says a section this guard never consulted
+# claims to be the release being prepared.
+stray_unreleased=$(printf '%s\n' "$migration_headings" | tail -n +2 |
+  grep -F '(unreleased)' || true)
+if [ -n "$stray_unreleased" ]; then
+  note "an (unreleased) section below the top heading — new sections go at the top:"
+  printf '  %s\n' "$stray_unreleased"
+fi
 
 for pair in "moon.mod:$mod_version" "docs/migration.md:$migration_version"; do
   case "$pair" in

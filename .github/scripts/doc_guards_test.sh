@@ -119,6 +119,36 @@ mkgit "$work/v_first"
 expect 0 'version: first release has no published predecessor' \
   sh "$scripts/check_version_identity.sh" "$work/v_first"
 
+# The newest section must be the *first* one. Appended at the bottom, a new
+# heading used to escape the arithmetic entirely: the guard read the top
+# heading (already released, no marker), matched it against `moon.mod`, and
+# never consulted the appended section — whose `(unreleased)` target and
+# published source went unchecked. The top section is what `moon.mod` pairs
+# with, and both agree here, so only the position check can refuse.
+mkfixture "$work/v_tail" 0.6.0 '## v0.5.8 → v0.6.0
+
+### Removed
+
+Nothing.
+
+## v0.6.0 → v0.7.0 (unreleased)'
+expect_out 1 'below the top heading' \
+  'version: a new section appended at the bottom is refused' \
+  sh "$scripts/check_version_identity.sh" "$work/v_tail"
+
+# The same document with the new section on top is the ordinary shape: the
+# marker sits on the first heading, history below it, `moon.mod` still on
+# the published version.
+mkfixture "$work/v_top" 0.6.0 '## v0.6.0 → v0.7.0 (unreleased)
+
+### Removed
+
+Nothing.
+
+## v0.5.8 → v0.6.0'
+expect 0 'version: the newest section on top, history below' \
+  sh "$scripts/check_version_identity.sh" "$work/v_top"
+
 # The other half of the rule: no third place names a release. The fixtures
 # above are already the clean case — each passes with only the two homes
 # tracked — so what is left is a stray, and the third-party versions that

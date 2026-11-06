@@ -585,10 +585,12 @@ expect 1 'facade surface: a public type outside the intermediate allowlist' \
 # spec-object family reached through `@chart` qualification, with chart_main
 # pinning both directions. The fixture chart carries exactly the main-surface
 # set — every name the real list pins — plus one deep tree (VegaScale, as a
-# type, a method, and a free function) the pin must leave qualified. The
-# facade's type re-exports are read from the root interface (one exploded
-# `pub using @chart {type X}` line per type) and its function re-exports from
-# the facade source, so the fixture carries both.
+# type, a method, and a free function) the pin must leave qualified, and the
+# two chain steps (`FramePlot`, `Plot`) the intermediates list classifies
+# ahead of the chart bucketing. The facade's type re-exports are read from
+# the root interface (one exploded `pub using @chart {type X}` line per
+# type) and its function re-exports from the facade source, so the fixture
+# carries both.
 fs_chart_types="Chart ChartKind ChartSpec VegaAggregate VegaAutoSize VegaBin VegaBinParams VegaChannel VegaChannelSort VegaExtent VegaPadding VegaSort VegaSortChannel VegaStack VegaTimeUnit VegaType"
 fs_chart_mbti="$(
   for t in $fs_chart_types; do
@@ -629,8 +631,8 @@ fs_chart_snap="$( {
       'fn plot(String) -> FramePlot <- chart' \
       'fn write_vega_html(String) -> Unit <- chart' \
       'fn write_vega_lite(String) -> Unit <- chart' \
-      'qualified FramePlot <- chart' \
-      'qualified Plot <- chart' \
+      'intermediate FramePlot <- chart' \
+      'intermediate Plot <- chart' \
       'qualified VegaScale <- chart' \
       'method VegaScale::log(Self) -> Self <- chart' \
       'fn scale_key(String) -> Int <- chart'

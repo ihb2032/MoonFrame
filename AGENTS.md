@@ -162,8 +162,11 @@ the sweep to the push.
   breaks a caller leaves the names alone: a parameter type, a `raise`
   appearing, an optional parameter becoming required, a field widening to `?`.
   Four rules sit ahead of the snapshot, so regenerating cannot legalize them:
-  only the four fluent-chain types may be public without being re-exported;
-  every public free function or top-level value must have a facade counterpart
+  only the fluent-chain types on the guard's intermediates list may be public
+  without being re-exported — chart's `FramePlot` / `Plot` among them, which
+  is why the intermediates list is consulted ahead of the chart bucketing
+  below; every public free function or top-level value must have a facade
+  counterpart
   (nothing chains to one, so one the facade omits is unreachable through the
   supported surface) — the one deliberate exception being `io`'s string-level
   serialiser family, reached through `@io` qualification the way the chain

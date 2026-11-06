@@ -242,6 +242,123 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }'''
         self.assertEqual(self.retained(source), ["values"])
 
+    def test_underscore_prefixed_parameter_is_scanned(self) -> None:
+        # `_values` is a binding the body references, not a discard; the
+        # parameter-name pattern used to require a lowercase first letter,
+        # which left the whole function unscanned.
+        source = """pub fn make(_values : Array[Int]) -> Frame {
+  Frame(cols = _values)
+}"""
+        self.assertEqual(self.retained(source), ["_values"])
+
+    def test_underscore_prefixed_parameter_copy_is_safe(self) -> None:
+        source = """pub fn make(_values : Array[Int]) -> Frame {
+  Frame(cols = _values.copy())
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_wrapper_alias_is_followed_like_a_bare_one(self) -> None:
+        # `let v2 = Some(values)` names the caller's array under a second
+        # name exactly the way `let v2 = values` does — the wrapper does not
+        # own the array, only a copy does. Alias tracking used to accept a
+        # bare parameter as the whole right-hand side and nothing else.
+        source = """pub fn Plan::new(values : Array[Int]) -> Plan {
+  let v2 = Some(values)
+  Plan(cols = v2)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_parenthesised_alias_is_followed_like_a_bare_one(self) -> None:
+        source = """pub fn Plan::new(values : Array[Int]) -> Plan {
+  let v2 = (values)
+  Plan(cols = v2)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_method_call_argument_is_retention(self) -> None:
+        # `stash.push(values)` keeps the array wherever `push` decides; the
+        # retain detectors read fields and constructors, never an argument
+        # list. Conservative by design — the callee could be a reader.
+        source = """pub fn load(values : Array[Int]) -> Unit {
+  stash.push(values)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_method_call_on_self_is_retention(self) -> None:
+        source = """pub fn load(self : Box, values : Array[Int]) -> Unit {
+  self.init(values)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_method_call_with_a_wrapped_argument_is_retention(self) -> None:
+        source = """pub fn load(values : Array[Int]) -> Unit {
+  stash.push(Some(values))
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_method_call_argument_of_a_copy_is_safe(self) -> None:
+        source = """pub fn load(values : Array[Int]) -> Unit {
+  stash.push(values.copy())
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_method_receiver_is_a_read_not_retention(self) -> None:
+        # `values.fold(…)` hands the array's *contents* out, not the array;
+        # only the argument position counts.
+        source = """pub fn total(values : Array[Int]) -> Int {
+  values.fold(0, (a, b) => a + b)
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_package_qualified_call_is_not_a_method_call(self) -> None:
+        # `@parquet.read_parquet_columns(bytes, projection)` — the `@pkg.`
+        # prefix is a package qualifier and the call a free function under it,
+        # the same spelling `read_parquet_columns(bytes, projection)` wears
+        # without the qualifier. The guard has never read an unqualified free
+        # function's argument list, so an import alias must not be what
+        # decides whether the boundary is flagged.
+        source = """pub fn parse(bytes : Bytes, projection? : Array[String]) -> Int {
+  @parquet.read_parquet_columns(bytes, projection).length()
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_qualifier_does_not_shield_a_chained_method_call(self) -> None:
+        # The exemption reads the text immediately before the dot: once a
+        # call returns, the receiver is a value again, and `.push(values)`
+        # on it is the ordinary method-shape retention.
+        source = """pub fn load(values : Array[Int]) -> Unit {
+  @stash.fresh().push(values)
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_conditional_assignment_rhs_is_retention(self) -> None:
+        # `self.f = if c { values } else { other }` hands the caller's array
+        # into the field on the paths that take it; the plain-assignment
+        # detector demanded the parameter be the whole right-hand side, which
+        # a branch expression never is.
+        source = """pub fn load(self : Box, flag : Bool, values : Array[Int]) -> Unit {
+  self.held = if flag { values } else { self.held }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_conditional_assignment_of_copies_is_safe(self) -> None:
+        source = """pub fn load(self : Box, flag : Bool, values : Array[Int]) -> Unit {
+  self.held = if flag { values.copy() } else { self.held }
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_second_pub_fn_in_a_block_is_scanned(self) -> None:
+        # One `///|` block may stack two public functions; only the first
+        # signature used to be read, leaving the second's boundary unguarded.
+        source = """pub fn first(rows : Array[Int]) -> Int {
+  rows.len()
+}
+
+pub fn second(items : Array[Int]) -> Box {
+  { items }
+}"""
+        self.assertEqual(self.retained(source), ["items"])
+
 
 class SourceDiscoveryTests(unittest.TestCase):
     """The repository walk: what the guard is handed to judge.
@@ -349,6 +466,31 @@ pub extend Box with fn feed(self : Box, values : Array[Int]) -> Box {
             [
                 "brand_new_package/thing.mbt: feed directly retains Array "
                 "parameter 'values'; copy it at the public boundary"
+            ],
+        )
+
+    def test_audit_attributes_a_retention_to_the_second_pub_fn(self) -> None:
+        # The failure message names the function that retains, which a
+        # block-level answer cannot do: two public functions, and the second
+        # one holds the boundary.
+        root = self.repo(
+            {
+                "brand_new_package/thing.mbt": """///|
+pub fn first(rows : Array[Int]) -> Int {
+  rows.len()
+}
+
+pub fn second(items : Array[Int]) -> Box {
+  { items }
+}
+""",
+            }
+        )
+        self.assertEqual(
+            audit(root),
+            [
+                "brand_new_package/thing.mbt: second directly retains Array "
+                "parameter 'items'; copy it at the public boundary"
             ],
         )
 

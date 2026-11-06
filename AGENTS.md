@@ -325,13 +325,21 @@ python -B .github/scripts/check_array_copy_boundaries.py        # the guard
 ```
 
 The guard is a deliberately small lexical pass over one `///|` block at a time —
-it reads public `Array` parameters (positional, `subset?`, `keys~`) and rejects
-retaining one in a field or a constructor payload without a copy, treating
+every `pub fn` signature in the block, not just the first — and it reads public
+`Array` parameters (positional, `subset?`, `keys~`, `_`-prefixed spellings
+included) and rejects retaining one in a field or a constructor payload without
+a copy, treating
 `Some` / `Ok` / `Err` as transparent (nested transparently too), and reading
-the same retention through a same-block alias (`let v2 = values`) or a plain
-`=` assignment (`self.field = values`, `stash = values`) like the record
+the same retention through a same-block alias (`let v2 = values`, or the same
+right-hand side wrapped as `Some(values)` / `(values)`), a plain
+`=` assignment (`self.field = values`, `stash = values`), a conditional
+assignment whose branch expression names the parameter (`self.f = if c {
+values } else { other }`), or a method call whose argument is the parameter
+(`stash.push(values)`, `self.init(values)`) — all like the record
 literal it abbreviates. Being lexical, it is conservative: it can
-reject a shape that is actually safe, which is a prompt to make the copy visible
+reject a shape that is actually safe — a read-only method handed the array is
+flagged too, because which callee keeps its argument is behaviour, not text —
+which is a prompt to make the copy visible
 rather than to weaken the rule. What it cannot see is behaviour, so the runtime
 side is the root `array_ownership_test.mbt` (and `expr/expr_test.mbt` for
 `Expr::is_in`, pinned beside its own package) — mutate the array you passed in,

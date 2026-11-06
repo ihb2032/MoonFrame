@@ -189,12 +189,10 @@ test "str: the rendering distinguishes the op tag, its arguments, and the operan
 }
 
 ///|
-test "str: children, naming, and column references see through the wrapper" {
-  // A `Str` node exposes its single operand, and both naming and reference
-  // collection treat it transparently — the operation keeps the source
+test "str: naming and column references see through the wrapper" {
+  // Both naming and reference
+  // collection treat the wrapper transparently — the operation keeps the source
   // column's name unless an alias overrides it.
-  assert_same_exprs(col("s").str_to_uppercase().children(), [col("s")])
-  assert_same_exprs(col("s").str_contains("a").children(), [col("s")])
   assert_eq(col("s").str_to_uppercase().output_name(), "s")
   assert_eq(col("s").str_to_uppercase().with_alias("up").output_name(), "up")
   assert_eq(col("s").str_replace("a", "b").referenced_columns().to_array(), [

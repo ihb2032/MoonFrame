@@ -64,3 +64,47 @@ test "collect carries the flags to the pipeline" {
     .sort([(@expr.col("v"), true, true)])
   assert_eq(chain.collect(optimizations=all_off()), chain.collect())
 }
+
+// ── the decimal value-fence's expression walks ────────────────────────
+
+///|
+test "the checked-op walk descends through every container variant" {
+  // The containers that carry no decimal decision of their own — a
+  // ternary, a fill pair, a diff, the map pair, a window — are transparent
+  // to `expr_has_decimal_checked_op`: an `Add` nested under any of them is
+  // still a checked operation the fence must see. The walks list every
+  // `ExprNode` variant exhaustively, so each descent arm is pinned here,
+  // beside the through-the-plan fence tests.
+  let add = @expr.col("v") + @expr.lit_int(1)
+  let nested : Array[@expr.Expr] = [
+    @expr.when(@expr.col("c")).then(add).otherwise(@expr.col("v")),
+    @expr.col("v").fill_null(add),
+    @expr.col("v").fill_nan(add),
+    add.diff(),
+    add.map_elements(label="m", s => s),
+    add.map_batches(label="m", col => col),
+    add.over([@expr.col("k")]),
+  ]
+  for e in nested {
+    assert_true(expr_has_decimal_checked_op(e.node()))
+  }
+  // The container alone is not a checked operation: with plain column
+  // reads inside, the verdict is the descent finding nothing.
+  let plain = @expr.when(@expr.col("c"))
+    .then(@expr.col("v"))
+    .otherwise(@expr.col("w"))
+  assert_false(expr_has_decimal_checked_op(plain.node()))
+}
+
+///|
+test "the touch walk reads a risky name arriving as a clip bound" {
+  // `clip`'s bounds are optional children — only the sides that exist are
+  // walked — and a bound is as readable a column as the clamped operand,
+  // so a risky name arriving as either bound is a decimal touch.
+  let lower = @expr.col("x").clip(lower=@expr.col("d"))
+  let upper = @expr.col("x").clip(upper=@expr.col("d"))
+  let risk = @set.Set(["d"])
+  assert_true(expr_touches_decimal(lower.node(), risk))
+  assert_true(expr_touches_decimal(upper.node(), risk))
+  assert_false(expr_touches_decimal(lower.node(), @set.Set([])))
+}

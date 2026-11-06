@@ -71,12 +71,21 @@ priv enum LogicalPlan {
 /// The per-format read state of a file-backed leaf: the driver that knows the
 /// format (handed in by the `scan_*` builder, built in `io`) plus the push-down
 /// state the optimizer fills in — the projection it narrows and the predicate
-/// it absorbs. Neither is driver state: the same driver value can sit under
-/// any number of plan shapes.
+/// it absorbs — and the decimal probe the scan builder stated when it built
+/// the leaf. Neither the push-down state nor the probe is driver state: the
+/// same driver value can sit under any number of plan shapes.
 priv struct FileScan {
   driver : @scan.ScanDriver
   projection : Array[String]?
   predicate : @expr.Expr?
+  // Whether this read may produce decimal columns whose names the plan
+  // cannot know — the decimal value-fence's `any` flag for the leaf, raised
+  // by the risk walk's `Scan(File(_))` arm. The text sources carry decimal
+  // only through a `dtypes` pin, which the builder reads off the options it
+  // already captures (`pins_decimal`, beside the scan builders); a parquet
+  // footer can name decimal columns the builder cannot read without
+  // breaking its totality, so that source carries the conservative `true`.
+  may_carry_decimal : Bool
 }
 
 ///|

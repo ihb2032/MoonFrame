@@ -350,6 +350,74 @@ test "an absorbed predicate reports a kept row's parse error at its true file ro
   assert_eq(lazy_out, eager)
 }
 
+// ── the decimal value-fence over file sources ────────────────────────
+
+///|
+/// The fixture the decimal-fence tests read: a `Decimal(0)` pin on `d` whose
+/// second cell doubles past the 18-digit envelope (`d + d` refuses there,
+/// `InvalidOperation` on values), and a `k` a predicate can drop that row by.
+/// Pinning is the only way a text read produces a decimal column, so this is
+/// the shape the file-source arm of the fence exists for.
+fn write_decimal_pin_fixture(
+  path : String,
+) -> @io.CsvReadOptions raise @types.DataError {
+  write_raw(path, "k,d\nkeep,1\ndrop,9000000000000000000\n")
+  @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("d", @types.DataType::Decimal(0))]),
+  )
+}
+
+///|
+test "a decimal-pinned CSV scan fences the stage a sunk predicate would prune" {
+  // Eager raises: `d + d` is evaluated on every row, and the second row's
+  // product leaves the envelope. Optimized without the fence, the predicate
+  // sinks below the `with_columns` stage, the refusing row is pruned before
+  // the stage ever reads it, and the plan *collects* — the error-faithfulness
+  // breach the file-source arm closes: the stage's expressions carry a
+  // decimal-checked operation, so it stays a floor.
+  let path = "_build/lazy_scan_csv_decimal_fence.csv"
+  let opts = write_decimal_pin_fixture(path)
+  let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.read_csv(path, options=opts).with_columns(derived).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    scan_csv(path, options=opts)
+    .with_columns(derived)
+    .filter(predicate)
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
+  // The slice pass shares the fence: `head` may not sink below a stage whose
+  // expressions refuse on decimal values, or the refusing row is pruned
+  // before the stage ever reads it — the same breach through the other pass.
+  let path = "_build/lazy_scan_csv_decimal_fence_slice.csv"
+  let opts = write_decimal_pin_fixture(path)
+  let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.read_csv(path, options=opts).with_columns(derived).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    scan_csv(path, options=opts).with_columns(derived).head(1).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
 ///|
 /// File-backed behaviour of the lazy NDJSON source, mirroring the CSV
 /// source: `collect` reads through `@io`, projection push-down
@@ -806,4 +874,65 @@ test "scan_parquet keeps the eager error for a name the file lacks" {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::ColumnNotFound("zzz")))
+}
+
+///|
+test "a parquet footer's decimal column fences the stage a sunk predicate would prune" {
+  // The footer's schema — readable only at collect — can name decimal
+  // columns (the writer round-trips them), so the parquet leaf takes the
+  // conservative arm of the decimal value-fence: the same refusal the CSV
+  // pin carries, through a source whose decimal columns no plan-time fact
+  // can rule out. Eager raises on the second row; the collected plan must
+  // raise the same refusal rather than sink the predicate below the stage.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(9000000000000000000L),
+    ]),
+  ])
+  let path = "_build/lazy_scan_parquet_decimal_fence.parquet"
+  @io.write_parquet(df, path)
+  let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    @io.read_parquet(path).with_columns(derived).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+    scan_parquet(path).with_columns(derived).filter(predicate).collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "a parquet scan still absorbs a bare-column predicate beside a projection" {
+  // The decimal value-fence holds only what carries a decimal-checked
+  // operation; a bare Bool column read is a decision on values the read
+  // itself supplies, so it keeps absorbing into the scan — and beside a
+  // narrowed projection it exercises the driver's predicate-plus-projection
+  // path, which the comparison predicates' fencing leaves cold.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
+    @series.Series::from_bools("flag", [true, false, true]),
+  ])
+  let path = "_build/lazy_scan_parquet_bool_pred.parquet"
+  @io.write_parquet(df, path)
+  let predicate = @expr.col("flag")
+  assert_eq(
+    scan_parquet(path).filter(predicate).select([@expr.col("i")]).collect(),
+    @io.read_parquet(path).filter(predicate).select([@expr.col("i")]),
+  )
+  assert_eq(
+    scan_parquet(path)
+    .filter(predicate)
+    .select([@expr.col("i")])
+    .explain(optimized=true),
+    "SELECT [col(i)]\n" +
+    "  SCAN_PARQUET \"_build/lazy_scan_parquet_bool_pred.parquet\" [i] WHERE col(flag)",
+  )
 }

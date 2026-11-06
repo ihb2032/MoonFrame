@@ -154,7 +154,8 @@ same way.
   `with_columns` / `filter` / `agg`, including compound reductions like
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
-- **Defer & optimize** — `LazyFrame::LazyFrame(df)`, or `scan_csv` / `scan_ndjson` for a
+- **Defer & optimize** — `df.to_lazy()` (or `LazyFrame::LazyFrame(df)`), or
+  `scan_csv` / `scan_ndjson` for a
   lazy file source (deferred execution with projection *and* predicate pushdown
   into the reader, not streaming — the file still tokenizes at `collect()`),
   builds a query plan you can `explain()`; `collect()` runs it through the

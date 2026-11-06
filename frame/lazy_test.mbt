@@ -52,6 +52,17 @@ test "the LazyFrame constructor wraps a frame as a Scan leaf" {
 }
 
 ///|
+test "to_lazy is the method spelling of the constructor" {
+  let df = plan_sales_df()
+  assert_eq(df.to_lazy().explain(), LazyFrame::LazyFrame(df).explain())
+  assert_eq(df.to_lazy().collect(), df)
+  assert_eq(
+    df.to_lazy().filter(@expr.col("qty").gt(@expr.lit_int(50))).collect(),
+    df.filter(@expr.col("qty").gt(@expr.lit_int(50))),
+  )
+}
+
+///|
 test "each deferred verb collects to its eager equivalent" {
   let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))

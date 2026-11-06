@@ -84,6 +84,7 @@ pub fn DataFrame::std(Self) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int32) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
+pub fn DataFrame::to_lazy(Self) -> LazyFrame
 pub fn DataFrame::to_markdown(Self, max_rows? : Int32) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
 pub fn DataFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError

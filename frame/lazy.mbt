@@ -17,9 +17,8 @@
 /// captured frames.
 ///
 /// The entry point is the type's own constructor, `LazyFrame::LazyFrame(df)`
-/// — not `lazy(df)`, since `lazy` is a MoonBit reserved word. The type
-/// shares this package with `DataFrame`, so the method form of the entry
-/// point is a thin step away.
+/// — or its method spelling on the frame, `DataFrame::to_lazy` — and not
+/// `lazy(df)`, since `lazy` is a MoonBit reserved word.
 pub struct LazyFrame {
   priv plan : LogicalPlan
 }
@@ -31,6 +30,16 @@ pub struct LazyFrame {
 /// later state.
 pub fn LazyFrame::LazyFrame(df : DataFrame) -> LazyFrame {
   { plan: Scan(InMemory(df)), }
+}
+
+///|
+/// The `DataFrame`-side entry to the deferred plan: `df.to_lazy()` is the
+/// method spelling of `LazyFrame::LazyFrame(df)` — the plan starts at this
+/// frame and grows through the builder methods, reading nothing until
+/// `collect`. Not named `lazy`: that word is reserved, so it cannot spell a
+/// method.
+pub fn DataFrame::to_lazy(self : DataFrame) -> LazyFrame {
+  LazyFrame::LazyFrame(self)
 }
 
 ///|

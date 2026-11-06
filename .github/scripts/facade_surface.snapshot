@@ -1143,6 +1143,7 @@ method DataFrame::std(Self) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int32) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
+method DataFrame::to_lazy(Self) -> LazyFrame <- frame
 method DataFrame::to_markdown(Self, max_rows? : Int32) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
 method DataFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame

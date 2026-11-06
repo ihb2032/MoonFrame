@@ -45,9 +45,12 @@
 ///   downgrades the offending cell to a null cell and keeps the column's
 ///   inferred dtype.
 /// - `dtypes` — per-column dtype overrides that pin a column's type
-///   instead of inferring it, as a name → `DataType` map. Only the four
-///   dtypes a reader can parse (`Int` / `Float` / `Bool` / `String`) can
-///   be pinned — anything else is refused with `InvalidOperation` at read
+///   instead of inferring it, as a name → `DataType` map. Only the seven
+///   dtypes a reader can parse — the four inference picks (`Int` /
+///   `Float` / `Bool` / `String`) plus the three rider dtypes a pin
+///   carries (`Date` / `Timestamp` / `Decimal(scale)`, read back through
+///   the writers' exact text forms) — can
+///   be pinned; anything else is refused with `InvalidOperation` at read
 ///   time, as is a name the input does not carry (a pin is an assertion
 ///   about the input; a misspelt one fails rather than silently does
 ///   nothing). Columns not named keep their inferred dtype. A pinned
@@ -172,7 +175,8 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// - `DuplicateColumn(name)` — two headers share a name.
 /// - `InvalidOperation` — `options.dtypes` names a column the input does
 ///   not carry, or pins a dtype that has no read parser (anything but
-///   `Int` / `Float` / `Bool` / `String`).
+///   `Int` / `Float` / `Bool` / `String` / `Date` / `Timestamp` /
+///   `Decimal(scale)`).
 /// - `ParseError(Message(...))` — when `strict_quotes` is `true`, the input contains
 ///   an unterminated quoted field, text after a closing quote, or a quote
 ///   inside an unquoted field; or — when `options.strict_column_count` is

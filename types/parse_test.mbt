@@ -9,12 +9,15 @@ test "parse_date_days_opt round-trips the renderer" {
   assert_eq(@types.parse_date_days_opt("2000-02-29"), Some(11016L))
   assert_eq(@types.parse_date_days_opt("1969-12-31"), Some(-1L))
   assert_eq(@types.parse_date_days_opt("0001-01-01"), Some(-719_162L))
+  assert_eq(@types.parse_date_days_opt("0000-01-01"), Some(-719_528L))
   assert_eq(@types.parse_date_days_opt("9999-12-31"), Some(2_932_896L))
   // Every renderer output parses back to the count it came from — the
-  // padded-year, expanded-year, and pre-year-1 spellings included.
+  // padded-year, expanded-year, pre-year-1, and year-zero spellings
+  // included (year zero rendered unsigned, its one form).
   for
     days in [
-      0L, 11016L, -1L, -719_162L, 2_932_896L, 100_000L, -100_000L, -800_000L, 9_223_372_036_854_775_807L,
+      0L, 11016L, -1L, -719_162L, -719_528L, 2_932_896L, 100_000L, -100_000L, -800_000L,
+      9_223_372_036_854_775_807L,
     ] {
     let rendered = @types.Scalar::Date(days).to_string()
     assert_eq(@types.parse_date_days_opt(rendered), Some(days))
@@ -35,6 +38,7 @@ test "parse_date_days_opt refuses the non-forms and non-dates" {
   assert_eq(@types.parse_date_days_opt(" 2024-01-01"), None)
   assert_eq(@types.parse_date_days_opt("2024-01-01T00:00:00.000000"), None) // a timestamp, not a date
   assert_eq(@types.parse_date_days_opt("+2024-01-01"), None) // the writer carries no `+`
+  assert_eq(@types.parse_date_days_opt("-0000-01-01"), None) // signed year zero — its one form is unsigned
   assert_eq(@types.parse_date_days_opt("99999999999999999999-01-01"), None) // a year whose digits leave Int64
   // The calendar's own refusals.
   assert_eq(@types.parse_date_days_opt("2023-02-29"), None) // non-leap
@@ -118,6 +122,7 @@ test "parse_timestamp_micros_opt admits the fraction variants and refuses the re
     None,
   ) // non-date half
   assert_eq(@types.parse_timestamp_micros_opt("nope"), None) // no date half at all
+  assert_eq(@types.parse_timestamp_micros_opt("-0000-01-01T00:00:00"), None) // signed year zero, the date half's own refusal
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T0:00:00"), None) // a torn clock field
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T00:"), None) // cut at the minute
   assert_eq(@types.parse_timestamp_micros_opt("2024-01-01T00:00:"), None) // cut at the second
@@ -137,10 +142,22 @@ test "parse_decimal_unscaled_opt reads the writer's form at the pin's scale" {
   assert_eq(@types.parse_decimal_unscaled_opt("-0.05", 2), Some(-5L))
   assert_eq(@types.parse_decimal_unscaled_opt("0.00", 2), Some(0L))
   // The renderer's own output round-trips at its own scale.
-  for unscaled in [1L, -1L, 12345L, -12345L, 9_223_372_036_854_775_807L] {
+  for
+    unscaled in [
+      1L, -1L, 12345L, -12345L, 9_223_372_036_854_775_807L, -9_223_372_036_854_775_808L,
+    ] {
     let rendered = @types.Scalar::Decimal(4, unscaled).to_string()
     assert_eq(@types.parse_decimal_unscaled_opt(rendered, 4), Some(unscaled))
   }
+  // `Int64::MIN` at the other scale shapes the writer gives it: the
+  // magnitude's digits are one past `MAX`, so they read only because the
+  // negative side accumulates in its own sign — bare integer and split
+  // fraction alike.
+  let min = -9_223_372_036_854_775_808L
+  let rendered_bare = @types.Scalar::Decimal(0, min).to_string()
+  assert_eq(@types.parse_decimal_unscaled_opt(rendered_bare, 0), Some(min))
+  let rendered_split = @types.Scalar::Decimal(1, min).to_string()
+  assert_eq(@types.parse_decimal_unscaled_opt(rendered_split, 1), Some(min))
 }
 
 ///|
@@ -173,4 +190,6 @@ test "parse_decimal_unscaled_opt refuses what the pin cannot hold" {
     @types.parse_decimal_unscaled_opt("9223372036854775.807", 3),
     Some(9_223_372_036_854_775_807L),
   )
+  // The negative side's own overflow: one unit past `Int64::MIN`.
+  assert_eq(@types.parse_decimal_unscaled_opt("-9223372036854775809", 0), None)
 }

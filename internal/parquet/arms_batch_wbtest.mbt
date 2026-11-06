@@ -117,6 +117,29 @@ test "a long-form list header reads its varint count" {
   assert_eq(elems.length(), 15)
 }
 
+///|
+test "a long-form list count past the bound refuses" {
+  // 0x1_0000_0001 sits past the ceiling the skipper holds; and
+  // 0x1_0000_0000 itself is the truncation shape — its Int32 fold
+  // reads as zero, which the callers' loops would treat as no elements
+  // instead of a refusal.
+  let over : Array[Byte] = [(0xFC).to_byte()]
+  push_varint_bytes(over, 0x1_0000_0001UL)
+  assert_true(list_header(thrift_reader(Bytes::from_array(over)), 12) is None)
+  let wrapped : Array[Byte] = [(0xFC).to_byte()]
+  push_varint_bytes(wrapped, 0x1_0000_0000UL)
+  assert_true(
+    list_header(thrift_reader(Bytes::from_array(wrapped)), 12) is None,
+  )
+  // The ceiling itself still reads.
+  let at_bound : Array[Byte] = [(0xFC).to_byte()]
+  push_varint_bytes(at_bound, 0x1000_0000UL)
+  assert_eq(
+    list_header(thrift_reader(Bytes::from_array(at_bound)), 12),
+    Some(0x1000_0000),
+  )
+}
+
 // ── page shapes the writer never emits ───────────────────────────────
 
 ///|
@@ -718,4 +741,43 @@ test "the byte-array capacity walk stops at an overlong prefix" {
   assert_eq(dictionary_capacity(b"\xFF", bool_map), 8)
   let date_map = dtype_map(@types.DataType::Date).unwrap()
   assert_eq(dictionary_capacity(b"\x01\x02\x03\x04", date_map), 1)
+}
+
+///|
+test "a V1 page declaring BIT_PACKED definition levels refuses" {
+  // The deprecated pre-hybrid level spelling: the header's field 3
+  // names BIT_PACKED (4) where every RLE-hybrid writer names RLE (3),
+  // and the level decoder refuses the page naming the encoding instead
+  // of misreading the run.
+  let body : Array[Byte] = plain_defs(1)
+  push_le_i64(body, 7L)
+  let pw = thrift_writer()
+  pw.i32_field(1, 0)
+  pw.i32_field(2, body.length())
+  pw.i32_field(3, body.length())
+  pw.struct_field_begin(5)
+  pw.i32_field(1, 1)
+  pw.i32_field(2, 0)
+  pw.i32_field(3, 4) // definition_level_encoding = BIT_PACKED
+  pw.i32_field(4, 3)
+  pw.struct_end()
+  pw.struct_end()
+  let page : Array[Byte] = []
+  for b in pw.finish() {
+    page.push(b)
+  }
+  for b in body {
+    page.push(b)
+  }
+  let result = Ok(
+    ignore(
+      read_parquet_columns(foreign_raw(2, 0, Bytes::from_array(page), 1), None),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result is Err(@types.DataError::Unsupported(msg)) &&
+    msg.contains("BIT_PACKED"),
+  )
 }

@@ -5,6 +5,24 @@
 // lands on its own branch and adds its row here when they merge).
 
 ///|
+/// The picked columns alone — the whitebox tests' spelling of the read;
+/// production rides `read_parquet_frame`, whose single footer walk
+/// answers the columns and the row count together.
+fn read_parquet_columns(
+  bytes : Bytes,
+  projection : Array[String]?,
+) -> Array[(String, @series.Series)] raise @types.DataError {
+  read_parquet_frame(bytes, projection).0
+}
+
+///|
+/// The file's declared row count — the whitebox tests' direct spelling;
+/// production reaches the same check inside `read_parquet_frame`.
+fn parquet_num_rows(bytes : Bytes) -> Int32 raise @types.DataError {
+  footer_num_rows(read_footer(bytes))
+}
+
+///|
 fn sample_columns() -> Array[@series.Series] raise @types.DataError {
   [
     @series.Series::from_int_options("i", [
@@ -186,6 +204,127 @@ test "a written V1 page prefixes its level run with the run length" {
   assert_eq(bytes[body_at + 4], (0x03).to_byte())
   assert_eq(bytes[body_at + 5], (0x01).to_byte())
   assert_eq(le_i64(bytes, body_at + 6), 1L)
+}
+
+///|
+test "non-ASCII and astral column names and cells round-trip" {
+  // The path list's length prefix counts UTF-8 bytes, not a String's
+  // own UTF-16 code units: a BMP name (one unit, three bytes) would
+  // undercount and an astral one (two units, four bytes) still
+  // disagree, so either spelling corrupts the footer at the very name
+  // the chunk pairing reads by. The schema's own name field and the
+  // string cells already count bytes; this pins the list element's
+  // prefix to the same truth.
+  let names = ["列", "𝐀𝐁"]
+  let columns : Array[@series.Series] = [
+    @series.Series::from_string_options("列", [Some("值"), None, Some("🙂")]),
+    @series.Series::from_string_options("𝐀𝐁", [
+      Some("𝐀"),
+      Some(""),
+      None,
+    ]),
+  ]
+  let bytes = write_parquet_bytes(columns, names, Uncompressed)
+  let read = read_parquet_columns(bytes, None)
+  assert_eq(read.length(), 2)
+  assert_eq(read[0].0, "列")
+  assert_eq(read[1].0, "𝐀𝐁")
+  assert_eq(read[0].1.to_scalars(), columns[0].to_scalars())
+  assert_eq(read[1].1.to_scalars(), columns[1].to_scalars())
+  // The projection pairs by the same spelled name.
+  let picked = read_parquet_columns(bytes, Some(["𝐀𝐁"]))
+  assert_eq(picked.length(), 1)
+  assert_eq(picked[0].0, "𝐀𝐁")
+}
+
+///|
+test "the footer's size fields name the uncompressed truth" {
+  // ColumnMetaData field 6 (total_uncompressed_size) names the
+  // uncompressed page total and field 7 (total_compressed_size) the
+  // bytes the file carries; the row group's field 2 (total_byte_size)
+  // is the uncompressed sum. Under UNCOMPRESSED the three agree; under
+  // SNAPPY the literal-only stream inflates its body, so 7 > 6 while
+  // the row group's total stays the uncompressed one.
+  let values : Array[Int64?] = []
+  for i = 0; i < 40; i = i + 1 {
+    values.push(Some(i.to_int64()))
+  }
+  let col = @series.Series::from_int_options("i", values)
+  for codec in [Uncompressed, Snappy] {
+    let bytes = write_parquet_bytes([col], ["i"], codec)
+    let n = bytes.length()
+    let footer_len = le_i32(bytes, n - 8)
+    let r = thrift_reader(bytes)
+    r.pos = n - 8 - footer_len
+    let mut chunk6 = 0L
+    let mut chunk7 = 0L
+    let mut group2 = 0L
+    let mut last = 0
+    for ;; {
+      let h = r.field_header(last).unwrap()
+      if h.wire is Stop {
+        break
+      }
+      last = h.id
+      if h.id == 4 {
+        ignore(list_header(r, 12).unwrap())
+        let mut group_last = 0
+        for ;; {
+          let gh = r.field_header(group_last).unwrap()
+          if gh.wire is Stop {
+            break
+          }
+          group_last = gh.id
+          if gh.id == 1 {
+            ignore(list_header(r, 12).unwrap())
+            let mut chunk_last = 0
+            for ;; {
+              let ch = r.field_header(chunk_last).unwrap()
+              if ch.wire is Stop {
+                break
+              }
+              chunk_last = ch.id
+              if ch.id == 2 {
+                ignore(r.zigzag_i64())
+              } else if ch.id == 3 {
+                let mut meta_last = 0
+                for ;; {
+                  let mh = r.field_header(meta_last).unwrap()
+                  if mh.wire is Stop {
+                    break
+                  }
+                  meta_last = mh.id
+                  if mh.id == 6 {
+                    chunk6 = r.zigzag_i64().unwrap()
+                  } else if mh.id == 7 {
+                    chunk7 = r.zigzag_i64().unwrap()
+                  } else if !r.skip(mh.wire) {
+                    fail("the footer walk could not skip a field")
+                  }
+                }
+              } else if !r.skip(ch.wire) {
+                fail("the footer walk could not skip a field")
+              }
+            }
+          } else if gh.id == 2 {
+            group2 = r.zigzag_i64().unwrap()
+          } else if !r.skip(gh.wire) {
+            fail("the footer walk could not skip a field")
+          }
+        }
+      } else if !r.skip(h.wire) {
+        fail("the footer walk could not skip a field")
+      }
+    }
+    assert_true(chunk6 > 0L)
+    if codec is Uncompressed {
+      assert_eq(chunk6, chunk7)
+      assert_eq(group2, chunk6)
+    } else {
+      assert_true(chunk7 > chunk6)
+      assert_eq(group2, chunk6)
+    }
+  }
 }
 
 ///|

@@ -37,27 +37,33 @@ fn snappy_decompress(input : Bytes) -> Bytes? {
     match tag & 0x03 {
       0 => {
         // A literal: the low six bits name its length minus one, with
-        // the 60..63 spellings carrying extra bytes.
-        let mut len = (tag >> 2) + 1
-        if len >= 61 {
-          let extra = len - 60
-          len = 0
+        // the 60..63 spellings carrying extra bytes. The extended
+        // length accumulates in Int64 whole — its four bytes can spell
+        // a value past 2^31, whose truncating Int32 fold would read as
+        // a negative and slip past the bound below — and the bound
+        // itself is Int64, so an over-long literal refuses here.
+        let mut len : Int64 = (tag >> 2).to_int64() + 1L
+        if len >= 61L {
+          let extra = (len - 60L).to_int()
+          len = 0L
           for i in 0..<extra {
             match r.byte() {
-              Some(b) => len = len | (b.to_int64() << (i * 8)).to_int()
+              Some(b) => len = len | (b.to_int64() << (i * 8))
               None => return None
             }
           }
-          len = len + 1
+          len = len + 1L
         }
-        if written + len.to_int64() > declared {
+        if written + len > declared {
           return None
         }
-        for _ in 0..<len {
+        let mut left = len
+        while left > 0L {
           match r.byte() {
             Some(b) => {
               out.push(b.to_byte())
-              written = written + 1
+              written = written + 1L
+              left = left - 1L
             }
             None => return None
           }

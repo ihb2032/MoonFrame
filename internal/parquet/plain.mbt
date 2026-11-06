@@ -36,9 +36,6 @@ fn push_le_f64(buf : Array[Byte], v : Double) -> Unit {
 }
 
 ///|
-/// Append one little-endian `Float` (`Double`'s narrow parquet spelling).
-
-///|
 /// Read one little-endian `Int32` at `offset`.
 fn le_i32(bytes : Bytes, offset : Int32) -> Int32 {
   let mut v = 0

@@ -7,12 +7,24 @@
 // columns it names are walked at all.
 
 ///|
+/// The most cells one column chunk may declare — the allocation-budget
+/// guard, the reader's own spelling of the cap the io layer's gzip read
+/// carries (`max_output` on one decompression): the file-length bound
+/// already holds a chunk to eight one-bit cells per byte of file, but a
+/// twenty-megabyte file can still legally claim a hundred and sixty
+/// million of them, and every cell past here sizes boxed values the
+/// decode would build — past the budget the column refuses loudly
+/// instead of letting the expansion run the process out of memory.
+let parquet_cell_budget : Int64 = 1L << 27
+
+///|
 /// One column's footer facts, before the schema pairing. The physical
-/// tag walks the chunk but does not ride the struct — the schema's own
-/// element names the dtype the chunk decodes under, and a disagreement
-/// between the two is the pairing's refusal.
+/// tag rides the chunk because the pairing compares it — the schema's
+/// own element names the dtype the chunk decodes under, and a
+/// disagreement between the two is the pairing's refusal.
 priv struct RawChunk {
   name : String
+  physical : Int32
   codec : Int32
   num_values : Int64
   pages_at : Int64
@@ -114,6 +126,16 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
         if schema[i].repetition == 2 {
           raise bad(
             "column \"\{chunk.name}\" is REPEATED, a nested shape MoonFrame does not read",
+          )
+        }
+        // The chunk's own metadata names the physical type a second
+        // time, and the two spellings must agree: a chunk decoding
+        // INT64 bytes under an INT32 schema row (or any other
+        // disagreement) would decode confidently wrong cells, so the
+        // pairing refuses naming both tags.
+        if schema[i].physical != chunk.physical {
+          raise @types.DataError::InvalidOperation(
+            "column \"\{chunk.name}\" carries physical type \{chunk.physical} in its chunk metadata but physical type \{schema[i].physical} in its schema",
           )
         }
         paired = match
@@ -249,7 +271,11 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
 
 ///|
 /// A list header: the (size<<4)|elem byte or the 0xF long form. Returns
-/// the element count, or `None` on a mismatched element type.
+/// the element count, or `None` on a mismatched element type. The
+/// long-form count rides the same ceiling the skipper holds — past it
+/// the varint is a bomb's claim, and its truncating Int32 fold would
+/// read a huge count as zero (or as a negative the callers' loops treat
+/// as no elements) instead of refusing.
 fn list_header(r : ThriftReader, elem_want : Int32) -> Int32? {
   match r.byte() {
     None => None
@@ -260,7 +286,7 @@ fn list_header(r : ThriftReader, elem_want : Int32) -> Int32? {
       let size = h >> 4
       if size == 15 {
         match r.varint() {
-          Some(v) => Some(v.to_int())
+          Some(v) => if v > 0x1000_0000UL { None } else { Some(v.to_int()) }
           None => None
         }
       } else {
@@ -272,11 +298,22 @@ fn list_header(r : ThriftReader, elem_want : Int32) -> Int32? {
 
 ///|
 /// The row-group list (field 4's payload): every group's column chunks,
-/// concatenated in order.
-fn row_groups_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
+/// concatenated in order — for the one group this reader walks. A file
+/// declaring more than one names a shape MoonFrame does not read yet:
+/// concatenating the groups' chunks would splice same-named columns
+/// into one file-wide chunk list, so the count refuses here instead.
+fn row_groups_read(
+  r : ThriftReader,
+  into : Array[RawChunk],
+) -> Bool raise @types.DataError {
   let count = match list_header(r, 12) {
     Some(c) => c
     None => return false
+  }
+  if count > 1 {
+    raise @types.DataError::Unsupported(
+      "multi-row-group parquet files are not supported yet: the file declares \{count} row groups",
+    )
   }
   for _ in 0..<count {
     let mut last = 0
@@ -340,7 +377,7 @@ fn column_chunks_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
 /// dictionary_page_offset (11 — where the pages really start when a
 /// dictionary page precedes).
 fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
-  let mut _physical = 0
+  let mut physical = 0
   let mut codec = 0
   let mut num_values = 0L
   let mut compressed = 0L
@@ -359,7 +396,7 @@ fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
           match h.id {
             1 =>
               match r.zigzag_i32() {
-                Some(v) => _physical = v
+                Some(v) => physical = v
                 None => return false
               }
             3 => {
@@ -413,11 +450,49 @@ fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
   } else {
     data_page_offset
   }
-  into.push({ name: path, codec, num_values, pages_at, compressed, })
+  into.push({ name: path, physical, codec, num_values, pages_at, compressed, })
   true
 }
 
 // ── the page walk ────────────────────────────────────────────────────
+
+///|
+/// The most decompressed bytes one GZIP page body may produce — the
+/// page-level spelling of the io layer's gzip read cap, where the
+/// SNAPPY codec's own declared-length guard refuses the same
+/// decompression bomb before its expansion runs. A compressed page of a
+/// few bytes can name gigabytes of payload; past this cap the page
+/// refuses instead of letting the inflation run the process out of
+/// memory.
+let gzip_page_max_output : Int32 = 0x4000_0000
+
+///|
+/// Decompress one GZIP page body under the page cap — the cap rides the
+/// inflater itself, never a declared size the stream could misname, so
+/// only the bytes actually produced count against it.
+fn gzip_page_body(bytes : Bytes) -> Bytes raise @types.DataError {
+  gzip_page_body_capped(bytes, gzip_page_max_output)
+}
+
+///|
+/// `gzip_page_body` with the cap as a parameter — production reads pass
+/// `gzip_page_max_output`; the whitebox tests pass a small one, because
+/// inflating a real gigabyte past the production cap is exactly the
+/// cost the guard exists to spare.
+fn gzip_page_body_capped(
+  bytes : Bytes,
+  cap : Int32,
+) -> Bytes raise @types.DataError {
+  @gzip.decompress(bytes, max_output=cap) catch {
+    // The cap's refusal, kept apart from the malformed-stream arm: the
+    // message names the cap rather than claiming the stream is invalid.
+    @gzip.GzipError(OutputLimitExceeded(limit~, observed~), _detail) =>
+      raise bad(
+        "a GZIP page body inflates past the \{limit}-byte decompression cap (already \{observed} bytes produced)",
+      )
+    _ => raise bad("a GZIP page body does not decompress")
+  }
+}
 
 ///|
 /// One column chunk decoded into its cells: the page loop from the
@@ -443,7 +518,15 @@ fn decode_column(
       "column \"\{chunk.name}\" claims \{total} values, beyond what its bytes could carry",
     )
   }
-  let defs : Array[Int32] = []
+  // The absolute cell budget: the file-length bound above still admits
+  // a small file legally claiming an expansion-sized count, and every
+  // cell the count names becomes a boxed value below — so a count past
+  // the budget refuses here, before any allocation it would size.
+  if total > parquet_cell_budget {
+    raise @types.DataError::InvalidOperation(
+      "column \"\{chunk.name}\" declares \{total} values, past the \{parquet_cell_budget}-cell budget a single column read accepts",
+    )
+  }
   // The present values, decoded per physical type; the dictionary
   // (when a dictionary page precedes) holds the value set.
   let mut dictionary : Array[@types.Scalar] = []
@@ -459,21 +542,27 @@ fn decode_column(
     chunk_end > bytes.length().to_int64() {
     raise bad("column \"\{chunk.name}\" leaves the file")
   }
-  let mut at = chunk_start.to_int()
-  let end = chunk_end.to_int()
+  // The chunk's own byte region, sliced once — the page walk parses
+  // inside it, so a truncated or over-long chunk size refuses at its
+  // boundary instead of reading the bytes that follow the chunk as
+  // though they were its own, and the walk below advances through it by
+  // page offsets instead of re-copying the whole remaining chunk per
+  // page.
+  let chunk_bytes = slice(
+    bytes,
+    chunk_start.to_int(),
+    (chunk_end - chunk_start).to_int(),
+  )
+  let end = chunk_bytes.length()
+  let mut at = 0
   let mut produced = 0L
   while produced < total {
-    if at >= end || at >= bytes.length() {
+    if at >= end {
       raise bad("column \"\{chunk.name}\" ends before its values")
     }
-    // The chunk's own byte region — the page walk parses inside it, so
-    // a truncated or over-long chunk size refuses at its boundary
-    // instead of reading the bytes that follow the chunk as though
-    // they were its own.
-    let chunk_bytes = slice(bytes, at, end - at)
-    let chunk_reader = thrift_reader(chunk_bytes)
-    // One page header.
-    let r = chunk_reader
+    // One page header, parsed in place at the page's own offset.
+    let r = thrift_reader(chunk_bytes)
+    r.pos = at
     let mut _uncompressed = 0
     let mut compressed_size = 0
     let mut page_type = 0
@@ -511,7 +600,11 @@ fn decode_column(
           }
         5 => {
           // DataPageHeader (V1): num_values (1), encoding (2),
-          // definition_level_encoding (3).
+          // definition_level_encoding (3). A page declaring its
+          // definition levels BIT_PACKED (4) names the deprecated
+          // pre-hybrid spelling — the level decoder walks the RLE /
+          // bit-packed hybrid only, so the page refuses naming the
+          // encoding instead of misreading the run.
           let mut inner_last = 0
           for ;; {
             let hi = match r.field_header(inner_last) {
@@ -532,6 +625,15 @@ fn decode_column(
                 match r.zigzag_i32() {
                   Some(v) => encoding = v
                   None => raise bad("a page encoding is malformed")
+                }
+              3 =>
+                match r.zigzag_i32() {
+                  Some(4) =>
+                    raise @types.DataError::Unsupported(
+                      "a V1 page of column \"\{chunk.name}\" declares BIT_PACKED definition levels, a deprecated encoding MoonFrame does not read",
+                    )
+                  Some(_) => ()
+                  None => raise bad("a V1 level encoding is malformed")
                 }
               _ =>
                 if !r.skip(hi.wire) {
@@ -638,18 +740,16 @@ fn decode_column(
         _ => if !r.skip(h.wire) { raise bad("a page header is malformed") }
       }
     }
-    // `r.pos` is an offset into the chunk's own region; the page body
-    // is the chunk bytes after the header, and the walk's file offset
-    // advances by the same amount. The bound is spelled as a
-    // subtraction — `body_in_chunk` never passes the chunk's own
-    // length, so it cannot wrap, while the addition of a hostile
-    // `compressed_size` could.
-    let body_in_chunk = r.pos
-    if compressed_size < 0 ||
-      compressed_size > chunk_bytes.length() - body_in_chunk {
+    // `r.pos` is the chunk-relative offset past the header — where the
+    // page body sits — and the walk's own offset advances past header
+    // and body together. The bound is spelled as a subtraction —
+    // `body_at` never passes the chunk's own length, so it cannot wrap,
+    // while the addition of a hostile `compressed_size` could.
+    let body_at = r.pos
+    if compressed_size < 0 || compressed_size > end - body_at {
       raise bad("a page body leaves the chunk")
     }
-    at = at + body_in_chunk + compressed_size
+    at = body_at + compressed_size
     // A data page cannot name more values than the chunk still owes:
     // the count sizes every per-value allocation below, so it is checked
     // against the chunk's own total before anything is built by it — a
@@ -682,11 +782,11 @@ fn decode_column(
       }
       slice(
         chunk_bytes,
-        body_in_chunk + rep_len + def_len,
+        body_at + rep_len + def_len,
         compressed_size - rep_len - def_len,
       )
     } else {
-      slice(chunk_bytes, body_in_chunk, compressed_size)
+      slice(chunk_bytes, body_at, compressed_size)
     }
     // The values ride the chunk's codec — unless the page is a V2 one
     // whose header spells is_compressed=false, a page-level opt-out
@@ -702,10 +802,7 @@ fn decode_column(
             Some(b) => b
             None => raise bad("a SNAPPY page body does not decompress")
           }
-        2 =>
-          @gzip.decompress(values_input) catch {
-            _ => raise bad("a GZIP page body does not decompress")
-          }
+        2 => gzip_page_body(values_input)
         c =>
           raise @types.DataError::Unsupported(
             "parquet column \"\{chunk.name}\" carries compression codec \{c}",
@@ -726,6 +823,10 @@ fn decode_column(
       )
       continue
     }
+    // The level decoder's own ceiling: the cells the chunk still owes,
+    // already bounded by the budget the chunk's total passed — the page
+    // count check above has vouched that `num_values` sits inside it.
+    let remaining = (total - produced).to_int()
     // A REQUIRED column's max definition level is 0, so neither page
     // version writes a level section: the body is values from byte zero
     // and every cell is present. V1 otherwise opens its level run with
@@ -747,16 +848,17 @@ fn decode_column(
       if level_len < 0 || level_len > body.length() - 4 {
         raise bad("a V1 page's level length leaves its body")
       }
-      match rle_decode(slice(body, 4, level_len), num_values, 1) {
+      match rle_decode(slice(body, 4, level_len), num_values, 1, remaining) {
         Some((decoded, _)) => (decoded, 4 + level_len)
         None => raise bad("definition levels do not decode")
       }
     } else {
       match
         rle_decode(
-          slice(chunk_bytes, body_in_chunk + rep_len, def_len),
+          slice(chunk_bytes, body_at + rep_len, def_len),
           num_values,
           1,
+          remaining,
         ) {
         Some((decoded, _)) => (decoded, 0)
         None => raise bad("definition levels do not decode")
@@ -790,7 +892,6 @@ fn decode_column(
           } else {
             values.push(None)
           }
-          defs.push(page_defs[i])
         }
       }
       2 | 8 => {
@@ -801,7 +902,7 @@ fn decode_column(
         }
         let index_stream = slice(value_bytes, 1, value_bytes.length() - 1)
         let (indices, _consumed) = match
-          rle_decode(index_stream, present_count, bit_width) {
+          rle_decode(index_stream, present_count, bit_width, remaining) {
           Some(d) => d
           None => raise bad("dictionary indices do not decode")
         }
@@ -817,7 +918,6 @@ fn decode_column(
           } else {
             values.push(None)
           }
-          defs.push(page_defs[i])
         }
       }
       e =>
@@ -834,12 +934,15 @@ fn decode_column(
 /// A byte slice, copied. A length past the buffer clamps to what is
 /// there (a negative one to nothing) — the page walk's own bounds
 /// checks refuse malformed sizes with a located error; this helper
-/// never adds a second refusal shape of its own.
+/// never adds a second refusal shape of its own. The clamp is spelled
+/// as a subtraction — `at` already sits inside the buffer, so the
+/// difference cannot wrap, while `at + len` could fold a hostile length
+/// near the Int32 ceiling back inside (or past) the bound.
 fn slice(bytes : Bytes, at : Int32, len : Int32) -> Bytes {
   if at < 0 || at >= bytes.length() || len <= 0 {
     return Bytes::from_array([])
   }
-  let end = if at + len > bytes.length() { bytes.length() } else { at + len }
+  let end = if len > bytes.length() - at { bytes.length() } else { at + len }
   Bytes::makei(end - at, i => bytes[at + i])
 }
 
@@ -857,17 +960,18 @@ fn count_present(defs : Array[Int32]) -> Int32 {
 
 ///|
 /// The BOOLEAN dictionary capacity: eight cells to a byte, clamped at
-/// the Int32 ceiling so the product cannot wrap negative (a wrapped
+/// the cell budget so the product cannot wrap negative (a wrapped
 /// capacity is an empty dictionary, and empty means every index
-/// refuses). The clamp arm needs a dictionary body past 2^28 bytes —
-/// more memory than a test may spend — so the function rides
-/// `#coverage.skip`; the in-range product is exercised by every
+/// refuses) and the decode it sizes stays inside the cells one column
+/// read accepts. The clamp arm needs a dictionary body past the budget's
+/// own eighth — more memory than a test may spend — so the function
+/// rides `#coverage.skip`; the in-range product is exercised by every
 /// dictionary round-trip.
 #coverage.skip
 fn boolean_dictionary_cap(bytes : Bytes) -> Int32 {
   let cap = bytes.length().to_int64() * 8L
-  if cap > 2147483647L {
-    2147483647
+  if cap > parquet_cell_budget {
+    parquet_cell_budget.to_int()
   } else {
     cap.to_int()
   }
@@ -895,8 +999,6 @@ fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
     }
   }
 }
-
-///|
 
 ///|
 /// Decode `count` PLAIN values of the mapped physical type.

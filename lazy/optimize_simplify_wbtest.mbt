@@ -18,7 +18,11 @@ test "rebuild_over: the walk-excluded shapes come back verbatim" {
     }),
   ]
   for shape in shapes {
-    assert_eq(rebuild_over(shape, []).children().length(), 0)
+    // `each_child` is the cross-package face of the descent; count through it,
+    // since the array form stays inside the AST's own package.
+    let mut visited = 0
+    rebuild_over(shape, []).each_child(_ => visited = visited + 1)
+    assert_eq(visited, 0)
   }
 }
 

@@ -266,6 +266,27 @@ What has landed on `main`:
   decode even when the projection above drops them, the same key-column
   contract the text scans' pruner honours, so a filtered select or a
   filtered group-by collects to exactly its eager spelling.
+- The parquet codec reads and writes the spec's own level encodings. A
+  V1 data page prefixes its RLE definition-level run with the 4-byte
+  little-endian length the format defines (a file MoonFrame wrote
+  before this change carried the run bare — those files now refuse on
+  read instead of mis-decoding), and a V2 page decodes its levels as
+  the RLE / bit-packed hybrid stream the page header itself sizes — no
+  prefix, never compressed — where the reader once read a bare bitmap
+  no parquet writer emits, under the page type (3) a foreign V2 page
+  actually declares. The schema walk reads the repetition type
+  and child count too: a REQUIRED column's pages carry no level section
+  at all and their values begin at the body's first byte (a foreign
+  REQUIRED column was mis-refused before), a group element refuses
+  naming the group instead of pairing a chunk under the BOOLEAN the
+  absent physical type once defaulted to, and a REPEATED leaf refuses
+  the same way. A dictionary page no longer counts its entries into the
+  chunk's value total (a dictionary chunk with several data pages
+  reads now), a V2 page whose header spells `is_compressed=false`
+  decodes its values raw however the chunk's codec votes, a bare INT32
+  column reads as a signed `Int`, and the thrift skipper bounds its
+  nesting so a footer spelled to recurse refuses with a located
+  `ParseError` instead of exhausting the stack.
 - The chart export gains a browser page: `format_vega_html` /
   `write_vega_html` wrap the specification `format_vega_lite` emits in a
   standalone HTML document that loads the Vega runtime from three pinned
@@ -277,6 +298,19 @@ What has landed on `main`:
   every literal `<` to its `\u003c` escape (the U+2028 / U+2029 line
   separators likewise), so chart data cannot close the host `<script>`
   element early.
+- A `Decimal` cell at the negative extreme reads back: the pin's parser
+  accumulated the digits as a positive magnitude before negating, so
+  `Int64::MIN` — the one value whose magnitude exceeds `Int64::MAX` —
+  refused in every spelling the writer renders (`-9223372036854775808`
+  and its scaled forms), an error under the readers' `Raise` mode and a
+  silent null under `Null`. The digits now accumulate in the value's own
+  sign; every value outside the signed range still refuses.
+- A signed year zero refuses: `-0000-01-01` (and the timestamp spellings
+  built on it) read as year 0, but the writer emits year 0 only as the
+  unsigned `0000-01-01` — the form the parsers promise to accept — and
+  ISO 8601 agrees a signed zero is no year. The signed form now refuses
+  like every other shape the writers do not emit; the unsigned one is
+  unchanged.
 
 ## v0.8.0 → v0.8.1
 

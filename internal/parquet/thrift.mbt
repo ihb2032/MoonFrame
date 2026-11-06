@@ -31,17 +31,18 @@ priv struct FieldHeader {
 ///|
 /// The reader cursor — an offset into a byte array with the compact
 /// primitives decoded in place. Every method advances; a malformed
-// sequence refuses with `None` / `false` rather than aborting, so a
-// truncated or hostile footer surfaces as a located error upstream.
+/// sequence refuses with `None` / `false` rather than aborting, so a
+/// truncated or hostile footer surfaces as a located error upstream.
 priv struct ThriftReader {
   bytes : Bytes
   mut pos : Int32
+  mut depth : Int32
 }
 
 ///|
 /// The reader over a byte slice, starting at its head.
 fn thrift_reader(bytes : Bytes) -> ThriftReader {
-  { bytes, pos: 0, }
+  { bytes, pos: 0, depth: 0, }
 }
 
 ///|
@@ -184,10 +185,34 @@ fn ThriftReader::field_header(
 }
 
 ///|
-/// Skip one value of the given wire type — the unknown-field rule. A
-// list skips its elements by their own type; a struct skips until its
-// stop byte.
+/// The deepest nesting the skipper walks. Parquet's own metadata nests
+/// a handful of struct levels — a footer into row groups into column
+/// chunks into their statistics — so anything legal sits far below this
+/// bound, while a footer spelled to recurse (every byte a field header
+/// opening another struct) would walk one skip frame per byte until the
+/// stack dies. Past the bound the skip refuses, and every caller
+/// reports that refusal as a located parse error.
+let max_skip_depth : Int32 = 64
+
+///|
+/// Skip one value of the given wire type — the unknown-field rule. The
+/// nesting a skip walks (a list over its elements, a struct over its
+/// fields) is bounded: a value past `max_skip_depth` levels refuses
+/// rather than recursing on a hostile footer's depth.
 fn ThriftReader::skip(self : ThriftReader, wire : WireType) -> Bool {
+  if self.depth >= max_skip_depth {
+    return false
+  }
+  self.depth = self.depth + 1
+  let ok = self.skip_value(wire)
+  self.depth = self.depth - 1
+  ok
+}
+
+///|
+/// One skip step, already depth-accounted. A list skips its elements
+/// by their own type; a struct skips until its stop byte.
+fn ThriftReader::skip_value(self : ThriftReader, wire : WireType) -> Bool {
   match wire {
     Stop | BoolTrue | BoolFalse => true
     I32V | I64V => self.varint() is Some(_)

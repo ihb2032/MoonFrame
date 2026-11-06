@@ -31,6 +31,11 @@
 /// confined to a dropped column, or to a row the predicate drops in a column the
 /// predicate does not read, does not surface. Dtype inference still walks the
 /// whole file, so dtypes and the surviving cells match the eager read exactly.
+/// The one pin that fences this back is `Decimal`: decimal arithmetic and
+/// comparison refuse on *values*, so above a scan whose pin carries one, the
+/// decimal value-fence holds any predicate or stage expression with such an
+/// operation in place — a sunk one would prune away the very rows the refusal
+/// lives on, and a plan that fails to collect must still fail optimized.
 ///
 /// `options` (delimiter, header, null strings, inference window, parse-error
 /// policy, strict quotes, dtype pins, …) defaults to `CsvReadOptions::CsvReadOptions()`, mirroring eager
@@ -47,15 +52,43 @@ pub fn scan_csv(
   // the captured plan cannot observe a later mutation of the caller's array.
   // The driver record is plain data: building it reads nothing, so the
   // builder stays total like every other LazyFrame constructor.
-  { plan: fresh_file_scan(@io.csv_scan_driver(path, options)), }
+  {
+    plan: fresh_file_scan(
+      @io.csv_scan_driver(path, options),
+      may_carry_decimal=pins_decimal(options.dtypes()),
+    ),
+  }
 }
 
 ///|
 /// The plan leaf both `scan_*` builders return: a deferred read through
 /// `driver` with no projection and no predicate — a fresh leaf reads every
-/// column and filters nothing; only the optimizer fills those.
-fn fresh_file_scan(driver : @scan.ScanDriver) -> LogicalPlan {
-  Scan(File({ driver, projection: None, predicate: None, }))
+/// column and filters nothing; only the optimizer fills those. The decimal
+/// probe rides beside them: whether the read may produce decimal columns, a
+/// fact the builder states here — the one place the read options are in
+/// hand — so the decimal value-fence never has to ask the driver for a
+/// schema it does not carry.
+fn fresh_file_scan(
+  driver : @scan.ScanDriver,
+  may_carry_decimal~ : Bool,
+) -> LogicalPlan {
+  Scan(File({ driver, projection: None, predicate: None, may_carry_decimal, }))
+}
+
+///|
+/// Whether a read-options dtypes map pins some column to `Decimal` — the
+/// only way a text read produces a decimal column (its inference picks
+/// `Int` / `Float` / `Bool` / `String` alone; `Decimal` is a rider dtype a
+/// pin carries, never an inference verdict). The scan builders read it off
+/// the options they already capture, so the plan knows a file leaf may
+/// carry decimal columns without the driver carrying a schema seam.
+fn pins_decimal(dtypes : Map[String, @types.DataType]) -> Bool {
+  for _, dt in dtypes {
+    if dt is @types.DataType::Decimal(_) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -77,12 +110,20 @@ fn fresh_file_scan(driver : @scan.ScanDriver) -> LogicalPlan {
 /// `JsonReadOptions::JsonReadOptions()`, mirroring eager `read_ndjson`. It is captured into the
 /// plan and applied by the reader at collect time; projection push-down narrows
 /// which columns those options parse, never which options apply. The projection
-/// starts `None` (read every column) — only the optimizer fills it.
+/// starts `None` (read every column) — only the optimizer fills it. A
+/// `Decimal` dtypes pin fences the value half of the push-downs exactly as it
+/// does for `scan_csv` — the shared rider contract, read off the same options
+/// field.
 pub fn scan_ndjson(
   path : String,
   options~ : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
 ) -> LazyFrame {
-  { plan: fresh_file_scan(@io.ndjson_scan_driver(path, options)), }
+  {
+    plan: fresh_file_scan(
+      @io.ndjson_scan_driver(path, options),
+      may_carry_decimal=pins_decimal(options.dtypes()),
+    ),
+  }
 }
 
 ///|
@@ -108,12 +149,19 @@ pub fn scan_ndjson(
 /// `options` defaults to `JsonReadOptions::JsonReadOptions()`, mirroring eager
 /// `read_json`, and is captured into the plan and applied at collect time;
 /// projection push-down narrows which columns those options parse, never
-/// which options apply.
+/// which options apply. A `Decimal` dtypes pin fences the value half of the
+/// push-downs exactly as it does for `scan_csv` — the shared rider contract,
+/// read off the same options field.
 pub fn scan_json(
   path : String,
   options~ : @io.JsonReadOptions = @io.JsonReadOptions::JsonReadOptions(),
 ) -> LazyFrame {
-  { plan: fresh_file_scan(@io.json_scan_driver(path, options)), }
+  {
+    plan: fresh_file_scan(
+      @io.json_scan_driver(path, options),
+      may_carry_decimal=pins_decimal(options.dtypes()),
+    ),
+  }
 }
 
 ///|
@@ -130,7 +178,14 @@ pub fn scan_json(
 /// row-group statistics can offer); a `ParseError` in an unprojected
 /// column does not surface, exactly like the text scans' dropped
 /// columns. The dtypes come from the footer's schema, so a narrowed
-/// scan matches the eager read exactly.
+/// scan matches the eager read exactly — and the footer can name
+/// `Decimal` columns no plan-time fact can rule out (reading it at
+/// build would break the builder's totality), so this source takes the
+/// decimal value-fence's conservative arm: a predicate or stage
+/// expression carrying a decimal-checked operation stays above the
+/// scan, trading that push-down for a failing plan still failing.
 pub fn scan_parquet(path : String) -> LazyFrame {
-  { plan: fresh_file_scan(@io.parquet_scan_driver(path)), }
+  {
+    plan: fresh_file_scan(@io.parquet_scan_driver(path), may_carry_decimal=true),
+  }
 }

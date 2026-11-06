@@ -210,6 +210,7 @@ test "a foreign bit-packed BOOLEAN page reads eight cells to a byte" {
   body.push((0x02).to_byte()) // cell 8 false, cell 9 true
   let file = foreign_file({
     physical: 0,
+    repetition: 1,
     converted: None,
     codec: 0,
     pages: [
@@ -220,6 +221,7 @@ test "a foreign bit-packed BOOLEAN page reads eight cells to a byte" {
         v2: false,
         num_values: 10,
         def_len: 0,
+        page_type: 0,
       },
     ],
   })
@@ -238,20 +240,21 @@ test "a foreign bit-packed BOOLEAN page reads eight cells to a byte" {
 
 ///|
 test "a foreign V2 SNAPPY page reads its raw levels and compressed values" {
-  // The V2 shape: the level bytes sit raw at the page head — V2 levels
-  // are never compressed — and only the values after them ride the
-  // codec. Sending the whole page through the decompressor rejected
-  // every foreign V2 compressed file.
+  // The V2 shape: the level run sits raw at the page head — an RLE run
+  // of three ones at width 1 (`06 01`), never compressed — and only the
+  // values after it ride the codec. Sending the whole page through the
+  // decompressor rejected every foreign V2 compressed file.
   let values : Array[Byte] = []
   push_le_i64(values, 7L)
   push_le_i64(values, 8L)
   push_le_i64(values, 9L)
-  let body : Array[Byte] = [(0x07).to_byte()]
+  let body : Array[Byte] = [(0x06).to_byte(), (0x01).to_byte()]
   for b in snappy_compress_literal(Bytes::from_array(values)) {
     body.push(b)
   }
   let file = foreign_file({
     physical: 2,
+    repetition: 1,
     converted: None,
     codec: 1,
     pages: [
@@ -261,7 +264,8 @@ test "a foreign V2 SNAPPY page reads its raw levels and compressed values" {
         dictionary_page: false,
         v2: true,
         num_values: 3,
-        def_len: 1,
+        def_len: 2,
+        page_type: 0,
       },
     ],
   })

@@ -159,6 +159,36 @@ test "the writer's own footer length and magic pin the file shape" {
 }
 
 ///|
+test "a written V1 page prefixes its level run with the run length" {
+  // The spec's V1 data page shape: the level run opens with a 4-byte
+  // little-endian length naming the encoded run's own bytes, then the
+  // RLE stream, then the values — the prefix every foreign reader
+  // strips before decoding the levels. The column [1, null] encodes
+  // its levels [1, 0] as one bit-packed group (header 0x03, byte
+  // 0x01): a two-byte run.
+  let col = @series.Series::from_int_options("i", [Some(1), None])
+  let bytes = write_parquet_bytes([col], ["i"], Uncompressed)
+  // Walk past the leading magic through the first page header; every
+  // field it carries is a scalar or a struct of scalars.
+  let r = thrift_reader(bytes)
+  r.pos = 4
+  let mut last = 0
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    assert_true(r.skip(h.wire))
+  }
+  let body_at = r.pos
+  assert_eq(le_i32(bytes, body_at), 2)
+  assert_eq(bytes[body_at + 4], (0x03).to_byte())
+  assert_eq(bytes[body_at + 5], (0x01).to_byte())
+  assert_eq(le_i64(bytes, body_at + 6), 1L)
+}
+
+///|
 test "a written Duration round-trips as a bare INT64 column reading Int" {
   let columns : Array[@series.Series] = [
     @series.Series::from_duration_options("dur", [Some(0L), None, Some(61L)]),

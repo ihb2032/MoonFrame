@@ -148,3 +148,34 @@ test "a missing ranking key surfaces the sort kernel's ColumnNotFound" {
     is Err(@types.DataError::ColumnNotFound(_)),
   )
 }
+
+///|
+test "NaN ranks among the largest: top_k takes the NaN row, bottom_k the finite ones first" {
+  // The total order places a `Float` `NaN` above every finite value and
+  // below null, so `top_k` surfaces a NaN-holding row ahead of every
+  // finite one and `bottom_k` reaches NaNs only past them — the file
+  // header's promise, pinned here on the row identities.
+  let nan = (0.0 : Double) / (0.0 : Double)
+  let df = DataFrame::DataFrame([
+    Series::from_float_options("v", [
+      Some((1.0 : Double)),
+      Some(nan),
+      Some((3.0 : Double)),
+    ]),
+    Series::from_strings("s", ["one", "nan", "three"]),
+  ])
+  assert_eq(df.top_k(1, by=[@expr.col("v")]).get_column("s").to_scalars(), [
+    @types.Scalar::String("nan"),
+  ])
+  // The finite rows first at the other end; a k reaching past them takes
+  // the NaN too, still ahead of nothing — null is the only rank above it.
+  assert_eq(df.bottom_k(2, by=[@expr.col("v")]).get_column("s").to_scalars(), [
+    @types.Scalar::String("one"),
+    @types.Scalar::String("three"),
+  ])
+  assert_eq(df.bottom_k(3, by=[@expr.col("v")]).get_column("s").to_scalars(), [
+    @types.Scalar::String("one"),
+    @types.Scalar::String("three"),
+    @types.Scalar::String("nan"),
+  ])
+}

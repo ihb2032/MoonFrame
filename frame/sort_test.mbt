@@ -393,7 +393,7 @@ test "sort on an all-null Int column is a stable identity" {
   assert_eq(out_first, df)
 }
 
-// ── NaN handling: Float NaN is treated as null ───────────────────────
+// ── NaN handling: NaN orders by the total order, apart from null ─────
 
 ///|
 test "sort Float orders NaN by the total order, nulls placed by their flag" {

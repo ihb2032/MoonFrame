@@ -519,7 +519,7 @@ test "describe schema is fixed regardless of source shape" {
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
   assert_eq(out.columns(), describe_schema())
-  // One row per source column, eight schema columns.
+  // One row per source column, eleven schema columns.
   assert_eq(out.shape(), (4, 11))
 }
 
@@ -672,7 +672,7 @@ test "describe on a 0-column frame collapses to a 0x11 result" {
   let df = DataFrame::DataFrame([])
   let out = df.describe()
   assert_eq(out.check_invariants(), Ok(()))
-  // No source columns → no output rows, but the eight schema columns
+  // No source columns → no output rows, but the eleven schema columns
   // are still present so downstream code can rely on the result shape.
   assert_eq(out.shape(), (0, 11))
   assert_eq(out.columns(), describe_schema())

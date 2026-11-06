@@ -103,12 +103,11 @@ test "the variance and deviation read the running second moment" {
 ///|
 test "the parameter envelope refuses at evaluation" {
   let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2, 3])])
-  // Neither span nor alpha; both; alpha outside (0, 1]; min_samples
+  // Neither span nor alpha; alpha outside (0, 1]; min_samples
   // below 1 — each is an InvalidOperation, the builder stays total.
   for
     e in [
       @expr.col("v").ewm_mean(),
-      @expr.col("v").ewm_mean(span=3.0, alpha=0.5),
       @expr.col("v").ewm_mean(alpha=0.0),
       @expr.col("v").ewm_mean(alpha=1.5),
       @expr.col("v").ewm_mean(alpha=0.5, min_samples=0),
@@ -120,6 +119,16 @@ test "the parameter envelope refuses at evaluation" {
     }
     assert_true(result is Err(@types.DataError::InvalidOperation(_)))
   }
+  // A double-set build is no longer a refusal: span wins and the alpha is
+  // ignored, so it evaluates exactly as the span-only tree does.
+  let both = df.select([
+    @expr.col("v").ewm_mean(span=3.0, alpha=0.5).with_alias("m"),
+  ])
+  let span_only = df.select([@expr.col("v").ewm_mean(span=3.0).with_alias("m")])
+  assert_eq(
+    both.get_column("m").to_scalars(),
+    span_only.get_column("m").to_scalars(),
+  )
   // A span of 1 decodes to alpha 1 (accepted); a span below 1 decodes
   // past the envelope and refuses.
   assert_true(

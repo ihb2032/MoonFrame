@@ -6,14 +6,14 @@
 ///|
 /// Frames through `io`, so no `series` import is needed (the `lazy` package
 /// imports it only for `test`).
-fn names_frame() -> @frame.DataFrame raise @types.DataError {
+fn names_frame() -> DataFrame raise @types.DataError {
   @io.parse_csv_str("a,b,c\n1,4,7\n2,5,8\n3,6,9")
 }
 
 ///|
 /// The right-side twin sharing the `a` column (a name clash for the suffix
 /// rule) and adding `d`.
-fn names_other() -> @frame.DataFrame raise @types.DataError {
+fn names_other() -> DataFrame raise @types.DataError {
   @io.parse_csv_str("a,d\n1,10\n2,20\n3,30")
 }
 
@@ -42,7 +42,7 @@ test "output_names: the in-memory scan names its frame's columns" {
 test "output_names: a file source's header is not statically knowable" {
   // `scan_csv` builds the deferred file scan without reading anything, so
   // no file needs to exist for its name set to read `None`.
-  let scanned = scan_csv("names.csv")
+  let scanned = @io.scan_csv("names.csv")
   assert_true(scanned.plan.output_names() is None)
 }
 
@@ -171,10 +171,10 @@ test "output_names: a whole-scope aggregation gives up" {
 
 ///|
 test "output_names: the existence joins keep the left schema alone" {
-  for how in [@frame.JoinType::Semi, @frame.JoinType::Anti] {
+  for how in [JoinType::Semi, JoinType::Anti] {
     let plan = LazyFrame::LazyFrame(names_frame()).join(
         LazyFrame::LazyFrame(names_other()),
-        @frame.JoinOptions::on([@expr.col("a")], how~),
+        JoinOptions::on([@expr.col("a")], how~),
       ).plan
     assert_output_names(plan, ["a", "b", "c"])
   }
@@ -186,7 +186,7 @@ test "output_names: a merging join unions both sides, suffixed on a clash" {
       LazyFrame::LazyFrame(names_other()),
       // Paired keys never coalesce, so the right key column survives under
       // its suffixed name too.
-      @frame.JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("a")]),
+      JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("a")]),
     ).plan
   // Left `a` keeps its name; the right `a` clashes and is offered under its
   // suffixed spelling only (paired keys never coalesce, so that column
@@ -205,7 +205,7 @@ test "output_names: a coalescible bare on-key offers no suffixed spelling" {
   // outputs.
   let plan = LazyFrame::LazyFrame(names_frame()).join(
       LazyFrame::LazyFrame(names_other()),
-      @frame.JoinOptions::on([@expr.col("a")]),
+      JoinOptions::on([@expr.col("a")]),
     ).plan
   assert_output_names(plan, ["a", "b", "c", "d"])
 }
@@ -213,8 +213,8 @@ test "output_names: a coalescible bare on-key offers no suffixed spelling" {
 ///|
 test "output_names: a join over an unknowable side gives up" {
   let plan = LazyFrame::LazyFrame(names_frame()).join(
-      scan_csv("names.csv"),
-      @frame.JoinOptions::on([@expr.col("a")]),
+      @io.scan_csv("names.csv"),
+      JoinOptions::on([@expr.col("a")]),
     ).plan
   assert_true(plan.output_names() is None)
 }
@@ -224,7 +224,7 @@ test "output_names: an unknowable input gives up through every reshaper" {
   // A file source's `None` rides up through the reshaping verbs — each
   // one's `None` arm is the give-up, so a join above any of them sees an
   // unattributable side.
-  let base = scan_csv("names.csv")
+  let base = @io.scan_csv("names.csv")
   let unknowable : Array[LogicalPlan] = [
     base.with_columns([(@expr.col("a") + @expr.lit_int(1)).with_alias("d")]).plan,
     base.drop([@expr.col("a")]).plan,
@@ -243,18 +243,18 @@ test "bare_on_key_names: bare keys only, derived and sided contribute none" {
   // names no column (its `_` arm), and a sided or cross join carries no
   // `on` list at all.
   let bare = bare_on_key_names(
-    @frame.JoinOptions::on([@expr.col("a"), @expr.col("b")]),
+    JoinOptions::on([@expr.col("a"), @expr.col("b")]),
   )
   assert_true(bare.contains("a"))
   assert_true(bare.contains("b"))
   let derived = bare_on_key_names(
-    @frame.JoinOptions::on([@expr.col("a") + @expr.lit_int(1)]),
+    JoinOptions::on([@expr.col("a") + @expr.lit_int(1)]),
   )
   let mut derived_count = 0
   derived.each(_ => derived_count = derived_count + 1)
   assert_eq(derived_count, 0)
   let sided = bare_on_key_names(
-    @frame.JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("b")]),
+    JoinOptions::left_on([@expr.col("a")], right_on=[@expr.col("b")]),
   )
   let mut sided_count = 0
   sided.each(_ => sided_count = sided_count + 1)
@@ -269,13 +269,13 @@ test "output_names: a right join leads with the right side's names" {
   // mirror of the merging-join rule with the sides exchanged.
   let plan = LazyFrame::LazyFrame(names_frame()).join(
       LazyFrame::LazyFrame(names_other()),
-      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+      JoinOptions::on([@expr.col("a")], how=Right),
     ).plan
   assert_output_names(plan, ["a", "b", "c", "d"])
   // Paired keys never coalesce, so the left `a` survives suffixed.
   let paired = LazyFrame::LazyFrame(names_frame()).join(
       LazyFrame::LazyFrame(names_other()),
-      @frame.JoinOptions::left_on(
+      JoinOptions::left_on(
         [@expr.col("a")],
         right_on=[@expr.col("a")],
         how=Right,
@@ -288,14 +288,14 @@ test "output_names: a right join leads with the right side's names" {
 test "output_names: a right join over an unknowable side gives up" {
   // Either side unknowable, in either slot — the swapped merge propagates
   // the give-up just as the unswapped one does.
-  let left_unknowable = scan_csv("names.csv").join(
+  let left_unknowable = @io.scan_csv("names.csv").join(
       LazyFrame::LazyFrame(names_other()),
-      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+      JoinOptions::on([@expr.col("a")], how=Right),
     ).plan
   assert_true(left_unknowable.output_names() is None)
   let right_unknowable = LazyFrame::LazyFrame(names_frame()).join(
-      scan_csv("names.csv"),
-      @frame.JoinOptions::on([@expr.col("a")], how=Right),
+      @io.scan_csv("names.csv"),
+      JoinOptions::on([@expr.col("a")], how=Right),
     ).plan
   assert_true(right_unknowable.output_names() is None)
 }

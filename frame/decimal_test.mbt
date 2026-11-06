@@ -108,11 +108,7 @@ test "Decimal sorts, groups, and joins on its unscaled order" {
   )
   let joined = left.join(
     right,
-    @frame.JoinOptions::on(
-      [@expr.col("d")],
-      how=@frame.JoinType::Outer,
-      coalesce=true,
-    ),
+    JoinOptions::on([@expr.col("d")], how=JoinType::Outer, coalesce=true),
   )
   assert_true(joined.nrows() == 4)
   assert_eq(cells_to_strings(joined, "d"), ["123.45", "-123.45", "9.99", "7.00"])
@@ -810,7 +806,7 @@ test "a cross-scale decimal join names the cast remedy" {
   let result : Result[DataFrame, @types.DataError] = Ok(
     l2.join(
       r2,
-      @frame.JoinOptions::left_on([@expr.col("d1")], right_on=[@expr.col("d2")]),
+      JoinOptions::left_on([@expr.col("d1")], right_on=[@expr.col("d2")]),
     ),
   ) catch {
     e => Err(e)

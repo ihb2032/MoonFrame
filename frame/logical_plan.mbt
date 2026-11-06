@@ -52,7 +52,7 @@
 priv enum LogicalPlan {
   Scan(ScanSource)
   Unary(LogicalPlan, FrameOp)
-  Join(LogicalPlan, LogicalPlan, @frame.JoinOptions)
+  Join(LogicalPlan, LogicalPlan, JoinOptions)
   Aggregate(LogicalPlan, Array[@expr.Expr], Array[@expr.Expr])
   AggregateAll(LogicalPlan, Array[@expr.Expr], LazyAggAll)
 }
@@ -81,16 +81,16 @@ priv struct FileScan {
   // Whether this read may produce decimal columns whose names the plan
   // cannot know — the decimal value-fence's `any` flag for the leaf, raised
   // by the risk walk's `Scan(File(_))` arm. The text sources carry decimal
-  // only through a `dtypes` pin, which the builder reads off the options it
-  // already captures (`pins_decimal`, beside the scan builders); a parquet
-  // footer can name decimal columns the builder cannot read without
-  // breaking its totality, so that source carries the conservative `true`.
+  // only through a `dtypes` pin, which the io scan builder reads off the
+  // options it already captures; a parquet footer can name decimal columns
+  // the builder cannot read without breaking its totality, so that source
+  // carries the conservative `true`.
   may_carry_decimal : Bool
 }
 
 ///|
 priv enum ScanSource {
-  InMemory(@frame.DataFrame)
+  InMemory(DataFrame)
   File(FileScan)
 }
 
@@ -119,43 +119,16 @@ priv enum FrameOp {
   Drop(Array[@expr.Expr])
   Rename(Array[(String, String)])
   RenameWith((String) -> String)
-  Unique(@frame.KeepStrategy, Array[@expr.Expr]?)
+  Unique(KeepStrategy, Array[@expr.Expr]?)
   Reverse
   WithRowIndex(String, Int64)
   DropNulls(Array[@expr.Expr]?)
   FillNull(@types.Scalar)
   FillNullDir(Bool, Int32?)
-  Pivot(
-    Array[@expr.Expr],
-    Array[@expr.Expr]?,
-    Array[@expr.Expr]?,
-    @frame.PivotAgg?
-  )
+  Pivot(Array[@expr.Expr], Array[@expr.Expr]?, Array[@expr.Expr]?, PivotAgg?)
   Unpivot(Array[@expr.Expr]?, Array[@expr.Expr]?, String, String)
   FillNan(Double)
-  Reduce(LazyReduceOp)
-}
-
-///|
-/// Which whole-frame reduction a `Reduce` node defers — one per `LazyFrame`
-/// reduction method, each executing as the matching eager `DataFrame` verb
-/// (`sum` / `mean` / `min` / `max` / `count` / `null_count` / `median` /
-/// `quantile` / `std` / `variance` / `n_unique`) so `collect` is bit-for-bit
-/// the eager result. A closed set mirroring `frame`'s private
-/// `FrameReduceOp` (plus `NullCount`), kept lazy-local because that tag is
-/// `priv` to `frame`.
-priv enum LazyReduceOp {
-  Sum
-  Mean
-  Min
-  Max
-  Count
-  NullCount
-  Median
-  Quantile(Double, @series.QuantileInterpolation)
-  Std
-  Var
-  NUnique
+  Reduce(FrameReduceOp)
 }
 
 ///|

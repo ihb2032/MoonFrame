@@ -9,8 +9,8 @@
 ///|
 /// 4×3 mixed frame: a plain Int column, a nullable Int column, and a
 /// String key column — enough surface for every deferred verb.
-fn sales_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::DataFrame([
+fn plan_sales_df() -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
     @series.Series::from_ints("qty", [5, 120, 80, 200]),
     @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
     @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -19,8 +19,8 @@ fn sales_df() -> @frame.DataFrame raise @types.DataError {
 
 ///|
 /// Join left side: order ids and amounts (3×2).
-fn orders_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::DataFrame([
+fn orders_df() -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
   ])
@@ -29,8 +29,8 @@ fn orders_df() -> @frame.DataFrame raise @types.DataError {
 ///|
 /// Join right side: partially overlapping ids (3×2) — id 1 is only on the
 /// left, id 4 only here, so Inner / Left / Right / Outer all differ.
-fn cities_df() -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::DataFrame([
+fn cities_df() -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
     @series.Series::from_ints("id", [2, 3, 4]),
     @series.Series::from_strings("city", ["bern", "cork", "delft"]),
   ])
@@ -38,7 +38,7 @@ fn cities_df() -> @frame.DataFrame raise @types.DataError {
 
 ///|
 test "an unmodified plan collects back to the source frame" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let out = LazyFrame::LazyFrame(df).collect()
   assert_eq(out, df)
   assert_eq(out.check_invariants(), Ok(()))
@@ -46,14 +46,25 @@ test "an unmodified plan collects back to the source frame" {
 
 ///|
 test "the LazyFrame constructor wraps a frame as a Scan leaf" {
-  let df = sales_df()
+  let df = plan_sales_df()
   assert_eq(LazyFrame::LazyFrame(df).explain(), "SCAN [4×3]")
   assert_eq(LazyFrame::LazyFrame(df).collect(), df)
 }
 
 ///|
+test "to_lazy is the method spelling of the constructor" {
+  let df = plan_sales_df()
+  assert_eq(df.to_lazy().explain(), LazyFrame::LazyFrame(df).explain())
+  assert_eq(df.to_lazy().collect(), df)
+  assert_eq(
+    df.to_lazy().filter(@expr.col("qty").gt(@expr.lit_int(50))).collect(),
+    df.filter(@expr.col("qty").gt(@expr.lit_int(50))),
+  )
+}
+
+///|
 test "each deferred verb collects to its eager equivalent" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   assert_eq(
     LazyFrame::LazyFrame(df).filter(predicate).collect(),
@@ -89,7 +100,7 @@ test "each deferred verb collects to its eager equivalent" {
 test "each whole-frame reduction collects to its eager equivalent" {
   // qty (Int, all-valid), bonus (nullable Int), region (String) exercise the
   // numeric, nullable-numeric, and non-numeric (nulled) cell rules together.
-  let df = sales_df()
+  let df = plan_sales_df()
   assert_eq(LazyFrame::LazyFrame(df).sum().collect(), df.sum())
   assert_eq(LazyFrame::LazyFrame(df).mean().collect(), df.mean())
   assert_eq(LazyFrame::LazyFrame(df).min().collect(), df.min())
@@ -114,7 +125,7 @@ test "each whole-frame reduction collects to its eager equivalent" {
 
 ///|
 test "a reduction caps an optimized pipeline; a filter above it stays above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   // Reduction over a filtered input: the input still optimizes, collect matches
   // the eager chain, and the reduction renders at the top.
@@ -135,7 +146,7 @@ test "a reduction caps an optimized pipeline; a filter above it stays above" {
 
 ///|
 test "a whole-frame reduction on an empty frame matches eager" {
-  let empty = @frame.DataFrame::DataFrame([
+  let empty = DataFrame::DataFrame([
     @series.Series::from_ints("a", []),
     @series.Series::from_strings("b", []),
   ])
@@ -149,7 +160,7 @@ test "a whole-frame reduction on an empty frame matches eager" {
 
 ///|
 test "is_in / is_between are row-stable predicates through the optimizer" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `is_in` as a filter over a projection: row-stable, so the optimizer sinks
   // it below the select — collect stays faithful to the eager chain.
   let inx = @expr.col("region").is_in([
@@ -182,7 +193,7 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
   // The deferred dtype probe must behave identically through the lazy
   // Aggregate node: the closure's Int output types the reduction, not the
   // Map's String input column.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("g", ["x", "x", "y"]),
     @series.Series::from_strings("s", ["a", "bb", "ccc"]),
   ])
@@ -206,7 +217,7 @@ test "a dtype-changing map under a grouped reduction collects like eager" {
 
 ///|
 test "a batched map collects like eager, row-wise and as a group reduction" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("g", ["x", "x", "y"]),
     @series.Series::from_ints("v", [10, 20, 30]),
   ])
@@ -246,8 +257,8 @@ test "nested self-joins execute each shared subplan once, not once per occurrenc
   // memoised executor runs each distinct node once, so this collects
   // instantly and equals the eager chain — the per-occurrence fold
   // OOM-aborted at depth ~24.
-  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
-  let opts = @frame.JoinOptions::on([@expr.col("a")])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
+  let opts = JoinOptions::on([@expr.col("a")])
   let mut lf = LazyFrame::LazyFrame(df)
   let mut eager = df
   for _ in 0..<26 {
@@ -264,11 +275,11 @@ test "a shared subplan renders once, with a marker on re-encounter" {
   // The right Join input is the same node object as the left, so the
   // printer marks the repeat instead of re-expanding it — explain stays
   // linear (and total) on DAG-shaped plans.
-  let df = @frame.DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("a", [1])])
   let shared = LazyFrame::LazyFrame(df).filter(
     @expr.col("a").gt(@expr.lit_int(0)),
   )
-  let joined = shared.join(shared, @frame.JoinOptions::on([@expr.col("a")]))
+  let joined = shared.join(shared, JoinOptions::on([@expr.col("a")]))
   inspect(
     joined.explain(),
     content=(
@@ -294,7 +305,7 @@ test "a shared subplan renders once, with a marker on re-encounter" {
   let right = LazyFrame::LazyFrame(df).filter(
     @expr.col("a").gt(@expr.lit_int(0)),
   )
-  let separate = left.join(right, @frame.JoinOptions::on([@expr.col("a")]))
+  let separate = left.join(right, JoinOptions::on([@expr.col("a")]))
   inspect(
     separate.explain(),
     content=(
@@ -309,7 +320,7 @@ test "a shared subplan renders once, with a marker on re-encounter" {
 
 ///|
 test "builders copy their array arguments — later mutation is unobservable" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let sel = [@expr.col("qty")]
   let planned_select = LazyFrame::LazyFrame(df).select(sel)
   sel.clear()
@@ -353,7 +364,7 @@ test "builders copy their array arguments — later mutation is unobservable" {
 
 ///|
 test "the column / row verbs collect to their eager equivalents" {
-  let df = sales_df()
+  let df = plan_sales_df()
   assert_eq(
     LazyFrame::LazyFrame(df).drop([@expr.col("bonus")]).collect(),
     df.drop([@expr.col("bonus")]),
@@ -385,12 +396,7 @@ test "the column / row verbs collect to their eager equivalents" {
   assert_eq(LazyFrame::LazyFrame(df).unique().collect(), df.unique())
   // Every keep strategy matches its eager counterpart, so the lazy verb is a
   // faithful deferral rather than a first-only shortcut.
-  for
-    keep in [
-      @frame.KeepStrategy::First,
-      @frame.KeepStrategy::Last,
-      @frame.KeepStrategy::None,
-    ] {
+  for keep in [KeepStrategy::First, KeepStrategy::Last, KeepStrategy::None] {
     assert_eq(
       LazyFrame::LazyFrame(df).unique(keep~).collect(),
       df.unique(keep~),
@@ -421,7 +427,7 @@ test "the column / row verbs collect to their eager equivalents" {
 
 ///|
 test "the column / row verbs render in explain, with each fill-value form" {
-  let df = sales_df()
+  let df = plan_sales_df()
   inspect(
     LazyFrame::LazyFrame(df).drop([@expr.col("bonus")]).explain(),
     content=(
@@ -580,7 +586,7 @@ test "a scan-source path with control characters is escaped in explain" {
   // A hostile file path cannot inject a control sequence or a line break into
   // a rendered plan: the ESC and the newline both become escapes, so the line stays single and safe.
   inspect(
-    scan_csv("a\u{1b}\nb").explain(),
+    @io.scan_csv("a\u{1b}\nb").explain(),
     content=(
       #|SCAN_CSV "a\u001b\nb"
     ),
@@ -589,7 +595,7 @@ test "a scan-source path with control characters is escaped in explain" {
 
 ///|
 test "head, tail, and limit inherit the eager total clamp" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Beyond the frame: every row survives, nothing raises.
   assert_eq(LazyFrame::LazyFrame(df).head(100).collect(), df)
   assert_eq(LazyFrame::LazyFrame(df).tail(100).collect(), df)
@@ -605,20 +611,14 @@ test "head, tail, and limit inherit the eager total clamp" {
 test "every join type collects to its eager equivalent" {
   let l = orders_df()
   let r = cities_df()
-  for
-    how in [
-      @frame.JoinType::Inner,
-      @frame.JoinType::Left,
-      @frame.JoinType::Right,
-      @frame.JoinType::Outer,
-    ] {
-    let opts = @frame.JoinOptions::on([@expr.col("id")], how~)
+  for how in [JoinType::Inner, JoinType::Left, JoinType::Right, JoinType::Outer] {
+    let opts = JoinOptions::on([@expr.col("id")], how~)
     assert_eq(
       LazyFrame::LazyFrame(l).join(LazyFrame::LazyFrame(r), opts).collect(),
       l.join(r, opts),
     )
   }
-  let cross = @frame.JoinOptions::cross()
+  let cross = JoinOptions::cross()
   assert_eq(
     LazyFrame::LazyFrame(l).join(LazyFrame::LazyFrame(r), cross).collect(),
     l.join(r, cross),
@@ -627,7 +627,7 @@ test "every join type collects to its eager equivalent" {
 
 ///|
 test "a composite pipeline collects equal to the eager chain" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") - @expr.col("bonus")).with_alias("net")]
   let keys = [(@expr.col("net"), true, true)]
@@ -654,10 +654,7 @@ test "join inputs run their own deferred sub-pipelines" {
   let l = orders_df()
   let r = cities_df()
   let amount_gate = @expr.col("amount").ge(@expr.lit_int(20))
-  let opts = @frame.JoinOptions::on(
-    [@expr.col("id")],
-    how=@frame.JoinType::Left,
-  )
+  let opts = JoinOptions::on([@expr.col("id")], how=JoinType::Left)
   let lazy_out = LazyFrame::LazyFrame(l)
     .filter(amount_gate)
     .join(LazyFrame::LazyFrame(r).head(2), opts)
@@ -668,24 +665,22 @@ test "join inputs run their own deferred sub-pipelines" {
 
 ///|
 test "join on left_on / right_on and derived keys collects to the eager equivalent" {
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("lk", [1, 2, 3]),
     @series.Series::from_strings("lv", ["a", "b", "c"]),
   ])
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("rk", [2, 3, 4]),
     @series.Series::from_ints("rv", [20, 30, 40]),
   ])
   // Differently-named keys via left_on / right_on.
-  let sided = @frame.JoinOptions::left_on([@expr.col("lk")], right_on=[
-    @expr.col("rk"),
-  ])
+  let sided = JoinOptions::left_on([@expr.col("lk")], right_on=[@expr.col("rk")])
   assert_eq(
     LazyFrame::LazyFrame(l).join(LazyFrame::LazyFrame(r), sided).collect(),
     l.join(r, sided),
   )
   // A derived key on the right side, paired with a bare left key.
-  let derived = @frame.JoinOptions::left_on([@expr.col("lk")], right_on=[
+  let derived = JoinOptions::left_on([@expr.col("lk")], right_on=[
     @expr.col("rk") - @expr.lit_int(1),
   ])
   assert_eq(
@@ -696,7 +691,7 @@ test "join on left_on / right_on and derived keys collects to the eager equivale
 
 ///|
 test "builders share structure: extending a plan leaves the base intact" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let base = LazyFrame::LazyFrame(df).filter(predicate)
   let eager = df.filter(predicate)
@@ -712,7 +707,7 @@ test "builders share structure: extending a plan leaves the base intact" {
 
 ///|
 test "building a doomed plan succeeds; the error waits for collect" {
-  let plan = LazyFrame::LazyFrame(sales_df()).filter(
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).filter(
     @expr.col("zzz").gt(@expr.lit_int(0)),
   )
   // Building and introspecting are total even though collecting will fail
@@ -728,7 +723,7 @@ test "building a doomed plan succeeds; the error waits for collect" {
 
 ///|
 test "collect surfaces the eager operators' errors unchanged" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Non-Bool predicate → the eager filter TypeMismatch.
   assert_eq(
     Ok(LazyFrame::LazyFrame(df).filter(@expr.col("qty")).collect()) catch {
@@ -766,7 +761,7 @@ test "collect surfaces the eager operators' errors unchanged" {
 
 ///|
 test "a deferred group-by collects to the eager agg equivalent" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [
     @expr.col("qty").sum().with_alias("total"),
     @expr.col("bonus").mean().with_alias("avg_bonus"),
@@ -783,7 +778,7 @@ test "a deferred group-by collects to the eager agg equivalent" {
 
 ///|
 test "a deferred derived-key group-by collects to the eager equivalent" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The grouping key is an expression, not a bare column: bucket on
   // qty > 50. Both faces evaluate it at collect / call time, so the lazy
   // result stays equal to the eager one.
@@ -796,7 +791,7 @@ test "a deferred derived-key group-by collects to the eager equivalent" {
 
 ///|
 test "multi-key and empty aggregation lists mirror eager group-by" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let count = [@expr.col("bonus").count().with_alias("n")]
   assert_eq(
     LazyFrame::LazyFrame(df)
@@ -814,7 +809,7 @@ test "multi-key and empty aggregation lists mirror eager group-by" {
 
 ///|
 test "a group-by pipeline composes with the other deferred verbs" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(10))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let aggs = [@expr.col("dbl").sum().with_alias("total")]
@@ -840,7 +835,7 @@ test "a group-by pipeline composes with the other deferred verbs" {
 
 ///|
 test "one LazyGroupBy serves diverging aggregations" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let grouped = LazyFrame::LazyFrame(df).group_by([@expr.col("region")])
   let total = [@expr.col("qty").sum().with_alias("total")]
   let n = [@expr.col("qty").count().with_alias("n")]
@@ -855,7 +850,7 @@ test "one LazyGroupBy serves diverging aggregations" {
 
 ///|
 test "group-by building is total; the errors wait for collect" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Missing key: the plan builds and explains, then collect surfaces the
   // eager group_by's ColumnNotFound.
   let missing = LazyFrame::LazyFrame(df).group_by([@expr.col("zzz")]).agg([])
@@ -911,7 +906,7 @@ test "group-by building is total; the errors wait for collect" {
 
 ///|
 test "a zero-row source aggregates to zero groups" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("qty", []),
     @series.Series::from_strings("region", []),
   ])
@@ -927,7 +922,7 @@ test "a zero-row source aggregates to zero groups" {
 
 ///|
 test "a zero-row source flows through the whole pipeline" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("qty", []),
     @series.Series::from_strings("region", []),
   ])
@@ -946,7 +941,7 @@ test "a zero-row source flows through the whole pipeline" {
 
 ///|
 test "the directional fills and fill_nan collect to their eager equivalents" {
-  let df = sales_df()
+  let df = plan_sales_df()
   assert_eq(
     LazyFrame::LazyFrame(df).fill_null_forward().collect(),
     df.fill_null_forward(),
@@ -979,8 +974,8 @@ test "the directional fills and fill_nan collect to their eager equivalents" {
 
 ///|
 test "pivot and unpivot collect to their eager equivalents" {
-  let df = sales_df()
-  let keyed = @frame.DataFrame::DataFrame([
+  let df = plan_sales_df()
+  let keyed = DataFrame::DataFrame([
     @series.Series::from_strings("region", ["west", "west", "east"]),
     @series.Series::from_strings("quarter", ["q1", "q2", "q1"]),
     @series.Series::from_ints("sales", [10, 20, 30]),
@@ -996,13 +991,13 @@ test "pivot and unpivot collect to their eager equivalents" {
     .pivot(
       on=[@expr.col("quarter")],
       index=[@expr.col("region")],
-      aggregate_function=@frame.PivotAgg::Sum,
+      aggregate_function=PivotAgg::Sum,
     )
     .collect(),
     keyed.pivot(
       on=[@expr.col("quarter")],
       index=[@expr.col("region")],
-      aggregate_function=@frame.PivotAgg::Sum,
+      aggregate_function=PivotAgg::Sum,
     ),
   )
   assert_eq(
@@ -1023,7 +1018,7 @@ test "pivot and unpivot collect to their eager equivalents" {
     .pivot(
       on=[@expr.col("quarter")],
       index=[@expr.col("region")],
-      aggregate_function=@frame.PivotAgg::Sum,
+      aggregate_function=PivotAgg::Sum,
     )
     .explain(),
     "PIVOT ON [col(quarter)] INDEX [col(region)] AGG sum\{scans}",
@@ -1042,7 +1037,7 @@ test "pivot and unpivot collect to their eager equivalents" {
 
 ///|
 test "the reshape payload arms and labels all render and collect" {
-  let keyed = @frame.DataFrame::DataFrame([
+  let keyed = DataFrame::DataFrame([
     @series.Series::from_strings("region", ["west", "west", "east"]),
     @series.Series::from_strings("quarter", ["q1", "q2", "q1"]),
     @series.Series::from_ints("sales", [10, 20, 30]),
@@ -1051,15 +1046,15 @@ test "the reshape payload arms and labels all render and collect" {
   let base = LazyFrame::LazyFrame(keyed)
   // The full payload — on, index, values, and each aggregation's label —
   // both collects and renders.
-  let aggs : Array[@frame.PivotAgg] = [
-    @frame.PivotAgg::First,
-    @frame.PivotAgg::Last,
-    @frame.PivotAgg::Sum,
-    @frame.PivotAgg::Min,
-    @frame.PivotAgg::Max,
-    @frame.PivotAgg::Mean,
-    @frame.PivotAgg::Median,
-    @frame.PivotAgg::Len,
+  let aggs : Array[PivotAgg] = [
+    PivotAgg::First,
+    PivotAgg::Last,
+    PivotAgg::Sum,
+    PivotAgg::Min,
+    PivotAgg::Max,
+    PivotAgg::Mean,
+    PivotAgg::Median,
+    PivotAgg::Len,
   ]
   let labels : Array[String] = [
     "first", "last", "sum", "min", "max", "mean", "median", "len",
@@ -1098,7 +1093,7 @@ test "the reshape payload arms and labels all render and collect" {
     "PIVOT ON [col(quarter)] VALUES [col(sales)]\n  SCAN [3×4]",
   )
   // unpivot's four payload arms, each collecting to its eager twin.
-  let wide = @frame.DataFrame::DataFrame([
+  let wide = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["a", "b"]),
     @series.Series::from_ints("x", [1, 2]),
     @series.Series::from_ints("y", [3, 4]),
@@ -1132,7 +1127,7 @@ test "the reshape payload arms and labels all render and collect" {
 test "a pivot deferring neither side collects the eager omission error" {
   // The arm exists for plan completeness; the eager verb rejects both
   // sides omitted, so collect surfaces that error — parity even here.
-  let keyed = @frame.DataFrame::DataFrame([
+  let keyed = DataFrame::DataFrame([
     @series.Series::from_strings("q", ["x", "y"]),
   ])
   assert_true(
@@ -1145,14 +1140,10 @@ test "a pivot deferring neither side collects the eager omission error" {
 
 ///|
 test "semi / anti joins defer and collect to their eager equivalents" {
-  let left = @frame.DataFrame::DataFrame([
-    @series.Series::from_ints("a", [1, 2, 3]),
-  ])
-  let right = @frame.DataFrame::DataFrame([
-    @series.Series::from_ints("b", [2, 3, 4]),
-  ])
-  for how in [@frame.JoinType::Semi, @frame.JoinType::Anti] {
-    let options = @frame.JoinOptions::left_on(
+  let left = DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2, 3])])
+  let right = DataFrame::DataFrame([@series.Series::from_ints("b", [2, 3, 4])])
+  for how in [JoinType::Semi, JoinType::Anti] {
+    let options = JoinOptions::left_on(
       [@expr.col("a")],
       right_on=[@expr.col("b")],
       how~,
@@ -1163,7 +1154,7 @@ test "semi / anti joins defer and collect to their eager equivalents" {
     )
     assert_eq(plan.collect(), left.join(right, options))
     // The how rides the join label.
-    let label = if how is @frame.JoinType::Semi { "Semi" } else { "Anti" }
+    let label = if how is JoinType::Semi { "Semi" } else { "Anti" }
     assert_true(plan.explain().contains(label))
   }
 }

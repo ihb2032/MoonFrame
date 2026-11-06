@@ -100,7 +100,7 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 the plan is a DAG (one
 `LazyFrame` value shared across both sides of a `join`), which skips it and
 executes as built; `LazyFrame::collect`'s docstring states that carve-out,
-and `lazy/optimize.mbt`'s pass tables are the pipeline's inventory. A
+and `frame/optimize.mbt`'s pass tables are the pipeline's inventory. A
 plan that succeeds
 produces what the eager pipeline produces — same schema, same
 cells, which is what `DataFrame`'s `Eq` compares and what the differential
@@ -148,8 +148,8 @@ per-operation semantics and
 Beyond the complexity notes above, a `moon bench` micro-benchmark suite measures
 real throughput. Run it from the repo root with `moon bench`.
 
-The four packages that own a `bench_test.mbt` file are `series`, `frame`, `io`, <!-- doc-guard: unresolved -->
-and `lazy`; the packages that only define values or build trees (`types`,
+The three packages that own a `bench_test.mbt` file are `series`, `frame`, <!-- doc-guard: unresolved -->
+and `io`; the packages that only define values or build trees (`types`,
 `expr`, `internal/literal` / `internal/ir`) have nothing to time. The rest do
 real work and are measured through a caller instead, which is what that caller
 actually pays: `internal/kernel` (the vectorized column passes) and
@@ -172,10 +172,9 @@ are machine-dependent and a pass/fail bar would be flaky. The suite covers, at
   validity view starts off byte alignment, the input `count`'s byte-at-a-time
   scan has to handle.
 - **`frame`** — `filter`, `with_columns`, `unique`, inner `join`, `sort`, and
-  `group_by(...).agg(...)`.
+  `group_by(...).agg(...)`; plus the same `filter` + `group_by` + `sum`
+  pipeline run eagerly and through the lazy optimizer.
 - **`io`** — `parse_csv_str` and `parse_ndjson_str` throughput.
-- **`lazy`** — the same `filter` + `group_by` + `sum` pipeline run eagerly and
-  through the lazy optimizer.
 
 The headline result confirms the design intent: on all-valid numeric columns the
 `Numeric` backend reduces several times faster than `Builtin`, the widest gap

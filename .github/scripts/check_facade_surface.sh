@@ -99,7 +99,7 @@ facade_source="moonframe.mbt"
 # Package-qualified, because a bare name is a weaker claim than it looks: the
 # allowlist says *this* type in *this* package is chained through, and `io`
 # growing its own `WhenThen` is a different symbol that nothing chains to.
-intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame lazy/LazyGroupBy chart/FramePlot chart/Plot"
+intermediates="expr/WhenThen expr/WhenThenElse frame/GroupedDataFrame frame/LazyGroupBy chart/FramePlot chart/Plot"
 
 # The public free functions the facade deliberately does not re-export: the
 # string-level serialiser family. Building a frame from in-memory text is a

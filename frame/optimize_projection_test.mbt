@@ -10,7 +10,7 @@
 
 ///|
 test "narrowed scan: a single-column selection still collects equal" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Only `qty` is read; `bonus` / `region` are pruned at the scan.
   let exprs = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let out = LazyFrame::LazyFrame(df).select(exprs).collect()
@@ -20,7 +20,7 @@ test "narrowed scan: a single-column selection still collects equal" {
 
 ///|
 test "filter predicate columns stay alive through the pushdown" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The selection reads `region` only, but the filter needs `qty`: the
   // narrowed scan must keep both (and may drop `bonus`).
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
@@ -33,7 +33,7 @@ test "filter predicate columns stay alive through the pushdown" {
 
 ///|
 test "a ternary's condition columns stay alive through the pushdown" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The label only *outputs* literal/region values, but its condition
   // reads `qty` — `referenced_columns` must keep it in the scan.
   let label = @expr.when(@expr.col("qty").gt(@expr.lit_int(100)))
@@ -48,7 +48,7 @@ test "a ternary's condition columns stay alive through the pushdown" {
 
 ///|
 test "with_columns replacement: narrowing turns replace into append, by-name reads agree" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `bonus` is *redefined* from `qty`, then read by the selection. The
   // pushdown drops the original `bonus` from the scan (a defined name is
   // served by the with_columns stage itself), so the eager side replaces
@@ -64,7 +64,7 @@ test "with_columns replacement: narrowing turns replace into append, by-name rea
 
 ///|
 test "with_columns: a brand-new derived name needs nothing from the scan" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let fresh = [(@expr.col("qty") + @expr.lit_int(1)).with_alias("next")]
   let projection = [@expr.col("next")]
   assert_eq(
@@ -75,7 +75,7 @@ test "with_columns: a brand-new derived name needs nothing from the scan" {
 
 ///|
 test "aggregate prunes columns no key or aggregation reads" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Keys read `region`, the aggregations read `qty` — `bonus` is dead.
   let aggs = [
     @expr.col("qty").sum().with_alias("total"),
@@ -89,7 +89,7 @@ test "aggregate prunes columns no key or aggregation reads" {
 
 ///|
 test "sort keys stay alive through the pushdown" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let keys = [(@expr.col("bonus"), false, true)]
   let projection = [@expr.col("region")]
   assert_eq(
@@ -100,7 +100,7 @@ test "sort keys stay alive through the pushdown" {
 
 ///|
 test "row windows pass the requirement through to the scan" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let projection = [@expr.col("qty")]
   assert_eq(
     LazyFrame::LazyFrame(df).head(2).select(projection).collect(),
@@ -120,7 +120,7 @@ test "row windows pass the requirement through to the scan" {
 test "join sides narrow independently below the barrier" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   // The left side's own selection prunes `amount` before the join.
   assert_eq(
     LazyFrame::LazyFrame(l)
@@ -141,7 +141,7 @@ test "join sides narrow independently below the barrier" {
 
 ///|
 test "guard: an all-literal selection inserts nothing and still collapses to one row" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let one = [@expr.lit_int(1).with_alias("one")]
   let out = LazyFrame::LazyFrame(df).select(one).collect()
   assert_eq(out, df.select(one))
@@ -150,14 +150,14 @@ test "guard: an all-literal selection inserts nothing and still collapses to one
 
 ///|
 test "guard: a selection reading every column leaves the scan whole" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let all = [@expr.col("qty"), @expr.col("bonus"), @expr.col("region")]
   assert_eq(LazyFrame::LazyFrame(df).select(all).collect(), df.select(all))
 }
 
 ///|
 test "the flagship pipeline narrows through every stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let derived = [(@expr.col("qty") * @expr.lit_int(3)).with_alias("adj")]
   let projection = [@expr.col("adj")]
@@ -172,7 +172,7 @@ test "the flagship pipeline narrows through every stage" {
 
 ///|
 test "a zero-row frame narrows and collects equal" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("a", []),
     @series.Series::from_strings("b", []),
   ])
@@ -184,7 +184,7 @@ test "a zero-row frame narrows and collects equal" {
 
 ///|
 test "errors keep surfacing at collect time, unchanged by the rewrite" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A missing column in the selection: the inserted narrowing select
   // keeps only existing columns, so the user's expression still reports
   // the same `ColumnNotFound`.
@@ -210,14 +210,14 @@ test "errors keep surfacing at collect time, unchanged by the rewrite" {
 ///|
 test "a bare scan is untouched (no requirement at the root)" {
   assert_eq(
-    LazyFrame::LazyFrame(sales_df()).explain(optimized=true),
+    LazyFrame::LazyFrame(plan_sales_df()).explain(optimized=true),
     "SCAN [4×3]",
   )
 }
 
 ///|
 test "select: a proper-subset requirement narrows the scan, in scan column order" {
-  let plan = LazyFrame::LazyFrame(sales_df()).select([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).select([
     (@expr.col("bonus") + @expr.col("qty")).with_alias("t"),
   ])
   // The inserted projection follows the *frame's* column order
@@ -232,7 +232,7 @@ test "select: a proper-subset requirement narrows the scan, in scan column order
 
 ///|
 test "select guard: reading every column inserts nothing" {
-  let plan = LazyFrame::LazyFrame(sales_df()).select([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).select([
     @expr.col("qty"),
     @expr.col("bonus"),
     @expr.col("region"),
@@ -242,7 +242,7 @@ test "select guard: reading every column inserts nothing" {
 
 ///|
 test "select guard: an all-literal selection inserts nothing" {
-  let plan = LazyFrame::LazyFrame(sales_df()).select([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).select([
     @expr.lit_int(1).with_alias("one"),
   ])
   assert_eq(plan.explain(optimized=true), "SELECT [1 as one]\n  SCAN [4×3]")
@@ -250,7 +250,7 @@ test "select guard: an all-literal selection inserts nothing" {
 
 ///|
 test "select: a missing column is not kept alive, the rest narrow as usual" {
-  let plan = LazyFrame::LazyFrame(sales_df()).select([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).select([
     @expr.col("qty"),
     @expr.col("ghost"),
   ])
@@ -267,7 +267,7 @@ test "select: a missing column is not kept alive, the rest narrow as usual" {
 ///|
 test "filter: the requirement passes through, widened by the predicate's columns" {
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .filter(predicate)
     .select([@expr.col("region")])
   assert_eq(
@@ -279,13 +279,13 @@ test "filter: the requirement passes through, widened by the predicate's columns
   )
   // At the root the requirement is unbounded: a bare filter's layout may
   // be observed in full, so nothing narrows.
-  let bare = LazyFrame::LazyFrame(sales_df()).filter(predicate)
+  let bare = LazyFrame::LazyFrame(plan_sales_df()).filter(predicate)
   assert_eq(bare.explain(optimized=true), bare.explain())
 }
 
 ///|
 test "sort: the requirement passes through, widened by the sort keys" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .sort([(@expr.col("bonus"), false, true)])
     .select([@expr.col("qty")])
   assert_eq(
@@ -299,7 +299,7 @@ test "sort: the requirement passes through, widened by the sort keys" {
 
 ///|
 test "row windows pass the requirement through verbatim" {
-  let base = LazyFrame::LazyFrame(sales_df())
+  let base = LazyFrame::LazyFrame(plan_sales_df())
   let qty = [@expr.col("qty")]
   assert_eq(
     base.head(2).select(qty).explain(optimized=true),
@@ -326,7 +326,7 @@ test "row windows pass the requirement through verbatim" {
 
 ///|
 test "with_columns: defined names are subtracted, read names added" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")])
     .select([@expr.col("dbl"), @expr.col("region")])
   // `dbl` is served by the with_columns stage itself; the scan only owes
@@ -342,7 +342,7 @@ test "with_columns: defined names are subtracted, read names added" {
 
 ///|
 test "with_columns: redefining a selected column keeps only what it reads" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .with_columns([(@expr.col("qty") * @expr.lit_int(2)).with_alias("bonus")])
     .select([@expr.col("bonus")])
   // The selected `bonus` is a *defined* name: the original scan column
@@ -358,7 +358,7 @@ test "with_columns: redefining a selected column keeps only what it reads" {
 
 ///|
 test "with_columns at the root is a no-op (its full layout is the result)" {
-  let plan = LazyFrame::LazyFrame(sales_df()).with_columns([
+  let plan = LazyFrame::LazyFrame(plan_sales_df()).with_columns([
     (@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl"),
   ])
   assert_eq(plan.explain(optimized=true), plan.explain())
@@ -366,7 +366,7 @@ test "with_columns at the root is a no-op (its full layout is the result)" {
 
 ///|
 test "join splits its requirement: each side narrows to its own readers" {
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   // A selection *below* the left side narrows that side's scan — the bare
   // `select` is itself that narrowing, so nothing is inserted beneath it.
   let narrowed_side = LazyFrame::LazyFrame(orders_df())
@@ -402,7 +402,7 @@ test "join splits its requirement: each side narrows to its own readers" {
 
 ///|
 test "aggregate: keys and aggregation reads survive, the rest narrows" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
@@ -415,7 +415,7 @@ test "aggregate: keys and aggregation reads survive, the rest narrows" {
 
 ///|
 test "aggregate guard: reading every column inserts nothing" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .group_by([@expr.col("region")])
     .agg([
       @expr.col("qty").sum().with_alias("a"),
@@ -426,7 +426,7 @@ test "aggregate guard: reading every column inserts nothing" {
 
 ///|
 test "nested selects: the outer requirement never prunes the inner expression list" {
-  let plan = LazyFrame::LazyFrame(sales_df())
+  let plan = LazyFrame::LazyFrame(plan_sales_df())
     .select([
       (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
       @expr.col("region"),
@@ -447,7 +447,7 @@ test "nested selects: the outer requirement never prunes the inner expression li
 
 ///|
 test "scan_csv: a selection writes its columns into the scan, no inserted select" {
-  let plan = scan_csv("sales.csv").select([@expr.col("region")])
+  let plan = @io.scan_csv("sales.csv").select([@expr.col("region")])
   // As built there is no projection; optimized, the read narrows in place —
   // and (unlike an in-memory Scan) no extra SELECT is inserted.
   assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\"")
@@ -461,7 +461,7 @@ test "scan_csv: a selection writes its columns into the scan, no inserted select
 test "scan_csv: the written projection is sorted for a deterministic explain" {
   // One expression reads two columns; the file's order is unknown at optimize
   // time, so the projection is sorted (bonus before qty).
-  let plan = scan_csv("sales.csv").select([
+  let plan = @io.scan_csv("sales.csv").select([
     (@expr.col("qty") + @expr.col("bonus")).with_alias("t"),
   ])
   assert_eq(
@@ -473,7 +473,9 @@ test "scan_csv: the written projection is sorted for a deterministic explain" {
 
 ///|
 test "scan_csv guard: an all-literal selection writes no projection" {
-  let plan = scan_csv("sales.csv").select([@expr.lit_int(1).with_alias("one")])
+  let plan = @io.scan_csv("sales.csv").select([
+    @expr.lit_int(1).with_alias("one"),
+  ])
   // No source column is read, so the scan stays whole — it still yields rows.
   assert_eq(
     plan.explain(optimized=true),
@@ -484,14 +486,14 @@ test "scan_csv guard: an all-literal selection writes no projection" {
 ///|
 test "scan_csv: a bare scan at the root writes no projection" {
   assert_eq(
-    scan_csv("sales.csv").explain(optimized=true),
+    @io.scan_csv("sales.csv").explain(optimized=true),
     "SCAN_CSV \"sales.csv\"",
   )
 }
 
 ///|
 test "scan_csv: an aggregation narrows the scan to its keys and reads" {
-  let plan = scan_csv("sales.csv")
+  let plan = @io.scan_csv("sales.csv")
     .group_by([@expr.col("region")])
     .agg([@expr.col("qty").sum().with_alias("total")])
   assert_eq(
@@ -505,14 +507,14 @@ test "scan_csv: an aggregation narrows the scan to its keys and reads" {
 test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   // The shared narrow_scan / render_scan_source path serves both sources, so a
   // selection writes the projection straight onto the SCAN_NDJSON node.
-  let plan = scan_ndjson("events.ndjson").select([@expr.col("region")])
+  let plan = @io.scan_ndjson("events.ndjson").select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
   )
   // A filter is absorbed here too, leaving the projection at the consumer's
   // own columns.
-  let with_filter = scan_ndjson("events.ndjson")
+  let with_filter = @io.scan_ndjson("events.ndjson")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
@@ -522,7 +524,7 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   )
   // Bare at the root: no requirement, so no projection is written.
   assert_eq(
-    scan_ndjson("events.ndjson").explain(optimized=true),
+    @io.scan_ndjson("events.ndjson").explain(optimized=true),
     "SCAN_NDJSON \"events.ndjson\"",
   )
 }
@@ -535,10 +537,7 @@ test "a semi join narrows its right side to the key columns" {
   let l = orders_df()
   let r = cities_df()
   let plan = LazyFrame::LazyFrame(l)
-    .join(
-      LazyFrame::LazyFrame(r),
-      @frame.JoinOptions::on([@expr.col("id")], how=Semi),
-    )
+    .join(LazyFrame::LazyFrame(r), JoinOptions::on([@expr.col("id")], how=Semi))
     .select([@expr.col("amount")])
   assert_eq(
     plan.explain(optimized=true),
@@ -551,7 +550,7 @@ test "a semi join narrows its right side to the key columns" {
   assert_eq(
     plan.collect(),
     l
-    .join(r, @frame.JoinOptions::on([@expr.col("id")], how=Semi))
+    .join(r, JoinOptions::on([@expr.col("id")], how=Semi))
     .select([@expr.col("amount")]),
   )
 }
@@ -566,12 +565,12 @@ test "a required suffixed right name narrows the right side to its source" {
   // column is load-bearing (dead itself, but narrowing it would rename the
   // right one back to bare `amount` and break the selection).
   let l = orders_df()
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("id", [2, 3, 4]),
     @series.Series::from_ints("amount", [1, 2, 3]),
     @series.Series::from_strings("extra", ["x", "y", "z"]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .select([@expr.col("amount_right")])
@@ -592,7 +591,7 @@ test "a file source side keeps its whole read (its names are unknowable)" {
   // be attributed to that side — it reads every column (no projection is
   // written), the barrier treatment, while the left side narrows to key
   // and selection.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
     @series.Series::from_strings("note", ["a", "b", "c"]),
@@ -600,7 +599,7 @@ test "a file source side keeps its whole read (its names are unknowable)" {
   let plan = l
     |> LazyFrame::LazyFrame
     |> lf => {
-      lf.join(scan_csv("cities.csv"), @frame.JoinOptions::on([@expr.col("id")]))
+      lf.join(@io.scan_csv("cities.csv"), JoinOptions::on([@expr.col("id")]))
     }
     |> lf => { lf.select([@expr.col("amount")]) }
   assert_eq(
@@ -620,12 +619,12 @@ test "a sided-key join splits its requirement through the paired keys" {
   // side keeps its key plus the selection's column; the unrelated
   // (`id` on the left, `extra` on the right) narrows away.
   let l = orders_df()
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("n", [20, 30, 40]),
     @series.Series::from_strings("tag", ["p", "q", "r"]),
     @series.Series::from_strings("extra", ["x", "y", "z"]),
   ])
-  let opts = @frame.JoinOptions::left_on([@expr.col("amount")], right_on=[
+  let opts = JoinOptions::left_on([@expr.col("amount")], right_on=[
     @expr.col("n"),
   ])
   let plan = LazyFrame::LazyFrame(l)
@@ -650,13 +649,13 @@ test "a derived on-key and an unknowable left side keep their sides whole" {
   // left side keeps everything it has, while the right side still narrows
   // to its key reads (a derived key's referenced columns) plus the
   // selection, dropping its unrelated `note`.
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
     @series.Series::from_strings("note", ["a", "b", "c"]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("id") + @expr.lit_int(0)])
-  let plan = scan_csv("orders.csv")
+  let opts = JoinOptions::on([@expr.col("id") + @expr.lit_int(0)])
+  let plan = @io.scan_csv("orders.csv")
     .join(LazyFrame::LazyFrame(r), opts)
     .select([@expr.col("amount")])
   assert_eq(
@@ -675,11 +674,11 @@ test "a deep unary chain under a join collects without overflowing: output_names
   // `Unary` arm formerly recursed, so a 20 000-deep select chain under a
   // join with a by-name reader above overflowed the native stack and
   // aborted. The post-order value-stack fold keeps every walk on the heap.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2, 3]),
     @series.Series::from_ints("b", [10, 20, 30]),
   ])
-  let right = @frame.DataFrame::DataFrame([
+  let right = DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2, 3]),
     @series.Series::from_strings("junk", ["x", "y", "z"]),
   ])
@@ -688,7 +687,7 @@ test "a deep unary chain under a join collects without overflowing: output_names
     lf = lf.select([@expr.col("a"), @expr.col("b")])
   }
   let joined = lf
-    .join(LazyFrame::LazyFrame(right), @frame.JoinOptions::on([@expr.col("a")]))
+    .join(LazyFrame::LazyFrame(right), JoinOptions::on([@expr.col("a")]))
     .select([@expr.col("b")])
   assert_eq(joined.collect().shape(), (3, 1))
 }
@@ -700,17 +699,17 @@ test "a narrowed join keeps the suffix clash that fails the full join" {
   // `DuplicateColumn` at collect. The requirement split must not dissolve
   // the clash by dropping both participants when no consumer reads them —
   // a plan that fails to collect still fails after optimization.
-  let left = @frame.DataFrame::DataFrame([
+  let left = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2]),
     @series.Series::from_ints("value", [10, 20]),
     @series.Series::from_ints("value_right", [100, 200]),
   ])
-  let right = @frame.DataFrame::DataFrame([
+  let right = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2]),
     @series.Series::from_ints("value", [7, 8]),
     @series.Series::from_strings("junk", ["x", "y"]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   // The eager join fails on the double `value_right`.
   assert_true(
     (Ok(left.join(right, opts)) catch { e => Err(e) })
@@ -736,7 +735,7 @@ test "a narrowed join keeps the suffix clash that fails the full join" {
   )
   // The same clash spelling arising inside the right frame alone — its
   // `value` renames onto its own native `value_right` — is pinned too.
-  let right_native = @frame.DataFrame::DataFrame([
+  let right_native = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2]),
     @series.Series::from_ints("value", [7, 8]),
     @series.Series::from_ints("value_right", [70, 80]),
@@ -759,18 +758,18 @@ test "a right join's projection narrows both sides with the rename swapped" {
   // reading.
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  let opts = JoinOptions::on([@expr.col("id")], how=Right)
   let narrowed = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .select([@expr.col("city")])
   assert_eq(narrowed.collect(), l.join(r, opts).select([@expr.col("city")]))
   // The clash side: a left `city` would ride suffixed, and a select of
   // that suffixed spelling maps back onto the left column.
-  let l_city = @frame.DataFrame::DataFrame([
+  let l_city = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2]),
     @series.Series::from_strings("city", ["oslo", "lima"]),
   ])
-  let clash_opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  let clash_opts = JoinOptions::on([@expr.col("id")], how=Right)
   let suffixed = LazyFrame::LazyFrame(l_city)
     .join(LazyFrame::LazyFrame(r), clash_opts)
     .select([@expr.col("city_right")])

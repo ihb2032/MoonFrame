@@ -11,6 +11,18 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
 Source-level note:
 
+- The `lazy` package no longer exists: the deferred query plan lives in
+  the frame package beside the engine that executes it. A direct
+  `import "ihb2032/MoonFrame/lazy"` must import `…/frame` instead (or the
+  facade, whose surface is unchanged — `LazyFrame`, `Optimizations`, and
+  the `scan_*` sources re-export exactly as before; the `scan_*` functions
+  now sit in the io package, beside the readers and drivers they defer,
+  and reach callers through the same facade names). Nothing about the
+  plan's behaviour changed.
+- `DataFrame::to_lazy()` joins `LazyFrame::LazyFrame(df)` as the entry to
+  the deferred plan — the method spelling the shared package makes
+  possible (`lazy` itself is a reserved word and cannot name a method).
+  The constructor stays; existing calls compile unchanged.
 - `DataError::LengthMismatch` carries the disagreeing lengths:
   `LengthMismatch(expected, got)` — the length the verb needed (a
   frame's height, a schema's width, the one cell a group reduction

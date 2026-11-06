@@ -8,7 +8,7 @@
 
 ///|
 test "slice pushdown: a head sinks past a row-stable with_columns" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let doubled = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let lf = LazyFrame::LazyFrame(df).with_columns(doubled).head(2)
   // The window must not change the collected values — it only moves.
@@ -22,7 +22,7 @@ test "slice pushdown: a head sinks past a row-stable with_columns" {
 
 ///|
 test "slice pushdown: a head sinks past a row-preserving select" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).select([@expr.col("qty")]).head(2)
   assert_eq(lf.collect(), df.select([@expr.col("qty")]).head(2))
   assert_eq(
@@ -33,7 +33,7 @@ test "slice pushdown: a head sinks past a row-preserving select" {
 
 ///|
 test "slice pushdown: a value-raising stage fences the window" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A cast can reject a *value*: pruning rows before it would drop the very
   // cell that raises, so the window stays above the stage.
   let casted = [@expr.col("qty").cast(@types.DataType::Float).with_alias("f")]
@@ -47,7 +47,7 @@ test "slice pushdown: a value-raising stage fences the window" {
 
 ///|
 test "slice pushdown: a filter floors the window" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let lf = LazyFrame::LazyFrame(df).filter(predicate).head(2)
   assert_eq(lf.collect(), df.filter(predicate).head(2))
@@ -60,7 +60,7 @@ test "slice pushdown: a filter floors the window" {
 
 ///|
 test "slice pushdown: an all-constant selection fences the window" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `select([1 as one])` collapses any input to one row; a window above it
   // addresses pre-collapse rows and must stay.
   let lf = LazyFrame::LazyFrame(df).select([@expr.lit_int(1)]).head(2)
@@ -70,7 +70,7 @@ test "slice pushdown: an all-constant selection fences the window" {
 
 ///|
 test "slice pushdown: a tail sinks and keeps its from-the-end reading" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df)
     .with_columns([@expr.col("qty").neg().with_alias("nq")])
     .tail(2)
@@ -86,7 +86,7 @@ test "slice pushdown: a tail sinks and keeps its from-the-end reading" {
 
 ///|
 test "clustering: adjacent disjoint with_columns stages merge" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let inner = [(@expr.col("qty") + @expr.lit_int(1)).with_alias("plus")]
   let outer = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let lf = LazyFrame::LazyFrame(df).with_columns(inner).with_columns(outer)
@@ -101,7 +101,7 @@ test "clustering: adjacent disjoint with_columns stages merge" {
 
 ///|
 test "clustering: a reader of the inner definitions stays separate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let inner = [(@expr.col("qty") + @expr.lit_int(1)).with_alias("plus")]
   // The outer stage reads `plus` — below the merge point that name does not
   // exist, so the stages cannot merge.
@@ -116,7 +116,7 @@ test "clustering: a reader of the inner definitions stays separate" {
 
 ///|
 test "clustering: colliding definitions stay separate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let inner = [(@expr.col("qty") + @expr.lit_int(1)).with_alias("v")]
   let outer = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("v")]
   let lf = LazyFrame::LazyFrame(df).with_columns(inner).with_columns(outer)
@@ -129,7 +129,7 @@ test "clustering: colliding definitions stay separate" {
 
 ///|
 test "folding: literal arithmetic collapses to the literal it evaluates to" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).with_columns([
     (@expr.lit_int(1) + @expr.lit_int(2)).with_alias("three"),
   ])
@@ -146,7 +146,7 @@ test "folding: literal arithmetic collapses to the literal it evaluates to" {
 
 ///|
 test "folding: a column-free subtree inside a column expression folds" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).select([
     (@expr.col("qty") + @expr.lit_int(2) * @expr.lit_int(3)).with_alias(
       "shifted",
@@ -168,13 +168,13 @@ test "folding: a column-free subtree inside a column expression folds" {
 
 ///|
 test "folding: a raising evaluation keeps the subtree verbatim" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `\"x\"` cannot cast to Int — the fold consults the evaluator, it raises,
   // and the cast stays exactly where the as-built plan reports the error.
   let lf = LazyFrame::LazyFrame(df).with_columns([
     @expr.lit_str("x").cast(@types.DataType::Int).with_alias("bad"),
   ])
-  let got : Result[@frame.DataFrame, @types.DataError] = Ok(lf.collect()) catch {
+  let got : Result[DataFrame, @types.DataError] = Ok(lf.collect()) catch {
     e => Err(e)
   }
   assert_true(got is Err(@types.DataError::ParseError(_)))
@@ -189,7 +189,7 @@ test "folding: a null result stays a subtree, not a Null literal" {
   // `5 // 0` evaluates to null; folding it to `Lit(Null)` would make the
   // collected plan refuse (`no Null-dtype column backend`) what the
   // as-built one returns. The subtree stays and collect agrees with eager.
-  let df = sales_df()
+  let df = plan_sales_df()
   let z = @expr.lit_int(5).floor_div(@expr.lit_int(0)).with_alias("z")
   let lf = LazyFrame::LazyFrame(df).with_columns([z])
   assert_eq(lf.collect(), df.with_columns([z]))
@@ -199,7 +199,7 @@ test "folding: a null result stays a subtree, not a Null literal" {
 test "folding: a null from a string probe stays a subtree too" {
   // The same shape through `str_extract` missing its pattern: the null
   // cell collects exactly as the eager verb produces it.
-  let df = sales_df()
+  let df = plan_sales_df()
   let z = @expr.lit_str("abc").str_extract("[0-9]+").with_alias("z")
   let lf = LazyFrame::LazyFrame(df).with_columns([z])
   assert_eq(lf.collect(), df.with_columns([z]))
@@ -207,7 +207,7 @@ test "folding: a null from a string probe stays a subtree too" {
 
 ///|
 test "folding: aggregations and map closures are left untouched" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // An `Agg` reduces a whole scope, a map closure runs per row — neither may
   // be consulted on an empty frame at optimize time.
   let mapped = @expr.col("qty").map_elements(label="m", s => s)
@@ -230,7 +230,7 @@ test "folding: aggregations and map closures are left untouched" {
 
 ///|
 test "folding: a fold inside a filter predicate keeps the verdict" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).filter(@expr.lit_bool(true))
   assert_eq(lf.collect(), df)
   assert_eq(lf.explain(optimized=true), "FILTER true\n  SCAN [4×3]")
@@ -238,7 +238,7 @@ test "folding: a fold inside a filter predicate keeps the verdict" {
 
 ///|
 test "folding: a folded child rebuilds its unary, ternary, and interval parents" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Parents whose *children* fold while they themselves cannot — a folded
   // child is one the fold produced (`(1 + 2) > 1` becomes a literal), not a
   // bare `lit` leaf, which never reports a change: the negative of a column
@@ -275,7 +275,7 @@ test "folding: a folded child rebuilds its unary, ternary, and interval parents"
 
 ///|
 test "folding: a filter predicate folds where a column-free subtree sits in it" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `50 < 40 + 20` — the right side is column-free, so the predicate keeps
   // its column but loses the arithmetic.
   let lf = LazyFrame::LazyFrame(df).filter(
@@ -290,7 +290,7 @@ test "folding: a filter predicate folds where a column-free subtree sits in it" 
 
 ///|
 test "folding: an aggregation's expressions fold" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df)
     .group_by([@expr.col("region")])
     .agg([
@@ -318,7 +318,7 @@ test "folding: an aggregation's expressions fold" {
 
 ///|
 test "folding: a sort key's column-free subtree folds" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).sort([
     (@expr.col("qty").add(@expr.lit_int(1) + @expr.lit_int(1)), true, false),
   ])
@@ -336,7 +336,7 @@ test "folding: a sort key's column-free subtree folds" {
 
 ///|
 test "folding: a folded operand rebuilds its cast, fill, and positional parents" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The `qty + (1 + 1)` operand folds to `qty + 2` under three parents that
   // cannot fold themselves: a cast, a fill, and a running sum.
   let shifted = @expr.col("qty").add(@expr.lit_int(1) + @expr.lit_int(1))
@@ -360,7 +360,7 @@ test "folding: a folded operand rebuilds its cast, fill, and positional parents"
 
 ///|
 test "window fusion: two heads keep the smaller bound" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Either order: the tighter bound decides, and the inner window is gone.
   let lf = LazyFrame::LazyFrame(df).head(5).head(3)
   assert_eq(lf.collect(), df.head(5).head(3))
@@ -372,7 +372,7 @@ test "window fusion: two heads keep the smaller bound" {
 
 ///|
 test "window fusion: two tails keep the smaller bound" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).tail(3).tail(2)
   assert_eq(lf.collect(), df.tail(3).tail(2))
   assert_eq(lf.explain(optimized=true), "TAIL 2\n  SCAN [4×3]")
@@ -380,7 +380,7 @@ test "window fusion: two tails keep the smaller bound" {
 
 ///|
 test "window fusion: three heads chain into one" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).head(9).head(3).head(2)
   assert_eq(lf.collect(), df.head(9).head(3).head(2))
   assert_eq(lf.explain(optimized=true), "HEAD 2\n  SCAN [4×3]")
@@ -388,7 +388,7 @@ test "window fusion: three heads chain into one" {
 
 ///|
 test "window fusion: two non-negative slices compose by offsets and spans" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `[1, 11)` then `[2, 5)` over it: the composite reads `[3, 6)` — offset
   // 3, three rows available, two asked.
   let lf = LazyFrame::LazyFrame(df).slice(1, length=10).slice(2, length=2)
@@ -398,7 +398,7 @@ test "window fusion: two non-negative slices compose by offsets and spans" {
 
 ///|
 test "window fusion: an outer slice starting past the inner span is empty" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The inner window supplies rows `[2, 4)`; the outer asks from offset 3
   // for one row — row 3 of the inner's two. Available span under the outer
   // start is 1, asked 1.
@@ -413,7 +413,7 @@ test "window fusion: an outer slice starting past the inner span is empty" {
 
 ///|
 test "window fusion: opposite ends and negative offsets stay separate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `head` over `tail` addresses opposite ends — no composite, two windows.
   let lf = LazyFrame::LazyFrame(df).tail(3).head(2)
   assert_eq(lf.collect(), df.tail(3).head(2))
@@ -422,7 +422,7 @@ test "window fusion: opposite ends and negative offsets stay separate" {
 
 ///|
 test "window fusion: a window still crosses stages before fusing" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The outer head fuses with the inner tail — wait, no: the composite here
   // is head-over-tail, which has no fusion. The pinned shape shows the
   // outer window sitting above the crossed stage and the inner window.
@@ -442,7 +442,7 @@ test "window fusion: a window still crosses stages before fusing" {
 
 ///|
 test "window fusion: an unbounded outer slice takes the inner span" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The outer window asks `from offset 2 to the end` of the inner's
   // `[1, 5)` — the composite is `[3, 5)`: offset 3, the two available rows.
   let lf = LazyFrame::LazyFrame(df).slice(1, length=4).slice(2)
@@ -452,7 +452,7 @@ test "window fusion: an unbounded outer slice takes the inner span" {
 
 ///|
 test "window fusion: two unbounded slices compose to one unbounded" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Neither window bounds its length: the composite reads `[3, end)`.
   let lf = LazyFrame::LazyFrame(df).slice(1).slice(2)
   assert_eq(lf.collect(), df.slice(1).slice(2))
@@ -465,7 +465,7 @@ test "window fusion: two unbounded slices compose to one unbounded" {
 /// it as the *wider* one, so the pair stays a floor and collects exactly
 /// the eager chain.
 test "window fusion: negative bounds stay separate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Eager: head(3) keeps 3 rows, head(-2) drops the last 2 of those — 1 row.
   // A fused Head(min(3, -2) = -2) would keep all but 2 of the 4 — 2 rows.
   let lf = LazyFrame::LazyFrame(df).head(3).head(-2)
@@ -485,7 +485,7 @@ test "window fusion: negative bounds stay separate" {
 /// form must not wrap the sum into a from-the-tail offset. The pair stays
 /// a floor.
 test "window fusion: offsets whose sum wraps stay separate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let lf = LazyFrame::LazyFrame(df).slice(1_500_000_000).slice(1_500_000_000)
   assert_eq(lf.collect(), df.slice(1_500_000_000).slice(1_500_000_000))
   assert_eq(lf.collect().nrows(), 0)
@@ -505,7 +505,7 @@ test "a negative-length slice never fuses: the wrapped reach reads no rows" {
   // `Int32::MIN` into a large positive span reading real rows, so the
   // fusion refuses and the chain collects exactly what the eager verbs
   // give: zero rows.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("v", [1L, 2L, 3L, 4L, 5L, 6L]),
   ])
   let plan = LazyFrame::LazyFrame(df)

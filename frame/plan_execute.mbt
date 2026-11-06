@@ -18,9 +18,7 @@
 /// `read_*_projected` once the optimizer has filled its projection — so a
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.
-fn LogicalPlan::execute(
-  self : LogicalPlan,
-) -> @frame.DataFrame raise @types.DataError {
+fn LogicalPlan::execute(self : LogicalPlan) -> DataFrame raise @types.DataError {
   // Memoised post-order fold (not the call stack), so a deep plan collects
   // without overflowing and aborting — the never-abort contract the
   // expression evaluator (`eval_expr`) also keeps. Each node applies the
@@ -31,9 +29,9 @@ fn LogicalPlan::execute(
   // DAG-shaped plan (nested self-joins sharing node objects) each shared
   // subplan runs ONCE — including a file source's read — where the
   // per-occurrence fold re-ran it 2^depth times.
-  let memo : Array[(LogicalPlan, @frame.DataFrame)] = []
+  let memo : Array[(LogicalPlan, DataFrame)] = []
   for node in self.post_order_unique() {
-    let result : @frame.DataFrame = match node {
+    let result : DataFrame = match node {
       Scan(source) => source.execute_scan()
       // Every unary verb defers through `apply_frame_op` on its collected input.
       Unary(input, op) => apply_frame_op(memo_result(memo, input), op)
@@ -80,7 +78,7 @@ fn LogicalPlan::execute(
 /// format's read.
 fn ScanSource::execute_scan(
   self : ScanSource,
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   match self {
     InMemory(df) => df
     File(fs) => {
@@ -88,7 +86,7 @@ fn ScanSource::execute_scan(
         projection=fs.projection,
         predicate=fs.predicate,
       )
-      @frame.DataFrame::from_parts(batch.columns(), batch.height())
+      DataFrame::from_parts(batch.columns(), batch.height())
     }
   }
 }
@@ -100,9 +98,9 @@ fn ScanSource::execute_scan(
 /// are exactly the eager operators'. One place to add a new unary verb's
 /// execution.
 fn apply_frame_op(
-  df : @frame.DataFrame,
+  df : DataFrame,
   op : FrameOp,
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   match op {
     Select(exprs) => df.select(exprs)
     WithColumns(exprs) => df.with_columns(exprs)
@@ -192,21 +190,15 @@ fn apply_frame_op(
       }
     FillNan(value) => df.fill_nan(value)
     FillNull(value) => df.fill_null(value)
-    // Each reduction executes as its eager `DataFrame` verb on the collected
-    // input, so `collect` is bit-for-bit the eager 1-row result.
+    // Each reduction rides the shared per-column driver its eager verb is —
+    // `reduce_to_row` is the whole body of every one of them — so `collect`
+    // is bit-for-bit the eager 1-row result. `Quantile` is the one arm kept
+    // on the public verb: its `q ∈ [0, 1]` check lives there, and a plan
+    // that fails to collect must still fail collected.
     Reduce(op) =>
       match op {
-        Sum => df.sum()
-        Mean => df.mean()
-        Min => df.min()
-        Max => df.max()
-        Count => df.count()
-        NullCount => df.null_count()
-        Median => df.median()
         Quantile(q, interpolation) => df.quantile(q, interpolation~)
-        Std => df.std()
-        Var => df.variance()
-        NUnique => df.n_unique()
+        _ => df.reduce_to_row(op)
       }
   }
 }

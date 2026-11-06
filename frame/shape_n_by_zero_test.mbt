@@ -197,7 +197,7 @@ test "the table renderers draw nothing for an N×0 frame" {
 /// caller, and a legitimate `N×0` still builds.
 test "from_parts refuses a negative height, and keeps building N×0" {
   assert_eq(
-    Ok(@frame.DataFrame::from_parts([], -1)) catch {
+    Ok(DataFrame::from_parts([], -1)) catch {
       e => Err(e)
     },
     Err(
@@ -209,11 +209,11 @@ test "from_parts refuses a negative height, and keeps building N×0" {
   // The check is the same for a frame with columns, which the length check
   // would otherwise reject as a mismatch.
   assert_true(
-    (Ok(@frame.DataFrame::from_parts([@series.Series::from_ints("a", [1])], -1)) catch {
+    (Ok(DataFrame::from_parts([@series.Series::from_ints("a", [1])], -1)) catch {
       e => Err(e)
     })
     is Err(@types.DataError::InvalidOperation(_)),
   )
-  assert_eq(@frame.DataFrame::from_parts([], 4).shape(), (4, 0))
-  assert_eq(@frame.DataFrame::from_parts([], 0).shape(), (0, 0))
+  assert_eq(DataFrame::from_parts([], 4).shape(), (4, 0))
+  assert_eq(DataFrame::from_parts([], 0).shape(), (0, 0))
 }

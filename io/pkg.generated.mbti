@@ -30,6 +30,14 @@ pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
+
+pub fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame
+
+pub fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame
+
+pub fn scan_parquet(String) -> @frame.LazyFrame
+
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError

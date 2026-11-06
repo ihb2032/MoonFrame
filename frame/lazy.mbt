@@ -17,9 +17,8 @@
 /// captured frames.
 ///
 /// The entry point is the type's own constructor, `LazyFrame::LazyFrame(df)`
-/// — not a `DataFrame` method, which would have to live in `frame` and close a
-/// `frame ↔ lazy` import cycle, and not `lazy(df)`, since `lazy` is a MoonBit
-/// reserved word.
+/// — or its method spelling on the frame, `DataFrame::to_lazy` — and not
+/// `lazy(df)`, since `lazy` is a MoonBit reserved word.
 pub struct LazyFrame {
   priv plan : LogicalPlan
 }
@@ -29,8 +28,18 @@ pub struct LazyFrame {
 /// `LazyFrame::LazyFrame(df).filter(…).collect()`. Total — the frame is
 /// captured as-is, and frames are immutable, so the plan can never observe
 /// later state.
-pub fn LazyFrame::LazyFrame(df : @frame.DataFrame) -> LazyFrame {
+pub fn LazyFrame::LazyFrame(df : DataFrame) -> LazyFrame {
   { plan: Scan(InMemory(df)), }
+}
+
+///|
+/// The `DataFrame`-side entry to the deferred plan: `df.to_lazy()` is the
+/// method spelling of `LazyFrame::LazyFrame(df)` — the plan starts at this
+/// frame and grows through the builder methods, reading nothing until
+/// `collect`. Not named `lazy`: that word is reserved, so it cannot spell a
+/// method.
+pub fn DataFrame::to_lazy(self : DataFrame) -> LazyFrame {
+  LazyFrame::LazyFrame(self)
 }
 
 ///|
@@ -224,7 +233,7 @@ pub fn LazyFrame::with_row_index(
 pub fn LazyFrame::unique(
   self : LazyFrame,
   subset? : Array[@expr.Expr],
-  keep~ : @frame.KeepStrategy = First,
+  keep~ : KeepStrategy = First,
 ) -> LazyFrame {
   { plan: Unary(self.plan, Unique(keep, subset.map(keys => keys.copy()))), }
 }
@@ -291,7 +300,7 @@ pub fn LazyFrame::pivot(
   on~ : Array[@expr.Expr],
   index? : Array[@expr.Expr],
   values? : Array[@expr.Expr],
-  aggregate_function? : @frame.PivotAgg,
+  aggregate_function? : PivotAgg,
 ) -> LazyFrame {
   {
     plan: Unary(
@@ -336,41 +345,41 @@ pub fn LazyFrame::unpivot(
 /// sum (numeric columns their sum in the source dtype, non-numeric columns a
 /// `Null` cell). `collect` equals the eager `df.sum()`.
 pub fn LazyFrame::sum(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Sum)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Sum)), }
 }
 
 ///|
 /// Defer `DataFrame::mean`: a 1-row frame of each numeric column's mean as
 /// `Float` (empty / all-null → `Null`), non-numeric columns a `Null` cell.
 pub fn LazyFrame::mean(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Mean)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Mean)), }
 }
 
 ///|
 /// Defer `DataFrame::min`: a 1-row frame of each numeric column's minimum
 /// (`NaN` skipped, source dtype kept), non-numeric columns a `Null` cell.
 pub fn LazyFrame::min(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Min)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Min)), }
 }
 
 ///|
 /// Defer `DataFrame::max`: the maximum counterpart of `min`.
 pub fn LazyFrame::max(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Max)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Max)), }
 }
 
 ///|
 /// Defer `DataFrame::count`: a 1-row `Int` frame of each column's non-null cell
 /// count (every dtype).
 pub fn LazyFrame::count(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Count)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Count)), }
 }
 
 ///|
 /// Defer `DataFrame::null_count`: a 1-row `Int` frame of each column's null
 /// count — the complement of `count`.
 pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::NullCount)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::NullCount)), }
 }
 
 ///|
@@ -378,7 +387,7 @@ pub fn LazyFrame::null_count(self : LazyFrame) -> LazyFrame {
 /// as `Float` (`NaN` propagating, the two middles averaged on an even
 /// count), non-numeric / empty / all-null columns a `Null` cell.
 pub fn LazyFrame::median(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Median)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Median)), }
 }
 
 ///|
@@ -391,7 +400,7 @@ pub fn LazyFrame::quantile(
   q : Double,
   interpolation~ : @series.QuantileInterpolation = @series.QuantileInterpolation::Nearest,
 ) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Quantile(q, interpolation))), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Quantile(q, interpolation))), }
 }
 
 ///|
@@ -399,7 +408,7 @@ pub fn LazyFrame::quantile(
 /// standard deviation (`ddof = 1`) as `Float`; a column with fewer than two
 /// non-null cells — like a non-numeric one — takes a `Null` cell.
 pub fn LazyFrame::std(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Std)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Std)), }
 }
 
 ///|
@@ -407,7 +416,7 @@ pub fn LazyFrame::std(self : LazyFrame) -> LazyFrame {
 /// `Float`-or-`Null` cell rules. Spelled `variance` because `var` is a
 /// reserved MoonBit word.
 pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::Var)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::Var)), }
 }
 
 ///|
@@ -415,7 +424,7 @@ pub fn LazyFrame::variance(self : LazyFrame) -> LazyFrame {
 /// distinct value count (every dtype; a null counts as one distinct value,
 /// every `NaN` one bucket — the documented `n_unique` rule).
 pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
-  { plan: Unary(self.plan, Reduce(LazyReduceOp::NUnique)), }
+  { plan: Unary(self.plan, Reduce(FrameReduceOp::NUnique)), }
 }
 
 ///|
@@ -426,7 +435,7 @@ pub fn LazyFrame::n_unique(self : LazyFrame) -> LazyFrame {
 pub fn LazyFrame::join(
   self : LazyFrame,
   other : LazyFrame,
-  options : @frame.JoinOptions,
+  options : JoinOptions,
 ) -> LazyFrame {
   { plan: Join(self.plan, other.plan, options), }
 }
@@ -626,7 +635,7 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 pub fn LazyFrame::collect(
   self : LazyFrame,
   optimizations~ : Optimizations = Optimizations::Optimizations(),
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   self.plan.optimize_with(optimizations).execute()
 }
 

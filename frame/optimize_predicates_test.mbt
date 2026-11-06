@@ -15,7 +15,7 @@ test "drop/rename/rename_with/unique/drop_nulls/fill_null are predicate barriers
   // optimized plan would diverge from the as-built one. Snapshotting
   // optimized == as-built pins the fence (the cross-check to the Join barrier
   // above; collect-equivalence covers the values).
-  let df = sales_df()
+  let df = plan_sales_df()
   let qty_gt = @expr.col("qty").gt(@expr.lit_int(50))
   let drop_plan = LazyFrame::LazyFrame(df)
     .drop([@expr.col("bonus")])
@@ -46,7 +46,7 @@ test "drop/rename/rename_with/unique/drop_nulls/fill_null are predicate barriers
 
 ///|
 test "a trailing filter sinks below a bare-column selection" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let projection = [@expr.col("qty"), @expr.col("region")]
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let plan = LazyFrame::LazyFrame(df).select(projection).filter(predicate)
@@ -66,7 +66,7 @@ test "a trailing filter sinks below a bare-column selection" {
 
 ///|
 test "a trailing filter sinks below a derived-column stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df).with_columns(derived).filter(predicate)
@@ -84,7 +84,7 @@ test "a trailing filter sinks below a derived-column stage" {
 
 ///|
 test "a trailing filter sinks below a fill_null with_columns stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `fill_null` is a dedicated row-stable node (semantically the guarded
   // ternary), so the optimizer crosses it with no fill_null-specific rule:
   // the stage replaces `qty` in place but the predicate reads `region`, so
@@ -112,7 +112,7 @@ test "predicate pushdown keeps a derived aggregate key's backend canonical" {
   // onto `Numeric`. Column equality compares content and not the backend, so
   // this pins the canonicalisation itself rather than a difference `collect`
   // would otherwise report.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("k", [3, 4, 7, 9]),
     @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
     @series.Series::from_ints("b", [1, 1, 1, 1]),
@@ -142,7 +142,7 @@ test "fence: a sign-sensitive predicate stays above an aggregate on a signed-zer
   // aggregate would filter the group's rows by their individual signs and
   // change the surviving sum. The filter must stay above the aggregate.
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -167,7 +167,7 @@ test "fence: a pow predicate with a negative exponent also stays above a signed-
   // reveals a folded key's sign exactly as division does — the filter must stay
   // above the aggregate, not sink into the group's individual rows.
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -191,7 +191,7 @@ test "predicate pushdown still sinks a division-free predicate below an aggregat
   // reveals a zero's sign — so a comparison predicate on the key still sinks
   // (and must, to keep the optimization for the common case).
   let neg_zero = -1.0 * id_double(0.0)
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, neg_zero, 5.0]),
     @series.Series::from_ints("v", [1, 2, 3]),
   ])
@@ -209,7 +209,7 @@ test "deep optimizer predicates don't overflow: the pushdown walks are iterative
   // A key predicate this deep formerly overflowed the native stack and aborted
   // inside row_stable / signed_zero_safe during optimization — before the executor
   // even ran. The explicit-stack walks analyse any depth.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_floats("k", [0.0, 5.0]),
     @series.Series::from_ints("v", [1, 2]),
   ])
@@ -233,7 +233,7 @@ test "deep aggregation expressions don't overflow the group pushdown gate" {
   // stack inside group_cell_stable when the optimizer tested whether a key
   // predicate could sink below the aggregate. The explicit-stack walk analyses
   // any depth.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 1, 2]),
     @series.Series::from_ints("v", [10, 20, 30]),
   ])
@@ -256,9 +256,7 @@ test "deep crossable spine collects without overflowing: place_filter is iterati
   // place_filter sinks the filter through every crossable Select; a spine this
   // deep formerly overflowed the native stack inside place_filter (and
   // push_projection rebuilding it). collect drives the optimizer then execute.
-  let df = @frame.DataFrame::DataFrame([
-    @series.Series::from_ints("a", [1, 2, 3]),
-  ])
+  let df = DataFrame::DataFrame([@series.Series::from_ints("a", [1, 2, 3])])
   let mut lf = LazyFrame::LazyFrame(df)
   for _ in 0..<20000 {
     lf = lf.select([@expr.col("a")])
@@ -274,7 +272,7 @@ test "predicate pushdown keeps a derived select column's backend canonical" {
   // filter drops the row, so the eager (compute-then-filter) and optimized
   // (filter-then-compute) chains would build `s` on different backends were
   // the gather not canonicalising.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("k", [3, 4, 7, 9]),
     @series.Series::from_int_options("a", [None, None, Some(10), Some(20)]),
     @series.Series::from_ints("b", [1, 1, 1, 1]),
@@ -292,7 +290,7 @@ test "predicate pushdown keeps a derived select column's backend canonical" {
 
 ///|
 test "fence: a predicate reading a name the stage defines stays above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let predicate = @expr.col("dbl").gt(@expr.lit_int(100))
   let plan = LazyFrame::LazyFrame(df).with_columns(derived).filter(predicate)
@@ -303,7 +301,7 @@ test "fence: a predicate reading a name the stage defines stays above" {
 
 ///|
 test "fence: a broadcast aggregation inside with_columns pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `total` broadcasts sum(qty) over *all* rows; filtering first would
   // recompute it over the survivors (85, not 405).
   let derived = [@expr.col("qty").sum().with_alias("total")]
@@ -315,7 +313,7 @@ test "fence: a broadcast aggregation inside with_columns pins the filter above" 
 
 ///|
 test "fence: a cast inside the stage pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A cast's parse / range rejection raises on the values it meets:
   // filtering first could drop the very row that raises, so no filter
   // crosses a cast-bearing stage even when (as here) every cast succeeds.
@@ -328,7 +326,7 @@ test "fence: a cast inside the stage pins the filter above" {
 
 ///|
 test "fence: a computed occurrence of the predicate's column is not a bare pass-through" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let projection = [
     (@expr.col("qty") * @expr.lit_int(2)).with_alias("qty2"),
     @expr.col("region"),
@@ -349,7 +347,7 @@ test "fence: a computed occurrence of the predicate's column is not a bare pass-
 
 ///|
 test "fence: an aggregating selection pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The selection broadcasts sum(qty) beside `region`: dropping rows
   // first would change the broadcast value, so the filter stays above.
   let projection = [
@@ -370,7 +368,7 @@ test "fence: an aggregating selection pins the filter above" {
 
 ///|
 test "a scope-dependent predicate still crosses a bare selection" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The predicate's own mean is computed over the filter's input scope —
   // and a bare selection neither adds nor drops rows, so that scope is
   // identical on both sides of the swap.
@@ -389,7 +387,7 @@ test "a scope-dependent predicate still crosses a bare selection" {
 
 ///|
 test "a key predicate sinks below an aggregation" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [
     @expr.col("qty").sum().with_alias("total"),
     @expr.col("bonus").count().with_alias("n"),
@@ -416,7 +414,7 @@ test "a key predicate sinks below an aggregation" {
 
 ///|
 test "a key predicate that empties every group still collects equal" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("region").eq(@expr.lit_str("north"))
   let plan = LazyFrame::LazyFrame(df)
@@ -434,7 +432,7 @@ test "a key predicate that empties every group still collects equal" {
 
 ///|
 test "fence: a predicate reading an aggregation output stays above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   let predicate = @expr.col("total").gt(@expr.lit_int(100))
   let plan = LazyFrame::LazyFrame(df)
@@ -457,7 +455,7 @@ test "fence: a predicate reading an aggregation output stays above" {
 
 ///|
 test "a key predicate sinks below a mean aggregation, null group included" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `mean` / `min` / `max` cross by the group-invariance argument: a key
   // predicate gives every row of a group the same verdict, so the group set
   // and every group's cells are fixed, and these ops are pure functions of
@@ -484,7 +482,7 @@ test "a key predicate sinks below a mean aggregation, null group included" {
 
 ///|
 test "a key predicate sinks below min and max aggregations" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [
     @expr.col("qty").min().with_alias("lo"),
     @expr.col("qty").max().with_alias("hi"),
@@ -509,7 +507,7 @@ test "a key predicate sinks below min and max aggregations" {
 
 ///|
 test "fence: a mean over a value-raising operand stays above the group stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The loosened crossing still demands a `row_stable` operand: a `cast`'s
   // rejection is value-dependent, so a dropped row could be the one whose
   // cell fails to convert — exactly the `sum(col.cast(…))` fence. The cast
@@ -537,7 +535,7 @@ test "fence: a mean over a value-raising operand stays above the group stage" {
 
 ///|
 test "fence: the sample statistics and first / last pin the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `std` / `var` / `median` / `quantile` / `first` / `last` stay fenced — a
   // conservative bound; no consumer has asked to loosen them, and pinning
   // the fence keeps it deliberate. `quantile` is fenced for `median`'s
@@ -575,7 +573,7 @@ test "fence: the sample statistics and first / last pin the filter above" {
 
 ///|
 test "a key predicate sinks below a distinct-count aggregation" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `n_unique` cells are always a non-null `Int`, so — like `sum` / `count` —
   // a key predicate sinks past the aggregation.
   let aggs = [
@@ -600,7 +598,7 @@ test "a key predicate sinks below a distinct-count aggregation" {
 
 ///|
 test "fence: a std aggregation pins the filter above the group stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The east group's bonus cells are all null, so its `std` is a null cell —
   // the case the fence was argued from. Like `mean`, `std` is fenced, so the
   // filter stays above the aggregate whatever the data does. What is pinned is
@@ -630,7 +628,7 @@ test "fence: a std aggregation pins the filter above the group stage" {
 
 ///|
 test "fence: a cast in the aggregation list pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [
     @expr.col("qty").sum().cast(@types.DataType::Float).with_alias("totalf"),
   ]
@@ -654,7 +652,7 @@ test "fence: a cast in the aggregation list pins the filter above" {
 
 ///|
 test "fence: a cast inside an aggregation operand pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // `sum(cast(qty))`: the cast is the aggregation's *operand*, not a
   // top-level wrapper. Its parse / range rejection raises on the values it
   // meets, so dropping a group first could drop the very cell that raises —
@@ -686,7 +684,7 @@ test "fence: a cast inside an aggregation operand pins the filter above" {
 
 ///|
 test "fence: a scope-dependent key predicate stays above the aggregation" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [@expr.col("qty").sum().with_alias("total")]
   // Reads only the key — but its count runs over the aggregation's
   // output rows (one per group), not the raw rows, so it must not move.
@@ -710,7 +708,7 @@ test "fence: a scope-dependent key predicate stays above the aggregation" {
 
 ///|
 test "fence: a non-reduction aggregation keeps its error and its filter in place" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [@expr.col("qty")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -738,7 +736,7 @@ test "fence: a non-reduction aggregation keeps its error and its filter in place
 
 ///|
 test "fence: a null literal in the aggregation list pins the filter above" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let aggs = [@expr.lit(@types.Scalar::Null).with_alias("z")]
   let predicate = @expr.col("region").eq(@expr.lit_str("west"))
   let plan = LazyFrame::LazyFrame(df)
@@ -767,7 +765,7 @@ test "fence: a null literal in the aggregation list pins the filter above" {
 
 ///|
 test "reduction combinators pass the aggregation crossing gate" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Ternary selection, comparisons, literals, and negation over sum
   // cells are all null-free and value-safe, so the key filter crosses.
   let aggs = [
@@ -796,7 +794,7 @@ test "reduction combinators pass the aggregation crossing gate" {
 
 ///|
 test "fence: a predicate on a derived key stays above the aggregation" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // The group key is *derived* (`qty > 50`, aliased `big`): its output
   // column does not exist below the aggregation, so a predicate reading it
   // cannot sink — only a *bare-column* key opens the crossing. The
@@ -817,7 +815,7 @@ test "fence: a predicate on a derived key stays above the aggregation" {
 
 ///|
 test "fence: a non-row-stable extra key keeps the group filter above" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["a", "a", "b"]),
     @series.Series::from_ints("v", [1, 2, 10]),
   ])
@@ -834,7 +832,7 @@ test "fence: a non-row-stable extra key keeps the group filter above" {
 
 ///|
 test "a bare-column key predicate still sinks past a mixed-key aggregation" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Two keys: a bare `region` and a derived bucket. A predicate on the bare
   // key sinks (its column is present verbatim below, one value per group),
   // while the derived key keeps its own source `qty` alive at the scan.
@@ -859,7 +857,7 @@ test "a bare-column key predicate still sinks past a mixed-key aggregation" {
 
 ///|
 test "row windows stop the descent" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Positions are not values: head(2) then filter keeps [120], while
   // filtering first would re-number the rows and keep [120, 200].
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
@@ -878,7 +876,7 @@ test "row windows stop the descent" {
 
 ///|
 test "sort stops the descent" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let keys = [(@expr.col("qty"), false, true)]
   let predicate = @expr.col("qty").gt(@expr.lit_int(100))
   let plan = LazyFrame::LazyFrame(df).sort(keys).filter(predicate)
@@ -889,7 +887,7 @@ test "sort stops the descent" {
 
 ///|
 test "stacked filters sink together and keep their order" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let projection = [@expr.col("qty"), @expr.col("bonus")]
   let first = @expr.col("bonus").is_not_null()
   let second = @expr.col("qty").gt(@expr.lit_int(50))
@@ -914,7 +912,7 @@ test "stacked filters sink together and keep their order" {
 test "a filter above a join splits into the side its columns name" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   // Above: an inner join and a left-only, row-stable predicate — the
   // filter sinks into the left input (every output row is a real left row,
   // so the verdicts agree row for row).
@@ -975,7 +973,7 @@ test "a filter above a join splits into the side its columns name" {
 
 ///|
 test "a doubly-broken plan may report the sunk filter's error first" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Both stages are independently broken. As built, the derivation
   // evaluates first and reports `ghost1`; once the filter sinks below
   // it, the filter evaluates first and reports `ghost2`. Which of a
@@ -1003,7 +1001,7 @@ test "a doubly-broken plan may report the sunk filter's error first" {
 
 ///|
 test "single-fault errors survive the crossing unchanged" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // Broken stage, sound predicate: the sunk filter runs first and
   // passes; the stage still reports its own missing column.
   let broken_stage = [(@expr.col("ghost") + @expr.lit_int(1)).with_alias("g")]
@@ -1042,7 +1040,7 @@ test "single-fault errors survive the crossing unchanged" {
 
 ///|
 test "an all-literal predicate crosses vacuously" {
-  let df = sales_df()
+  let df = plan_sales_df()
   let projection = [@expr.col("qty")]
   let predicate = @expr.lit_bool(true)
   let plan = LazyFrame::LazyFrame(df).select(projection).filter(predicate)
@@ -1059,7 +1057,7 @@ test "an all-literal predicate crosses vacuously" {
 
 ///|
 test "a dropping predicate cannot sink past a collapsing constant selection" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // An all-constant selection collapses any input — even zero rows — to a
   // single row, so a column-less predicate must NOT cross it: filtering
   // 4→0 first and then re-materialising the one literal row (1 row) would
@@ -1079,7 +1077,7 @@ test "a dropping predicate cannot sink past a collapsing constant selection" {
 
 ///|
 test "row-local probes and ternaries cross with their stage" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A null probe and a when/then/otherwise are row-local (no
   // aggregation, no cast), so the stage lets the key filter through.
   let derived = [
@@ -1102,7 +1100,7 @@ test "row-local probes and ternaries cross with their stage" {
 
 ///|
 test "a map is a value barrier: it blocks the filter sink, like cast" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A `Map`'s opaque closure can raise on the values it meets, so a `Map` is
   // a value barrier (exactly like `cast`): the filter cannot sink past a
   // with_columns that contains one, even though the predicate reads a column
@@ -1131,7 +1129,7 @@ test "a map is a value barrier: it blocks the filter sink, like cast" {
 
 ///|
 test "a lit_series is a barrier: it blocks the filter sink, like cast" {
-  let df = sales_df()
+  let df = plan_sales_df()
   // A frame-tall literal column is positional (cell `i` is row `i`), so a
   // filter dropping rows *before* the stage would leave it mismatched against
   // the now-shorter frame. `lit_series` is therefore a shape barrier: the
@@ -1162,7 +1160,7 @@ test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
   // The selection reads `region`; the filter needs `qty`. The predicate rides
   // *into* the scan, which reads `qty` itself to prune rows — so the written
   // projection is the consumer's `region` alone and no FILTER node remains.
-  let plan = scan_csv("sales.csv")
+  let plan = @io.scan_csv("sales.csv")
     .filter(@expr.col("qty").gt(@expr.lit_int(50)))
     .select([@expr.col("region")])
   assert_eq(
@@ -1174,7 +1172,7 @@ test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
 
 ///|
 test "scan_csv absorbs a filter directly on it; a second one stays above" {
-  let plan = scan_csv("sales.csv").filter(
+  let plan = @io.scan_csv("sales.csv").filter(
     @expr.col("qty").gt(@expr.lit_int(50)),
   )
   // As built the filter is its own node; optimized, the scan carries it.
@@ -1198,9 +1196,9 @@ test "scan_csv: a column-less predicate is absorbed like any other" {
   // A predicate that names no column rides into the scan too: the pruner's
   // zero-column key frame carries the file's row count (`N×0`), so the literal
   // broadcasts over the real height. Both sources behave alike.
-  let csv = scan_csv("sales.csv").filter(@expr.lit_bool(true))
+  let csv = @io.scan_csv("sales.csv").filter(@expr.lit_bool(true))
   assert_eq(csv.explain(optimized=true), "SCAN_CSV \"sales.csv\" WHERE true")
-  let ndjson = scan_ndjson("events.ndjson").filter(@expr.lit_bool(false))
+  let ndjson = @io.scan_ndjson("events.ndjson").filter(@expr.lit_bool(false))
   assert_eq(
     ndjson.explain(optimized=true),
     "SCAN_NDJSON \"events.ndjson\" WHERE false",
@@ -1214,7 +1212,7 @@ test "scan_csv: a column-less predicate is absorbed like any other" {
 
 ///|
 fn date_df() -> LazyFrame raise @types.DataError {
-  let df = @frame.DataFrame::from_rows(
+  let df = DataFrame::from_rows(
     @types.Schema::Schema([
       @types.Field::Field("d", @types.DataType::Date),
       @types.Field::Field("v", @types.DataType::Int),
@@ -1266,7 +1264,7 @@ test "fill / fill_nan / pivot / unpivot fence filters; semi-anti split like the 
   // first test. The existence filters are pinned further below: their
   // left-schema output lets a left predicate split, like the merging
   // joins' own left side.
-  let df = sales_df()
+  let df = plan_sales_df()
   let qty_gt = @expr.col("qty").gt(@expr.lit_int(50))
   let fwd = LazyFrame::LazyFrame(df).fill_null_forward().filter(qty_gt)
   assert_eq(fwd.explain(optimized=true), fwd.explain())
@@ -1289,11 +1287,11 @@ test "fill / fill_nan / pivot / unpivot fence filters; semi-anti split like the 
   // *right* predicate cannot (there are no right output columns to read).
   // Indexed access rather than a tuple pattern in the `for` header: the
   // coverage reporter cannot parse one.
-  for pair in [(@frame.JoinType::Semi, "Semi"), (@frame.JoinType::Anti, "Anti")] {
+  for pair in [(JoinType::Semi, "Semi"), (JoinType::Anti, "Anti")] {
     let plan = LazyFrame::LazyFrame(l)
       .join(
         LazyFrame::LazyFrame(r),
-        @frame.JoinOptions::on([@expr.col("id")], how=pair.0),
+        JoinOptions::on([@expr.col("id")], how=pair.0),
       )
       .filter(@expr.col("amount").gt(@expr.lit_int(15)))
     assert_eq(
@@ -1316,7 +1314,7 @@ test "a WithColumns stage defining a positional column fences filters" {
   // Both predicates stay above, whatever column they read; flipping the
   // positional verdict in row_stable breaks both, and the collect
   // equivalences with them.
-  let df = sales_df()
+  let df = plan_sales_df()
   let lag = @expr.col("bonus").shift(1).with_alias("lag")
   let plan = LazyFrame::LazyFrame(df)
     .with_columns([lag])
@@ -1341,11 +1339,11 @@ test "a WithColumns stage defining a positional column fences filters" {
 }
 
 ///|
-fn dec_overflow_df() -> @frame.DataFrame raise @types.DataError {
+fn dec_overflow_df() -> DataFrame raise @types.DataError {
   // The "drop" group's unscaled sum (1e19) leaves the 18-digit envelope;
   // the "keep" group's (5) is ordinary. Which groups a pushdown drops
   // decides whether the refusal ever happens.
-  @frame.DataFrame::DataFrame([
+  DataFrame::DataFrame([
     @series.Series::from_strings("k", ["drop", "drop", "keep"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(5000000000000000000L),
@@ -1366,7 +1364,7 @@ test "fence: a decimal sum inside the aggregate pins the filter above" {
     .agg([@expr.col("d").sum().with_alias("t")])
     .filter(@expr.col("k").eq(@expr.lit_str("keep")))
   assert_eq(plan.explain(optimized=true), plan.explain())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     dec_overflow_df()
     .group_by([@expr.col("k")])
     .agg([@expr.col("d").sum().with_alias("t")])
@@ -1374,7 +1372,7 @@ test "fence: a decimal sum inside the aggregate pins the filter above" {
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   // The eager chain raises on the overflowing group; the fence keeps the
@@ -1388,7 +1386,7 @@ test "fence: decimal arithmetic inside a stage pins the filter above" {
   // The same refusal through a with_columns expression: the checked add
   // refuses on the second row, and a filter that never reads the defined
   // column must not prune that row out from under the stage.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
@@ -1399,12 +1397,12 @@ test "fence: decimal arithmetic inside a stage pins the filter above" {
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
   let plan = LazyFrame::LazyFrame(df).with_columns(derived).filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.with_columns(derived).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
@@ -1417,7 +1415,7 @@ test "fence: decimal neg and abs carry the checked refusal" {
   // the same footing as the binaries' overflows, so the checked-op list
   // carries them too: without it, the slice pass prunes the refusing row
   // before the unary ever reads it and swallows the error.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
       Some(-9223372036854775808L),
@@ -1429,12 +1427,12 @@ test "fence: decimal neg and abs carry the checked refusal" {
   ]
   for expr in cells {
     let plan = LazyFrame::LazyFrame(df).select([expr]).head(1)
-    let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+    let eager : Result[DataFrame, @types.DataError] = Ok(
       df.select([expr]).head(1),
     ) catch {
       e => Err(e)
     }
-    let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
       e => Err(e)
     }
     assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
@@ -1504,27 +1502,27 @@ test "fence: a decimal name derived below a join stays fenced" {
   // defined below the join escaped the risk set and a predicate sank past
   // the value-refusing stage above it. The union of both sides (plus the
   // clashing side's suffixed form) keeps the fence.
-  let left = @frame.DataFrame::DataFrame([
+  let left = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "dm", [
       Some(1000000000000000000L),
       Some(3000000000000000000L),
     ]),
   ])
-  let right = @frame.DataFrame::DataFrame([
+  let right = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_ints("x", [10, 20]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let opts = JoinOptions::on([@expr.col("k")])
   let s = (@expr.col("dm") * @expr.lit_int(2)).with_alias("s")
   let t = (@expr.col("s") + @expr.col("s")).with_alias("t")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     left.with_columns([s]).join(right, opts).with_columns([t]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(left)
     .with_columns([s])
     .join(LazyFrame::LazyFrame(right), opts)
@@ -1545,26 +1543,26 @@ test "fence: a right join carries the left clash's suffixed decimal name" {
   // `d_right`: the suffixed risk offering switches sides with `how`, or
   // the name escapes the set and a sinking filter or slice swallows the
   // checked refusal the eager chain raises.
-  let left = @frame.DataFrame::DataFrame([
+  let left = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
       Some(5000000000000000000L),
     ]),
   ])
-  let right = @frame.DataFrame::DataFrame([
+  let right = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_ints("d", [10, 20]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("k")], how=Right)
+  let opts = JoinOptions::on([@expr.col("k")], how=Right)
   let t = (@expr.col("d_right") + @expr.col("d_right")).with_alias("t")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     left.join(right, opts).with_columns([t]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(left)
     .join(LazyFrame::LazyFrame(right), opts)
     .with_columns([t])
@@ -1577,12 +1575,12 @@ test "fence: a right join carries the left clash's suffixed decimal name" {
   assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
   // The slice pass takes the same gate: `head` must not prune the
   // refusing row out from under the stage either.
-  let eager_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager_head : Result[DataFrame, @types.DataError] = Ok(
     left.join(right, opts).with_columns([t]).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_head : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(left)
     .join(LazyFrame::LazyFrame(right), opts)
     .with_columns([t])
@@ -1602,7 +1600,7 @@ test "fence: a cross-scale decimal clip carries the checked refusal" {
   // the checked-op entry a sinking filter or slice prunes the refusing
   // row first and the error changes identity (a ternary dtype refusal)
   // instead of matching the eager one.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
@@ -1613,24 +1611,24 @@ test "fence: a cross-scale decimal clip carries the checked refusal" {
     .clip(lower=@expr.lit(@types.Scalar::Decimal(1, 6L)))
     .with_alias("c")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.with_columns([c]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df).with_columns([c]).filter(predicate).collect(),
   ) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
   assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
-  let eager_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager_head : Result[DataFrame, @types.DataError] = Ok(
     df.with_columns([c]).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_head : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_head : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df).with_columns([c]).head(1).collect(),
   ) catch {
     e => Err(e)
@@ -1646,12 +1644,12 @@ test "fence: a renamed decimal column keeps its fence" {
   let df = dec_overflow_df()
   let dx = (@expr.col("x") + @expr.col("x")).with_alias("dx")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.rename([("d", "x")]).with_columns([dx]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df)
     .rename([("d", "x")])
     .with_columns([dx])
@@ -1670,7 +1668,7 @@ test "fence: a sequential rename swap keeps the decimal fence" {
   // final name is the one the later steps produce — a first-match mapping
   // would lose it from the risk set and let the slice pass prune the very
   // row whose checked subtraction refuses.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 2]),
     @series.Series::from_decimal_options(0, "a", [
       Some(1L),
@@ -1680,12 +1678,12 @@ test "fence: a sequential rename swap keeps the decimal fence" {
   ])
   let swap : Array[(String, String)] = [("a", "_t"), ("b", "a"), ("_t", "b")]
   let cells = (@expr.col("b") - @expr.lit_int(1)).with_alias("n")
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.rename(swap).select([cells]).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df).rename(swap).select([cells]).head(1).collect(),
   ) catch {
     e => Err(e)
@@ -1703,12 +1701,12 @@ test "fence: a rename_with closure keeps the fence" {
   let dx = (@expr.col("x") + @expr.col("x")).with_alias("dx")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
   let mapping = (name : String) => if name == "d" { "x" } else { name }
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.rename_with(mapping).with_columns([dx]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df)
     .rename_with(mapping)
     .with_columns([dx])
@@ -1733,12 +1731,12 @@ test "fence: is_between's cross-scale refusal stays fenced" {
     )
     .with_alias("b")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.with_columns([b]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df).with_columns([b]).filter(predicate).collect(),
   ) catch {
     e => Err(e)
@@ -1759,12 +1757,12 @@ test "fence: is_in's cross-scale refusal stays fenced" {
     ])
     .with_alias("b")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df.with_columns([b]).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df).with_columns([b]).filter(predicate).collect(),
   ) catch {
     e => Err(e)
@@ -1780,7 +1778,7 @@ test "fence: an unpivoted decimal column keeps its fence" {
   let df = dec_overflow_df()
   let vv = (@expr.col("v") + @expr.col("v")).with_alias("vv")
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df
     .unpivot(on=[@expr.col("d")], index=[@expr.col("k")], value_name="v")
     .with_columns([vv])
@@ -1788,7 +1786,7 @@ test "fence: an unpivoted decimal column keeps its fence" {
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df)
     .unpivot(on=[@expr.col("d")], index=[@expr.col("k")], value_name="v")
     .with_columns([vv])
@@ -1806,7 +1804,7 @@ test "fence: a pivot fences every decimal-checked stage above it" {
   // A pivot's output column names come from the data it reshapes, so no
   // name above it is provably non-decimal — the any flag fences every
   // decimal-checked stage there.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("p", [1, 1, 2, 2]),
     @series.Series::from_strings("k", ["keep", "drop", "keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
@@ -1818,26 +1816,26 @@ test "fence: a pivot fences every decimal-checked stage above it" {
   ])
   let t = (@expr.col("drop") + @expr.col("drop")).with_alias("t")
   let predicate = @expr.col("p").eq(@expr.lit_int(2))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     df
     .pivot(
       on=[@expr.col("k")],
       index=[@expr.col("p")],
       values=[@expr.col("d")],
-      aggregate_function=@frame.PivotAgg::First,
+      aggregate_function=PivotAgg::First,
     )
     .with_columns([t])
     .filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(df)
     .pivot(
       on=[@expr.col("k")],
       index=[@expr.col("p")],
       values=[@expr.col("d")],
-      aggregate_function=@frame.PivotAgg::First,
+      aggregate_function=PivotAgg::First,
     )
     .with_columns([t])
     .filter(predicate)
@@ -1853,26 +1851,26 @@ test "fence: a pivot fences every decimal-checked stage above it" {
 test "fence: a slice under a join-derived decimal stage stays fenced" {
   // The slice pass reads the same risk set: a head that would prune the
   // refusing row out from under a join-derived decimal stage stays above it.
-  let left = @frame.DataFrame::DataFrame([
+  let left = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "dm", [
       Some(1000000000000000000L),
       Some(3000000000000000000L),
     ]),
   ])
-  let right = @frame.DataFrame::DataFrame([
+  let right = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_ints("x", [10, 20]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let opts = JoinOptions::on([@expr.col("k")])
   let s = (@expr.col("dm") * @expr.lit_int(2)).with_alias("s")
   let t = (@expr.col("s") + @expr.col("s")).with_alias("t")
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     left.with_columns([s]).join(right, opts).with_columns([t]).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
     LazyFrame::LazyFrame(left)
     .with_columns([s])
     .join(LazyFrame::LazyFrame(right), opts)
@@ -1890,7 +1888,7 @@ test "fence: a slice under a join-derived decimal stage stays fenced" {
 test "a rename of non-decimal columns still lets the predicate sink" {
   // The fence must not overreach: with no decimal anywhere, the predicate
   // still crosses the with_columns stage above the rename.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_ints("qty", [60, 40]),
   ])
@@ -1916,7 +1914,7 @@ test "a rename of non-decimal columns still lets the predicate sink" {
 test "split: a left join sinks a left predicate (matched and unmatched alike)" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Left)
+  let opts = JoinOptions::on([@expr.col("id")], how=Left)
   // Every left row has an output row — matched or null-extended — so the
   // predicate's verdicts agree wherever it runs.
   let sunk = LazyFrame::LazyFrame(l)
@@ -1941,7 +1939,7 @@ test "split: a left join sinks a left predicate (matched and unmatched alike)" {
 test "split: a left join fences a right predicate (null-extended cells)" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Left)
+  let opts = JoinOptions::on([@expr.col("id")], how=Left)
   let predicate = @expr.col("city").eq(@expr.lit_str("bern"))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
@@ -1958,7 +1956,7 @@ test "split: a left join fences a right predicate (null-extended cells)" {
 test "split: a right join sinks its right predicate and fences its left one" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Right)
+  let opts = JoinOptions::on([@expr.col("id")], how=Right)
   // The right side's rows all survive to output rows (the mirror argument
   // of the left-join case), so a right predicate sinks.
   let sunk = LazyFrame::LazyFrame(l)
@@ -1990,7 +1988,7 @@ test "split: a right join sinks its right predicate and fences its left one" {
 test "split: an outer join fences predicates on both sides" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], how=Outer)
+  let opts = JoinOptions::on([@expr.col("id")], how=Outer)
   // Either side can be null-extended on the other's unmatched rows, so
   // neither side's predicate may sink.
   for
@@ -2010,7 +2008,7 @@ test "split: an outer join fences predicates on both sides" {
 test "split: a cross join sinks either side's predicate" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::cross()
+  let opts = JoinOptions::cross()
   // Every output row is a real pair, like the inner join's, so both sides
   // qualify — the right side's `city` has no left clash, so it keeps its
   // spelling and needs no expression rewrite.
@@ -2044,7 +2042,7 @@ test "split: a cross join sinks either side's predicate" {
 test "split: an inner join sinks an unclashed right predicate" {
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let predicate = @expr.col("city").eq(@expr.lit_str("bern"))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
@@ -2066,18 +2064,18 @@ test "split: a sequential rename swap keeps the join's attribution honest" {
   // `b`'s values. A first-match name walk would hand the split the wrong
   // set and sink the predicate into the *right* side, where `c` holds other
   // values — silently dropping rows.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1]),
     @series.Series::from_ints("b", [5]),
     @series.Series::from_ints("c", [10]),
   ])
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1]),
     @series.Series::from_ints("c", [0]),
     @series.Series::from_ints("y", [7]),
   ])
   let swap : Array[(String, String)] = [("b", "_t"), ("c", "b"), ("_t", "c")]
-  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let opts = JoinOptions::on([@expr.col("k")])
   let predicate = @expr.col("c").gt(@expr.lit_int(1))
   let plan = LazyFrame::LazyFrame(l)
     .rename(swap)
@@ -2103,9 +2101,7 @@ test "split: a predicate naming a suffixed right column sinks with a rewrite" {
   // Paired keys never coalesce, so the right key column survives the join
   // as `id_right`. The predicate names that output spelling; the side
   // itself bears the bare `id`, so the sunk predicate is rewritten back.
-  let opts = @frame.JoinOptions::left_on([@expr.col("id")], right_on=[
-    @expr.col("id"),
-  ])
+  let opts = JoinOptions::left_on([@expr.col("id")], right_on=[@expr.col("id")])
   let predicate = @expr.col("id_right").gt(@expr.lit_int(2))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
@@ -2126,12 +2122,12 @@ test "split: a suffixed sink mixes bare and renamed right spellings" {
   // spelling) and a clashing one (`amount`, output as `amount_right`): the
   // bare reference rides along untouched, the suffixed one is rewritten.
   let l = orders_df()
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("id", [2, 3, 4]),
     @series.Series::from_ints("amount", [20, 25, 30]),
     @series.Series::from_strings("city", ["bern", "cork", "delft"]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let predicate = @expr.col("amount_right")
     .gt(@expr.lit_int(22))
     .land(@expr.col("city").eq(@expr.lit_str("cork")))
@@ -2157,7 +2153,7 @@ test "split: a bare clashing on-key offers no spelling and stays above" {
   // and the declined sink is observable as the filter staying above.
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")], coalesce=false)
+  let opts = JoinOptions::on([@expr.col("id")], coalesce=false)
   let predicate = @expr.col("id_right").gt(@expr.lit_int(2))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
@@ -2174,7 +2170,7 @@ test "split: a suffixed decimal predicate meets the value fence" {
   // that would rename it onto the side's bare decimal column cannot open a
   // hole the bare spelling's own fence did not already close.
   let l = orders_df()
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("id", [2, 3, 4]),
     @series.Series::from_scalars("amount", [
       @types.Scalar::Decimal(2, 123L),
@@ -2182,7 +2178,7 @@ test "split: a suffixed decimal predicate meets the value fence" {
       @types.Scalar::Null,
     ]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let predicate = @expr.col("amount_right").gt(
     @expr.lit(@types.Scalar::Decimal(2, 200L)),
   )
@@ -2199,7 +2195,7 @@ test "split: a row-unstable predicate stays above the join" {
   // never sinks — the join floors it like every other node.
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let predicate = @expr.col("amount")
     .cast(@types.DataType::Float)
     .gt(@expr.lit_float(15.0))
@@ -2216,7 +2212,7 @@ test "split: the decimal value-fence holds above a join" {
   // evaluate it on the side's rows rather than the join's output — the
   // same refusal risk the stage crossings fence, read against the whole
   // subtree's decimal names.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2]),
     @series.Series::from_decimal_options(0, "amount", [
       Some(1L),
@@ -2224,7 +2220,7 @@ test "split: the decimal value-fence holds above a join" {
     ]),
   ])
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   // The checked add refuses on the row where the unscaled sum leaves the
   // 18-digit envelope — the existing fence fixtures' values, joined here.
   let predicate = (@expr.col("amount") + @expr.col("amount")).gt(
@@ -2234,12 +2230,12 @@ test "split: the decimal value-fence holds above a join" {
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     l.join(r, opts).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
@@ -2252,12 +2248,12 @@ test "split: an aggregating join key fences the predicate above" {
   // sum(v) over the surviving rows is a different broadcast, and with it a
   // different match set — 2 rows eager, 0 with the sink. The split's key
   // gate is the aggregate crossing's own key rule, applied to the join hop.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 2, 3]),
     @series.Series::from_ints("v", [100, 0, 50]),
   ])
-  let r = @frame.DataFrame::DataFrame([@series.Series::from_ints("m", [150])])
-  let opts = @frame.JoinOptions::left_on([@expr.col("v").sum()], right_on=[
+  let r = DataFrame::DataFrame([@series.Series::from_ints("m", [150])])
+  let opts = JoinOptions::left_on([@expr.col("v").sum()], right_on=[
     @expr.col("m"),
   ])
   let predicate = @expr.col("k").gt(@expr.lit_int(1))
@@ -2273,26 +2269,25 @@ test "split: a value-raising join key keeps its refusal" {
   // A cast key's refusal lives on cells, and a sunk predicate would prune
   // the refusing cell before the key ever reads it — the same row-set
   // dependence `row_stable` refuses the *predicate* for, read on the keys.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_strings("s", ["1", "abc", "2"]),
     @series.Series::from_ints("v", [5, 1, 3]),
   ])
-  let r = @frame.DataFrame::DataFrame([@series.Series::from_ints("id", [1, 2])])
-  let opts = @frame.JoinOptions::left_on(
-    [@expr.col("s").cast(@types.DataType::Int)],
-    right_on=[@expr.col("id")],
-  )
+  let r = DataFrame::DataFrame([@series.Series::from_ints("id", [1, 2])])
+  let opts = JoinOptions::left_on([@expr.col("s").cast(@types.DataType::Int)], right_on=[
+    @expr.col("id"),
+  ])
   let predicate = @expr.col("v").gt(@expr.lit_int(2))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     l.join(r, opts).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::ParseError(_)))
@@ -2305,17 +2300,17 @@ test "split: a decimal-checked join key keeps its refusal" {
   // scope-independent facts — so the structural gate alone would sink the
   // predicate and prune the refusing row. The decimal fence, read against
   // the keys, declines the split.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(5L),
       Some(5000000000000000000L),
     ]),
   ])
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_decimal_options(0, "m", [Some(10L)]),
   ])
-  let opts = @frame.JoinOptions::left_on([@expr.col("d") + @expr.col("d")], right_on=[
+  let opts = JoinOptions::left_on([@expr.col("d") + @expr.col("d")], right_on=[
     @expr.col("m"),
   ])
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
@@ -2323,12 +2318,12 @@ test "split: a decimal-checked join key keeps its refusal" {
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
   assert_eq(plan.explain(optimized=true), plan.explain())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     l.join(r, opts).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
@@ -2342,17 +2337,17 @@ test "split: a predicate naming an absent column keeps its error" {
   // so the filter stays above the join and raises at execution, either way.
   let l = orders_df()
   let r = cities_df()
-  let opts = @frame.JoinOptions::on([@expr.col("id")])
+  let opts = JoinOptions::on([@expr.col("id")])
   let predicate = @expr.col("ghost").gt(@expr.lit_int(1))
   let plan = LazyFrame::LazyFrame(l)
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     l.join(r, opts).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::ColumnNotFound(_)))
@@ -2369,17 +2364,17 @@ test "split: a suffixed name the top join produced sinks, not the inner's" {
   // join's output (the exact name-union's regression, pinned by the
   // name-walk tests): attributing to a side that lacks the column.
   let inner = orders_df().join(
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("id", [1, 2, 3]),
       @series.Series::from_strings("d", ["p", "q", "r"]),
     ]),
-    @frame.JoinOptions::on([@expr.col("id")]),
+    JoinOptions::on([@expr.col("id")]),
   )
-  let outer_right = @frame.DataFrame::DataFrame([
+  let outer_right = DataFrame::DataFrame([
     @series.Series::from_strings("d", ["x", "y"]),
     @series.Series::from_ints("n", [7, 8]),
   ])
-  let opts = @frame.JoinOptions::left_on([@expr.col("amount")], right_on=[
+  let opts = JoinOptions::left_on([@expr.col("amount")], right_on=[
     @expr.col("n"),
   ])
   let predicate = @expr.col("d_right").eq(@expr.lit_str("x"))
@@ -2402,7 +2397,7 @@ test "a diff in the predicate fences it above every stage" {
   // row-local: the pass classifies it through the dedicated node (not the
   // old `- shift` composition) and fences the filter where it was built.
   // qty = [5, 120, 80, 200] -> diff = [null, 115, -40, 120] -> 2 rows > 0.
-  let df = sales_df()
+  let df = plan_sales_df()
   let plan = LazyFrame::LazyFrame(df).filter(
     @expr.col("qty").diff().gt(@expr.lit_int(0)),
   )
@@ -2464,7 +2459,7 @@ test "fence: a stack of filters each keeps its own decimal verdict" {
   // stack of plain predicates, none of them may prune the refusing row
   // out from under it — the eager chain raises on the magnitude edge, and
   // so must collect, whatever the stacked filters would drop.
-  let edge = @frame.DataFrame::DataFrame([
+  let edge = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["drop", "keep"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(-9223372036854775808L),
@@ -2476,7 +2471,7 @@ test "fence: a stack of filters each keeps its own decimal verdict" {
     .filter(@expr.col("k").eq(@expr.lit_str("keep")))
     .filter(@expr.col("k").is_not_null())
     .filter(@expr.col("d").is_not_null())
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     edge
     .with_columns([@expr.col("d").neg().with_alias("n")])
     .filter(@expr.col("k").eq(@expr.lit_str("keep")))
@@ -2485,7 +2480,7 @@ test "fence: a stack of filters each keeps its own decimal verdict" {
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(staged.collect()) catch {
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(staged.collect()) catch {
     e => Err(e)
   }
   assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
@@ -2500,15 +2495,15 @@ test "deep join-split predicates don't overflow: rename_columns is iterative" {
   // the optimizer aborted where the eager chain evaluated fine. The
   // explicit-stack rebuild renames any depth, and collect still matches the
   // eager chain.
-  let l = @frame.DataFrame::DataFrame([
+  let l = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 2]),
     @series.Series::from_ints("v", [10, 20]),
   ])
-  let r = @frame.DataFrame::DataFrame([
+  let r = DataFrame::DataFrame([
     @series.Series::from_ints("k", [1, 2]),
     @series.Series::from_ints("v", [100, 200]),
   ])
-  let opts = @frame.JoinOptions::on([@expr.col("k")])
+  let opts = JoinOptions::on([@expr.col("k")])
   let depth = 100000
   let mut predicate = @expr.col("v_right").gt(@expr.lit_int(50))
   for _ in 0..<depth {

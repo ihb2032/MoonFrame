@@ -14,7 +14,7 @@
 priv enum ProjStep {
   Visit(LogicalPlan, @set.Set[String]?)
   Rebuild1((LogicalPlan) -> LogicalPlan)
-  RebuildJoin(@frame.JoinOptions)
+  RebuildJoin(JoinOptions)
 }
 
 ///|
@@ -226,7 +226,7 @@ fn FrameOp::frame_op_required(
 fn join_requirements(
   left : LogicalPlan,
   right : LogicalPlan,
-  options : @frame.JoinOptions,
+  options : JoinOptions,
   req : @set.Set[String]?,
 ) -> (@set.Set[String]?, @set.Set[String]?) {
   match req {
@@ -352,7 +352,7 @@ fn rename_aware_split(
     _ => ()
   }
   let secondary_req = match secondary_names_opt {
-    None => None
+    None => Option::None
     Some(names) => {
       let acc = @set.Set([])
       needed.each(name => {
@@ -376,7 +376,7 @@ fn rename_aware_split(
     }
   }
   let primary_req = match primary_names_opt {
-    None => None
+    None => Option::None
     Some(names) => {
       let acc = @set.Set([])
       needed.each(name => if names.contains(name) { acc.add(name) })

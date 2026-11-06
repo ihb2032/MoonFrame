@@ -16,12 +16,12 @@
 ///|
 /// Frames built through `io`, so this white-box test needs no `series` import
 /// (the `lazy` package imports it only for `test`).
-fn idem_frame() -> @frame.DataFrame raise @types.DataError {
+fn idem_frame() -> DataFrame raise @types.DataError {
   @io.parse_csv_str("a,b,c\n1,4,7\n2,5,8\n3,6,9")
 }
 
 ///|
-fn idem_other() -> @frame.DataFrame raise @types.DataError {
+fn idem_other() -> DataFrame raise @types.DataError {
   @io.parse_csv_str("a,d\n1,10\n2,20\n3,30")
 }
 
@@ -84,18 +84,12 @@ test "every pass in the pipeline is idempotent across plan shapes" {
     // A join: each side restarts its own passes.
     LazyFrame::LazyFrame(df)
     .select([@expr.col("a")])
-    .join(
-      LazyFrame::LazyFrame(idem_other()),
-      @frame.JoinOptions::on([@expr.col("a")]),
-    ).plan,
+    .join(LazyFrame::LazyFrame(idem_other()), JoinOptions::on([@expr.col("a")])).plan,
     // A split shape: a filter on the join (sunk into the left side) plus a
     // selection above it (splitting the requirement) — the two joins'
     // rewrites landing in one plan.
     LazyFrame::LazyFrame(df)
-    .join(
-      LazyFrame::LazyFrame(idem_other()),
-      @frame.JoinOptions::on([@expr.col("a")]),
-    )
+    .join(LazyFrame::LazyFrame(idem_other()), JoinOptions::on([@expr.col("a")]))
     .filter(@expr.col("b").gt(@expr.lit_int(4)))
     .select([@expr.col("a"), @expr.col("d")]).plan,
   ]
@@ -171,10 +165,7 @@ test "full optimize is idempotent on plans without the filter-sink interaction" 
   // select on the left side is not doubled.
   let joined = LazyFrame::LazyFrame(df)
     .select([@expr.col("a")])
-    .join(
-      LazyFrame::LazyFrame(idem_other()),
-      @frame.JoinOptions::on([@expr.col("a")]),
-    ).plan
+    .join(LazyFrame::LazyFrame(idem_other()), JoinOptions::on([@expr.col("a")])).plan
   assert_eq(
     assert_optimize_idempotent(joined),
     "JOIN Inner on [col(a)]\n" +

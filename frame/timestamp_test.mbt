@@ -166,11 +166,7 @@ test "an outer join coalesces a Timestamp key to the present side's instant" {
   )
   let joined = left.join(
     right,
-    @frame.JoinOptions::on(
-      [@expr.col("t")],
-      how=@frame.JoinType::Outer,
-      coalesce=true,
-    ),
+    JoinOptions::on([@expr.col("t")], how=JoinType::Outer, coalesce=true),
   )
   // The 2024-01-03 instant exists only on the right: the coalesced key
   // carries its timestamp, the left side's cells are null.

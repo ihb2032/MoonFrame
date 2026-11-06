@@ -106,12 +106,10 @@ pub fn parse_parquet(
 /// them, the same key-column contract the text drivers' pruner
 /// honours: the optimizer's projection pass narrows a scan to what its
 /// consumers reference, so a pushed predicate reading a pruned column
-/// would otherwise filter a frame that no longer carries it. Built for
-/// `lazy`'s `scan_parquet`, hidden from the interface like its format
-/// siblings.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
+/// would otherwise filter a frame that no longer carries it. Served to the
+/// io layer's `scan_parquet` source, which hands the engine the driver
+/// record.
+fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
   @scan.ScanDriver::driver(() => "PARQUET \"\{@text.escape_debug(path)}\"", (
     projection,
     predicate,

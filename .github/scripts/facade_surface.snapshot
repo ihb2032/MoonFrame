@@ -1,7 +1,7 @@
 alias DataFrame::"_[_:_]" <- frame
 alias DataFrame::"_[_]" <- frame
 alias DataFrame::limit <- frame
-alias LazyFrame::limit <- lazy
+alias LazyFrame::limit <- frame
 alias Series::"_[_:_]" <- series
 alias Series::"_[_]" <- series
 ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
@@ -10,8 +10,8 @@ ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError 
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
-ctor LazyFrame::LazyFrame(@frame.DataFrame) -> Self <- lazy
-ctor Optimizations::Optimizations() -> Self <- lazy
+ctor LazyFrame::LazyFrame(DataFrame) -> Self <- frame
+ctor Optimizations::Optimizations() -> Self <- frame
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 ctor VegaAggField::VegaAggField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self <- chart
 ctor VegaAggregateTransform::VegaAggregateTransform(aggregate~ : Array[VegaAggField], groupby? : Array[String]) -> Self <- chart
@@ -159,11 +159,11 @@ field JsonReadOptions.allow_nonfinite_floats : Bool <- io
 field JsonReadOptions.infer_schema_rows : Int32 <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
 field JsonReadOptions.reject_duplicate_keys : Bool <- io
-field Optimizations.cluster_with_columns : Bool <- lazy
-field Optimizations.predicate_pushdown : Bool <- lazy
-field Optimizations.projection_pushdown : Bool <- lazy
-field Optimizations.simplify_expressions : Bool <- lazy
-field Optimizations.slice_pushdown : Bool <- lazy
+field Optimizations.cluster_with_columns : Bool <- frame
+field Optimizations.predicate_pushdown : Bool <- frame
+field Optimizations.projection_pushdown : Bool <- frame
+field Optimizations.simplify_expressions : Bool <- frame
+field Optimizations.slice_pushdown : Bool <- frame
 field VegaAggField.as_ : String <- chart
 field VegaAggField.field : String? <- chart
 field VegaAggField.op : VegaAggregate <- chart
@@ -994,14 +994,14 @@ fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
-fn scan_csv(String, options? : @io.CsvReadOptions) -> @lazy.LazyFrame <- root
-fn scan_csv(String, options? : @io.CsvReadOptions) -> LazyFrame <- lazy
-fn scan_json(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
-fn scan_json(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
-fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @lazy.LazyFrame <- root
-fn scan_ndjson(String, options? : @io.JsonReadOptions) -> LazyFrame <- lazy
-fn scan_parquet(String) -> @lazy.LazyFrame <- root
-fn scan_parquet(String) -> LazyFrame <- lazy
+fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
+fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
+fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
+fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
+fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
+fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
+fn scan_parquet(String) -> @frame.LazyFrame <- io
+fn scan_parquet(String) -> @frame.LazyFrame <- root
 fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
 fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
@@ -1032,7 +1032,7 @@ impl Show for Schema <- types
 impl Sub for Expr <- expr
 intermediate FramePlot <- chart
 intermediate GroupedDataFrame <- frame
-intermediate LazyGroupBy <- lazy
+intermediate LazyGroupBy <- frame
 intermediate Plot <- chart
 intermediate WhenThen <- expr
 intermediate WhenThenElse <- expr
@@ -1143,6 +1143,7 @@ method DataFrame::std(Self) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int32) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
+method DataFrame::to_lazy(Self) -> LazyFrame <- frame
 method DataFrame::to_markdown(Self, max_rows? : Int32) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
 method DataFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self raise @types.DataError <- frame
@@ -1342,60 +1343,60 @@ method JsonReadOptions::dtypes(Self) -> Map[String, @types.DataType] <- io
 method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
-method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
-method LazyFrame::collect(Self, optimizations? : Optimizations) -> @frame.DataFrame raise @types.DataError <- lazy
-method LazyFrame::count(Self) -> Self <- lazy
-method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::explain(Self, optimized? : Bool) -> String <- lazy
-method LazyFrame::fill_nan(Self, Double) -> Self <- lazy
-method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- lazy
-method LazyFrame::fill_null_backward(Self, limit? : Int32) -> Self <- lazy
-method LazyFrame::fill_null_forward(Self, limit? : Int32) -> Self <- lazy
-method LazyFrame::filter(Self, @expr.Expr) -> Self <- lazy
-method LazyFrame::first(Self) -> Self <- lazy
-method LazyFrame::gather_every(Self, Int32, offset? : Int32) -> Self <- lazy
-method LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy <- lazy
-method LazyFrame::head(Self, Int32) -> Self <- lazy
-method LazyFrame::join(Self, Self, @frame.JoinOptions) -> Self <- lazy
-method LazyFrame::last(Self) -> Self <- lazy
-method LazyFrame::max(Self) -> Self <- lazy
-method LazyFrame::mean(Self) -> Self <- lazy
-method LazyFrame::median(Self) -> Self <- lazy
-method LazyFrame::min(Self) -> Self <- lazy
-method LazyFrame::n_unique(Self) -> Self <- lazy
-method LazyFrame::null_count(Self) -> Self <- lazy
-method LazyFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : @frame.PivotAgg) -> Self <- lazy
-method LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- lazy
-method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- lazy
-method LazyFrame::rename_with(Self, (String) -> String) -> Self <- lazy
-method LazyFrame::reverse(Self) -> Self <- lazy
-method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::slice(Self, Int32, length? : Int32) -> Self <- lazy
-method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- lazy
-method LazyFrame::std(Self) -> Self <- lazy
-method LazyFrame::sum(Self) -> Self <- lazy
-method LazyFrame::tail(Self, Int32) -> Self <- lazy
-method LazyFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- lazy
-method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : @frame.KeepStrategy) -> Self <- lazy
-method LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self <- lazy
-method LazyFrame::variance(Self) -> Self <- lazy
-method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- lazy
-method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- lazy
-method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- lazy
-method LazyGroupBy::count(Self) -> LazyFrame <- lazy
-method LazyGroupBy::first(Self) -> LazyFrame <- lazy
-method LazyGroupBy::last(Self) -> LazyFrame <- lazy
-method LazyGroupBy::len(Self) -> LazyFrame <- lazy
-method LazyGroupBy::max(Self) -> LazyFrame <- lazy
-method LazyGroupBy::mean(Self) -> LazyFrame <- lazy
-method LazyGroupBy::median(Self) -> LazyFrame <- lazy
-method LazyGroupBy::min(Self) -> LazyFrame <- lazy
-method LazyGroupBy::n_unique(Self) -> LazyFrame <- lazy
-method LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> LazyFrame <- lazy
-method LazyGroupBy::std(Self) -> LazyFrame <- lazy
-method LazyGroupBy::sum(Self) -> LazyFrame <- lazy
-method LazyGroupBy::variance(Self) -> LazyFrame <- lazy
+method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- frame
+method LazyFrame::collect(Self, optimizations? : Optimizations) -> DataFrame raise @types.DataError <- frame
+method LazyFrame::count(Self) -> Self <- frame
+method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- frame
+method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- frame
+method LazyFrame::explain(Self, optimized? : Bool) -> String <- frame
+method LazyFrame::fill_nan(Self, Double) -> Self <- frame
+method LazyFrame::fill_null(Self, @types.Scalar) -> Self <- frame
+method LazyFrame::fill_null_backward(Self, limit? : Int32) -> Self <- frame
+method LazyFrame::fill_null_forward(Self, limit? : Int32) -> Self <- frame
+method LazyFrame::filter(Self, @expr.Expr) -> Self <- frame
+method LazyFrame::first(Self) -> Self <- frame
+method LazyFrame::gather_every(Self, Int32, offset? : Int32) -> Self <- frame
+method LazyFrame::group_by(Self, Array[@expr.Expr]) -> LazyGroupBy <- frame
+method LazyFrame::head(Self, Int32) -> Self <- frame
+method LazyFrame::join(Self, Self, JoinOptions) -> Self <- frame
+method LazyFrame::last(Self) -> Self <- frame
+method LazyFrame::max(Self) -> Self <- frame
+method LazyFrame::mean(Self) -> Self <- frame
+method LazyFrame::median(Self) -> Self <- frame
+method LazyFrame::min(Self) -> Self <- frame
+method LazyFrame::n_unique(Self) -> Self <- frame
+method LazyFrame::null_count(Self) -> Self <- frame
+method LazyFrame::pivot(Self, on~ : Array[@expr.Expr], index? : Array[@expr.Expr], values? : Array[@expr.Expr], aggregate_function? : PivotAgg) -> Self <- frame
+method LazyFrame::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> Self <- frame
+method LazyFrame::rename(Self, Array[(String, String)]) -> Self <- frame
+method LazyFrame::rename_with(Self, (String) -> String) -> Self <- frame
+method LazyFrame::reverse(Self) -> Self <- frame
+method LazyFrame::select(Self, Array[@expr.Expr]) -> Self <- frame
+method LazyFrame::slice(Self, Int32, length? : Int32) -> Self <- frame
+method LazyFrame::sort(Self, Array[(@expr.Expr, Bool, Bool)]) -> Self <- frame
+method LazyFrame::std(Self) -> Self <- frame
+method LazyFrame::sum(Self) -> Self <- frame
+method LazyFrame::tail(Self, Int32) -> Self <- frame
+method LazyFrame::top_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- frame
+method LazyFrame::unique(Self, subset? : Array[@expr.Expr], keep? : KeepStrategy) -> Self <- frame
+method LazyFrame::unpivot(Self, on? : Array[@expr.Expr], index? : Array[@expr.Expr], variable_name? : String, value_name? : String) -> Self <- frame
+method LazyFrame::variance(Self) -> Self <- frame
+method LazyFrame::with_columns(Self, Array[@expr.Expr]) -> Self <- frame
+method LazyFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self <- frame
+method LazyGroupBy::agg(Self, Array[@expr.Expr]) -> LazyFrame <- frame
+method LazyGroupBy::count(Self) -> LazyFrame <- frame
+method LazyGroupBy::first(Self) -> LazyFrame <- frame
+method LazyGroupBy::last(Self) -> LazyFrame <- frame
+method LazyGroupBy::len(Self) -> LazyFrame <- frame
+method LazyGroupBy::max(Self) -> LazyFrame <- frame
+method LazyGroupBy::mean(Self) -> LazyFrame <- frame
+method LazyGroupBy::median(Self) -> LazyFrame <- frame
+method LazyGroupBy::min(Self) -> LazyFrame <- frame
+method LazyGroupBy::n_unique(Self) -> LazyFrame <- frame
+method LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInterpolation) -> LazyFrame <- frame
+method LazyGroupBy::std(Self) -> LazyFrame <- frame
+method LazyGroupBy::sum(Self) -> LazyFrame <- frame
+method LazyGroupBy::variance(Self) -> LazyFrame <- frame
 method OnParseError::equal(Self, Self) -> Bool <- io
 method OnParseError::not_equal(Self, Self) -> Bool <- io
 method OnParseError::to_repr(Self) -> @debug.Repr <- io
@@ -2133,9 +2134,9 @@ type JoinOptions <- frame
 type JoinType <- frame
 type JsonReadOptions <- io
 type KeepStrategy <- frame
-type LazyFrame <- lazy
+type LazyFrame <- frame
 type OnParseError <- io
-type Optimizations <- lazy
+type Optimizations <- frame
 type ParquetCodec <- io
 type ParseErrorDetail <- types
 type PivotAgg <- frame

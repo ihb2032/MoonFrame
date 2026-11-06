@@ -13,7 +13,7 @@
 fn write_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -25,7 +25,7 @@ fn write_fixture(path : String) -> Unit raise @types.DataError {
 test "scan_csv collects equal to the eager read of the same file" {
   let path = "_build/lazy_scan_csv_roundtrip.csv"
   write_fixture(path)
-  let out = scan_csv(path).collect()
+  let out = @io.scan_csv(path).collect()
   assert_eq(out, @io.read_csv(path))
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -38,14 +38,14 @@ test "scan_csv with projection push-down collects equal to the eager read then s
   // and the result still matches reading every column then selecting.
   let projection = [@expr.col("region")]
   assert_eq(
-    scan_csv(path).select(projection).collect(),
+    @io.scan_csv(path).select(projection).collect(),
     @io.read_csv(path).select(projection),
   )
   // A wider pipeline narrows through filter + with_columns and stays equal.
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let outputs = [@expr.col("dbl"), @expr.col("region")]
-  let out = scan_csv(path)
+  let out = @io.scan_csv(path)
     .filter(predicate)
     .with_columns(derived)
     .select(outputs)
@@ -60,7 +60,7 @@ test "scan_csv with projection push-down collects equal to the eager read then s
 ///|
 test "scan_csv honours its read options at collect time" {
   let path = "_build/lazy_scan_csv_options.csv"
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_ints("a", [1, 2]),
     @series.Series::from_strings("b", ["p", "q"]),
   ])
@@ -74,7 +74,7 @@ test "scan_csv honours its read options at collect time" {
   // The `;` delimiter must reach the parser, and projection push-down must
   // narrow under those same options.
   assert_eq(
-    scan_csv(path, options=read_opts).select([@expr.col("a")]).collect(),
+    @io.scan_csv(path, options=read_opts).select([@expr.col("a")]).collect(),
     @io.read_csv(path, options=read_opts).select([@expr.col("a")]),
   )
 }
@@ -84,13 +84,13 @@ test "scan_csv snapshots the null-token list from its options" {
   let path = "_build/lazy_scan_csv_aliasing.csv"
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
+    DataFrame::DataFrame([@series.Series::from_strings("a", ["NA", "x"])]),
   )
   let tokens = ["NA"]
   let read_opts : @io.CsvReadOptions = @io.CsvReadOptions::CsvReadOptions(
     null_values=tokens,
   )
-  let planned = scan_csv(path, options=read_opts)
+  let planned = @io.scan_csv(path, options=read_opts)
   // Mutating the caller's null-token list must not reach the captured plan:
   // "NA" stays a null token for the collect below. The options copy on
   // construction and hand back a copy from `null_values()`, so neither the
@@ -110,7 +110,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   // `a` is clean throughout.
   @io.write_csv(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_strings("a", ["1", "2"]),
       @series.Series::from_strings("b", ["10", "oops"]),
     ]),
@@ -137,7 +137,7 @@ test "projection push-down does not parse — or fail on — a dropped column" {
   )
   // The lazy scan, narrowed to `a`, never parses `b`, so it collects cleanly —
   // the one place a narrowed CSV scan diverges from a full eager read.
-  let out = scan_csv(path, options=opts).select([@expr.col("a")]).collect()
+  let out = @io.scan_csv(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
 }
@@ -153,7 +153,9 @@ test "a projection matching no header keeps the row count and the as-built error
   // a fallback to reading every column.)
   let path = "_build/lazy_scan_csv_zero_match.csv"
   write_fixture(path)
-  let plan = scan_csv(path).slice(0, length=2).select([@expr.col("missing")])
+  let plan = @io.scan_csv(path)
+    .slice(0, length=2)
+    .select([@expr.col("missing")])
   let optimized = Ok(plan.collect()) catch { e => Err(e) }
   assert_eq(optimized, Err(@types.DataError::ColumnNotFound("missing")))
   // Eager equivalent of the as-built plan: same error.
@@ -165,7 +167,7 @@ test "a projection matching no header keeps the row count and the as-built error
   assert_eq(optimized, eager)
   // A slice that only fits the real row count still collects when the
   // consumer exists: partial-match leniency is untouched.
-  let ok = scan_csv(path)
+  let ok = @io.scan_csv(path)
     .slice(0, length=2)
     .select([@expr.col("qty")])
     .collect()
@@ -178,20 +180,20 @@ test "scan_csv builders are total; a missing file fails only at collect" {
   // Building and explaining never touch the file (the projection writes even
   // though the path does not exist).
   assert_eq(
-    scan_csv(absent).select([@expr.col("a")]).explain(optimized=true),
+    @io.scan_csv(absent).select([@expr.col("a")]).explain(optimized=true),
     "SELECT [col(a)]\n  SCAN_CSV \"_build/lazy_scan_csv_absent.csv\" [a]",
   )
   // Collect surfaces the missing file as IoError — through the CSV driver
   // when a projection fired…
   assert_true(
-    (Ok(scan_csv(absent).select([@expr.col("a")]).collect()) catch {
+    (Ok(@io.scan_csv(absent).select([@expr.col("a")]).collect()) catch {
       e => Err(e)
     })
     is Err(@types.DataError::IoError(_)),
   )
   // …and through read_csv when none did.
   assert_true(
-    (Ok(scan_csv(absent).collect()) catch { e => Err(e) })
+    (Ok(@io.scan_csv(absent).collect()) catch { e => Err(e) })
     is Err(@types.DataError::IoError(_)),
   )
 }
@@ -204,19 +206,19 @@ test "scan_csv with an absorbed predicate collects equal to the eager read then 
   write_fixture(path)
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   assert_eq(
-    scan_csv(path).filter(predicate).collect(),
+    @io.scan_csv(path).filter(predicate).collect(),
     @io.read_csv(path).filter(predicate),
   )
   // With a projection on top, the scan reads `qty` to prune but hands up only
   // `region` — still cell-for-cell the eager chain.
   assert_eq(
-    scan_csv(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.scan_csv(path).filter(predicate).select([@expr.col("region")]).collect(),
     @io.read_csv(path).filter(predicate).select([@expr.col("region")]),
   )
   // Two filters: one is absorbed, the other stays a node — same result.
   let second = @expr.col("region").eq(@expr.lit_str("east"))
   assert_eq(
-    scan_csv(path).filter(predicate).filter(second).collect(),
+    @io.scan_csv(path).filter(predicate).filter(second).collect(),
     @io.read_csv(path).filter(predicate).filter(second),
   )
 }
@@ -229,7 +231,7 @@ test "an absorbed predicate sees every row, so an aggregate threshold agrees wit
   // a mean-of-the-column threshold is the file's mean, not a partial one.
   let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
   assert_eq(
-    scan_csv(path).filter(predicate).collect(),
+    @io.scan_csv(path).filter(predicate).collect(),
     @io.read_csv(path).filter(predicate),
   )
 }
@@ -242,13 +244,13 @@ test "an absorbed predicate reports the same errors as the eager filter" {
   // it, so evaluation raises `ColumnNotFound` exactly as eager does.
   let missing = @expr.col("nope").gt(@expr.lit_int(1))
   assert_true(
-    (Ok(scan_csv(path).filter(missing).collect()) catch { e => Err(e) })
+    (Ok(@io.scan_csv(path).filter(missing).collect()) catch { e => Err(e) })
     is Err(@types.DataError::ColumnNotFound("nope")),
   )
   // A non-Bool predicate is the same `TypeMismatch` either way.
   let not_bool = @expr.col("qty")
   assert_true(
-    (Ok(scan_csv(path).filter(not_bool).collect()) catch { e => Err(e) })
+    (Ok(@io.scan_csv(path).filter(not_bool).collect()) catch { e => Err(e) })
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
@@ -264,7 +266,7 @@ test "a column-less predicate on a scan keeps every row, matching eager" {
   // `0×0` the lost row count dropped every row, and the predicate had to be
   // held back above the scan to avoid it.)
   let keep_all = @expr.lit_bool(true)
-  let out = scan_csv(path).filter(keep_all).collect()
+  let out = @io.scan_csv(path).filter(keep_all).collect()
   assert_eq(out, @io.read_csv(path).filter(keep_all))
   assert_eq(out.shape(), (4, 3))
   assert_eq(out.check_invariants(), Ok(()))
@@ -272,7 +274,7 @@ test "a column-less predicate on a scan keeps every row, matching eager" {
   // only the false case would have masked the bug: a lost row count yields 0
   // rows too. The true case is what distinguishes a correct fix.
   let keep_none = @expr.lit_bool(false)
-  let none = scan_csv(path).filter(keep_none).collect()
+  let none = @io.scan_csv(path).filter(keep_none).collect()
   assert_eq(none, @io.read_csv(path).filter(keep_none))
   assert_eq(none.shape(), (0, 3))
 }
@@ -294,7 +296,7 @@ test "a parse error in a row the predicate drops no longer surfaces" {
   )
   // Lazy with a predicate that drops the offending row: `note` is only built
   // for the surviving row, which parses cleanly.
-  let out = scan_csv(path, options=narrow)
+  let out = @io.scan_csv(path, options=narrow)
     .filter(@expr.col("qty").lt(@expr.lit_int(50)))
     .collect()
   assert_eq(out.shape(), (1, 2))
@@ -302,7 +304,7 @@ test "a parse error in a row the predicate drops no longer surfaces" {
   // A predicate that keeps the offending row still reports it.
   assert_true(
     (Ok(
-      scan_csv(path, options=narrow)
+      @io.scan_csv(path, options=narrow)
       .filter(@expr.col("qty").gt(@expr.lit_int(50)))
       .collect(),
     ) catch {
@@ -344,7 +346,9 @@ test "an absorbed predicate reports a kept row's parse error at its true file ro
   )
   // The pruned lazy scan keeps `oops`'s row (qty 120 > 50) and parses it as the
   // second survivor — the error must still name file row 3, not survivor rank 2.
-  let lazy_out = Ok(scan_csv(path, options=narrow).filter(predicate).collect()) catch {
+  let lazy_out = Ok(
+    @io.scan_csv(path, options=narrow).filter(predicate).collect(),
+  ) catch {
     e => Err(e)
   }
   assert_eq(lazy_out, eager)
@@ -379,13 +383,13 @@ test "a decimal-pinned CSV scan fences the stage a sunk predicate would prune" {
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_csv(path, options=opts).with_columns(derived).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
-    scan_csv(path, options=opts)
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
+    @io.scan_csv(path, options=opts)
     .with_columns(derived)
     .filter(predicate)
     .collect(),
@@ -404,13 +408,13 @@ test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
   let path = "_build/lazy_scan_csv_decimal_fence_slice.csv"
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_csv(path, options=opts).with_columns(derived).head(1),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
-    scan_csv(path, options=opts).with_columns(derived).head(1).collect(),
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
+    @io.scan_csv(path, options=opts).with_columns(derived).head(1).collect(),
   ) catch {
     e => Err(e)
   }
@@ -431,7 +435,7 @@ test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
 fn write_ndjson_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_ndjson(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -452,7 +456,7 @@ fn write_raw(path : String, content : String) -> Unit raise @types.DataError {
 test "scan_ndjson collects equal to the eager read of the same file" {
   let path = "_build/lazy_scan_ndjson_roundtrip.ndjson"
   write_ndjson_fixture(path)
-  let out = scan_ndjson(path).collect()
+  let out = @io.scan_ndjson(path).collect()
   assert_eq(out, @io.read_ndjson(path))
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -464,14 +468,14 @@ test "scan_ndjson with projection push-down collects equal to the eager read the
   // A single-column selection narrows the parse to `region`.
   let projection = [@expr.col("region")]
   assert_eq(
-    scan_ndjson(path).select(projection).collect(),
+    @io.scan_ndjson(path).select(projection).collect(),
     @io.read_ndjson(path).select(projection),
   )
   // A wider pipeline narrows through filter + with_columns and stays equal.
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let outputs = [@expr.col("dbl"), @expr.col("region")]
-  let out = scan_ndjson(path)
+  let out = @io.scan_ndjson(path)
     .filter(predicate)
     .with_columns(derived)
     .select(outputs)
@@ -494,7 +498,7 @@ test "scan_ndjson honours its read options at collect time" {
     infer_schema_rows=1,
   )
   assert_eq(
-    scan_ndjson(path, options=opts).select([@expr.col("region")]).collect(),
+    @io.scan_ndjson(path, options=opts).select([@expr.col("region")]).collect(),
     @io.read_ndjson(path, options=opts).select([@expr.col("region")]),
   )
 }
@@ -527,7 +531,9 @@ test "projection push-down does not parse — or fail on — a dropped NDJSON co
   )
   // The lazy scan, narrowed to `a`, never builds `b`, so it collects cleanly —
   // the same divergence as scan_csv.
-  let out = scan_ndjson(path, options=opts).select([@expr.col("a")]).collect()
+  let out = @io.scan_ndjson(path, options=opts)
+    .select([@expr.col("a")])
+    .collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
 }
@@ -537,20 +543,20 @@ test "scan_ndjson builders are total; a missing file fails only at collect" {
   let absent = "_build/lazy_scan_ndjson_absent.ndjson"
   // Building and explaining never touch the file.
   assert_eq(
-    scan_ndjson(absent).select([@expr.col("a")]).explain(optimized=true),
+    @io.scan_ndjson(absent).select([@expr.col("a")]).explain(optimized=true),
     "SELECT [col(a)]\n  SCAN_NDJSON \"_build/lazy_scan_ndjson_absent.ndjson\" [a]",
   )
   // Collect surfaces the missing file as IoError — through the NDJSON driver
   // when a projection fired…
   assert_true(
-    (Ok(scan_ndjson(absent).select([@expr.col("a")]).collect()) catch {
+    (Ok(@io.scan_ndjson(absent).select([@expr.col("a")]).collect()) catch {
       e => Err(e)
     })
     is Err(@types.DataError::IoError(_)),
   )
   // …and through read_ndjson when none did.
   assert_true(
-    (Ok(scan_ndjson(absent).collect()) catch { e => Err(e) })
+    (Ok(@io.scan_ndjson(absent).collect()) catch { e => Err(e) })
     is Err(@types.DataError::IoError(_)),
   )
 }
@@ -561,17 +567,22 @@ test "scan_ndjson absorbs a predicate the same way, down to the dropped-row cave
   write_ndjson_fixture(path)
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   assert_eq(
-    scan_ndjson(path).filter(predicate).collect(),
+    @io.scan_ndjson(path).filter(predicate).collect(),
     @io.read_ndjson(path).filter(predicate),
   )
   assert_eq(
-    scan_ndjson(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.scan_ndjson(path)
+    .filter(predicate)
+    .select([@expr.col("region")])
+    .collect(),
     @io.read_ndjson(path).filter(predicate).select([@expr.col("region")]),
   )
   // A predicate naming an absent column raises at collect, as eager does.
   assert_true(
     (Ok(
-      scan_ndjson(path).filter(@expr.col("nope").gt(@expr.lit_int(1))).collect(),
+      @io.scan_ndjson(path)
+      .filter(@expr.col("nope").gt(@expr.lit_int(1)))
+      .collect(),
     ) catch {
       e => Err(e)
     })
@@ -587,14 +598,14 @@ test "a column-less predicate on an NDJSON scan keeps every row, matching eager"
   // pruner's key frame has none either — and carries the file's rows as an
   // `N×0` frame for the literal to broadcast over.
   let keep_all = @expr.lit_bool(true)
-  let out = scan_ndjson(path).filter(keep_all).collect()
+  let out = @io.scan_ndjson(path).filter(keep_all).collect()
   assert_eq(out, @io.read_ndjson(path).filter(keep_all))
   assert_eq(out.shape(), (4, 3))
   assert_eq(out.check_invariants(), Ok(()))
   // The false case is 0 rows either way, so only the true case distinguishes
   // a correct fix from the row-count-losing bug.
   let keep_none = @expr.lit_bool(false)
-  let none = scan_ndjson(path).filter(keep_none).collect()
+  let none = @io.scan_ndjson(path).filter(keep_none).collect()
   assert_eq(none, @io.read_ndjson(path).filter(keep_none))
   assert_eq(none.shape(), (0, 3))
 }
@@ -607,8 +618,8 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
   let path = "_build/lazy_scan_ndjson_dupkey.ndjson"
   @io.write_text(path, "{\"k\": 1, \"k\": 2}\n")
   let opts = @io.JsonReadOptions::JsonReadOptions(reject_duplicate_keys=true)
-  let result : Result[@frame.DataFrame, @types.DataError] = Ok(
-    scan_ndjson(path, options=opts).collect(),
+  let result : Result[DataFrame, @types.DataError] = Ok(
+    @io.scan_ndjson(path, options=opts).collect(),
   ) catch {
     e => Err(e)
   }
@@ -631,7 +642,7 @@ test "scan_ndjson fails on a repeated key when the reader option asks" {
 fn write_json_fixture(path : String) -> Unit raise @types.DataError {
   @io.write_json(
     path,
-    @frame.DataFrame::DataFrame([
+    DataFrame::DataFrame([
       @series.Series::from_ints("qty", [5, 120, 80, 200]),
       @series.Series::from_int_options("bonus", [Some(1), None, Some(3), None]),
       @series.Series::from_strings("region", ["west", "east", "west", "east"]),
@@ -643,7 +654,7 @@ fn write_json_fixture(path : String) -> Unit raise @types.DataError {
 test "scan_json collects equal to the eager read of the same file" {
   let path = "_build/lazy_scan_json_roundtrip.json"
   write_json_fixture(path)
-  let out = scan_json(path).collect()
+  let out = @io.scan_json(path).collect()
   assert_eq(out, @io.read_json(path))
   assert_eq(out.check_invariants(), Ok(()))
 }
@@ -654,13 +665,13 @@ test "scan_json with projection push-down collects equal to the eager read then 
   write_json_fixture(path)
   let projection = [@expr.col("region")]
   assert_eq(
-    scan_json(path).select(projection).collect(),
+    @io.scan_json(path).select(projection).collect(),
     @io.read_json(path).select(projection),
   )
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   let derived = [(@expr.col("qty") * @expr.lit_int(2)).with_alias("dbl")]
   let outputs = [@expr.col("dbl"), @expr.col("region")]
-  let out = scan_json(path)
+  let out = @io.scan_json(path)
     .filter(predicate)
     .with_columns(derived)
     .select(outputs)
@@ -687,7 +698,7 @@ test "projection push-down does not assemble — or fail on — a dropped JSON c
     (Ok(@io.read_json(path, options=opts)) catch { e => Err(e) })
     is Err(@types.DataError::ParseError(_)),
   )
-  let out = scan_json(path, options=opts).select([@expr.col("a")]).collect()
+  let out = @io.scan_json(path, options=opts).select([@expr.col("a")]).collect()
   assert_eq(out.columns(), ["a"])
   assert_eq(out.item(1, "a"), @types.Scalar::Int(2))
 }
@@ -698,11 +709,14 @@ test "scan_json absorbs a predicate the same way, matching eager" {
   write_json_fixture(path)
   let predicate = @expr.col("qty").gt(@expr.lit_int(50))
   assert_eq(
-    scan_json(path).filter(predicate).collect(),
+    @io.scan_json(path).filter(predicate).collect(),
     @io.read_json(path).filter(predicate),
   )
   assert_eq(
-    scan_json(path).filter(predicate).select([@expr.col("region")]).collect(),
+    @io.scan_json(path)
+    .filter(predicate)
+    .select([@expr.col("region")])
+    .collect(),
     @io.read_json(path).filter(predicate).select([@expr.col("region")]),
   )
 }
@@ -713,17 +727,17 @@ test "scan_json builders are total; a missing file fails only at collect" {
   // Building and explaining never touch the file — the rendered plan names
   // the JSON source and the columns the projection narrowed to.
   assert_eq(
-    scan_json(absent).select([@expr.col("a")]).explain(optimized=true),
+    @io.scan_json(absent).select([@expr.col("a")]).explain(optimized=true),
     "SELECT [col(a)]\n  SCAN_JSON \"_build/lazy_scan_json_absent.json\" [a]",
   )
   assert_true(
-    (Ok(scan_json(absent).select([@expr.col("a")]).collect()) catch {
+    (Ok(@io.scan_json(absent).select([@expr.col("a")]).collect()) catch {
       e => Err(e)
     })
     is Err(@types.DataError::IoError(_)),
   )
   assert_true(
-    (Ok(scan_json(absent).collect()) catch { e => Err(e) })
+    (Ok(@io.scan_json(absent).collect()) catch { e => Err(e) })
     is Err(@types.DataError::IoError(_)),
   )
 }
@@ -738,7 +752,7 @@ test "scan_json honours a dtype pin at collect time" {
     dtypes=Map([("qty", @types.DataType::String)]),
   )
   assert_eq(
-    scan_json(path, options=opts).collect(),
+    @io.scan_json(path, options=opts).collect(),
     @io.read_json(path, options=opts),
   )
 }
@@ -751,7 +765,7 @@ test "scan_csv reads a gzip source equal to its plain twin" {
   // Compress through the production writer so the compressed fixture is
   // exactly what `write_csv` itself would emit.
   @io.write_text(zipped, @fs.read_file_to_string(plain))
-  assert_eq(scan_csv(zipped).collect(), scan_csv(plain).collect())
+  assert_eq(@io.scan_csv(zipped).collect(), @io.scan_csv(plain).collect())
 }
 
 ///|
@@ -763,45 +777,45 @@ test "scan_csv honours a rider dtype pin, matching the eager reader" {
     dtypes=Map([("d", @types.DataType::Date), ("t", @types.DataType::Timestamp)]),
   )
   assert_eq(
-    scan_csv(path, options=opts).collect(),
+    @io.scan_csv(path, options=opts).collect(),
     @io.read_csv(path, options=opts),
   )
   assert_eq(
-    scan_csv(path, options=opts).collect().get_column("t").dtype(),
+    @io.scan_csv(path, options=opts).collect().get_column("t").dtype(),
     @types.DataType::Timestamp,
   )
 }
 
 ///|
 test "scan_parquet collects to the eager read and narrows its chunks" {
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), None, Some(3)]),
     @series.Series::from_string_options("s", [Some("a"), Some(""), None]),
   ])
   let path = "_build/lazy_scan_parquet.parquet"
   @io.write_parquet(df, path)
   // The lazy pipeline equals the eager read.
-  assert_eq(scan_parquet(path).collect(), @io.read_parquet(path))
+  assert_eq(@io.scan_parquet(path).collect(), @io.read_parquet(path))
   // A projection narrows the decoded chunks; the collected frame is the
   // one column.
-  let two = scan_parquet(path).select([@expr.col("s")]).collect()
+  let two = @io.scan_parquet(path).select([@expr.col("s")]).collect()
   assert_eq(two.columns(), ["s"])
   // A filter rides into the scan; the collected frame is the eager
   // filter's.
   let predicate = @expr.col("i").gt(@expr.lit_int(2))
   assert_eq(
-    scan_parquet(path).filter(predicate).collect(),
+    @io.scan_parquet(path).filter(predicate).collect(),
     @io.read_parquet(path).filter(predicate),
   )
   // The plan renders the PARQUET leaf and the projection above it.
-  let explained = scan_parquet(path)
+  let explained = @io.scan_parquet(path)
     .select([@expr.col("s")])
     .explain(optimized=true)
   assert_true(explained.contains("PARQUET"))
   assert_true(explained.contains("SELECT [col(s)]"))
   // A missing file fails only at collect.
   let absent = Ok(
-    ignore(scan_parquet("_build/io_parquet_gone.parquet").collect()),
+    ignore(@io.scan_parquet("_build/io_parquet_gone.parquet").collect()),
   ) catch {
     e => Err(e)
   }
@@ -816,7 +830,7 @@ test "scan_parquet keeps a filtered select and a filtered group equal to eager" 
   // projection above drops it, exactly the key-column contract the text
   // drivers' pruner honours; before that contract reached the parquet
   // driver this shape raised ColumnNotFound on the predicate's column.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
     @series.Series::from_int_options("v", [Some(10), None, Some(30)]),
     @series.Series::from_string_options("s", [Some("a"), Some("b"), Some("c")]),
@@ -824,7 +838,7 @@ test "scan_parquet keeps a filtered select and a filtered group equal to eager" 
   let path = "_build/lazy_scan_parquet_filter_select.parquet"
   @io.write_parquet(df, path)
   let predicate = @expr.col("v").gt(@expr.lit_int(5))
-  let lazy_filtered = scan_parquet(path).filter(predicate)
+  let lazy_filtered = @io.scan_parquet(path).filter(predicate)
   assert_eq(
     lazy_filtered.select([@expr.col("i")]).collect(),
     @io.read_parquet(path).filter(predicate).select([@expr.col("i")]),
@@ -855,14 +869,16 @@ test "scan_parquet keeps the eager error for a name the file lacks" {
   // chain's ColumnNotFound — the parquet projection is lenient like the
   // text readers' (a missing name builds no column), so the error comes
   // from the expression's own evaluation, not the scan.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1)]),
   ])
   let path = "_build/lazy_scan_parquet_missing_name.parquet"
   @io.write_parquet(df, path)
   let result = Ok(
     ignore(
-      scan_parquet(path).select([@expr.col("i"), @expr.col("zzz")]).collect(),
+      @io.scan_parquet(path)
+      .select([@expr.col("i"), @expr.col("zzz")])
+      .collect(),
     ),
   ) catch {
     e => Err(e)
@@ -884,7 +900,7 @@ test "a parquet footer's decimal column fences the stage a sunk predicate would 
   // pin carries, through a source whose decimal columns no plan-time fact
   // can rule out. Eager raises on the second row; the collected plan must
   // raise the same refusal rather than sink the predicate below the stage.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
     @series.Series::from_decimal_options(0, "d", [
       Some(1L),
@@ -895,13 +911,13 @@ test "a parquet footer's decimal column fences the stage a sunk predicate would 
   @io.write_parquet(df, path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[@frame.DataFrame, @types.DataError] = Ok(
+  let eager : Result[DataFrame, @types.DataError] = Ok(
     @io.read_parquet(path).with_columns(derived).filter(predicate),
   ) catch {
     e => Err(e)
   }
-  let lazy_ : Result[@frame.DataFrame, @types.DataError] = Ok(
-    scan_parquet(path).with_columns(derived).filter(predicate).collect(),
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
+    @io.scan_parquet(path).with_columns(derived).filter(predicate).collect(),
   ) catch {
     e => Err(e)
   }
@@ -916,7 +932,7 @@ test "a parquet scan still absorbs a bare-column predicate beside a projection" 
   // itself supplies, so it keeps absorbing into the scan — and beside a
   // narrowed projection it exercises the driver's predicate-plus-projection
   // path, which the comparison predicates' fencing leaves cold.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_int_options("i", [Some(1), Some(2), Some(3)]),
     @series.Series::from_bools("flag", [true, false, true]),
   ])
@@ -924,11 +940,11 @@ test "a parquet scan still absorbs a bare-column predicate beside a projection" 
   @io.write_parquet(df, path)
   let predicate = @expr.col("flag")
   assert_eq(
-    scan_parquet(path).filter(predicate).select([@expr.col("i")]).collect(),
+    @io.scan_parquet(path).filter(predicate).select([@expr.col("i")]).collect(),
     @io.read_parquet(path).filter(predicate).select([@expr.col("i")]),
   )
   assert_eq(
-    scan_parquet(path)
+    @io.scan_parquet(path)
     .filter(predicate)
     .select([@expr.col("i")])
     .explain(optimized=true),

@@ -663,7 +663,7 @@ test "str case maps Unicode letters, not just ASCII" {
   // whose uppercase is the SpecialCasing SS expansion — plus the ﬁ
   // ligature and İ (which lowercases to i + combining dot above). CJK and
   // emoji carry no case mapping and pass through.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("s", [
       "café", "αβγ", "привет", "straße", "日本語", "\u{1F600}", "ﬁ",
       "İ",
@@ -697,7 +697,7 @@ test "str case maps Unicode letters, not just ASCII" {
 test "str_strip_chars default trims Unicode whitespace, not just ASCII" {
   // The White_Space property: NBSP, the narrow no-break space, and the
   // ideographic space all surround the text here.
-  let df = @frame.DataFrame::DataFrame([
+  let df = DataFrame::DataFrame([
     @series.Series::from_strings("s", [
       "\u{A0}nbsp\u{A0}", "\u{202F}narrow\u{3000}", "plain",
     ]),

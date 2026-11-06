@@ -265,10 +265,8 @@ fn gen_rows(max_rows : Int32) -> @gen.Generator[Array[RichRow]] {
 /// Build the eight-column rich frame from generated rows. The fixed schema
 /// spans every dtype; by construction all columns share `rows.length()`, so
 /// `DataFrame::DataFrame` never actually raises here.
-fn rows_to_frame(
-  rows : Array[RichRow],
-) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::DataFrame([
+fn rows_to_frame(rows : Array[RichRow]) -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_float_options("fk", rows.map(r => r.1)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
@@ -302,8 +300,8 @@ fn rows_to_frame(
 /// `oc != oc.to_builtin()` "flip detector" here was inert: that `==` is exactly
 /// the backend-agnostic one, so it was always `false`.)
 fn frames_equiv(
-  opt : @frame.DataFrame,
-  eag : @frame.DataFrame,
+  opt : DataFrame,
+  eag : DataFrame,
 ) -> String? raise @types.DataError {
   if opt.columns() != eag.columns() {
     return Some(
@@ -362,7 +360,7 @@ fn scalars_equiv(a : @types.Scalar, b : @types.Scalar) -> Bool {
 fn check_equiv(
   label : String,
   lazy_chain : () -> LazyFrame raise @types.DataError,
-  eager_chain : () -> @frame.DataFrame raise @types.DataError,
+  eager_chain : () -> DataFrame raise @types.DataError,
   strict_errors~ : Bool = false,
 ) -> String? {
   // `.collect()` (the optimizer entry point) lives here, in one fixed place, so
@@ -825,11 +823,7 @@ enum VerbSpec {
 pub extend VerbSpec with Debug::{to_repr}
 
 ///|
-fn apply_lazy(
-  lf : LazyFrame,
-  v : VerbSpec,
-  right : @frame.DataFrame,
-) -> LazyFrame {
+fn apply_lazy(lf : LazyFrame, v : VerbSpec, right : DataFrame) -> LazyFrame {
   match v {
     VFilter(p) => lf.filter(p)
     VWithColumns(es) => lf.with_columns(es)
@@ -850,9 +844,9 @@ fn apply_lazy(
     VSemiAnti(anti) =>
       lf.join(
         LazyFrame::LazyFrame(right),
-        @frame.JoinOptions::on(
+        JoinOptions::on(
           [@expr.col("g")],
-          how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
+          how=if anti { JoinType::Anti } else { JoinType::Semi },
         ),
       )
     VSlice(offset, length) =>
@@ -867,10 +861,10 @@ fn apply_lazy(
 
 ///|
 fn apply_eager(
-  d : @frame.DataFrame,
+  d : DataFrame,
   v : VerbSpec,
-  right : @frame.DataFrame,
-) -> @frame.DataFrame raise @types.DataError {
+  right : DataFrame,
+) -> DataFrame raise @types.DataError {
   match v {
     VFilter(p) => d.filter(p)
     VWithColumns(es) => d.with_columns(es)
@@ -891,9 +885,9 @@ fn apply_eager(
     VSemiAnti(anti) =>
       d.join(
         right,
-        @frame.JoinOptions::on(
+        JoinOptions::on(
           [@expr.col("g")],
-          how=if anti { @frame.JoinType::Anti } else { @frame.JoinType::Semi },
+          how=if anti { JoinType::Anti } else { JoinType::Semi },
         ),
       )
     VSlice(offset, length) =>
@@ -1275,9 +1269,9 @@ test "fuzz: zero-match file projections preserve exact eager errors" {
     let check_source = (use_ndjson : Bool) => {
       let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
         let source = if use_ndjson {
-          scan_ndjson(ndjson_path)
+          @io.scan_ndjson(ndjson_path)
         } else {
-          scan_csv(csv_path)
+          @io.scan_csv(csv_path)
         }
         source.head(c.head).select([@expr.col(c.missing)])
       }
@@ -1373,8 +1367,8 @@ impl @shrink.Shrink for PrunedFileCase with fn shrink(self) {
 /// references `a` / `g` / `s`, all present here.
 fn rows_to_clean_frame(
   rows : Array[RichRow],
-) -> @frame.DataFrame raise @types.DataError {
-  @frame.DataFrame::DataFrame([
+) -> DataFrame raise @types.DataError {
+  DataFrame::DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     @series.Series::from_int_options("a", rows.map(r => r.2)),
     @series.Series::from_int_options("b", rows.map(r => r.3)),
@@ -1411,7 +1405,7 @@ test "fuzz: predicate push-down into a CSV source stays eager-equivalent" {
         // schema, so even an empty or all-null frame round-trips faithfully —
         // both sides read identical data and any divergence is the reader's own.
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
-          scan_csv(csv_path).filter(c.pred)
+          @io.scan_csv(csv_path).filter(c.pred)
         }
         let eager_chain = () => @io.read_csv(csv_path).filter(c.pred)
         // The absorption is the rewrite under test — the plan's own
@@ -1525,11 +1519,11 @@ test "fuzz: a dirty CSV stays eager-equivalent under predicate absorption" {
       Ok(_) => {
         let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
         let lazy_chain : () -> LazyFrame raise @types.DataError = () => {
-          scan_csv(path, options=opts).filter(
+          @io.scan_csv(path, options=opts).filter(
             @expr.col("a").gt(@expr.lit_int(0)),
           )
         }
-        let eager_chain : () -> @frame.DataFrame raise @types.DataError = () => {
+        let eager_chain : () -> DataFrame raise @types.DataError = () => {
           @io.read_csv(path, options=opts).filter(
             @expr.col("a").gt(@expr.lit_int(0)),
           )
@@ -1572,7 +1566,7 @@ test "a doubly-dirty CSV: both reads raise ParseError, whichever column each nam
   }
   let opts = @io.CsvReadOptions::CsvReadOptions(infer_schema_rows=1)
   let lazy_err = Ok(
-    scan_csv(path, options=opts)
+    @io.scan_csv(path, options=opts)
     .filter(@expr.col("a").gt(@expr.lit_int(0)))
     .collect(),
   ) catch {
@@ -1643,7 +1637,7 @@ pub extend JoinPredDomain with Debug::{to_repr}
 struct JoinSplitCase {
   left : Array[RichRow]
   right : Array[RichRow]
-  how : @frame.JoinType
+  how : JoinType
   clash : JoinClash
   coalesce_false : Bool
   domain : JoinPredDomain
@@ -1659,13 +1653,13 @@ pub extend JoinSplitCase with Debug::{to_repr}
 fn join_right_frame(
   rows : Array[RichRow],
   clash : JoinClash,
-) -> @frame.DataFrame raise @types.DataError {
+) -> DataFrame raise @types.DataError {
   let (clash_name, clash_col) = match clash {
     A => ("a", @series.Series::from_int_options("a", rows.map(r => r.2)))
     S => ("s", @series.Series::from_string_options("s", rows.map(r => r.4)))
   }
   let _ = clash_name
-  @frame.DataFrame::DataFrame([
+  DataFrame::DataFrame([
     @series.Series::from_int_options("g", rows.map(r => r.0)),
     clash_col,
     @series.Series::from_int_options("rx", rows.map(r => r.3)),
@@ -1692,12 +1686,12 @@ fn join_split_pred(clash : JoinClash, domain : JoinPredDomain) -> @expr.Expr {
 /// The join options for one case. `Cross` takes no keys; the keyed flavours
 /// join on the shared bare `g`, with `coalesce=false` keeping both key
 /// spellings when drawn.
-fn join_split_options(c : JoinSplitCase) -> @frame.JoinOptions {
+fn join_split_options(c : JoinSplitCase) -> JoinOptions {
   match c.how {
-    Cross => @frame.JoinOptions::cross()
+    Cross => JoinOptions::cross()
     _ => {
       let coalesce = if c.coalesce_false { Some(false) } else { None }
-      @frame.JoinOptions::on([@expr.col("g")], how=c.how, coalesce?)
+      JoinOptions::on([@expr.col("g")], how=c.how, coalesce?)
     }
   }
 }
@@ -1716,11 +1710,11 @@ fn gen_join_split_case() -> @gen.Generator[JoinSplitCase] {
     gen_rows(6),
     gen_rows(6),
     @gen.elements([
-      @frame.JoinType::Inner,
-      @frame.JoinType::Left,
-      @frame.JoinType::Right,
-      @frame.JoinType::Outer,
-      @frame.JoinType::Cross,
+      JoinType::Inner,
+      JoinType::Left,
+      JoinType::Right,
+      JoinType::Outer,
+      JoinType::Cross,
     ]),
     @gen.elements([JoinClash::A, JoinClash::S]),
     gen_one_in(2),

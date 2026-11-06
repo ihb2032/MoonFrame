@@ -2,6 +2,8 @@
 
 ///|
 test "cast Int identity on Int" {
+  // The identity is the cast entry's gate — the column returns before any
+  // conversion dispatch (`to_int` no longer carries an identity arm).
   let col = BuiltinColumn::from_int_options([Some(1), None])
   assert_eq(col.cast(@types.DataType::Int), col)
 }
@@ -50,8 +52,31 @@ test "cast Float promotes Int" {
 
 ///|
 test "cast Float identity on Float" {
+  // The cast entry's identity gate again — `to_float` has no identity arm.
   let col = BuiltinColumn::from_floats([1.0, 2.0])
   assert_eq(col.cast(@types.DataType::Float), col)
+}
+
+///|
+test "to_int / to_float answer a refusal where the identity arms lived" {
+  // The cast entry owns same-dtype identity and refuses a non-numeric I64
+  // rider before dispatching, so `to_int`'s `I64` arm and `to_float`'s
+  // `F64` arm are unreachable through `cast` — they stay for
+  // exhaustiveness and answer the entry's refusal, the same shape the
+  // temporal casts' unreachable arms take. Reached here by direct call on
+  // legal constructions (a rider column, an Int column, a Float column) —
+  // the old identity arm would have handed the rider column back as
+  // though it were an Int result.
+  let days = BuiltinColumn::from_i64_options(@types.DataType::Date, [
+    Some(19000L),
+  ])
+  assert_true((Ok(days.to_int()) catch { e => Err(e) }) is Err(Unsupported(_)))
+  let ints = BuiltinColumn::from_int_options([Some(1)])
+  assert_true((Ok(ints.to_int()) catch { e => Err(e) }) is Err(Unsupported(_)))
+  let floats = BuiltinColumn::from_floats([1.5])
+  assert_true(
+    (Ok(floats.to_float()) catch { e => Err(e) }) is Err(Unsupported(_)),
+  )
 }
 
 ///|

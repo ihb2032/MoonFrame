@@ -23,13 +23,19 @@ test "widget_report: keeps widget rows, projects 4 cols, sorts by quantity desc"
   assert_eq(sorted.item(0, "region"), @moonframe.Scalar::String("west"))
   assert_eq(sorted.item(0, "quantity"), @moonframe.Scalar::Int(12))
   assert_eq(sorted.item(2, "quantity"), @moonframe.Scalar::Int(5))
-  assert_eq(sorted.check_invariants(), Ok(()))
+  // The structural shape a downstream test can assert through the public
+  // surface: every column carries the frame's height.
+  for name in sorted.columns() {
+    assert_eq(sorted.get_column(name).len(), sorted.nrows())
+  }
 
-  // `describe` returns the fixed 8-column summary, one row per
+  // `describe` returns the fixed 11-column summary, one row per
   // projected source column.
   assert_eq(summary.shape(), (4, 11))
   assert_eq(summary.item(0, "column"), @moonframe.Scalar::String("region"))
-  assert_eq(summary.check_invariants(), Ok(()))
+  for name in summary.columns() {
+    assert_eq(summary.get_column(name).len(), summary.nrows())
+  }
 }
 
 ///|
@@ -45,7 +51,7 @@ test "widget_report: empty product set collapses to a 0-row widget frame" {
   // projection keeps the schema verbatim.
   assert_eq(sorted.shape(), (0, 4))
   assert_eq(sorted.columns(), ["region", "price", "quantity", "revenue"])
-  // `describe` still produces an N×8 row-per-column summary.
+  // `describe` still produces an N×11 row-per-column summary.
   assert_eq(summary.shape(), (4, 11))
 }
 

@@ -22,6 +22,15 @@ fn read_sample() -> @moonframe.DataFrame raise @moonframe.DataError {
 }
 
 ///|
+/// The structural shape a downstream test can assert through the public
+/// surface: every column carries the frame's height.
+fn assert_column_heights(df : @moonframe.DataFrame) -> Unit raise {
+  for name in df.columns() {
+    assert_eq(df.get_column(name).len(), df.nrows())
+  }
+}
+
+///|
 test "enrich: appends profit and unit_price, keeping every source column" {
   let out = enrich(read_sample())
   // Five source columns plus the two derived ones, in expression order.
@@ -35,7 +44,7 @@ test "enrich: appends profit and unit_price, keeping every source column" {
   assert_eq(out.item(1, "profit"), @moonframe.Scalar::Int(50))
   assert_eq(out.item(1, "unit_price"), @moonframe.Scalar::Float(16.0))
   assert_eq(out.item(3, "profit"), @moonframe.Scalar::Int(-15))
-  assert_eq(out.check_invariants(), Ok(()))
+  assert_column_heights(out)
 }
 
 ///|
@@ -48,7 +57,7 @@ test "top_west: keeps only the profitable western rows" {
   assert_eq(out.item(0, "profit"), @moonframe.Scalar::Int(40))
   assert_eq(out.item(1, "product"), @moonframe.Scalar::String("gadget"))
   assert_eq(out.item(1, "profit"), @moonframe.Scalar::Int(32))
-  assert_eq(out.check_invariants(), Ok(()))
+  assert_column_heights(out)
 }
 
 ///|
@@ -69,7 +78,7 @@ test "margins: composite aggregation per region, first-appearance order" {
   assert_eq(out.item(2, "region"), @moonframe.Scalar::String("north"))
   assert_eq(out.item(2, "total_profit"), @moonframe.Scalar::Int(55))
   assert_eq(out.item(2, "avg_revenue"), @moonframe.Scalar::Float(65.0))
-  assert_eq(out.check_invariants(), Ok(()))
+  assert_column_heights(out)
 }
 
 ///|
@@ -96,7 +105,7 @@ test "graded: tags each row high/low with when/then/otherwise" {
   assert_eq(out.item(3, "tier"), @moonframe.Scalar::String("low")) // 30 < 60
   assert_eq(out.item(4, "tier"), @moonframe.Scalar::String("low")) // 40 < 60
   assert_eq(out.item(5, "tier"), @moonframe.Scalar::String("high")) // 90 >= 60
-  assert_eq(out.check_invariants(), Ok(()))
+  assert_column_heights(out)
 }
 
 ///|
@@ -147,7 +156,7 @@ test "report_plan: collect runs the plan and equals the eager pipeline" {
     .filter(@moonframe.col("region").eq(@moonframe.lit_str("west")))
     .select([@moonframe.col("region"), @moonframe.col("revenue_adj")])
   assert_eq(out, eager)
-  assert_eq(out.check_invariants(), Ok(()))
+  assert_column_heights(out)
 }
 
 ///|

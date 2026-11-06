@@ -236,3 +236,22 @@ test "an empty frame evaluates its window to the inner's dtype" {
   assert_eq(out.nrows(), 0)
   assert_eq(out.get_column("s").dtype(), @types.DataType::Int)
 }
+
+///|
+test "an empty frame still evaluates its keys: a bad key name raises" {
+  // The 0-row short-circuit must not swallow key errors — a 1-row frame
+  // with the same window raises `ColumnNotFound` for `nope`, so a 0-row
+  // one does too (`group_by`'s reading: keys evaluate before any grouping).
+  let df = DataFrame::empty(
+    @types.Schema::Schema([
+      @types.Field::Field("g", @types.DataType::String),
+      @types.Field::Field("x", @types.DataType::Int),
+    ]),
+  )
+  let result : Result[DataFrame, @types.DataError] = Ok(
+    df.with_columns([@expr.col("x").sum().over([@expr.col("nope")])]),
+  ) catch {
+    e => Err(e)
+  }
+  assert_eq(result, Err(@types.DataError::ColumnNotFound("nope")))
+}

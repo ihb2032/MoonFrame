@@ -8,7 +8,11 @@
 // `NaN` by the total order) applies verbatim.
 //
 // Nulls always rank last, at both ends and under `reverse` — non-null
-// elements are always preferred. A `k` past the row count
+// elements are always preferred. A `Float` `NaN` is a value, not a
+// placement decision, and the total order places it larger than every
+// other value: it ranks among the largest, so `top_k` surfaces a
+// NaN-holding row ahead of every finite one (and `bottom_k` reaches NaNs
+// only past them). A `k` past the row count
 // saturates (the whole frame in sorted order, `head`'s clamp); `k = 0` is
 // the empty frame; a negative `k` or an empty `by` `raise`s
 // `InvalidOperation`, the one place the composition would otherwise be

@@ -19,7 +19,12 @@
 /// - `Date` from `Timestamp` — the microsecond count floored to whole
 ///   days, total at every value.
 ///
-/// Null slots are preserved verbatim. A numeric result lands on the
+/// Null slots are preserved verbatim. A cast onto the column's **own**
+/// dtype is the identity — the column is shared, not rebuilt — and that
+/// holds for every dtype, so `Bool` / `Date` / `Timestamp` / `Decimal` /
+/// `Duration`, whose cross-dtype pairings are all refused, still cast to
+/// themselves (`Decimal` exactly: a different scale is a rescale, refused).
+/// A numeric result lands on the
 /// `Builtin` backend; the engine re-converges it onto the unboxed fast path
 /// where a later step benefits. Every other pairing — `Bool`, `Null`,
 /// `Decimal` targets, a temporal target from a non-temporal source, or a

@@ -34,20 +34,23 @@ fn eval_over(
     }
   }
   let n = df.nrows()
-  // A frame with no rows has no groups to evaluate; the inner still runs
-  // once over the empty frame so the output column carries the dtype the
-  // windowed expression produces.
-  if n == 0 {
-    let empty : Array[Int32] = []
-    return eval_expr(@expr.Expr::of_node(inner), df, empty)
-  }
   // The keys evaluate against the whole frame, broadcast to frame height
-  // the way `group_by`'s own key expressions do.
+  // the way `group_by`'s own key expressions do — and they evaluate even
+  // when the frame has no rows, so a bad key column name raises
+  // `ColumnNotFound` on a 0-row frame exactly as it does on any other
+  // (`group_by`'s reading; the groups an empty frame lacks would otherwise
+  // swallow the error).
   let identity = Array::makei(n, i => i)
   let key_columns : Array[Series] = []
   for key in keys {
     let evaluated = eval_expr(@expr.Expr::of_node(key), df, identity)
     key_columns.push(@kernel.broadcast_series(evaluated, n))
+  }
+  // A frame with no rows has no groups to evaluate; the inner still runs
+  // once over the empty frame so the output column carries the dtype the
+  // windowed expression produces.
+  if n == 0 {
+    return eval_expr(@expr.Expr::of_node(inner), df, identity)
   }
   // The partition: one pass over the rows building each group's row list,
   // keyed by the row's key cells — the same map `group_by` builds, so the

@@ -198,15 +198,17 @@ fn foreign_raw(
 
 ///|
 /// A complete V2 data-page header (with `def_len`) over a body of
-/// `body_len` bytes.
+/// `body_len` bytes, spelling is_compressed per `compressed~` — the
+/// page type a foreign writer declares for a V2 page.
 fn v2_page_header(
   num_values : Int32,
   encoding : Int32,
   def_len : Int32,
   body_len : Int32,
+  compressed~ : Bool = true,
 ) -> Bytes {
   let pw = thrift_writer()
-  pw.i32_field(1, 0)
+  pw.i32_field(1, 3) // DATA_PAGE_V2
   pw.i32_field(2, body_len)
   pw.i32_field(3, body_len)
   pw.struct_field_begin(8)
@@ -216,7 +218,8 @@ fn v2_page_header(
   pw.i32_field(4, encoding)
   pw.i32_field(5, def_len)
   pw.i32_field(6, 0)
-  pw.field_header(7, 1) // is_compressed = true
+  // is_compressed — the compact protocol's bool rides the type nibble.
+  pw.field_header(7, if compressed { 1 } else { 2 })
   pw.struct_end()
   pw.struct_end()
   pw.finish()
@@ -428,8 +431,10 @@ test "a dictionary data page with a null cell keeps the frame's rows" {
   push_le_i64(dict, 10L)
   push_le_i64(dict, 20L)
   let data : Array[Byte] = []
-  // Def levels for two cells, one present one null: a bit-packed group
-  // (header (1<<1)|1 = 0x03, one byte, bits 1,0 → 0x01).
+  // Def levels for two cells, one present one null: the V1 page's
+  // 4-byte length prefix (the run is two bytes), then a bit-packed
+  // group (header (1<<1)|1 = 0x03, one byte, bits 1,0 → 0x01).
+  push_le_i32(data, 2)
   data.push((0x03).to_byte())
   data.push((0x01).to_byte())
   // The index stream: width 1, RLE run of one index 0.
@@ -549,9 +554,8 @@ test "PLAIN payloads shorter than num_values refuse per dtype" {
     e => Err(e)
   }
   assert_true(double_result is Err(@types.DataError::ParseError(_)))
-  // Int32 (physical 1): the DATE annotation rides it — a bare Int32 maps
-  // to nothing on the read side, so the short Int32 shape is a short
-  // DATE payload.
+  // Int32 (physical 1): the DATE annotation rides it — a short INT32
+  // payload under the DATE map.
   let int_short : Array[Byte] = plain_defs(2)
   push_le_i32(int_short, 1)
   let date_page : Array[Byte] = []
@@ -584,12 +588,10 @@ test "PLAIN payloads shorter than num_values refuse per dtype" {
 }
 
 ///|
-test "a V2 page whose def levels run past the chunk clamps" {
-  // def_len far past the page: the level slice clamps to what is there
-  // (the arm under test), every present default stands — and the values,
-  // sought after a hundred level bytes that do not exist, find nothing
-  // and refuse. The clamp keeps the read safe; the refusal is the
-  // honest answer.
+test "a V2 page whose def levels run past the chunk refuses at the bound" {
+  // def_len far past the page: the level lengths are checked against
+  // the page's own compressed size before any slice happens, so a
+  // hostile length names its refusal instead of reading past the body.
   let body : Array[Byte] = [(0x01).to_byte()]
   push_le_i64(body, 7L)
   let header = v2_page_header(1, 0, 100, body.length())
@@ -608,6 +610,94 @@ test "a V2 page whose def levels run past the chunk clamps" {
     e => Err(e)
   }
   assert_true(read is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a V2 page that opts out of compression reads raw under a codec" {
+  // is_compressed=false names a page whose values never rode the
+  // chunk's codec — the opt-out is the page's own, whatever the column
+  // metadata declares. The chunk says SNAPPY; the values are raw.
+  let body : Array[Byte] = [(0x04).to_byte(), (0x01).to_byte()] // RLE run of two ones
+  push_le_i64(body, 7L)
+  push_le_i64(body, 8L)
+  let page : Array[Byte] = []
+  for b in v2_page_header(2, 0, 2, body.length(), compressed=false) {
+    page.push(b)
+  }
+  for b in body {
+    page.push(b)
+  }
+  let read = read_parquet_columns(
+    foreign_raw(2, 1, Bytes::from_array(page), 2),
+    None,
+  )
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(8),
+  ])
+  // A field 7 arriving on a foreign wire (an i32, a writer's misspelling)
+  // skips forward-compatibly and leaves the codec in charge — an
+  // uncompressed chunk then reads the same raw values.
+  let wide : Array[Byte] = [(0x04).to_byte(), (0x01).to_byte()]
+  push_le_i64(wide, 7L)
+  push_le_i64(wide, 8L)
+  let pw = thrift_writer()
+  pw.i32_field(1, 0)
+  pw.i32_field(2, wide.length())
+  pw.i32_field(3, wide.length())
+  pw.struct_field_begin(8)
+  pw.i32_field(1, 2)
+  pw.i32_field(2, 0)
+  pw.i32_field(3, 2)
+  pw.i32_field(4, 0)
+  pw.i32_field(5, 2)
+  pw.i32_field(6, 0)
+  pw.i32_field(7, 1)
+  pw.struct_end()
+  pw.struct_end()
+  let wide_page : Array[Byte] = []
+  for b in pw.finish() {
+    wide_page.push(b)
+  }
+  for b in wide {
+    wide_page.push(b)
+  }
+  let wide_read = read_parquet_columns(
+    foreign_raw(2, 0, Bytes::from_array(wide_page), 2),
+    None,
+  )
+  assert_eq(wide_read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(8),
+  ])
+  // A field 7 on the binary wire whose length varint the bytes end
+  // before: the skip itself refuses, and the walk answers the located
+  // malformed-header error.
+  let cut = thrift_writer()
+  cut.i32_field(1, 3)
+  cut.i32_field(2, 4)
+  cut.i32_field(3, 4)
+  cut.struct_field_begin(8)
+  cut.i32_field(1, 2)
+  cut.i32_field(4, 0)
+  cut.i32_field(5, 2)
+  cut.i32_field(6, 0)
+  cut.field_header(7, 8)
+  let cut_page : Array[Byte] = []
+  for b in cut.finish() {
+    cut_page.push(b)
+  }
+  let cut_result = Ok(
+    ignore(
+      read_parquet_columns(
+        foreign_raw(2, 0, Bytes::from_array(cut_page), 2),
+        None,
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(cut_result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|

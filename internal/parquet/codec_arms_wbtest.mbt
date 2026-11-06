@@ -181,7 +181,9 @@ test "the schema mapping refuses what MoonFrame cannot carry" {
   // A DATE must ride INT32; a TIMESTAMP_MICROS must ride INT64.
   assert_true(map_from_schema(2, Some(6), None) is None)
   assert_true(map_from_schema(1, Some(10), None) is None)
-  // And the mapping the riders ride.
+  // And the mapping the riders ride — a bare INT32 among them, the
+  // signed shape a foreign int column carries.
+  assert_true(map_from_schema(1, None, None) is Some(_))
   assert_true(map_from_schema(1, Some(6), None) is Some(_))
   assert_true(map_from_schema(2, Some(10), None) is Some(_))
   assert_true(map_from_schema(2, Some(5), Some(2)) is Some(_))

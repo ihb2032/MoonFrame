@@ -20,10 +20,13 @@ priv struct RawChunk {
 }
 
 ///|
-/// The paired column: a chunk plus its schema row's dtype map.
+/// The paired column: a chunk plus its schema row's dtype map, and
+/// whether that row spells REQUIRED — a required column's max definition
+/// level is 0, so its pages carry no level section at all.
 priv struct ColumnRead {
   chunk : RawChunk
   map : DtypeMap
+  required : Bool
 }
 
 ///|
@@ -80,10 +83,12 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
     }
     last = header.id
     match header.id {
-      2 =>
+      2 => {
         if !schema_read_list(r, schema) {
           raise bad("the schema list is malformed")
         }
+        refuse_nested_groups(schema)
+      }
       3 =>
         match r.zigzag_i64() {
           Some(v) => num_rows = v
@@ -103,19 +108,28 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   // element (index 0) is the schema's own head, not a column.
   let columns : Array[ColumnRead] = []
   for chunk in chunks {
-    let mut paired : DtypeMap? = None
+    let mut paired : (DtypeMap, Bool)? = None
     for i in 1..<schema.length() {
       if schema[i].name == chunk.name {
-        paired = map_from_schema(
-          schema[i].physical,
-          schema[i].converted,
-          schema[i].decimal_scale,
-        )
+        if schema[i].repetition == 2 {
+          raise bad(
+            "column \"\{chunk.name}\" is REPEATED, a nested shape MoonFrame does not read",
+          )
+        }
+        paired = match
+          map_from_schema(
+            schema[i].physical,
+            schema[i].converted,
+            schema[i].decimal_scale,
+          ) {
+          Some(map) => Some((map, schema[i].repetition == 0))
+          None => None
+        }
         break
       }
     }
     match paired {
-      Some(map) => columns.push({ chunk, map, })
+      Some((map, required)) => columns.push({ chunk, map, required, })
       None =>
         raise @types.DataError::Unsupported(
           "parquet column \"\{chunk.name}\" carries a dtype MoonFrame cannot map",
@@ -126,17 +140,44 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
 }
 
 ///|
-/// One schema element's decoded facts.
+/// A schema element naming children is a nested schema's node — the
+/// flat schema is the only shape this reader walks. A group carries no
+/// physical type, so a chunk paired against one would decode under a
+/// meaningless map; the file refuses naming the group instead. The root
+/// (the list's first element) names the columns themselves and is the
+/// one group every legal file carries.
+fn refuse_nested_groups(
+  schema : Array[SchemaElem],
+) -> Unit raise @types.DataError {
+  for i in 1..<schema.length() {
+    if schema[i].num_children > 0 {
+      raise bad(
+        "the schema carries the nested group \"\{schema[i].name}\", which MoonFrame does not read",
+      )
+    }
+  }
+}
+
+///|
+/// One schema element's decoded facts. `physical` is `-1` where the
+/// element names none (a group names children instead; a leaf without a
+/// type is malformed), and `repetition` is `-1` where the element spells
+/// none — the flat reader then treats it as OPTIONAL, the shape every
+/// nullable leaf carries.
 priv struct SchemaElem {
   name : String
   physical : Int32
+  repetition : Int32
+  num_children : Int32
   converted : Int32?
   decimal_scale : Int32?
 }
 
 ///|
 /// Read the schema list itself: the size byte / varint, then each
-/// element struct's fields.
+/// element struct's fields — the physical type (1), the repetition type
+/// (3), the name (4), the child count (5), the converted annotation (6),
+/// and the decimal scale (7).
 fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
   let count = match list_header(r, 12) {
     Some(c) => c
@@ -144,7 +185,9 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
   }
   for _ in 0..<count {
     let mut name = ""
-    let mut physical = 0
+    let mut physical = -1
+    let mut repetition = -1
+    let mut num_children = 0
     let mut converted : Int32? = None
     let mut scale : Int32? = None
     let mut last = 0
@@ -162,9 +205,19 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
                   Some(v) => physical = v
                   None => return false
                 }
+              3 =>
+                match r.zigzag_i32() {
+                  Some(v) => repetition = v
+                  None => return false
+                }
               4 =>
                 match r.text() {
                   Some(v) => name = v
+                  None => return false
+                }
+              5 =>
+                match r.zigzag_i32() {
+                  Some(v) => num_children = v
                   None => return false
                 }
               6 =>
@@ -182,7 +235,14 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
           }
       }
     }
-    into.push({ name, physical, converted, decimal_scale: scale, })
+    into.push({
+      name,
+      physical,
+      repetition,
+      num_children,
+      converted,
+      decimal_scale: scale,
+    })
   }
   true
 }
@@ -421,6 +481,8 @@ fn decode_column(
     let mut encoding = 0
     let mut v2 = false
     let mut def_len = 0
+    let mut rep_len = 0
+    let mut page_compressed = true
     let mut last = 0
     for ;; {
       let h = match r.field_header(last) {
@@ -523,7 +585,6 @@ fn decode_column(
           // repetition_levels_byte_length (6), is_compressed (7).
           v2 = true
           let mut inner_last = 0
-          let mut rep_len = 0
           for ;; {
             let hi = match r.field_header(inner_last) {
               Some(h) => h
@@ -554,13 +615,25 @@ fn decode_column(
                   Some(v) => rep_len = v
                   None => raise bad("a page level length is malformed")
                 }
+              7 =>
+                // The compact protocol's bool rides the field header's
+                // own type nibble — the wire type is the value. Any
+                // other wire a hostile header spells is skipped by its
+                // own type, the unknown-field rule.
+                match hi.wire {
+                  BoolTrue => page_compressed = true
+                  BoolFalse => page_compressed = false
+                  Stop | I32V | I64V | BinaryV | ListV | StructV =>
+                    if !r.skip(hi.wire) {
+                      raise bad("a V2 page header is malformed")
+                    }
+                }
               _ =>
                 if !r.skip(hi.wire) {
                   raise bad("a V2 page header is malformed")
                 }
             }
           }
-          ignore(rep_len)
         }
         _ => if !r.skip(h.wire) { raise bad("a page header is malformed") }
       }
@@ -577,50 +650,73 @@ fn decode_column(
       raise bad("a page body leaves the chunk")
     }
     at = at + body_in_chunk + compressed_size
-    // A page cannot name more values than the chunk still owes: the
-    // count sizes every per-value allocation below, so it is checked
-    // against the chunk's own total before anything is built by it —
-    // a page header claiming two billion values in a three-row chunk
-    // refuses here instead of allocating the array it names.
-    if num_values < 0 || produced + num_values.to_int64() > total {
+    // A data page cannot name more values than the chunk still owes:
+    // the count sizes every per-value allocation below, so it is checked
+    // against the chunk's own total before anything is built by it — a
+    // page header claiming two billion values in a three-row chunk
+    // refuses here instead of allocating the array it names. A
+    // dictionary page's count names its entries, not frame rows, so it
+    // stands outside the check and outside `produced`.
+    if page_type != 2 &&
+      (num_values < 0 || produced + num_values.to_int64() > total) {
       raise bad(
         "a page of column \"\{chunk.name}\" claims \{num_values} values past its chunk",
       )
     }
     // The body's values ride the codec. V1 compresses levels and
-    // values together; V2 keeps the level bytes raw at the page head
-    // and compresses only the values after them (the flat schema's
-    // repetition levels are zero-width, so the head is `def_len` bytes
-    // long) — the codec's input is the values alone, and what it yields
-    // is values from byte zero. Sending a V2 page's head through the
-    // decompressor would reject every foreign V2 file.
+    // values together; V2 keeps both level runs raw at the page head —
+    // `rep_len` bytes of repetition levels, then `def_len` bytes of
+    // definition levels, never compressed — and compresses only the
+    // values after them, so the codec's input is the values alone and
+    // what it yields is values from byte zero. Sending a V2 page's head
+    // through the decompressor would reject every foreign V2 file. The
+    // bounds are subtraction forms throughout (`compressed_size` is
+    // already known non-negative and `def_len` no greater than it), so a
+    // hostile level length cannot wrap the sum back inside.
     let values_input = if v2 {
-      if def_len < 0 || def_len > compressed_size {
+      if def_len < 0 ||
+        rep_len < 0 ||
+        def_len > compressed_size ||
+        rep_len > compressed_size - def_len {
         raise bad("a V2 page's levels leave its body")
       }
-      slice(chunk_bytes, body_in_chunk + def_len, compressed_size - def_len)
+      slice(
+        chunk_bytes,
+        body_in_chunk + rep_len + def_len,
+        compressed_size - rep_len - def_len,
+      )
     } else {
       slice(chunk_bytes, body_in_chunk, compressed_size)
     }
-    let body = match chunk.codec {
-      0 => values_input
-      1 =>
-        match snappy_decompress(values_input) {
-          Some(b) => b
-          None => raise bad("a SNAPPY page body does not decompress")
-        }
-      2 =>
-        @gzip.decompress(values_input) catch {
-          _ => raise bad("a GZIP page body does not decompress")
-        }
-      c =>
-        raise @types.DataError::Unsupported(
-          "parquet column \"\{chunk.name}\" carries compression codec \{c}",
-        )
+    // The values ride the chunk's codec — unless the page is a V2 one
+    // whose header spells is_compressed=false, a page-level opt-out
+    // from the codec however the column metadata votes: its values are
+    // raw where they sit.
+    let body = if v2 && !page_compressed {
+      values_input
+    } else {
+      match chunk.codec {
+        0 => values_input
+        1 =>
+          match snappy_decompress(values_input) {
+            Some(b) => b
+            None => raise bad("a SNAPPY page body does not decompress")
+          }
+        2 =>
+          @gzip.decompress(values_input) catch {
+            _ => raise bad("a GZIP page body does not decompress")
+          }
+        c =>
+          raise @types.DataError::Unsupported(
+            "parquet column \"\{chunk.name}\" carries compression codec \{c}",
+          )
+      }
     }
     // A dictionary page's body is the PLAIN value set itself — no
     // levels, no indices — so it is handled before the level decoding
-    // the data pages carry.
+    // the data pages carry. It owes the chunk no rows: the chunk's
+    // num_values counts the data pages' cells alone, so the walk's
+    // produced total does not move here.
     if page_type == 2 {
       dictionary = decode_plain_values(
         body,
@@ -628,33 +724,51 @@ fn decode_column(
         dictionary_capacity(body, map),
         chunk.name,
       )
-      produced = produced + num_values.to_int64()
       continue
     }
-    // V1: the body is levels-then-values, RLE-coded levels at width 1
-    // — the decoder's own output array is the level array, no second
-    // allocation. V2: the levels are raw bit-packed bytes at the page
-    // head (one bit per cell, outside the compression); the slice above
-    // already lifted the head off the codec input, so the body is
-    // values from byte zero under every codec.
-    let (page_defs, values_at) = if !v2 {
-      let (decoded, consumed) = match rle_decode(body, num_values, 1) {
-        Some(d) => d
+    // A REQUIRED column's max definition level is 0, so neither page
+    // version writes a level section: the body is values from byte zero
+    // and every cell is present. V1 otherwise opens its level run with
+    // a 4-byte little-endian length naming the encoded run's byte
+    // count, the RLE-coded levels at width 1 behind it, and the values
+    // after both. V2 carries its levels as an RLE / bit-packed hybrid
+    // stream at the column's own def-level bit width (1 under the flat
+    // schema's OPTIONAL leaves), raw at the page head with no length
+    // prefix — the header's definition_levels_byte_length names the
+    // run's size, and the flat schema's zero repetition width puts the
+    // definition run first.
+    let (page_defs, values_at) = if column.required {
+      (Array::makei(num_values, _ => 1), 0)
+    } else if !v2 {
+      if body.length() < 4 {
+        raise bad("a V1 page's level prefix ends early")
+      }
+      let level_len = le_i32(body, 0)
+      if level_len < 0 || level_len > body.length() - 4 {
+        raise bad("a V1 page's level length leaves its body")
+      }
+      match rle_decode(slice(body, 4, level_len), num_values, 1) {
+        Some((decoded, _)) => (decoded, 4 + level_len)
         None => raise bad("definition levels do not decode")
       }
-      (decoded, consumed)
     } else {
-      let level_bytes = slice(chunk_bytes, body_in_chunk, def_len)
-      let defs : Array[Int32] = Array::makei(num_values, _ => 1)
-      for i in 0..<num_values {
-        if i / 8 < level_bytes.length() {
-          defs[i] = (level_bytes[i / 8].to_int() >> (i % 8)) & 1
-        }
+      match
+        rle_decode(
+          slice(chunk_bytes, body_in_chunk + rep_len, def_len),
+          num_values,
+          1,
+        ) {
+        Some((decoded, _)) => (decoded, 0)
+        None => raise bad("definition levels do not decode")
       }
-      (defs, 0)
     }
     let value_bytes = slice(body, values_at, body.length() - values_at)
-    if page_type != 0 {
+    // The V2 data page rides its own page type (3) alongside the header
+    // field that already named it; a DATA_PAGE header spelling type 0
+    // with a V2 header inside stays readable (a writer's misspelling
+    // the field spells unambiguously). Every other page type — an index
+    // page, something unknown — refuses.
+    if page_type != 0 && !(page_type == 3 && v2) {
       raise @types.DataError::Unsupported(
         "parquet column \"\{chunk.name}\" carries a page type \{page_type} MoonFrame does not read",
       )

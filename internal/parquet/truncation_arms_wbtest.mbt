@@ -31,8 +31,12 @@ fn elem_header_only(id : Int32, wire : Int32) -> Bytes {
 test "schema element fields refuse on a cut payload" {
   // Field 1 (physical): header, then EOF.
   assert_true(!schema_read_list(thrift_reader(elem_header_only(1, 5)), []))
+  // Field 3 (repetition type).
+  assert_true(!schema_read_list(thrift_reader(elem_header_only(3, 5)), []))
   // Field 4 (name).
   assert_true(!schema_read_list(thrift_reader(elem_header_only(4, 8)), []))
+  // Field 5 (child count).
+  assert_true(!schema_read_list(thrift_reader(elem_header_only(5, 5)), []))
   // Field 6 (converted type).
   assert_true(!schema_read_list(thrift_reader(elem_header_only(6, 5)), []))
   // Field 7 (decimal scale).

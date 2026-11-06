@@ -365,3 +365,28 @@ test "the declared row count answers and its far end refuses" {
   }
   assert_true(result is Err(@types.DataError::ParseError(_)))
 }
+
+///|
+test "a footer of nested structs refuses instead of recursing to death" {
+  // Every footer byte 0x1C: a compact field header whose delta is 1
+  // and whose wire type is struct — each field opens another struct, so
+  // an unbounded skipper walks one frame per byte down the file. The
+  // nesting bound refuses the skip and the walk answers a located
+  // parse error.
+  let bomb : Array[Byte] = Array::make(200, (0x1C).to_byte())
+  let out : Array[Byte] = []
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  for b in bomb {
+    out.push(b)
+  }
+  push_le_i32(out, bomb.length())
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  let result = Ok(ignore(read_parquet_columns(Bytes::from_array(out), None))) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::ParseError(_)))
+}

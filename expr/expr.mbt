@@ -96,26 +96,6 @@ pub fn Expr::of_node(node : @ir.ExprNode) -> Expr {
 }
 
 ///|
-/// The immediate sub-expressions of a node, left to right, as opaque `Expr`
-/// handles — the wrapper-level face of `ExprNode::children`, which is the
-/// single place that encodes the tree's recursive shape. A new variant declares
-/// its child structure once, in `ExprNode`, and every walk takes its *descent*
-/// from there: this handle-level face, the AST-side analyses behind
-/// `referenced_columns` / `output_name`, and the lazy optimizer's `row_stable` /
-/// `group_cell_stable` (which walk the raw `ExprNode` children directly).
-/// What a variant does not inherit is what those walks *decide* about it — the
-/// naming and pushdown analyses classify variant by variant, under exhaustive
-/// `match`es that stop compiling until the new one is classified. Total — it only
-/// inspects shape.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn Expr::children(self : Expr) -> Array[Expr] {
-  // The AST's shape lives on `ExprNode::children`; wrap each raw child back
-  // into the opaque `Expr` this returns, so a caller walks the handle.
-  self.node.children().map(Expr::of_node)
-}
-
-///|
 /// Every column name the tree references, as a set — the handle-level face of
 /// `ExprNode::referenced_columns` (the analysis itself lives
 /// beside the AST). A `Ternary`'s condition counts. Total.

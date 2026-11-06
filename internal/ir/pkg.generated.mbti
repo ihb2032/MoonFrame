@@ -69,7 +69,6 @@ pub(all) enum ExprNode {
   MapBatches(String, ArrayView[ExprNode], Bool, (Array[@series.Series]) -> @series.Series raise @types.DataError)
   Over(ExprNode, Array[ExprNode])
 }
-pub fn ExprNode::children(Self) -> Array[Self]
 pub fn ExprNode::each_child(Self, (Self) -> Unit) -> Unit
 pub fn ExprNode::output_name(Self) -> String
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]

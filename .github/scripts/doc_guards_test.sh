@@ -1947,6 +1947,22 @@ mkmirror "$work/m_extra" \
 expect 1 'mirror: a member beyond NullCount on the lazy side' \
   sh "$scripts/check_reduction_mirror.sh" "$work/m_extra"
 
+# The same name on both sides is not the same member: a payload argument
+# gained on one side only changes what every executor arm has to build, and
+# stripping payloads made the drift read as agreement.
+mkmirror "$work/m_payload" \
+'priv enum FrameReduceOp {
+  Sum
+  Quantile(Double)
+}' \
+'priv enum LazyReduceOp {
+  Sum
+  NullCount
+  Quantile(Double, Bool)
+}'
+expect 1 'mirror: a payload that drifted on one side only' \
+  sh "$scripts/check_reduction_mirror.sh" "$work/m_payload"
+
 # A renamed or split source must fail the read: two empty sets compare
 # equal, so a missing file would otherwise pass the mirror vacuously.
 mkmirror "$work/m_no_source" \

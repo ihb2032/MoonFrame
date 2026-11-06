@@ -24,16 +24,15 @@
 /// what it prints, so two literal series differing only in their cells render
 /// alike.
 ///
-/// The engine reads the shape through four accessors beside the type —
-/// `node()` hands over the wrapped AST, and `children()` /
-/// `referenced_columns()` / `output_name()` answer its introspection
-/// questions. `frame` and `lazy` are in-module and match `ExprNode`
-/// directly.
+/// The engine reads the shape through three accessors beside the type —
+/// `node()` hands over the wrapped AST, and `referenced_columns()` /
+/// `output_name()` answer its introspection questions. `frame` and `lazy`
+/// are in-module and match `ExprNode` directly.
 ///
-/// The wrapped AST carries `ExprNode` children, not `Expr`, so this package
-/// bridges the two: a constructor unwraps its child `Expr`s with `.node`, and
-/// the `children` accessor below wraps `ExprNode` children back into `Expr`. The
-/// nodes, in construction-route order:
+/// The wrapped AST carries `ExprNode` children, not `Expr`, so a
+/// constructor unwraps its child `Expr`s with `.node` — the only bridge the
+/// package needs, every consumer of a child matching `ExprNode` itself.
+/// The nodes, in construction-route order:
 /// - `Col` / `Lit` / `LitSeries` — leaves (`col`, `lit` / `lit_*`,
 ///   `lit_series`); a `LitSeries` embeds a pre-materialised `Series`;
 /// - `Binary` — arithmetic `+ - * /`, comparisons, Kleene `&` / `|`;

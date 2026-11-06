@@ -189,11 +189,13 @@ test "a chained diff builds a linear tree" {
   }
   let rendered = e.to_string()
   assert_true(rendered.length() < 400)
-  assert_same_expr(e, e)
   let mut e2 = col("x")
   for _ in 1..<=16 {
     e2 = e2.diff()
   }
+  // The same chain built twice renders identically — the pinned form, not
+  // a comparison of one tree with itself.
+  assert_same_expr(e, e2)
   assert_diff_expr(e, e2.diff(n=2))
 }
 
@@ -210,4 +212,21 @@ test "a chained clip builds a linear tree" {
   assert_true(rendered.length() < 500)
   assert_eq(col("x").diff(n=3).output_name(), "x")
   assert_eq(col("x").clip(lower=lit_int(0)).output_name(), "x")
+}
+
+///|
+test "ewm: span wins when both span and alpha are given" {
+  // The shared contract reads `alpha~` only when no `span~` was given, so
+  // a double-set build is exactly the span-only tree — the alpha it also
+  // carried is dropped, not merged, and no rendering can tell the two
+  // apart. The span-only tree differs from the alpha-only one with the
+  // alpha the dropped value spelled.
+  assert_same_expr(
+    col("v").ewm_mean(span=3.0, alpha=0.9),
+    col("v").ewm_mean(span=3.0),
+  )
+  assert_diff_expr(
+    col("v").ewm_mean(span=3.0, alpha=0.9),
+    col("v").ewm_mean(alpha=0.9),
+  )
 }

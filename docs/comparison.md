@@ -96,8 +96,12 @@ libraries — not a derivative work of either codebase.
 - **Lazy file sources** — `scan_csv` / `scan_ndjson` / `scan_json` with
   both projection and predicate pushdown into the reader. The pushdowns
   prune the *assembly* — only the consumed columns are built, and only the
-  surviving rows' cells are parsed past the predicate's own columns — never
-  the parse itself: the file is still tokenised / parsed whole. Every file
+  surviving rows' cells are parsed past the predicate's own columns. Two
+  levels of "parse" sit under that: the file's records are still
+  tokenised whole (a text format cannot skip to a column without
+  walking every record), while a cell's *value* is parsed only when a
+  surviving column needs it — the level the other docs' "never parsed"
+  claims name. Every file
   source, eager and lazy alike, is transparently gzip-aware: a file whose
   bytes open with the gzip magic is decompressed before parsing, and the
   `write_*` entry points compress when the target path ends in `.gz`.
@@ -126,7 +130,8 @@ Where MoonFrame knowingly does something else than Polars.
   or fix the header.
 - **`describe` summarises differently.** MoonFrame's summary carries the
   statistics as columns — one row per source column, eleven columns:
-  `count` / `null_count` / `n_unique` / `mean` / the three quartiles
+  `column` (the name) / `dtype` / `count` / `null_count` / `n_unique` /
+  `mean` / the three quartiles
   (linear) / `min` / `max`, with `min` / `max` rendered as `String` so
   one table carries every dtype; Polars puts the statistics on the
   rows instead (`count` / `null_count` / `mean` / `std` / `min` / the
@@ -163,10 +168,11 @@ Where MoonFrame knowingly does something else than Polars.
   one wanted.
 - **Whole-frame `sum` / `mean` leave a non-numeric column a `Null` cell,
   but `min` / `max` answer for every orderable dtype.** A `Date` /
-  `Timestamp` / `Duration` / `Decimal` column reduces to `Null` under
-  `sum` / `mean` and to its own value under `min` / `max` — the same
-  order those columns' own `Series::min` / `max` read; `Bool` / `String`
-  columns null under all four.
+  `Timestamp` / `Duration` column reduces to `Null` under `sum` / `mean`
+  and to its own value under `min` / `max` — the same order those
+  columns' own `Series::min` / `max` read; `Decimal` is the one wider
+  rider — its `sum` is exact (matching the dtype's own arithmetic), its
+  `mean` a `Null`; `Bool` / `String` columns null under all four.
 
 For `NaN` everywhere — `sum` / `mean` / `median` / `quantile` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.
@@ -185,9 +191,10 @@ semantic choices:
 
 ## Out of scope (vs Polars)
 
-Not implemented. The tracked deferrals — the ones with a place in a later
-release — are listed as such below; this is what a Polars user
-will not find here today:
+The gaps and tracked deferrals, per area. Some entries below are mostly
+present — the entry says what is there and names the part that is not;
+the truly absent follow the same list. What a Polars user will not find
+here today:
 
 - **Dtypes** — `Int` / `Float` / `Bool` / `String` / `Null` plus the three
   `I64`-rider dtypes `Date` (days), `Timestamp` (microseconds, UTC — the

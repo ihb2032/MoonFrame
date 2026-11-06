@@ -150,7 +150,7 @@ real throughput. Run it from the repo root with `moon bench`.
 
 The three packages that own a `bench_test.mbt` file are `series`, `frame`, <!-- doc-guard: unresolved -->
 and `io`; the packages that only define values or build trees (`types`,
-`expr`, `internal/literal` / `internal/ir`) have nothing to time. The rest do
+`expr`, `internal/ir`) have nothing to time. The rest do
 real work and are measured through a caller instead, which is what that caller
 actually pays: `internal/kernel` (the vectorized column passes) and
 `internal/column` (the two storage backends and the validity bitmap) through the

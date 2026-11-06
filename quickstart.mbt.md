@@ -317,7 +317,8 @@ terminals render — `to_json()` produces a complete Vega-Lite v6 specification,
 a JSON string you can paste into the [Vega editor](https://vega.github.io/editor/)
 or hand to any Vega-Lite runtime; `write_html(path)` writes a self-contained
 chart page. A channel's field `type` is inferred from the column dtype
-(numeric → `quantitative`, `Date` / `Timestamp` → `temporal`, else `nominal`).
+(`Int` / `Float` / `Decimal` / `Duration` → `quantitative`, `Date` /
+`Timestamp` → `temporal`, else `nominal`).
 Do the data work — filter, aggregate — on the frame before `plot`, the way the
 rest of the library does it. A chart that names a missing column raises
 `ColumnNotFound` at the terminal.

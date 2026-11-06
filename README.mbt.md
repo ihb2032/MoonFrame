@@ -14,10 +14,10 @@ read_csv("sales.csv")
   .to_markdown()
 ```
 
-It covers CSV / JSON / NDJSON I/O, filtering, sorting, null handling, group-by,
-joins, summary statistics, a composable expression engine, and a lazy query
-layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts — a
-focused foundation for everyday tabular work, not a full pandas clone.
+It covers CSV / JSON / NDJSON / Parquet I/O, filtering, sorting, null handling,
+group-by, joins, summary statistics, a composable expression engine, and a lazy
+query layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts —
+a focused foundation for everyday tabular work, not a full pandas clone.
 
 ## Install
 
@@ -175,7 +175,7 @@ same way.
   chains to a finished chart over plain column names
   (`plot(df).bar(x="region", y="revenue").write_html("out.html")`),
   backed by `format_vega_lite` (a
-  full typed mirror of Vega-Lite v6: seventeen marks, thirty-nine
+  full typed mirror of Vega-Lite v6: seventeen marks, thirty-eight
   encoding channels, the nineteen transforms with the filter-predicate
   union, layer / concat / facet / repeat compositions, interactive
   parameters and conditional encodings, and the theme tree — every
@@ -267,7 +267,9 @@ variants (`ColumnNotFound`, `ParseError`, …) on the `Err`.
 - The [release notes](https://github.com/ihb2032/MoonFrame/releases) — what
   each release changed, written when it is cut
 
-Four runnable end-to-end programs live in [`examples/`](examples):
+Four runnable end-to-end programs live in [`examples/`](examples/) (a fifth
+directory, `readme_install`, is not one of them — it is the README install
+snippet's compile probe):
 
 ```sh
 moon run examples/sales_analysis    # filter → select → sort → describe → markdown

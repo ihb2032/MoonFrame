@@ -487,8 +487,10 @@ fn decimal_div_float(left : Series, right : Series) -> Series? {
 ///|
 /// `Mod` — remainder, the kernel behind `Expr::modulo`. Same-dtype
 /// `Int / Int → Int`
-/// carrying the dividend's sign; any `Float` operand promotes to `Float` (IEEE
-/// remainder). `Int` modulo by zero produces a **null** cell (as for
+/// carrying the dividend's sign; any `Float` operand promotes to `Float`
+/// (`fmod` — the remainder of truncating division, dividend's sign — not
+/// the IEEE 754 remainder, whose quotient rounds to nearest). `Int`
+/// modulo by zero produces a **null** cell (as for
 /// `floor_div`), so an all-valid `Int / Int` pair can still yield nulls;
 /// `Float` modulo by zero is `NaN`.
 fn eval_mod(left : Series, right : Series) -> Series raise @types.DataError {

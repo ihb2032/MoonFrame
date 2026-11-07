@@ -45,8 +45,10 @@ pub(all) enum DataType {
   /// `max` / `count` are exact over the unscaled cells; `+` / `-` / `*` are
   /// exact across scales (both sides lift to the larger scale, `Int` lifts
   /// as scale 0, `*` adds the scales) and refuse — `InvalidOperation`,
-  /// never a wrap — when a magnitude leaves the range; division stays
-  /// fenced pending a result-scale rule, and so does mixing with `Float`;
+  /// never a wrap — when a magnitude leaves the range; `+` / `-` / `*` with
+  /// a `Float` stay fenced (`TypeMismatch`); division goes through `Float`
+  /// — every operand mix converts (`Int` as scale 0, a `Float` side too) and
+  /// divides in `Double`, no exact result-scale rule existing;
   /// the `Int` lift is arithmetic-only — a `Decimal` compared against an
   /// `Int` is a `TypeMismatch`, so a compared bound is written as a
   /// decimal literal; readers never infer it.

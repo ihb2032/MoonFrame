@@ -290,9 +290,9 @@ pub fn ExprNode::rebuild_children(
     }
     IsIn(_, members) => IsIn(kids[0], members)
     IsBetween(_, _, _, closed) => IsBetween(kids[0], kids[1], kids[2], closed)
-    Map(label, _, f) => Map(label, kids, f)
+    Map(label, _, f) => Map(label, kids.copy(), f)
     MapBatches(label, _, returns_bool, f) =>
-      MapBatches(label, kids, returns_bool, f)
+      MapBatches(label, kids.copy(), returns_bool, f)
     // The rebuilt keys are the tail of the kids array (the `each_child`
     // order: the windowed expression first, then one key each).
     Over(_, keys) => {

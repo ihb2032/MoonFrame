@@ -60,8 +60,8 @@ fn bad(what : String) -> @types.DataError {
 }
 
 ///|
-/// Parse a whole parquet file's footer: the trailing magic, the length,
-/// the FileMetaData thrift, and the chunk→schema pairing.
+/// Parse a whole parquet file's footer: the magic at both ends, the
+/// length, the FileMetaData thrift, and the chunk→schema pairing.
 fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   let n = bytes.length()
   if n < 12 ||
@@ -70,6 +70,15 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
     bytes[n - 2] != b'R' ||
     bytes[n - 1] != b'1' {
     raise bad("not a parquet file: the trailing magic is missing")
+  }
+  // The format opens with the same magic it closes with — a reader that
+  // checked only the trailing half would accept any garbage prefixed to
+  // a legal file as though the file were parquet from byte zero.
+  if bytes[0] != b'P' ||
+    bytes[1] != b'A' ||
+    bytes[2] != b'R' ||
+    bytes[3] != b'1' {
+    raise bad("not a parquet file: the leading magic is missing")
   }
   let footer_len = le_i32(bytes, n - 8)
   if footer_len <= 0 || footer_len > n - 12 {
@@ -666,22 +675,23 @@ fn decode_column(
               raise bad("a V1 page header is malformed")
             }
           7 => {
-            // DictionaryPageHeader: encoding (1) and num_values (2); the
-            // body that follows is PLAIN over the whole value set.
+            // DictionaryPageHeader: num_values (1) and encoding (2), the
+            // ids the parquet thrift bindings define; the body that
+            // follows is PLAIN over the whole value set.
             let mut dict_encoding = 0
             if !walk_fields_raise(r, (inner_id, inner_wire) => {
                 match inner_id {
                   1 =>
-                    match r.zigzag_i32() {
-                      Some(v) => dict_encoding = v
-                      None => raise bad("a dictionary encoding is malformed")
-                    }
-                  2 =>
                     // The count names dictionary entries, not frame
                     // rows — read past it and move on.
                     match r.zigzag_i32() {
                       Some(_) => ()
                       None => raise bad("a dictionary count is malformed")
+                    }
+                  2 =>
+                    match r.zigzag_i32() {
+                      Some(v) => dict_encoding = v
+                      None => raise bad("a dictionary encoding is malformed")
                     }
                   _ =>
                     if !r.skip(inner_wire) {
@@ -732,7 +742,7 @@ fn decode_column(
                     match inner_wire {
                       BoolTrue => page_compressed = true
                       BoolFalse => page_compressed = false
-                      Stop | I32V | I64V | BinaryV | ListV | StructV =>
+                      Stop | ByteV | I32V | I64V | BinaryV | ListV | StructV =>
                         if !r.skip(inner_wire) {
                           raise bad("a V2 page header is malformed")
                         }

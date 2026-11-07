@@ -299,6 +299,20 @@ What has landed on `main`:
   column reads as a signed `Int`, and the thrift skipper bounds its
   nesting so a footer spelled to recurse refuses with a located
   `ParseError` instead of exhausting the stack.
+- The parquet codec carries a conformance pass against the format's own
+  definitions. A dictionary page header now reads in the thrift
+  bindings' field order — `num_values` before `encoding` — where a
+  foreign dictionary page whose entry count spells no legal encoding
+  value was refused as unsupported. The footer walk checks the file's
+  leading `PAR1` magic alongside the trailing one, so a file is parquet
+  from byte zero or refuses. Each rider's schema element carries the
+  `LogicalType` annotation beside its converted type — the format's own
+  rule that a writer spells both: the union variant the modern readers
+  read (`STRING`, `DATE`, `DECIMAL` with its scale before its
+  precision, `TIMESTAMP` with the UTC-adjusted bool and the `MICROS`
+  unit). The thrift skipper reads a byte field (wire type 3) as its
+  single raw byte rather than a varint whose continuation bit would
+  swallow the next field header.
 - The chart export gains a browser page: `format_vega_html` /
   `write_vega_html` wrap the specification `format_vega_lite` emits in a
   standalone HTML document that loads the Vega runtime from three pinned

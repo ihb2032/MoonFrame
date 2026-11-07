@@ -194,22 +194,24 @@ fn v2_page_header(
   pw.i32_field(5, def_len)
   pw.i32_field(6, 0)
   // is_compressed — the compact protocol's bool rides the type nibble.
-  pw.bool_field_v2(7, compressed)
+  pw.bool_field(7, compressed)
   pw.struct_end()
   pw.struct_end()
   pw.finish()
 }
 
 ///|
-/// A complete dictionary-page header over a body of `body_len` bytes.
+/// A complete dictionary-page header over a body of `body_len` bytes,
+/// its inner fields in the parquet thrift bindings' own order:
+/// num_values (1) then encoding (2).
 fn dict_page_header(encoding : Int32, count : Int32, body_len : Int32) -> Bytes {
   let pw = thrift_writer()
   pw.i32_field(1, 2)
   pw.i32_field(2, body_len)
   pw.i32_field(3, body_len)
   pw.struct_field_begin(7)
-  pw.i32_field(1, encoding)
-  pw.i32_field(2, count)
+  pw.i32_field(1, count)
+  pw.i32_field(2, encoding)
   pw.struct_end()
   pw.struct_end()
   pw.finish()

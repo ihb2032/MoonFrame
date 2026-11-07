@@ -155,18 +155,6 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
 }
 
 ///|
-/// The bool field the V2 header carries — the compact protocol's
-/// value-in-type-nibble spelling, written directly (the writer has no
-/// bool helper).
-fn ThriftWriter::bool_field_v2(
-  self : ThriftWriter,
-  id : Int32,
-  v : Bool,
-) -> Unit {
-  self.field_header(id, if v { 1 } else { 2 })
-}
-
-///|
 /// The definition levels a V1 data page carries for `n` present cells —
 /// the 4-byte little-endian length prefix every V1 level run opens
 /// with, then one RLE run of `n` ones at width 1 (header `n << 1`,
@@ -181,6 +169,61 @@ fn plain_defs(n : Int32) -> Array[Byte] {
     out.push(b)
   }
   out
+}
+
+///|
+test "a dictionary page's fields read in the thrift bindings' order" {
+  // num_values (1) then encoding (2) — the ids the parquet thrift
+  // bindings define. The count here is three, a value no legal encoding
+  // spells, so a reader that took field 1 for the encoding would refuse
+  // the page naming an unsupported encoding; the values read back prove
+  // each field landed in its own slot. The dictionary: three INT64
+  // values (10, 20, 30). The data page: four present cells, indices
+  // [0, 2, 1, 2] at width 2 — one bit-packed group: header 3, then the
+  // byte pair 0x98 0x00 (slot 1's value 2 at bits 3, slot 2's 1 at bit
+  // 4, slot 3's 2 at bit 7, pads zero).
+  let dict_body : Array[Byte] = []
+  push_le_i64(dict_body, 10L)
+  push_le_i64(dict_body, 20L)
+  push_le_i64(dict_body, 30L)
+  let data_body : Array[Byte] = plain_defs(4)
+  data_body.push((0x02).to_byte()) // index bit width 2
+  data_body.push((0x03).to_byte()) // one bit-packed group
+  data_body.push((0x98).to_byte())
+  data_body.push((0x00).to_byte())
+  let file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: dict_body,
+        encoding: 0,
+        dictionary_page: true,
+        v2: false,
+        num_values: 3,
+        def_len: 0,
+        page_type: 0,
+      },
+      {
+        body: data_body,
+        encoding: 2,
+        dictionary_page: false,
+        v2: false,
+        num_values: 4,
+        def_len: 0,
+        page_type: 0,
+      },
+    ],
+  })
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(30),
+    @types.Scalar::Int(20),
+    @types.Scalar::Int(30),
+  ])
 }
 
 ///|

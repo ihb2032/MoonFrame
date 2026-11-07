@@ -243,9 +243,22 @@ fn ThriftReader::skip_value(self : ThriftReader, wire : WireType) -> Bool {
             12 => StructV
             _ => return false
           }
+          // A list element's bool occupies one byte of its own (0x01
+          // true, 0x02 false) — only a struct field folds the value
+          // into its field header's type nibble, where the skip already
+          // consumed it. Spelling the element skip as the field's
+          // zero-byte form would let a huge count spin to its end
+          // without consuming anything, so the element consumes its
+          // byte here or the skip refuses.
+          let bool_elem = elem_wire is BoolTrue
           let mut ok = true
           for _ in 0..<count.to_int() {
-            if !self.skip(elem_wire) {
+            if bool_elem {
+              if self.byte() is None {
+                ok = false
+                break
+              }
+            } else if !self.skip(elem_wire) {
               ok = false
               break
             }
@@ -366,9 +379,6 @@ fn ThriftWriter::i64_field(self : ThriftWriter, id : Int32, v : Int64) -> Unit {
   self.field_header(id, 6)
   self.write_zigzag(v)
 }
-
-///|
-/// A boolean field — the value rides the field header's type nibble.
 
 ///|
 /// A binary field.

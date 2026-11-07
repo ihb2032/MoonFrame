@@ -24,9 +24,11 @@ fn codec_tag(c : Codec) -> Int32 {
 
 ///|
 /// Render one frame as a whole parquet file. Every column must map
-/// (`Null` refuses — a null column has no cells to name a dtype by); a
-/// 0-row frame writes its schema with zero-value column chunks, the
-/// shape a reader rebuilds into the empty frame.
+/// (`Null` refuses — a null column has no cells to name a dtype by) and
+/// share the frame's one height — a column of another length raises
+/// `LengthMismatch` instead of writing a file whose chunks disagree on
+/// their row count; a 0-row frame writes its schema with zero-value
+/// column chunks, the shape a reader rebuilds into the empty frame.
 pub fn write_parquet_bytes(
   columns : Array[@series.Series],
   names : Array[String],
@@ -38,7 +40,17 @@ pub fn write_parquet_bytes(
   for i in 0..<ncols {
     maps.push(map_or_refuse(columns[i].dtype(), names[i]))
   }
-  let nrows : Int64 = if ncols == 0 { 0L } else { columns[0].len().to_int64() }
+  let nrows : Int64 = if ncols == 0 {
+    0L
+  } else {
+    let height = columns[0].len()
+    for i in 1..<ncols {
+      if columns[i].len() != height {
+        raise @types.DataError::LengthMismatch(height, columns[i].len())
+      }
+    }
+    height.to_int64()
+  }
   let out : Array[Byte] = []
   // PAR1 magic.
   for b in b"PAR1" {
@@ -48,20 +60,23 @@ pub fn write_parquet_bytes(
   // (PLAIN only), so each chunk is one data page, its offset remembered
   // for the footer.
   let chunk_offsets : Array[Int64] = []
-  let chunk_sizes : Array[Int64] = []
+  let chunk_compressed : Array[Int64] = []
+  let chunk_uncompressed : Array[Int64] = []
   let chunk_counts : Array[Int64] = []
   for i in 0..<ncols {
-    let page = encode_data_page(columns[i], maps[i], codec)
+    let (page, uncompressed) = encode_data_page(columns[i], maps[i], codec)
     chunk_offsets.push(out.length().to_int64())
     for b in page {
       out.push(b)
     }
-    chunk_sizes.push(page.length().to_int64())
+    chunk_compressed.push(page.length().to_int64())
+    chunk_uncompressed.push(uncompressed)
     chunk_counts.push(nrows)
   }
   // The footer: FileMetaData thrift, its length, and the trailing magic.
   let footer = write_footer(
-    maps, names, chunk_offsets, chunk_sizes, chunk_counts, nrows, codec,
+    maps, names, chunk_offsets, chunk_compressed, chunk_uncompressed, chunk_counts,
+    nrows, codec,
   )
   for b in footer {
     out.push(b)
@@ -77,12 +92,16 @@ pub fn write_parquet_bytes(
 /// One column's data page: the v1 page header (thrift), then the RLE
 /// definition levels (bit width 1 — max def level 1 under OPTIONAL)
 /// behind the 4-byte little-endian length a V1 page prefixes every
-/// level run with, and the PLAIN values, compressed per the codec.
+/// level run with, and the PLAIN values, compressed per the codec. The
+/// answer carries both sizes: the page bytes as written, and the
+/// uncompressed total (header plus uncompressed body) the footer's
+/// size fields name — the header rides uncompressed in either size, so
+/// the two differ by exactly what the codec did to the body.
 fn encode_data_page(
   column : @series.Series,
   map : DtypeMap,
   codec : Codec,
-) -> Bytes raise @types.DataError {
+) -> (Bytes, Int64) raise @types.DataError {
   let n = column.len()
   // The definition levels: 1 per present cell, 0 per null.
   let valid = column.validity_bools()
@@ -162,7 +181,7 @@ fn encode_data_page(
   for b in body {
     out.push(b)
   }
-  Bytes::from_array(out)
+  (Bytes::from_array(out), (header.length() + page_body.length()).to_int64())
 }
 
 ///|
@@ -216,12 +235,16 @@ fn encode_plain_value(
 ///|
 /// The FileMetaData footer: the schema (a root element carrying the
 /// column children), one row group, its column chunks, and the created-by
-/// string.
+/// string. Each chunk names its compressed bytes (field 7) and its
+/// uncompressed ones (field 6) separately, and the row group's own
+/// total_byte_size is the uncompressed sum — the three sizes a foreign
+/// reader cross-checks, each naming the truth it measures.
 fn write_footer(
   maps : Array[DtypeMap],
   names : Array[String],
   chunk_offsets : Array[Int64],
-  chunk_sizes : Array[Int64],
+  chunk_compressed : Array[Int64],
+  chunk_uncompressed : Array[Int64],
   chunk_counts : Array[Int64],
   nrows : Int64,
   codec : Codec,
@@ -266,9 +289,9 @@ fn write_footer(
   // RowGroup field 1: columns (list of ColumnChunk).
   w.field_header(1, 9)
   w.list_header(maps.length(), 12)
-  let mut total_size = 0L
+  let mut total_uncompressed = 0L
   for i in 0..<maps.length() {
-    total_size = total_size + chunk_sizes[i]
+    total_uncompressed = total_uncompressed + chunk_uncompressed[i]
     w.struct_field_begin_list_elem()
     // ColumnChunk field 2: file_offset; field 3: meta_data.
     w.i64_field(2, chunk_offsets[i])
@@ -285,16 +308,17 @@ fn write_footer(
     w.text_list_elem(names[i])
     w.i32_field(4, codec_tag(codec))
     w.i64_field(5, chunk_counts[i])
-    w.i64_field(6, chunk_sizes[i])
-    w.i64_field(7, chunk_sizes[i])
+    w.i64_field(6, chunk_uncompressed[i])
+    w.i64_field(7, chunk_compressed[i])
     // Field 9: data_page_offset — the chunk's own offset (no
     // dictionary page precedes it).
     w.i64_field(9, chunk_offsets[i])
     w.struct_end()
     w.struct_end()
   }
-  // RowGroup field 2: total_byte_size; field 3: num_rows.
-  w.i64_field(2, total_size)
+  // RowGroup field 2: total_byte_size — the row group's uncompressed
+  // total; field 3: num_rows.
+  w.i64_field(2, total_uncompressed)
   w.i64_field(3, nrows)
   w.struct_end()
   // Field 6: created_by.
@@ -321,10 +345,17 @@ fn ThriftWriter::i32_list_elem(self : ThriftWriter, v : Int32) -> Unit {
 }
 
 ///|
-/// One string element inside an already-open list.
+/// One string element inside an already-open list. The length prefix
+/// names the UTF-8 byte count — the wire counts bytes, while a
+/// `String`'s own length counts UTF-16 code units, so a non-ASCII or
+/// astral name under that count would write a prefix the reader's
+/// binary walk misreads (a BMP name undercounts, an astral one still
+/// disagrees), corrupting the footer at the very name the chunk pairing
+/// reads.
 fn ThriftWriter::text_list_elem(self : ThriftWriter, v : String) -> Unit {
-  self.write_varint(v.length().to_uint64())
-  for b in @utf8.encode(v) {
+  let encoded = @utf8.encode(v)
+  self.write_varint(encoded.length().to_uint64())
+  for b in encoded {
     self.buf.push(b)
   }
 }

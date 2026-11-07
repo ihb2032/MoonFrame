@@ -593,6 +593,226 @@ test "a nested group element refuses the schema naming the group" {
 }
 
 ///|
+test "a three-page chunk with a zero-value micro page reads in order" {
+  // Two one-value pages around a num_values=0 micro page — a legal
+  // shape a foreign writer emits when a batch boundary lands mid-chunk.
+  // The walk advances page by page through the chunk's own region, and
+  // the micro page owes no rows: its level run decodes to nothing and
+  // the produced total does not move.
+  let first : Array[Byte] = plain_defs(2)
+  push_le_i64(first, 7L)
+  push_le_i64(first, 8L)
+  let micro : Array[Byte] = []
+  push_le_i32(micro, 0) // an empty level run; no values follow
+  let third : Array[Byte] = plain_defs(1)
+  push_le_i64(third, 9L)
+  let file = foreign_file({
+    physical: 2,
+    repetition: 1,
+    converted: None,
+    codec: 0,
+    pages: [
+      {
+        body: first,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 2,
+        def_len: 0,
+        page_type: 0,
+      },
+      {
+        body: micro,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 0,
+        def_len: 0,
+        page_type: 0,
+      },
+      {
+        body: third,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+        page_type: 0,
+      },
+    ],
+  })
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(7),
+    @types.Scalar::Int(8),
+    @types.Scalar::Int(9),
+  ])
+}
+
+///|
+/// A one-column file whose chunk metadata and schema element name
+/// `chunk_physical` and `schema_physical` for the same column — the
+/// page body is a well-formed INT64 page either way, so a refusal can
+/// only come from the pairing's own comparison.
+fn mismatched_physical_file(
+  schema_physical : Int32,
+  chunk_physical : Int32,
+) -> Bytes {
+  let body : Array[Byte] = plain_defs(1)
+  push_le_i64(body, 7L)
+  let pw = thrift_writer()
+  pw.i32_field(1, 0)
+  pw.i32_field(2, body.length())
+  pw.i32_field(3, body.length())
+  pw.struct_field_begin(5)
+  pw.i32_field(1, 1)
+  pw.i32_field(2, 0)
+  pw.i32_field(3, 3)
+  pw.i32_field(4, 3)
+  pw.struct_end()
+  pw.struct_end()
+  let page : Array[Byte] = []
+  for b in pw.finish() {
+    page.push(b)
+  }
+  for b in body {
+    page.push(b)
+  }
+  let w = thrift_writer()
+  w.i32_field(1, 1)
+  w.field_header(2, 9)
+  w.list_header(2, 12)
+  w.struct_field_begin_list_elem()
+  w.text_field(4, "schema")
+  w.i32_field(5, 1)
+  w.struct_end()
+  w.struct_field_begin_list_elem()
+  w.i32_field(1, schema_physical)
+  w.i32_field(3, 1)
+  w.text_field(4, "v")
+  w.struct_end()
+  w.i64_field(3, 1L)
+  w.field_header(4, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.field_header(1, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.i64_field(2, 4L)
+  w.struct_field_begin(3)
+  w.i32_field(1, chunk_physical)
+  w.field_header(2, 9)
+  w.list_header(2, 5)
+  w.i32_list_elem(0)
+  w.i32_list_elem(3)
+  w.field_header(3, 9)
+  w.list_header(1, 8)
+  w.text_list_elem("v")
+  w.i32_field(4, 0)
+  w.i64_field(5, 1L)
+  w.i64_field(6, page.length().to_int64())
+  w.i64_field(7, page.length().to_int64())
+  w.i64_field(9, 4L)
+  w.struct_end()
+  w.struct_end()
+  w.i64_field(2, page.length().to_int64())
+  w.i64_field(3, 1L)
+  w.struct_end()
+  w.struct_end()
+  w.text_field(6, "MoonFrame-test")
+  w.struct_end()
+  let footer = w.finish()
+  let out : Array[Byte] = []
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  for b in page {
+    out.push(b)
+  }
+  for b in footer {
+    out.push(b)
+  }
+  push_le_i32(out, footer.length())
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  Bytes::from_array(out)
+}
+
+///|
+test "a chunk whose physical type disagrees with its schema refuses" {
+  // The chunk metadata says INT32 (1) where the schema row says INT64
+  // (2): decoding the bytes under the schema's dtype would read
+  // confidently wrong cells, so the pairing refuses naming both tags
+  // and the column.
+  let result = Ok(
+    ignore(read_parquet_columns(mismatched_physical_file(2, 1), None)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result is Err(@types.DataError::InvalidOperation(msg)) &&
+    msg.contains("\"v\"") &&
+    msg.contains("physical type 1") &&
+    msg.contains("physical type 2"),
+  )
+  // The agreeing shape still reads.
+  let read = read_parquet_columns(mismatched_physical_file(2, 2), None)
+  assert_eq(read[0].1.to_scalars(), [@types.Scalar::Int(7)])
+}
+
+///|
+test "a multi-row-group file refuses naming the shape" {
+  // Two row groups each carrying their own chunks for the same columns:
+  // concatenating them would splice same-named columns into one chunk
+  // list, so the footer walk refuses at the row-group count instead —
+  // the groups here are empty, proving the refusal is the count's own.
+  let w = thrift_writer()
+  w.i32_field(1, 1)
+  w.field_header(2, 9)
+  w.list_header(2, 12)
+  w.struct_field_begin_list_elem()
+  w.text_field(4, "schema")
+  w.i32_field(5, 1)
+  w.struct_end()
+  w.struct_field_begin_list_elem()
+  w.i32_field(1, 2)
+  w.i32_field(3, 1)
+  w.text_field(4, "v")
+  w.struct_end()
+  w.i64_field(3, 0L)
+  w.field_header(4, 9)
+  w.list_header(2, 12)
+  w.struct_field_begin_list_elem()
+  w.struct_end()
+  w.struct_field_begin_list_elem()
+  w.struct_end()
+  w.struct_end()
+  w.struct_end()
+  w.text_field(6, "MoonFrame-test")
+  w.struct_end()
+  let footer = w.finish()
+  let out : Array[Byte] = []
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  for b in footer {
+    out.push(b)
+  }
+  push_le_i32(out, footer.length())
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  let result = Ok(ignore(read_parquet_columns(Bytes::from_array(out), None))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result is Err(@types.DataError::Unsupported(msg)) &&
+    msg.contains("multi-row-group parquet files are not supported yet"),
+  )
+}
+
+///|
 test "a REPEATED leaf column refuses naming the column" {
   // A REPEATED leaf rides repetition levels — a nested shape the flat
   // reader refuses rather than decoding rows out of its levels.

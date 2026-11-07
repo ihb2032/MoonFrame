@@ -26,7 +26,13 @@ test "rle round-trip: runs, stretches, and every width up to a dict index" {
       // a narrower width truncates by design, and the round-trip is not
       // its question.
       if max_value < 1 << width {
-        match rle_decode(rle_encode(values, width), values.length(), width) {
+        match
+          rle_decode(
+            rle_encode(values, width),
+            values.length(),
+            width,
+            values.length(),
+          ) {
           Some((decoded, _)) => assert_eq(decoded, values)
           None =>
             if values.length() > 0 {
@@ -38,22 +44,36 @@ test "rle round-trip: runs, stretches, and every width up to a dict index" {
   }
   // Width 0: nothing consumed, everything zero.
   assert_eq(rle_encode([0, 0, 0], 0).length(), 0)
-  assert_eq(rle_decode(b"", 3, 0), Some(([0, 0, 0], 0)))
+  assert_eq(rle_decode(b"", 3, 0, 3), Some(([0, 0, 0], 0)))
 }
 
 ///|
 test "rle decode reads the hand-spelled shapes" {
   // An RLE run of eight ones at width 1: header 8<<1 = 0x10, value 0x01 —
   // two bytes consumed.
-  assert_eq(rle_decode(b"\x10\x01", 8, 1), Some(([1, 1, 1, 1, 1, 1, 1, 1], 2)))
+  assert_eq(
+    rle_decode(b"\x10\x01", 8, 1, 8),
+    Some(([1, 1, 1, 1, 1, 1, 1, 1], 2)),
+  )
   // A bit-packed group of eight values at width 3 — the spec's own
   // example bytes (0x88 0xC6 0xFA): values 0,1,2,3,4,5,6,7, one varint
   // header plus three group bytes consumed.
   assert_eq(
-    rle_decode(b"\x03\x88\xC6\xFA", 8, 3),
+    rle_decode(b"\x03\x88\xC6\xFA", 8, 3, 8),
     Some(([0, 1, 2, 3, 4, 5, 6, 7], 4)),
   )
   // A stream past its count refuses, as does a width above 31.
-  assert_true(rle_decode(b"\x10\x01", 7, 1) is None)
-  assert_true(rle_decode(b"", 1, 32) is None)
+  assert_true(rle_decode(b"\x10\x01", 7, 1, 7) is None)
+  assert_true(rle_decode(b"", 1, 32, 1) is None)
+}
+
+///|
+test "rle decode refuses a count past its limit" {
+  // The limit is the decoder's own ceiling on the declared count — the
+  // chunk walk passes the cells its budget has vouched for, and a
+  // direct call past it (or a negative count) refuses before anything
+  // is built by the number.
+  assert_true(rle_decode(b"\x10\x01", 8, 1, 7) is None)
+  assert_true(rle_decode(b"", 5, 1, 3) is None)
+  assert_true(rle_decode(b"", -1, 1, 3) is None)
 }

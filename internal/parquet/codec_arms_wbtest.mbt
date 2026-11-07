@@ -42,6 +42,50 @@ test "snappy refuses its malformed shapes" {
   // A stream that declares more than it writes: length 4, one literal
   // of one byte only.
   assert_true(snappy_decompress(b"\x04\x08a") is None)
+  // A 4-byte extended literal length whose high byte folds past 2^31 —
+  // the accumulation rides Int64 whole, so the bound refuses the
+  // length instead of its truncated fold slipping past.
+  let wide_bomb : Array[Byte] = [
+    (0x10).to_byte(), // declared: 16 bytes
+    (0xFC).to_byte(), // literal, 4 extra length bytes
+    (0xFF).to_byte(),
+    (0xFF).to_byte(),
+    (0xFF).to_byte(),
+    (0x80).to_byte(), // 0x80FFFFFF + 1 — past 2^31
+  ]
+  assert_true(snappy_decompress(Bytes::from_array(wide_bomb)) is None)
+  // The same fold landing exactly on 2^32: once truncatable to zero, a
+  // claim the Int64 accumulation still refuses against the bound.
+  let wrap_bomb : Array[Byte] = [
+    (0x10).to_byte(),
+    (0xFC).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(), // 2^32 + 1
+  ]
+  assert_true(snappy_decompress(Bytes::from_array(wrap_bomb)) is None)
+}
+
+///|
+test "a GZIP page body past the cap refuses naming the cap" {
+  // The cap rides the inflater itself, never a declared size — the
+  // whitebox spelling passes a small one, because inflating a real
+  // gigabyte past the production cap is exactly the cost the guard
+  // exists to spare.
+  let payload = Bytes::makei(200, i => (i * 31 % 251).to_byte())
+  let compressed = @gzip.compress(payload)
+  let result = Ok(ignore(gzip_page_body_capped(compressed, 8))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
+    msg.contains("cap"),
+  )
+  // The same body under the production cap reads: the helper's happy
+  // arm is the one every GZIP page rides.
+  assert_eq(gzip_page_body(compressed), payload)
 }
 
 ///|
@@ -155,6 +199,14 @@ test "the thrift skipper walks every wire type" {
   let r2 = thrift_reader(w2.finish())
   let h2 = r2.field_header(0).unwrap()
   assert_true(!r2.skip(h2.wire))
+  // A huge bool-element list over no bytes: each element consumes one
+  // byte of its own, so the count is a claim the stream cannot pay —
+  // the skip refuses at the first missing byte instead of spinning the
+  // count against nothing. The header spells the long form (0xF1) with
+  // a count of 0x0800_0000, inside the skipper's own ceiling.
+  let bool_bomb : Array[Byte] = [(0xF1).to_byte()]
+  push_varint_bytes(bool_bomb, 0x0800_0000UL)
+  assert_true(!thrift_reader(Bytes::from_array(bool_bomb)).skip(ListV))
   // A field with a wire nibble nothing carries (7) refuses to header.
   let bad_header : Array[Byte] = [(0x17).to_byte()]
   assert_true(
@@ -197,20 +249,20 @@ test "the schema mapping refuses what MoonFrame cannot carry" {
 ///|
 test "rle refuses its malformed shapes" {
   // An RLE run past the count.
-  assert_true(rle_decode(b"\x10\x01", 7, 1) is None)
+  assert_true(rle_decode(b"\x10\x01", 7, 1, 7) is None)
   // A bit-packed run shorter than the count needs.
-  assert_true(rle_decode(b"\x03\x88\xC6\xFA", 9, 3) is None)
+  assert_true(rle_decode(b"\x03\x88\xC6\xFA", 9, 3, 9) is None)
   // A truncated value byte in an RLE run.
-  assert_true(rle_decode(b"\x10", 8, 8) is None)
+  assert_true(rle_decode(b"\x10", 8, 8, 8) is None)
   // A truncated bit-packed group.
-  assert_true(rle_decode(b"\x03\x88", 8, 3) is None)
+  assert_true(rle_decode(b"\x03\x88", 8, 3, 8) is None)
   // A varint header that never terminates.
   let endless : Array[Byte] = Array::make(12, (0xFF).to_byte())
-  assert_true(rle_decode(Bytes::from_array(endless), 8, 3) is None)
+  assert_true(rle_decode(Bytes::from_array(endless), 8, 3, 8) is None)
   // A groups count past the guard.
   let huge : Array[Byte] = []
   push_varint_bytes(huge, (0x1000_0001UL << 1) | 1UL)
-  assert_true(rle_decode(Bytes::from_array(huge), 8, 3) is None)
+  assert_true(rle_decode(Bytes::from_array(huge), 8, 3, 8) is None)
 }
 
 // ── the writer's refusals ────────────────────────────────────────────
@@ -230,6 +282,19 @@ test "the writer refuses what it cannot spell" {
     e => Err(e)
   }
   assert_true(far_result is Err(@types.DataError::InvalidOperation(_)))
+  // And columns of differing lengths: the frame's one height is the
+  // count every chunk names, so a disagreement raises LengthMismatch
+  // instead of writing a file whose chunks contradict each other.
+  let ragged : Array[@series.Series] = [
+    @series.Series::from_ints("a", [1, 2]),
+    @series.Series::from_ints("b", [1]),
+  ]
+  let ragged_result = Ok(
+    ignore(write_parquet_bytes(ragged, ["a", "b"], Uncompressed)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(ragged_result is Err(@types.DataError::LengthMismatch(2, 1)))
 }
 
 // ── the read path's own refusals ─────────────────────────────────────

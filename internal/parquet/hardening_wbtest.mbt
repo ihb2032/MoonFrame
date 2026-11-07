@@ -10,10 +10,10 @@ test "an RLE run count that wraps the bound check refuses" {
   // spells 0xFFFFFFFE — repetitions 0x7FFFFFFF. The pre-hardening bound
   // `written + repetitions > count` wrapped negative and let the run
   // walk off the array; the subtraction form refuses.
-  assert_true(rle_decode(b"\x02\x01\xFE\xFF\xFF\xFF\x0F\x01", 3, 1) is None)
+  assert_true(rle_decode(b"\x02\x01\xFE\xFF\xFF\xFF\x0F\x01", 3, 1, 3) is None)
   // The same header with nothing written yet stays inside Int32 and
   // refuses on the plain count instead — both orders must refuse.
-  assert_true(rle_decode(b"\xFE\xFF\xFF\xFF\x0F\x01", 3, 1) is None)
+  assert_true(rle_decode(b"\xFE\xFF\xFF\xFF\x0F\x01", 3, 1, 3) is None)
 }
 
 ///|
@@ -24,7 +24,7 @@ test "a bit-packed group count past the padded bound refuses" {
   // refuses it against a three-value count.
   let huge : Array[Byte] = []
   push_varint_bytes(huge, (0x1000_0000UL << 1) | 1UL)
-  assert_true(rle_decode(Bytes::from_array(huge), 3, 1) is None)
+  assert_true(rle_decode(Bytes::from_array(huge), 3, 1, 3) is None)
 }
 
 ///|
@@ -159,11 +159,123 @@ test "a page naming more values than its chunk still owes refuses" {
 test "slice clamps an over-long length to the buffer" {
   // The clamp arm: a length past the buffer's end hands back what is
   // there — every caller's own bounds checks refuse the hostile sizes
-  // first, so the arm is reached only through this direct spelling.
+  // first, so the arm is reached only through this direct spelling. The
+  // near-ceiling lengths are the wrap shapes: under an addition-spelled
+  // clamp, `at + len` folds negative and the clamp never fires.
   assert_eq(slice(b"abcdef", 4, 100), b"ef")
   assert_eq(slice(b"abcdef", 4, 2), b"ef")
   assert_eq(slice(b"abcdef", -1, 2), b"")
   assert_eq(slice(b"abcdef", 0, 0), b"")
+  assert_eq(slice(b"abcdef", 4, 2147483647), b"ef")
+  assert_eq(slice(b"abcdef", 0, 2147483647), b"abcdef")
+}
+
+///|
+test "a chunk inside the file-length bound but past the cell budget refuses" {
+  // The bomb: a file of ~16.8MB whose chunk declares 2^27+1 values —
+  // inside the eight-cells-per-byte bound the length check holds (its
+  // ceiling is 8 × 16,777,217 = 134,217,736), so only the absolute
+  // budget refuses it, before the six-byte RLE run in its single page
+  // (a varint header claiming 2^30 repetitions, plus its value byte)
+  // could expand into the arrays the count names.
+  let run : Array[Byte] = []
+  push_varint_bytes(run, 0x4000_0000UL << 1)
+  run.push(b'\x01')
+  let body : Array[Byte] = []
+  push_le_i32(body, run.length())
+  for b in run {
+    body.push(b)
+  }
+  let pw = thrift_writer()
+  pw.i32_field(1, 0)
+  pw.i32_field(2, body.length())
+  pw.i32_field(3, body.length())
+  pw.struct_field_begin(5)
+  pw.i32_field(1, 134_217_729)
+  pw.i32_field(2, 0)
+  pw.i32_field(3, 3)
+  pw.i32_field(4, 3)
+  pw.struct_end()
+  pw.struct_end()
+  let page : Array[Byte] = []
+  for b in pw.finish() {
+    page.push(b)
+  }
+  for b in body {
+    page.push(b)
+  }
+  let w = thrift_writer()
+  w.i32_field(1, 1)
+  w.field_header(2, 9)
+  w.list_header(2, 12)
+  w.struct_field_begin_list_elem()
+  w.text_field(4, "schema")
+  w.i32_field(5, 1)
+  w.struct_end()
+  w.struct_field_begin_list_elem()
+  w.i32_field(1, 2)
+  w.i32_field(3, 1)
+  w.text_field(4, "v")
+  w.struct_end()
+  w.i64_field(3, 134_217_729L)
+  w.field_header(4, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.field_header(1, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.i64_field(2, 4L)
+  w.struct_field_begin(3)
+  w.i32_field(1, 2)
+  w.field_header(2, 9)
+  w.list_header(2, 5)
+  w.i32_list_elem(0)
+  w.i32_list_elem(3)
+  w.field_header(3, 9)
+  w.list_header(1, 8)
+  w.text_list_elem("v")
+  w.i32_field(4, 0)
+  w.i64_field(5, 134_217_729L)
+  w.i64_field(6, 64L)
+  w.i64_field(7, 64L)
+  w.i64_field(9, 4L)
+  w.struct_end()
+  w.struct_end()
+  w.i64_field(2, 64L)
+  w.i64_field(3, 134_217_729L)
+  w.struct_end()
+  w.struct_end()
+  w.text_field(6, "MoonFrame-test")
+  w.struct_end()
+  let footer = w.finish()
+  let out : Array[Byte] = []
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  for b in page {
+    out.push(b)
+  }
+  // The padding that carries the count inside the file-length bound:
+  // eight one-bit cells to a byte needs at least ceil(2^27+1 / 8) file
+  // bytes, so the fill brings the file past sixteen mebibytes.
+  let fill = Bytes::makei(16_777_220, _ => 0)
+  for b in fill {
+    out.push(b)
+  }
+  for b in footer {
+    out.push(b)
+  }
+  push_le_i32(out, footer.length())
+  for b in b"PAR1" {
+    out.push(b)
+  }
+  let result = Ok(ignore(read_parquet_columns(Bytes::from_array(out), None))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    result is Err(@types.DataError::InvalidOperation(msg)) &&
+    msg.contains("budget"),
+  )
 }
 
 ///|

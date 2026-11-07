@@ -81,7 +81,9 @@ pub fn parse_parquet(
   bytes : Bytes,
   projection? : Array[String],
 ) -> @frame.DataFrame raise @types.DataError {
-  let picked = @parquet.read_parquet_columns(bytes, projection)
+  // The footer is parsed once — the picked columns and the declared row
+  // count both come off the same walk.
+  let (picked, nrows) = @parquet.read_parquet_frame(bytes, projection)
   let columns : Array[@series.Series] = []
   for pair in picked {
     columns.push(pair.1)
@@ -90,7 +92,7 @@ pub fn parse_parquet(
   // file's rows — the `N×0` shape the text readers' projections yield,
   // not a collapse to zero.
   if columns.length() == 0 {
-    @frame.DataFrame::from_parts(columns, @parquet.parquet_num_rows(bytes))
+    @frame.DataFrame::from_parts(columns, nrows)
   } else {
     @frame.DataFrame::DataFrame(columns)
   }

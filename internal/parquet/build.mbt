@@ -90,16 +90,18 @@ fn build_series(
 }
 
 ///|
-/// The whole-file entry the io layer rides: parse the footer, decode
-/// the named columns (every column when the projection is `None`), and
-/// hand back the pairs in schema order. The projection is lenient like
+/// The whole-file entry the io layer rides: the footer parsed once, the
+/// named columns decoded (every column when the projection is `None`),
+/// and the file's declared row count — both answers off the same walk,
+/// so a lenient projection that matches no column reports its `N×0`
+/// height without a second footer parse. The projection is lenient like
 /// the text readers': a name the file does not carry simply builds no
 /// column, and whichever expression references it raises the same
 /// `ColumnNotFound` it would against a full read.
-pub fn read_parquet_columns(
+pub fn read_parquet_frame(
   bytes : Bytes,
   projection : Array[String]?,
-) -> Array[(String, @series.Series)] raise @types.DataError {
+) -> (Array[(String, @series.Series)], Int32) raise @types.DataError {
   let footer = read_footer(bytes)
   let picked : Array[(String, @series.Series)] = []
   for column in footer.columns {
@@ -111,16 +113,16 @@ pub fn read_parquet_columns(
       picked.push((column.chunk.name, decode_column(bytes, column)))
     }
   }
-  picked
+  (picked, footer_num_rows(footer))
 }
 
 ///|
-/// The file's declared row count, for a lenient projection that matches
-/// no column — the height the `N×0` shape carries (the text readers'
+/// The footer's row count as a frame height — the height a lenient
+/// projection that matches no column still reports (the text readers'
 /// projections yield the same). A count outside the Int32 a frame's
 /// height rides refuses rather than truncating.
-pub fn parquet_num_rows(bytes : Bytes) -> Int32 raise @types.DataError {
-  let n = read_footer(bytes).num_rows
+fn footer_num_rows(footer : ParquetFooter) -> Int32 raise @types.DataError {
+  let n = footer.num_rows
   if n < 0L || n > 2147483647L {
     raise @types.DataError::ParseError(
       @types.ParseErrorDetail::Message(

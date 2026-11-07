@@ -364,6 +364,16 @@ test "the declared row count answers and its far end refuses" {
     e => Err(e)
   }
   assert_true(result is Err(@types.DataError::ParseError(_)))
+  // The same crafted file through the frame entry production rides: the
+  // height check rides the single footer walk, so a declared count past
+  // a frame's own height refuses the whole read, not only the
+  // zero-column shape that once asked for the count alone.
+  let frame_result = Ok(
+    ignore(read_parquet_frame(Bytes::from_array(out), None)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(frame_result is Err(@types.DataError::ParseError(_)))
 }
 
 ///|

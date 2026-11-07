@@ -187,16 +187,21 @@ test "the skipper refuses its cut list shapes" {
 
 ///|
 test "the skipper walks bool and nested-list elements and cut counts" {
-  // A list of bool elements: header (2<<4)|1, elements consume nothing
-  // (the value rides the wire type), then the enclosing struct's stop.
+  // A list of bool elements: header (2<<4)|1, then one byte per element
+  // — a list element's bool rides its own byte (0x01 true, 0x02 false),
+  // unlike a struct field's, which folds into its field header's type
+  // nibble — then the enclosing struct's stop.
   let bools : Array[Byte] = [
     (0x19).to_byte(),
     (0x21).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
     (0x00).to_byte(),
   ]
   let r1 = thrift_reader(Bytes::from_array(bools))
   let h1 = r1.field_header(0).unwrap()
   assert_true(r1.skip(h1.wire))
+  assert_eq(r1.pos, 4)
   // A list of one list: outer header (1<<4)|9, inner header (1<<4)|5,
   // one i32 element, stop.
   let nested : Array[Byte] = [

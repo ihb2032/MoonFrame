@@ -8,31 +8,41 @@
 // `(k·bit_width + b) / 8`, bit `(k·bit_width + b) % 8`.
 
 ///|
-/// Decode a whole hybrid stream of `count` values at `bit_width` bits.
-/// Every value must fit an `Int32` (a def level is 0/1; a dict index is
-/// bounded by the dictionary page the caller has read), so widths above
-/// 31 refuse — no truncation could stay honest. A short stream (a run
-/// past `count`, or the values running out mid-run) refuses; the writer
-/// never produces either, and a hostile file surfaces as a located
-/// error rather than a short column.
+/// Decode a whole hybrid stream of `count` values at `bit_width` bits,
+/// under the caller's own ceiling `limit` on the count — the chunk walk
+/// passes the cells its budget has vouched for, so the decoder refuses a
+/// count past it (a negative count the same way) before anything is
+/// built by the number. Every value must fit an `Int32` (a def level is
+/// 0/1; a dict index is bounded by the dictionary page the caller has
+/// read), so widths above 31 refuse — no truncation could stay honest.
+/// A short stream (a run past `count`, or the values running out
+/// mid-run) refuses; the writer never produces either, and a hostile
+/// file surfaces as a located error rather than a short column. The
+/// output grows with what the stream actually decodes — never a
+/// pre-allocation sized by the count alone — so a run's claimed
+/// repetitions are bounded by the count the stream must fill, and a
+/// short stream costs its own bytes, not the count's.
 fn rle_decode(
   bytes : Bytes,
   count : Int32,
   bit_width : Int32,
+  limit : Int32,
 ) -> (Array[Int32], Int32)? {
   // The second half of the answer is the stream.s own byte length —
   // where the PLAIN values that follow a level stream begin. Spelled
   // by the decoder itself (its reader already walked the bytes) rather
   // than a second walk that could drift from this one.
-  if bit_width < 0 || bit_width > 31 {
+  if bit_width < 0 || bit_width > 31 || count < 0 || count > limit {
     return None
   }
-  let out : Array[Int32] = Array::makei(count, _ => 0)
   // Width 0: every value is the zero the width names — the writer emits
   // no bytes, and any stream decodes (only zeros are representable).
+  // The count is already limit-bounded, so the zeros it names are
+  // bounded with it.
   if bit_width == 0 {
-    return Some((out, 0))
+    return Some((Array::makei(count, _ => 0), 0))
   }
+  let out : Array[Int32] = []
   let r = thrift_reader(bytes)
   let mut written = 0
   while written < count {
@@ -55,7 +65,7 @@ fn rle_decode(
         None => return None
       }
       for _ in 0..<repetitions {
-        out[written] = value
+        out.push(value)
         written = written + 1
       }
     } else {
@@ -91,17 +101,20 @@ fn rle_decode(
         // Only the values the count still needs land; a padded tail's
         // extra slots are read past (the bytes consumed, the values
         // dropped). The subtraction forms cannot wrap (`base` never
-        // passes `count`), so `emit` is always 0..8.
+        // passes `count`), so `emit` is always 0..8 — and the pushes
+        // stay in stream order, every group's emitted values right
+        // behind the ones before it (`slot` is the group's own bit
+        // position, not an output index).
         let emit = if count - base < 8 { count - base } else { 8 }
-        for k in 0..<emit {
+        for slot in 0..<emit {
           let mut value = 0
           for bit in 0..<bit_width {
-            let flat = k * bit_width + bit
+            let flat = slot * bit_width + bit
             if ((group[flat / 8].to_int() >> (flat % 8)) & 1) != 0 {
               value = value | (1 << bit)
             }
           }
-          out[base + k] = value
+          out.push(value)
         }
       }
       // The whole run's slots are consumed — a padded tail's extras

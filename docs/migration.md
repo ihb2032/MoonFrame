@@ -88,7 +88,7 @@ Source-level note:
   and `color="g", color_type=Nominal` becomes
   `color=field("g", type_override=Nominal)`. The mark family grew to
   seventeen (`image` / `geoshape` / `errorbar` / `errorband` and more
-  joined the original four), the channel set to thirty-nine (the error,
+  joined the original four), the channel set to thirty-eight (the error,
   offset, geo, fill / stroke, and `time` channels among them —
   `ChartSpec::of` is the general constructor that carries them all), a
   channel may declare any of the schema's twenty-five `aggregate`

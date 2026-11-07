@@ -9,7 +9,7 @@
 //
 // Reporting logic lives in the sibling `report/` package so it is
 // covered by that package's blackbox tests. `main` is a thin orchestrator around
-// `read_csv` / `write_vega_lite` / `write_vega_html` / `println` and is
+// `read_csv` / the chart's `write_json` / `write_html` / `println` and is
 // therefore marked
 // `#coverage.skip` — every meaningful branch is in the helper.
 //

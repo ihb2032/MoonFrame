@@ -3,7 +3,7 @@
 `read_csv` / `read_json` / `read_ndjson` infer each column's dtype from the
 first `infer_schema_rows` rows (default `100`), in the order
 `Int → Float → Bool → String`. The per-reader options that tune this
-(`infer_schema_rows`, `on_parse_error`, and CSV's `allow_nonfinite_floats`) are
+(`infer_schema_rows`, `on_parse_error`, and `allow_nonfinite_floats`) are
 documented with each reader on
 [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame); this page explains
 the rules those options govern.

@@ -275,50 +275,16 @@ fn rebuild_footer_with_page_size(
     }
   }
   // Re-emit the footer with the patched sizes.
-  let w = thrift_writer()
-  w.i32_field(1, 1)
-  w.field_header(2, 9)
-  w.list_header(2, 12)
-  w.struct_field_begin_list_elem()
-  w.text_field(4, "schema")
-  w.i32_field(5, 1)
-  w.struct_end()
-  w.struct_field_begin_list_elem()
-  w.i32_field(1, physical)
-  w.i32_field(3, 1)
-  w.text_field(4, name)
-  w.struct_end()
-  w.i64_field(3, num_rows)
-  w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.field_header(1, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.i64_field(2, 4L)
-  w.struct_field_begin(3)
-  w.i32_field(1, physical)
-  w.field_header(2, 9)
-  w.list_header(2, 5)
-  w.i32_list_elem(0)
-  w.i32_list_elem(3)
-  w.field_header(3, 9)
-  w.list_header(1, 8)
-  w.text_list_elem(name)
-  w.i32_field(4, 0)
-  w.i64_field(5, num_rows)
-  w.i64_field(6, page_size.to_int64())
-  w.i64_field(7, page_size.to_int64())
-  w.i64_field(9, 4L)
-  w.struct_end()
-  w.struct_end()
-  w.i64_field(2, page_size.to_int64())
-  w.i64_field(3, num_rows)
-  w.struct_end()
-  w.struct_end()
-  w.text_field(6, "MoonFrame-test")
-  w.struct_end()
-  w.finish()
+  one_column_footer(
+    physical,
+    physical,
+    1,
+    None,
+    0,
+    num_rows,
+    page_size.to_int64(),
+    name~,
+  )
 }
 
 ///|

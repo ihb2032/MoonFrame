@@ -31,55 +31,104 @@ priv struct ForeignSpec {
 }
 
 ///|
+/// The one-column thrift footer every hand-built file here rides: a
+/// root schema element, one column element, one row group, one chunk.
+/// The schema's and the chunk's physical tags are separate parameters —
+/// the mismatched shape names two deliberately — beside the repetition,
+/// converted annotation, and codec; `num_values` names the footer's,
+/// the chunk's, and the row group's row counts together and
+/// `total_size` the chunk's compressed / uncompressed sizes and the row
+/// group's byte size together, the one spelling every builder wrote.
+fn one_column_footer(
+  schema_physical : Int32,
+  chunk_physical : Int32,
+  repetition : Int32,
+  converted : Int32?,
+  codec : Int32,
+  num_values : Int64,
+  total_size : Int64,
+  offset~ : Int64 = 4L,
+  name~ : String = "v",
+  created_by~ : String = "MoonFrame-test",
+) -> Bytes {
+  let w = thrift_writer()
+  w.i32_field(1, 1)
+  w.field_header(2, 9)
+  w.list_header(2, 12)
+  w.struct_field_begin_list_elem()
+  w.text_field(4, "schema")
+  w.i32_field(5, 1)
+  w.struct_end()
+  w.struct_field_begin_list_elem()
+  w.i32_field(1, schema_physical)
+  w.i32_field(3, repetition)
+  w.text_field(4, name)
+  match converted {
+    Some(c) => w.i32_field(6, c)
+    None => ()
+  }
+  w.struct_end()
+  w.i64_field(3, num_values)
+  w.field_header(4, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.field_header(1, 9)
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.i64_field(2, 4L)
+  w.struct_field_begin(3)
+  w.i32_field(1, chunk_physical)
+  w.field_header(2, 9)
+  w.list_header(2, 5)
+  w.i32_list_elem(0)
+  w.i32_list_elem(3)
+  w.field_header(3, 9)
+  w.list_header(1, 8)
+  w.text_list_elem(name)
+  w.i32_field(4, codec)
+  w.i64_field(5, num_values)
+  w.i64_field(6, total_size)
+  w.i64_field(7, total_size)
+  w.i64_field(9, offset)
+  w.struct_end()
+  w.struct_end()
+  w.i64_field(2, total_size)
+  w.i64_field(3, num_values)
+  w.struct_end()
+  w.struct_end()
+  w.text_field(6, created_by)
+  w.struct_end()
+  w.finish()
+}
+
+///|
 fn foreign_file(spec : ForeignSpec) -> Bytes {
   // The page headers and bodies, in order. A dictionary page carries
   // only the DictionaryPageHeader — its num_values names the value set's
-  // entries — and the footer's chunk num_values counts the data pages'
-  // cells alone, exactly the shape a foreign writer spells.
+  // entries, and the value set rides PLAIN — and the footer's chunk
+  // num_values counts the data pages' cells alone, exactly the shape a
+  // foreign writer spells.
   let pages_bytes : Array[Byte] = []
   let mut total_size = 0L
   let mut total_values = 0L
   for page in spec.pages {
-    let pw = thrift_writer()
-    // The V2 data page rides its own page type (3); a `page_type~`
-    // override spells the shapes the builder does not model.
-    pw.i32_field(
-      1,
-      if page.dictionary_page {
-        2
-      } else if page.v2 {
-        3
-      } else {
-        page.page_type
-      },
-    )
-    pw.i32_field(2, page.body.length())
-    pw.i32_field(3, page.body.length())
-    if page.dictionary_page {
-      pw.struct_field_begin(7)
-      pw.i32_field(1, 0) // the value set rides PLAIN
-      pw.i32_field(2, page.num_values)
-      pw.struct_end()
+    let page_header = if page.dictionary_page {
+      dict_page_header(0, page.num_values, page.body.length())
     } else if page.v2 {
-      pw.struct_field_begin(8)
-      pw.i32_field(1, page.num_values)
-      pw.i32_field(2, 0)
-      pw.i32_field(3, page.num_values)
-      pw.i32_field(4, page.encoding)
-      pw.i32_field(5, page.def_len)
-      pw.i32_field(6, 0)
-      pw.bool_field_v2(7, true)
-      pw.struct_end()
+      v2_page_header(
+        page.num_values,
+        page.encoding,
+        page.def_len,
+        page.body.length(),
+      )
     } else {
-      pw.struct_field_begin(5)
-      pw.i32_field(1, page.num_values)
-      pw.i32_field(2, page.encoding)
-      pw.i32_field(3, 3)
-      pw.i32_field(4, 3)
-      pw.struct_end()
+      v1_page_header(
+        page.num_values,
+        page.encoding,
+        page.body.length(),
+        page_type=page.page_type,
+      )
     }
-    pw.struct_end()
-    let page_header = pw.finish()
     for b in page_header {
       pages_bytes.push(b)
     }
@@ -92,69 +141,17 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
       total_values = total_values + page.num_values.to_int64()
     }
   }
-  let w = thrift_writer()
-  w.i32_field(1, 1)
-  w.field_header(2, 9)
-  w.list_header(2, 12)
-  w.struct_field_begin_list_elem()
-  w.text_field(4, "schema")
-  w.i32_field(5, 1)
-  w.struct_end()
-  w.struct_field_begin_list_elem()
-  w.i32_field(1, spec.physical)
-  w.i32_field(3, spec.repetition)
-  w.text_field(4, "v")
-  match spec.converted {
-    Some(c) => w.i32_field(6, c)
-    None => ()
-  }
-  w.struct_end()
-  w.i64_field(3, total_values)
-  w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.field_header(1, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.i64_field(2, 4L)
-  w.struct_field_begin(3)
-  w.i32_field(1, spec.physical)
-  w.field_header(2, 9)
-  w.list_header(2, 5)
-  w.i32_list_elem(0)
-  w.i32_list_elem(3)
-  w.field_header(3, 9)
-  w.list_header(1, 8)
-  w.text_list_elem("v")
-  w.i32_field(4, spec.codec)
-  w.i64_field(5, total_values)
-  w.i64_field(6, total_size)
-  w.i64_field(7, total_size)
-  w.i64_field(9, 4L)
-  w.struct_end()
-  w.struct_end()
-  w.i64_field(2, total_size)
-  w.i64_field(3, total_values)
-  w.struct_end()
-  w.struct_end()
-  w.text_field(6, "MoonFrame-foreign-test")
-  w.struct_end()
-  let footer = w.finish()
-  let out : Array[Byte] = []
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  for b in pages_bytes {
-    out.push(b)
-  }
-  for b in footer {
-    out.push(b)
-  }
-  push_le_i32(out, footer.length())
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  Bytes::from_array(out)
+  let footer = one_column_footer(
+    spec.physical,
+    spec.physical,
+    spec.repetition,
+    spec.converted,
+    spec.codec,
+    total_values,
+    total_size,
+    created_by="MoonFrame-foreign-test",
+  )
+  file_over(footer, pages=Bytes::from_array(pages_bytes))
 }
 
 ///|
@@ -660,83 +657,23 @@ fn mismatched_physical_file(
 ) -> Bytes {
   let body : Array[Byte] = plain_defs(1)
   push_le_i64(body, 7L)
-  let pw = thrift_writer()
-  pw.i32_field(1, 0)
-  pw.i32_field(2, body.length())
-  pw.i32_field(3, body.length())
-  pw.struct_field_begin(5)
-  pw.i32_field(1, 1)
-  pw.i32_field(2, 0)
-  pw.i32_field(3, 3)
-  pw.i32_field(4, 3)
-  pw.struct_end()
-  pw.struct_end()
   let page : Array[Byte] = []
-  for b in pw.finish() {
+  for b in v1_page_header(1, 0, body.length()) {
     page.push(b)
   }
   for b in body {
     page.push(b)
   }
-  let w = thrift_writer()
-  w.i32_field(1, 1)
-  w.field_header(2, 9)
-  w.list_header(2, 12)
-  w.struct_field_begin_list_elem()
-  w.text_field(4, "schema")
-  w.i32_field(5, 1)
-  w.struct_end()
-  w.struct_field_begin_list_elem()
-  w.i32_field(1, schema_physical)
-  w.i32_field(3, 1)
-  w.text_field(4, "v")
-  w.struct_end()
-  w.i64_field(3, 1L)
-  w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.field_header(1, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.i64_field(2, 4L)
-  w.struct_field_begin(3)
-  w.i32_field(1, chunk_physical)
-  w.field_header(2, 9)
-  w.list_header(2, 5)
-  w.i32_list_elem(0)
-  w.i32_list_elem(3)
-  w.field_header(3, 9)
-  w.list_header(1, 8)
-  w.text_list_elem("v")
-  w.i32_field(4, 0)
-  w.i64_field(5, 1L)
-  w.i64_field(6, page.length().to_int64())
-  w.i64_field(7, page.length().to_int64())
-  w.i64_field(9, 4L)
-  w.struct_end()
-  w.struct_end()
-  w.i64_field(2, page.length().to_int64())
-  w.i64_field(3, 1L)
-  w.struct_end()
-  w.struct_end()
-  w.text_field(6, "MoonFrame-test")
-  w.struct_end()
-  let footer = w.finish()
-  let out : Array[Byte] = []
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  for b in page {
-    out.push(b)
-  }
-  for b in footer {
-    out.push(b)
-  }
-  push_le_i32(out, footer.length())
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  Bytes::from_array(out)
+  let footer = one_column_footer(
+    schema_physical,
+    chunk_physical,
+    1,
+    None,
+    0,
+    1L,
+    page.length().to_int64(),
+  )
+  file_over(footer, pages=Bytes::from_array(page))
 }
 
 ///|

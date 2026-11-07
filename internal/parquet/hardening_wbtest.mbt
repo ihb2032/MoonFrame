@@ -46,82 +46,27 @@ fn counting_file(
   page_values : Int32,
   chunk_offset~ : Int64 = 4L,
 ) -> Bytes {
-  // A DATA_PAGE header over a four-byte body.
-  let pw = thrift_writer()
-  pw.i32_field(1, 0)
-  pw.i32_field(2, 4)
-  pw.i32_field(3, 4)
-  pw.struct_field_begin(5)
-  pw.i32_field(1, page_values)
-  pw.i32_field(2, 0)
-  pw.i32_field(3, 3)
-  pw.i32_field(4, 3)
-  pw.struct_end()
-  pw.struct_end()
-  let page_header = pw.finish()
-  // The footer: root + one INT64 column, one row group, one chunk.
-  let w = thrift_writer()
-  w.i32_field(1, 1)
-  w.field_header(2, 9)
-  w.list_header(2, 12)
-  w.struct_field_begin_list_elem()
-  w.text_field(4, "schema")
-  w.i32_field(5, 1)
-  w.struct_end()
-  w.struct_field_begin_list_elem()
-  w.i32_field(1, 2)
-  w.i32_field(3, 1)
-  w.text_field(4, "v")
-  w.struct_end()
-  w.i64_field(3, chunk_values)
-  w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.field_header(1, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.i64_field(2, 4L)
-  w.struct_field_begin(3)
-  w.i32_field(1, 2)
-  w.field_header(2, 9)
-  w.list_header(2, 5)
-  w.i32_list_elem(0)
-  w.i32_list_elem(3)
-  w.field_header(3, 9)
-  w.list_header(1, 8)
-  w.text_list_elem("v")
-  w.i32_field(4, 0)
-  w.i64_field(5, chunk_values)
-  w.i64_field(6, 64L)
-  w.i64_field(7, 64L)
-  w.i64_field(9, chunk_offset)
-  w.struct_end()
-  w.struct_end()
-  w.i64_field(2, 64L)
-  w.i64_field(3, chunk_values)
-  w.struct_end()
-  w.struct_end()
-  w.text_field(6, "MoonFrame-test")
-  w.struct_end()
-  let footer = w.finish()
-  let out : Array[Byte] = []
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  for b in page_header {
-    out.push(b)
+  // A DATA_PAGE header over a four-byte body, then the filler itself.
+  let page : Array[Byte] = []
+  for b in v1_page_header(page_values, 0, 4) {
+    page.push(b)
   }
   for _ in 0..<4 {
-    out.push(b'\x00')
+    page.push(b'\x00')
   }
-  for b in footer {
-    out.push(b)
-  }
-  push_le_i32(out, footer.length())
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  Bytes::from_array(out)
+  // The footer: root + one INT64 column, one row group, one chunk — the
+  // chunk's sizes name a fixed 64 bytes whatever the page's real extent.
+  let footer = one_column_footer(
+    2,
+    2,
+    1,
+    None,
+    0,
+    chunk_values,
+    64L,
+    offset=chunk_offset,
+  )
+  file_over(footer, pages=Bytes::from_array(page))
 }
 
 ///|

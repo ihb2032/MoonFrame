@@ -57,11 +57,15 @@ test "a byte-array prefix past the buffer refuses" {
 // ── footer top-level truncations ─────────────────────────────────────
 
 ///|
-/// Wrap footer bytes as a whole file: the leading magic, the bytes, the
-/// length, the trailing magic — the shape `read_footer` walks.
-fn file_over(footer : Bytes) -> Bytes {
+/// Wrap footer bytes as a whole file: the leading magic, any page bytes
+/// ahead of the footer, the footer, the length, the trailing magic —
+/// the shape `read_footer` walks.
+fn file_over(footer : Bytes, pages~ : Bytes = b"") -> Bytes {
   let out : Array[Byte] = []
   for b in b"PAR1" {
+    out.push(b)
+  }
+  for b in pages {
     out.push(b)
   }
   for b in footer {
@@ -154,69 +158,17 @@ fn foreign_raw(
   num_values : Int32,
   converted? : Int32,
 ) -> Bytes {
-  let converted_value = converted
-  let w = thrift_writer()
-  w.i32_field(1, 1)
-  w.field_header(2, 9)
-  w.list_header(2, 12)
-  w.struct_field_begin_list_elem()
-  w.text_field(4, "schema")
-  w.i32_field(5, 1)
-  w.struct_end()
-  w.struct_field_begin_list_elem()
-  w.i32_field(1, physical)
-  w.i32_field(3, 1)
-  w.text_field(4, "v")
-  match converted_value {
-    Some(c) => w.i32_field(6, c)
-    None => ()
-  }
-  w.struct_end()
-  w.i64_field(3, num_values.to_int64())
-  w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.field_header(1, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  w.i64_field(2, 4L)
-  w.struct_field_begin(3)
-  w.i32_field(1, physical)
-  w.field_header(2, 9)
-  w.list_header(2, 5)
-  w.i32_list_elem(0)
-  w.i32_list_elem(3)
-  w.field_header(3, 9)
-  w.list_header(1, 8)
-  w.text_list_elem("v")
-  w.i32_field(4, codec)
-  w.i64_field(5, num_values.to_int64())
-  w.i64_field(6, page.length().to_int64())
-  w.i64_field(7, page.length().to_int64())
-  w.i64_field(9, 4L)
-  w.struct_end()
-  w.struct_end()
-  w.i64_field(2, page.length().to_int64())
-  w.i64_field(3, num_values.to_int64())
-  w.struct_end()
-  w.struct_end()
-  w.text_field(6, "MoonFrame-raw-test")
-  w.struct_end()
-  let out : Array[Byte] = []
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  for b in page {
-    out.push(b)
-  }
-  for b in w.finish() {
-    out.push(b)
-  }
-  push_le_i32(out, w.finish().length())
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  Bytes::from_array(out)
+  let footer = one_column_footer(
+    physical,
+    physical,
+    1,
+    converted,
+    codec,
+    num_values.to_int64(),
+    page.length().to_int64(),
+    created_by="MoonFrame-raw-test",
+  )
+  file_over(footer, pages=page)
 }
 
 ///|
@@ -242,7 +194,7 @@ fn v2_page_header(
   pw.i32_field(5, def_len)
   pw.i32_field(6, 0)
   // is_compressed — the compact protocol's bool rides the type nibble.
-  pw.field_header(7, if compressed { 1 } else { 2 })
+  pw.bool_field_v2(7, compressed)
   pw.struct_end()
   pw.struct_end()
   pw.finish()
@@ -264,14 +216,17 @@ fn dict_page_header(encoding : Int32, count : Int32, body_len : Int32) -> Bytes 
 }
 
 ///|
-/// A complete V1 data-page header over a body of `body_len` bytes.
+/// A complete V1 data-page header over a body of `body_len` bytes; the
+/// `page_type~` override spells the page types the builder does not
+/// model (an index page).
 fn v1_page_header(
   num_values : Int32,
   encoding : Int32,
   body_len : Int32,
+  page_type~ : Int32 = 0,
 ) -> Bytes {
   let pw = thrift_writer()
-  pw.i32_field(1, 0)
+  pw.i32_field(1, page_type)
   pw.i32_field(2, body_len)
   pw.i32_field(3, body_len)
   pw.struct_field_begin(5)

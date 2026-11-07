@@ -179,6 +179,49 @@ test "a list of byte elements skips one byte each" {
 }
 
 ///|
+test "a bool field skipped as unknown consumes no payload" {
+  // The compact protocol's bool field carries its value in its field
+  // header's type nibble, so the skip consumes nothing after the
+  // header — the field after it parses from its own header onward.
+  // Bytes: bool field 1 true (0x11), bool field 2 false (0x12), i32
+  // field 3 (0x15, zigzag 7 = 0x0E), stop.
+  let bytes = Bytes::from_array([0x11, 0x12, 0x15, 0x0E, 0x00])
+  let r = thrift_reader(bytes)
+  let mut last = 0
+  let mut value = 0
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    if h.id == 3 {
+      value = r.zigzag_i32().unwrap()
+    } else {
+      assert_true(h.wire is BoolTrue || h.wire is BoolFalse)
+      assert_true(r.skip(h.wire))
+    }
+  }
+  assert_eq(value, 7)
+}
+
+///|
+test "the skipper walks the wire shapes parquet itself never spells" {
+  // The forward-compatibility rule: a skipper that meets a wire shape
+  // the parquet metadata itself never carries still walks it. An i64
+  // list element (element wire 6) consumes its varint — bytes: field 1
+  // a list (0x19), one i64 element (0x16, varint 0x2A), stop — and a
+  // Stop wire (the struct terminator, handed to a skip only by a
+  // hostile stream) consumes nothing at all.
+  let i64_list = Bytes::from_array([0x19, 0x16, 0x2A, 0x00])
+  let r = thrift_reader(i64_list)
+  let h = r.field_header(0).unwrap()
+  assert_true(h.wire is ListV)
+  assert_true(r.skip(h.wire))
+  assert_true(thrift_reader(i64_list).skip(Stop))
+}
+
+///|
 test "a truncated buffer refuses instead of aborting" {
   let w = thrift_writer()
   w.binary_field(3, b"\x01\x02\x03")

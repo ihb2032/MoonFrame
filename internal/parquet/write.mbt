@@ -275,6 +275,7 @@ fn write_footer(
           w.i32_field(7, maps[i].decimal_scale)
           w.i32_field(8, decimal_precision())
         }
+        write_logical_type(w, c, maps[i].decimal_scale)
       }
       None => ()
     }
@@ -325,6 +326,39 @@ fn write_footer(
   w.text_field(6, "MoonFrame")
   w.struct_end()
   w.finish()
+}
+
+///|
+/// The logicalType annotation (SchemaElement field 10) a converted
+/// annotation's modern spelling rides — the parquet format's own rule
+/// that a writer carries both: the LogicalType union the modern readers
+/// read, alongside the converted type (field 6) the legacy ones do.
+/// Each variant is the union's own field id holding its parameter
+/// struct: STRING (1) and DATE (6) are empty structs, DECIMAL (5)
+/// carries scale (1) then precision (2), TIMESTAMP (8) carries the
+/// isAdjustedToUTC bool (1) — a MoonFrame timestamp is an epoch count,
+/// so UTC-adjusted — and the MICROS (2) unit inside its TimeUnit union.
+fn write_logical_type(w : ThriftWriter, c : Converted, scale : Int32) -> Unit {
+  w.struct_field_begin(10)
+  match c {
+    Utf8C => w.empty_struct_field(1)
+    DateC => w.empty_struct_field(6)
+    DecimalC => {
+      w.struct_field_begin(5)
+      w.i32_field(1, scale)
+      w.i32_field(2, decimal_precision())
+      w.struct_end()
+    }
+    TimestampMicrosC => {
+      w.struct_field_begin(8)
+      w.bool_field(1, true)
+      w.struct_field_begin(2)
+      w.empty_struct_field(2)
+      w.struct_end()
+      w.struct_end()
+    }
+  }
+  w.struct_end()
 }
 
 ///|

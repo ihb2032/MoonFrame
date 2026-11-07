@@ -155,18 +155,6 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
 }
 
 ///|
-/// The bool field the V2 header carries — the compact protocol's
-/// value-in-type-nibble spelling, written directly (the writer has no
-/// bool helper).
-fn ThriftWriter::bool_field_v2(
-  self : ThriftWriter,
-  id : Int32,
-  v : Bool,
-) -> Unit {
-  self.field_header(id, if v { 1 } else { 2 })
-}
-
-///|
 /// The definition levels a V1 data page carries for `n` present cells —
 /// the 4-byte little-endian length prefix every V1 level run opens
 /// with, then one RLE run of `n` ones at width 1 (header `n << 1`,

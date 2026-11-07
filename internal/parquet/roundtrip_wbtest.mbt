@@ -341,3 +341,112 @@ test "a written Duration round-trips as a bare INT64 column reading Int" {
     @types.Scalar::Int(61),
   ])
 }
+
+///|
+/// Walk one thrift struct whose fields are bools, zigzag i32s, and
+/// nested structs, rendering it flat — `id:value` pairs, `id:(inner)` a
+/// nested struct, `id:()` an empty one — the rendering the logicalType
+/// shape test compares against.
+fn describe_struct(r : ThriftReader) -> String raise {
+  let mut last = 0
+  let mut out = ""
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    let part = match h.wire {
+      BoolTrue => "\{h.id}:true"
+      BoolFalse => "\{h.id}:false"
+      I32V => "\{h.id}:\{r.zigzag_i32().unwrap()}"
+      StructV => "\{h.id}:(\{describe_struct(r)})"
+      _ => {
+        assert_true(r.skip(h.wire))
+        "\{h.id}:?"
+      }
+    }
+    out = if out == "" { part } else { out + " " + part }
+  }
+  out
+}
+
+///|
+/// The (name, logicalType-rendering) pairs of a written file's schema
+/// elements, in element order — "" where an element carries no
+/// logicalType field.
+fn schema_logical_types(bytes : Bytes) -> Array[(String, String)] raise {
+  let n = bytes.length()
+  let footer_len = le_i32(bytes, n - 8)
+  let r = thrift_reader(bytes)
+  r.pos = n - 8 - footer_len
+  let out : Array[(String, String)] = []
+  let mut last = 0
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    if h.id == 2 && h.wire is ListV {
+      let count = list_header(r, 12).unwrap()
+      for _ in 0..<count {
+        let mut last_e = 0
+        let mut name = ""
+        let mut logical = ""
+        for ;; {
+          let he = r.field_header(last_e).unwrap()
+          if he.wire is Stop {
+            break
+          }
+          last_e = he.id
+          if he.id == 4 {
+            name = r.text().unwrap()
+          } else if he.id == 10 && he.wire is StructV {
+            logical = describe_struct(r)
+          } else {
+            assert_true(r.skip(he.wire))
+          }
+        }
+        out.push((name, logical))
+      }
+    } else {
+      assert_true(r.skip(h.wire))
+    }
+  }
+  out
+}
+
+///|
+test "every rider column's schema element carries its logicalType" {
+  // The parquet format's rule that a writer carries both spellings: the
+  // converted type (field 6) the legacy readers read and the logicalType
+  // union (field 10) the modern ones do. Each rider's element carries
+  // the union's own variant — STRING (1) and DATE (6) empty structs,
+  // DECIMAL (5) with scale (1) before precision (2), TIMESTAMP (8) with
+  // the UTC-adjusted bool and the MICROS (2) TimeUnit inside it — while
+  // the bare Int column's element and the root carry neither.
+  let columns : Array[@series.Series] = [
+    @series.Series::from_ints("i", [1]),
+    @series.Series::from_strings("s", ["a"]),
+    @series.Series::from_date_options("d", [Some(0L)]),
+    @series.Series::from_timestamp_options("t", [Some(0L)]),
+    @series.Series::from_decimal_options(3, "x", [Some(123L)]),
+  ]
+  let bytes = write_parquet_bytes(
+    columns,
+    ["i", "s", "d", "t", "x"],
+    Uncompressed,
+  )
+  assert_eq(schema_logical_types(bytes), [
+    ("schema", ""),
+    ("i", ""),
+    ("s", "1:()"),
+    ("d", "6:()"),
+    ("t", "8:(1:true 2:(2:()))"),
+    ("x", "5:(1:3 2:18)"),
+  ])
+  // And the file still reads back through its own footer.
+  let read = read_parquet_columns(bytes, None)
+  assert_eq(read.length(), 5)
+}

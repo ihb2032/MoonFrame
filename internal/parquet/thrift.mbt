@@ -378,6 +378,23 @@ fn ThriftWriter::i64_field(self : ThriftWriter, id : Int32, v : Int64) -> Unit {
 }
 
 ///|
+/// A bool field — the compact protocol's value-in-type-nibble spelling:
+/// the field header's own wire type (1 true, 2 false) is the whole
+/// value, no payload bytes after it.
+fn ThriftWriter::bool_field(self : ThriftWriter, id : Int32, v : Bool) -> Unit {
+  self.field_header(id, if v { 1 } else { 2 })
+}
+
+///|
+/// A field whose value is an empty struct — the field header plus the
+/// struct's single stop byte, the whole spelling an empty thrift struct
+/// is on the wire.
+fn ThriftWriter::empty_struct_field(self : ThriftWriter, id : Int32) -> Unit {
+  self.field_header(id, 12)
+  self.buf.push(b'\x00')
+}
+
+///|
 /// A binary field.
 fn ThriftWriter::binary_field(
   self : ThriftWriter,

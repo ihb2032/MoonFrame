@@ -194,7 +194,7 @@ fn v2_page_header(
   pw.i32_field(5, def_len)
   pw.i32_field(6, 0)
   // is_compressed — the compact protocol's bool rides the type nibble.
-  pw.bool_field_v2(7, compressed)
+  pw.bool_field(7, compressed)
   pw.struct_end()
   pw.struct_end()
   pw.finish()

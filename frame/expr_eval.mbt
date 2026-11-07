@@ -193,7 +193,7 @@ fn eval_expr(
   fn pop_inputs(stack : Array[Series], arity : Int32) -> Array[Series] {
     let popped : Array[Series] = []
     for _ in 0..<arity {
-      popped.push(pop_value(stack))
+      popped.push(pop_top(stack))
     }
     Array::makei(arity, i => popped[arity - 1 - i])
   }
@@ -346,14 +346,13 @@ fn eval_expr(
                 values.push(eval_over(df, inner, keys))
             }
           ApplyBinary(op) => {
-            let rhs = pop_value(values)
-            let lhs = pop_value(values)
+            let rhs = pop_top(values)
+            let lhs = pop_top(values)
             values.push(@kernel.eval_binary(op, lhs, rhs))
           }
-          ApplyUnary(op) =>
-            values.push(@kernel.eval_unary(op, pop_value(values)))
+          ApplyUnary(op) => values.push(@kernel.eval_unary(op, pop_top(values)))
           ApplyAgg(op) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             // The aggregation kernel: reduce the operand over its scope to a
             // length-1 column through the shared `reducer_for` machinery —
             // the same `ReduceOp` vocabulary the AST's `Agg` node carries,
@@ -377,11 +376,11 @@ fn eval_expr(
             values.push(scalars_to_series(probe, operand.name(), [cell]))
           }
           ApplyStr(op) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             values.push(@kernel.eval_str(op, operand))
           }
           ApplyPositional(op) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             // A computed result converges onto the `Numeric` fast path —
             // the engine-wide convention, which this combiner now keeps
             // with the binary / unary / cast arms.
@@ -390,22 +389,22 @@ fn eval_expr(
             )
           }
           ApplyCast(target) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             values.push(operand.cast(target).try_column_to_numeric())
           }
           ApplyAlias(name) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             values.push(operand.rename(name))
           }
           ApplyTernary => {
-            let else_v = pop_value(values)
-            let then_v = pop_value(values)
-            let cond = pop_value(values)
+            let else_v = pop_top(values)
+            let then_v = pop_top(values)
+            let cond = pop_top(values)
             values.push(@kernel.eval_ternary(cond, then_v, else_v))
           }
           ApplyFill(kind) => {
-            let value_v = pop_value(values)
-            let operand = pop_value(values)
+            let value_v = pop_top(values)
+            let operand = pop_top(values)
             // Synthesize the guard the old lowering spelled out —
             // `is_not_null(operand)` (resp. `is_not_nan`) — from the
             // already-evaluated operand through the same unary tag entry,
@@ -422,14 +421,14 @@ fn eval_expr(
             values.push(@kernel.eval_ternary(cond, operand, value_v))
           }
           ApplyIsIn(members) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             values.push(@kernel.eval_is_in(operand, members))
           }
           // The kernel composes the shift and the subtraction itself, keeping
           // the shift's `Numeric` convergence (the evaluator's convention for
           // a positional result) exactly where the composition had it.
           ApplyDiff(n) => {
-            let operand = pop_value(values)
+            let operand = pop_top(values)
             values.push(@kernel.eval_diff(operand, n))
           }
           // Pop only the bounds that exist, in the order the descent pushed
@@ -437,20 +436,20 @@ fn eval_expr(
           ApplyClip(has_lo, has_hi) => {
             fn take(present : Bool) -> Series? {
               if present {
-                Some(pop_value(values))
+                Some(pop_top(values))
               } else {
                 None
               }
             }
             let hi_v = take(has_hi)
             let lo_v = take(has_lo)
-            let x_v = pop_value(values)
+            let x_v = pop_top(values)
             values.push(@kernel.eval_clip(x_v, lower?=lo_v, upper?=hi_v))
           }
           ApplyIsBetween(closed) => {
-            let hi_v = pop_value(values)
-            let lo_v = pop_value(values)
-            let x_v = pop_value(values)
+            let hi_v = pop_top(values)
+            let lo_v = pop_top(values)
+            let x_v = pop_top(values)
             values.push(@kernel.eval_is_between(x_v, lo_v, hi_v, closed))
           }
           ApplyMap(f, arity) =>
@@ -463,7 +462,7 @@ fn eval_expr(
         }
     }
   }
-  pop_value(values)
+  pop_top(values)
 }
 
 ///|
@@ -484,15 +483,4 @@ fn evaluate_column_free(expr : @expr.Expr) -> @types.Scalar? {
   eval_expr(expr, empty, []).to_scalars().get(0) catch {
     _ => None
   }
-}
-
-///|
-/// Pop the evaluator's value stack. `eval_expr`'s post-order walk pushes a
-/// value for every operand before its combiner runs, so the stack is never
-/// empty here; the top slot is read by that stack-invariant index — total, like
-/// the engine's other indexed reads — and dropped, never `unwrap`.
-fn pop_value(stack : Array[Series]) -> Series {
-  let top = stack[stack.length() - 1]
-  let _ = stack.pop()
-  top
 }

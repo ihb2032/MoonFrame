@@ -24,44 +24,16 @@ priv struct ExprProps {
 }
 
 ///|
-/// The three properties of a whole tree, in one iterative walk. Discovery
-/// emits every node ahead of its descendants while recording each node's
-/// child count; iterating that emission backwards then visits every child
-/// before its parent, so a node's children's properties sit on the value
-/// stack by the time the node itself reaches the classification table.
-/// Explicit stacks, not the call stack — a deeply nested expression analyzes
-/// without overflowing and aborting, like every engine walk. Total.
+/// The three properties of a whole tree, in one bottom-up pass over the
+/// shared post-order fold: every child reaches the classification table
+/// before its parent, so a node's children's properties are in hand by the
+/// time the node itself is classified. Explicit stacks, not the call stack
+/// — a deeply nested expression analyzes without overflowing and aborting,
+/// like every engine walk. Total. The fold hands `classify` the children's
+/// properties in input order; no table arm depends on order (combinators
+/// conjoin, and the one single-child query is the `Agg` arm's operand).
 fn expr_props(expr : @ir.ExprNode) -> ExprProps {
-  let discover : Array[@ir.ExprNode] = [expr]
-  let order : Array[@ir.ExprNode] = []
-  let arities : Array[Int32] = []
-  for ;; {
-    match discover.pop() {
-      None => break
-      Some(node) => {
-        let mut count = 0
-        order.push(node)
-        node.each_child(k => {
-          discover.push(k)
-          count += 1
-        })
-        arities.push(count)
-      }
-    }
-  }
-  let values : Array[ExprProps] = []
-  for i = order.length() - 1; i >= 0; i = i - 1 {
-    // The popped properties come off in reverse child order; no table arm
-    // depends on order (combinators conjoin, and the one single-child query
-    // is the `Agg` arm's operand), so the reversal is left un-fixed.
-    let kids : Array[ExprProps] = []
-    for _ in 0..<arities[i] {
-      kids.push(values[values.length() - 1])
-      let _ = values.pop()
-    }
-    values.push(classify(order[i], kids))
-  }
-  values[values.length() - 1]
+  expr.fold_postorder((node, kids) => classify(node, kids))
 }
 
 ///|

@@ -70,7 +70,10 @@ pub(all) enum ExprNode {
   Over(ExprNode, Array[ExprNode])
 }
 pub fn ExprNode::each_child(Self, (Self) -> Unit) -> Unit
+pub fn[T] ExprNode::fold_postorder(Self, (Self, Array[T]) -> T) -> T
+pub fn[T] ExprNode::fold_postorder_opaque(Self, (Self) -> Bool, (Self) -> T, (Self, Array[T]) -> T) -> T
 pub fn ExprNode::output_name(Self) -> String
+pub fn ExprNode::rebuild_children(Self, Array[Self]) -> Self
 pub fn ExprNode::referenced_columns(Self) -> @set.Set[String]
 pub fn ExprNode::rename_columns(Self, Map[String, String]) -> Self
 

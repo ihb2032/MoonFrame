@@ -29,42 +29,44 @@
 /// reports the same error from the same expression. The walk is the shared
 /// post-order rebuild — total, iterative, never-abort.
 fn LogicalPlan::cluster_with_columns(self : LogicalPlan) -> (LogicalPlan, Bool) {
-  let values : Array[LogicalPlan] = []
-  let mut changed = false
-  for node in self.post_order() {
-    match node {
-      Scan(_) => values.push(node)
-      Unary(_, op) => {
-        let child = pop_top(values)
-        // The merge shape: this stage defines columns over a child stage
-        // that also defines columns, and the outer reads none of the inner's
-        // definitions under disjoint outputs.
-        match (op, child) {
-          (WithColumns(outer), Unary(inner_plan, WithColumns(inner_exprs))) if outer_reads_none_of_inner(
-              outer, inner_exprs,
-            ) &&
-            definitions_disjoint(outer, inner_exprs) => {
-            // `inner ++ outer`: the inner stage's expressions first, the
-            // outer's after — exactly the evaluation order of the two
-            // stages.
-            let merged = inner_exprs.copy()
-            for expr in outer {
-              merged.push(expr)
-            }
-            values.push(Unary(inner_plan, WithColumns(merged)))
-            changed = true
+  self.rebuild_postorder(
+    source => (Scan(source), false),
+    (op, child) => {
+      let (input, input_changed) = child
+      // The merge shape: this stage defines columns over a child stage
+      // that also defines columns, and the outer reads none of the inner's
+      // definitions under disjoint outputs.
+      match (op, input) {
+        (WithColumns(outer), Unary(inner_plan, WithColumns(inner_exprs))) if outer_reads_none_of_inner(
+            outer, inner_exprs,
+          ) &&
+          definitions_disjoint(outer, inner_exprs) => {
+          // `inner ++ outer`: the inner stage's expressions first, the
+          // outer's after — exactly the evaluation order of the two
+          // stages.
+          let merged = inner_exprs.copy()
+          for expr in outer {
+            merged.push(expr)
           }
-          _ => values.push(Unary(child, op))
+          (Unary(inner_plan, WithColumns(merged)), true)
         }
+        _ => (Unary(input, op), input_changed)
       }
-      Join(_, _, options) => rejoin(values, options)
-      Aggregate(_, keys, exprs) =>
-        values.push(Aggregate(pop_top(values), keys, exprs))
-      AggregateAll(_, keys, op2) =>
-        values.push(AggregateAll(pop_top(values), keys, op2))
-    }
-  }
-  (pop_top(values), changed)
+    },
+    (options, left, right) => {
+      let (l, l_changed) = left
+      let (r, r_changed) = right
+      (Join(l, r, options), l_changed || r_changed)
+    },
+    (keys, exprs, below) => {
+      let (input, input_changed) = below
+      (Aggregate(input, keys, exprs), input_changed)
+    },
+    (keys, op2, below) => {
+      let (input, input_changed) = below
+      (AggregateAll(input, keys, op2), input_changed)
+    },
+  )
 }
 
 ///|

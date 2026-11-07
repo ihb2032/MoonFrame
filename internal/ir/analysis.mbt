@@ -18,8 +18,8 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
   // otherwise overflow and abort. Children pushed right-to-left so the
   // leftmost pops first — the set this walk builds preserves insertion
   // order (leftmost column first), one truth with the reversed push
-  // below; the docstring above nonetheless promises no order, so tests
-  // may read this order but no caller may lean on it.
+  // helper below; the docstring above nonetheless promises no order, so
+  // tests may read this order but no caller may lean on it.
   let stack : Array[ExprNode] = [self]
   for ;; {
     match stack.pop() {
@@ -29,17 +29,23 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
           Col(name) => acc.add(name)
           _ => ()
         }
-        // Reversed push, so the left-most child pops first — the set's
-        // insertion order reads left to right (an implementation fact the
-        // docstring above deliberately does not promise).
-        let children = e.children()
-        for i = children.length() - 1; i >= 0; i = i - 1 {
-          stack.push(children[i])
-        }
+        push_children_reversed(stack, e)
       }
     }
   }
   acc
+}
+
+///|
+/// Push a node's children right-to-left so the leftmost pops first — the
+/// reversed push both shape walks here share: `referenced_columns` keeps
+/// the set's insertion order reading left to right, and `leftmost_name`
+/// searches the left side first.
+fn push_children_reversed(stack : Array[ExprNode], e : ExprNode) -> Unit {
+  let children = e.children()
+  for i = children.length() - 1; i >= 0; i = i - 1 {
+    stack.push(children[i])
+  }
 }
 
 ///|
@@ -110,12 +116,7 @@ fn ExprNode::leftmost_name(self : ExprNode) -> String? {
           | IsIn(_, _)
           | IsBetween(_, _, _, _)
           | Map(_, _, _)
-          | MapBatches(_, _, _, _) => {
-            let children = e.children()
-            for i = children.length() - 1; i >= 0; i = i - 1 {
-              stack.push(children[i])
-            }
-          }
+          | MapBatches(_, _, _, _) => push_children_reversed(stack, e)
         }
     }
   }

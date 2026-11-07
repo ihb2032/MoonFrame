@@ -99,50 +99,45 @@
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.
 fn LogicalPlan::push_predicates(self : LogicalPlan) -> LogicalPlan {
-  let values : Array[LogicalPlan] = []
-  // The value risk (both dtype families) of each rebuilt subtree, stepped
-  // alongside the rebuild: a `Filter` consumes the risk of its
-  // already-rewritten input directly instead of re-walking the whole
-  // subtree for it (a stack of F filters paid one full walk each), and
-  // every rebuild step runs the same single-source `plan_risk_step` the
-  // standalone walk runs, so the incremental value and a fresh walk agree
-  // node for node.
-  let risks : Array[PlanRisk] = []
-  for node in self.post_order() {
-    match node {
-      Scan(_) => {
-        values.push(node)
-        risks.push(plan_risk_step(node, risks))
+  // The value risk (both dtype families) of each rebuilt subtree, threaded
+  // beside the plan through the shared rebuild's hooks: a `Filter`
+  // consumes the risk of its already-rewritten input directly instead of
+  // re-walking the whole subtree for it (a stack of F filters paid one
+  // full walk each), and every hook runs the same single-source risk
+  // steps the standalone walk runs, so the incremental value and a fresh
+  // walk agree node for node.
+  self.rebuild_postorder(
+    source => (Scan(source), risk_of_scan(source)),
+    (op, input_risk) => {
+      let (input, risk) = input_risk
+      // A `Filter` sinks into its rewritten input via `place_filter`;
+      // every other unary op is an identity rebuild over its
+      // already-rewritten child. A sunk predicate moves rows, never
+      // names: the output's risk is the input's, so the accumulator rides
+      // across unchanged.
+      match op {
+        Filter(predicate) =>
+          (input.place_filter(predicate, value_risk=flat_risk(risk)), risk)
+        _ => (Unary(input, op), risk_of_unary(op, risk))
       }
-      // A `Filter` sinks into its rewritten input via `place_filter`; every
-      // other unary op is an identity rebuild over its already-rewritten
-      // child. A sunk predicate moves rows, never names: the output's risk
-      // is the input's, so the accumulator rides across unchanged.
-      Unary(_, Filter(predicate)) => {
-        let input = pop_top(values)
-        let risk = pop_top(risks)
-        values.push(input.place_filter(predicate, value_risk=flat_risk(risk)))
-        risks.push(risk)
-      }
-      Unary(_, op) => {
-        values.push(Unary(pop_top(values), op))
-        risks.push(plan_risk_step(node, risks))
-      }
-      Join(_, _, options) => {
-        rejoin(values, options)
-        risks.push(plan_risk_step(node, risks))
-      }
-      Aggregate(_, keys, exprs) => {
-        values.push(Aggregate(pop_top(values), keys, exprs))
-        risks.push(plan_risk_step(node, risks))
-      }
-      AggregateAll(_, keys, op) => {
-        values.push(AggregateAll(pop_top(values), keys, op))
-        risks.push(plan_risk_step(node, risks))
-      }
-    }
-  }
-  pop_top(values)
+    },
+    (options, left, right) => {
+      let (l, l_risk) = left
+      let (r, r_risk) = right
+      (Join(l, r, options), risk_of_join(options, l_risk, r_risk))
+    },
+    (keys, exprs, below) => {
+      let (input, below_risk) = below
+      (
+        Aggregate(input, keys, exprs),
+        risk_of_aggregate(keys, exprs, below_risk),
+      )
+    },
+    (keys, op2, below) => {
+      let (input, below_risk) = below
+      (AggregateAll(input, keys, op2), below_risk)
+    },
+  ).0
 }
 
 ///|

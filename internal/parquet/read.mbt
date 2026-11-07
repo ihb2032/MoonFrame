@@ -84,37 +84,30 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   let schema : Array[SchemaElem] = []
   let mut num_rows = 0L
   let chunks : Array[RawChunk] = []
-  let mut last = 0
-  for ;; {
-    let header = match r.field_header(last) {
-      Some(h) => h
-      None => raise bad("the footer ends mid-field")
-    }
-    if header.wire is Stop {
-      break
-    }
-    last = header.id
-    match header.id {
-      2 => {
-        if !schema_read_list(r, schema) {
-          raise bad("the schema list is malformed")
+  if !walk_fields_raise(r, (id, wire) => {
+      match id {
+        2 => {
+          if !schema_read_list(r, schema) {
+            raise bad("the schema list is malformed")
+          }
+          refuse_nested_groups(schema)
         }
-        refuse_nested_groups(schema)
+        3 =>
+          match r.zigzag_i64() {
+            Some(v) => num_rows = v
+            None => raise bad("num_rows is malformed")
+          }
+        4 =>
+          if !row_groups_read(r, chunks) {
+            raise bad("the row group list is malformed")
+          }
+        _ =>
+          if !r.skip(wire) {
+            raise bad("the footer carries an undecodable field")
+          }
       }
-      3 =>
-        match r.zigzag_i64() {
-          Some(v) => num_rows = v
-          None => raise bad("num_rows is malformed")
-        }
-      4 =>
-        if !row_groups_read(r, chunks) {
-          raise bad("the row group list is malformed")
-        }
-      _ =>
-        if !r.skip(header.wire) {
-          raise bad("the footer carries an undecodable field")
-        }
-    }
+    }) {
+    raise bad("the footer ends mid-field")
   }
   // Pair each chunk with its schema element by column name; the root
   // element (index 0) is the schema's own head, not a column.
@@ -212,50 +205,61 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
     let mut num_children = 0
     let mut converted : Int32? = None
     let mut scale : Int32? = None
-    let mut last = 0
-    for ;; {
-      match r.field_header(last) {
-        None => return false
-        Some(h) =>
-          if h.wire is Stop {
-            break
-          } else {
-            last = h.id
-            match h.id {
-              1 =>
-                match r.zigzag_i32() {
-                  Some(v) => physical = v
-                  None => return false
-                }
-              3 =>
-                match r.zigzag_i32() {
-                  Some(v) => repetition = v
-                  None => return false
-                }
-              4 =>
-                match r.text() {
-                  Some(v) => name = v
-                  None => return false
-                }
-              5 =>
-                match r.zigzag_i32() {
-                  Some(v) => num_children = v
-                  None => return false
-                }
-              6 =>
-                match r.zigzag_i32() {
-                  Some(v) => converted = Some(v)
-                  None => return false
-                }
-              7 =>
-                match r.zigzag_i32() {
-                  Some(v) => scale = Some(v)
-                  None => return false
-                }
-              _ => if !r.skip(h.wire) { return false }
+    let walked = walk_fields(r, (id, wire) => {
+      match id {
+        1 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              physical = v
+              true
             }
+            None => false
           }
+        3 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              repetition = v
+              true
+            }
+            None => false
+          }
+        4 =>
+          match r.text() {
+            Some(v) => {
+              name = v
+              true
+            }
+            None => false
+          }
+        5 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              num_children = v
+              true
+            }
+            None => false
+          }
+        6 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              converted = Some(v)
+              true
+            }
+            None => false
+          }
+        7 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              scale = Some(v)
+              true
+            }
+            None => false
+          }
+        _ => r.skip(wire)
       }
+    })
+    if !walked {
+      return false
     }
     into.push({
       name,
@@ -297,6 +301,54 @@ fn list_header(r : ThriftReader, elem_want : Int32) -> Int32? {
 }
 
 ///|
+/// Walk one thrift struct's fields in arrival order, handing each field's
+/// id and wire type to `visit` until the Stop marker. `visit` returns
+/// false to refuse the struct (a malformed payload it failed to read);
+/// the walker itself refuses a reader that runs out mid-struct by
+/// returning false. One spelling of the protocol — headers arrive in
+/// ascending id order with the last seen id handed back to the reader,
+/// and a struct ends at its Stop marker — shared by every footer and
+/// page-header struct reader. The raising twin below carries the same
+/// walk for the readers whose visits raise.
+fn walk_fields(r : ThriftReader, visit : (Int32, WireType) -> Bool) -> Bool {
+  let mut last = 0
+  for ;; {
+    let header = match r.field_header(last) {
+      Some(h) => h
+      None => return false
+    }
+    if header.wire is Stop {
+      return true
+    }
+    last = header.id
+    if !visit(header.id, header.wire) {
+      return false
+    }
+  }
+}
+
+///|
+/// The raising twin of `walk_fields`, for the readers whose visits raise
+/// their own named refusals — the same walk, the same protocol.
+fn walk_fields_raise(
+  r : ThriftReader,
+  visit : (Int32, WireType) -> Unit raise @types.DataError,
+) -> Bool raise @types.DataError {
+  let mut last = 0
+  for ;; {
+    let header = match r.field_header(last) {
+      Some(h) => h
+      None => return false
+    }
+    if header.wire is Stop {
+      return true
+    }
+    last = header.id
+    visit(header.id, header.wire)
+  }
+}
+
+///|
 /// The row-group list (field 4's payload): every group's column chunks,
 /// concatenated in order — for the one group this reader walks. A file
 /// declaring more than one names a shape MoonFrame does not read yet:
@@ -316,24 +368,14 @@ fn row_groups_read(
     )
   }
   for _ in 0..<count {
-    let mut last = 0
-    for ;; {
-      match r.field_header(last) {
-        None => return false
-        Some(h) =>
-          if h.wire is Stop {
-            break
-          } else {
-            last = h.id
-            if h.id == 1 {
-              if !column_chunks_read(r, into) {
-                return false
-              }
-            } else if !r.skip(h.wire) {
-              return false
-            }
-          }
-      }
+    if !walk_fields(r, (id, wire) => {
+        if id == 1 {
+          column_chunks_read(r, into)
+        } else {
+          r.skip(wire)
+        }
+      }) {
+      return false
     }
   }
   true
@@ -347,24 +389,14 @@ fn column_chunks_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
     None => return false
   }
   for _ in 0..<count {
-    let mut last = 0
-    for ;; {
-      match r.field_header(last) {
-        None => return false
-        Some(h) =>
-          if h.wire is Stop {
-            break
-          } else {
-            last = h.id
-            if h.id == 3 {
-              if !column_meta_read(r, into) {
-                return false
-              }
-            } else if !r.skip(h.wire) {
-              return false
-            }
-          }
-      }
+    if !walk_fields(r, (id, wire) => {
+        if id == 3 {
+          column_meta_read(r, into)
+        } else {
+          r.skip(wire)
+        }
+      }) {
+      return false
     }
   }
   true
@@ -384,65 +416,79 @@ fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
   let mut data_page_offset = 0L
   let mut dictionary_page_offset = 0L
   let mut path = ""
-  let mut last = 0
-  for ;; {
-    match r.field_header(last) {
-      None => return false
-      Some(h) =>
-        if h.wire is Stop {
-          break
-        } else {
-          last = h.id
-          match h.id {
-            1 =>
-              match r.zigzag_i32() {
-                Some(v) => physical = v
-                None => return false
-              }
-            3 => {
-              let strings = match list_header(r, 8) {
-                Some(c) => c
-                None => return false
-              }
-              // The flat schema names exactly one path element; a
-              // nested path is a nested dtype this reader refuses.
-              if strings != 1 {
-                return false
-              }
-              match r.text() {
-                Some(v) => path = v
-                None => return false
-              }
-            }
-            4 =>
-              match r.zigzag_i32() {
-                Some(v) => codec = v
-                None => return false
-              }
-            5 =>
-              match r.zigzag_i64() {
-                Some(v) => num_values = v
-                None => return false
-              }
-            7 =>
-              match r.zigzag_i64() {
-                Some(v) => compressed = v
-                None => return false
-              }
-            9 =>
-              match r.zigzag_i64() {
-                Some(v) => data_page_offset = v
-                None => return false
-              }
-            11 =>
-              match r.zigzag_i64() {
-                Some(v) => dictionary_page_offset = v
-                None => return false
-              }
-            _ => if !r.skip(h.wire) { return false }
+  let walked = walk_fields(r, (id, wire) => {
+    match id {
+      1 =>
+        match r.zigzag_i32() {
+          Some(v) => {
+            physical = v
+            true
           }
+          None => false
         }
+      3 => {
+        let strings = match list_header(r, 8) {
+          Some(c) => c
+          None => return false
+        }
+        // The flat schema names exactly one path element; a
+        // nested path is a nested dtype this reader refuses.
+        if strings != 1 {
+          return false
+        }
+        match r.text() {
+          Some(v) => {
+            path = v
+            true
+          }
+          None => false
+        }
+      }
+      4 =>
+        match r.zigzag_i32() {
+          Some(v) => {
+            codec = v
+            true
+          }
+          None => false
+        }
+      5 =>
+        match r.zigzag_i64() {
+          Some(v) => {
+            num_values = v
+            true
+          }
+          None => false
+        }
+      7 =>
+        match r.zigzag_i64() {
+          Some(v) => {
+            compressed = v
+            true
+          }
+          None => false
+        }
+      9 =>
+        match r.zigzag_i64() {
+          Some(v) => {
+            data_page_offset = v
+            true
+          }
+          None => false
+        }
+      11 =>
+        match r.zigzag_i64() {
+          Some(v) => {
+            dictionary_page_offset = v
+            true
+          }
+          None => false
+        }
+      _ => r.skip(wire)
     }
+  })
+  if !walked {
+    return false
   }
   let pages_at = if dictionary_page_offset > 0 &&
     (data_page_offset == 0 || dictionary_page_offset < data_page_offset) {
@@ -563,7 +609,6 @@ fn decode_column(
     // One page header, parsed in place at the page's own offset.
     let r = thrift_reader(chunk_bytes)
     r.pos = at
-    let mut _uncompressed = 0
     let mut compressed_size = 0
     let mut page_type = 0
     let mut num_values = 0
@@ -572,173 +617,139 @@ fn decode_column(
     let mut def_len = 0
     let mut rep_len = 0
     let mut page_compressed = true
-    let mut last = 0
-    for ;; {
-      let h = match r.field_header(last) {
-        Some(h) => h
-        None => raise bad("a page header is malformed")
-      }
-      if h.wire is Stop {
-        break
-      }
-      last = h.id
-      match h.id {
-        1 =>
-          match r.zigzag_i32() {
-            Some(v) => page_type = v
-            None => raise bad("a page type is malformed")
-          }
-        2 =>
-          match r.zigzag_i32() {
-            Some(v) => _uncompressed = v
-            None => raise bad("a page size is malformed")
-          }
-        3 =>
-          match r.zigzag_i32() {
-            Some(v) => compressed_size = v
-            None => raise bad("a page size is malformed")
-          }
-        5 => {
-          // DataPageHeader (V1): num_values (1), encoding (2),
-          // definition_level_encoding (3). A page declaring its
-          // definition levels BIT_PACKED (4) names the deprecated
-          // pre-hybrid spelling — the level decoder walks the RLE /
-          // bit-packed hybrid only, so the page refuses naming the
-          // encoding instead of misreading the run.
-          let mut inner_last = 0
-          for ;; {
-            let hi = match r.field_header(inner_last) {
-              Some(h) => h
-              None => raise bad("a V1 page header is malformed")
+    if !walk_fields_raise(r, (id, wire) => {
+        match id {
+          1 =>
+            match r.zigzag_i32() {
+              Some(v) => page_type = v
+              None => raise bad("a page type is malformed")
             }
-            if hi.wire is Stop {
-              break
+          3 =>
+            match r.zigzag_i32() {
+              Some(v) => compressed_size = v
+              None => raise bad("a page size is malformed")
             }
-            inner_last = hi.id
-            match hi.id {
-              1 =>
-                match r.zigzag_i32() {
-                  Some(v) => num_values = v
-                  None => raise bad("a page count is malformed")
+          5 =>
+            // DataPageHeader (V1): num_values (1), encoding (2),
+            // definition_level_encoding (3). A page declaring its
+            // definition levels BIT_PACKED (4) names the deprecated
+            // pre-hybrid spelling — the level decoder walks the RLE /
+            // bit-packed hybrid only, so the page refuses naming the
+            // encoding instead of misreading the run.
+            if !walk_fields_raise(r, (inner_id, inner_wire) => {
+                match inner_id {
+                  1 =>
+                    match r.zigzag_i32() {
+                      Some(v) => num_values = v
+                      None => raise bad("a page count is malformed")
+                    }
+                  2 =>
+                    match r.zigzag_i32() {
+                      Some(v) => encoding = v
+                      None => raise bad("a page encoding is malformed")
+                    }
+                  3 =>
+                    match r.zigzag_i32() {
+                      Some(4) =>
+                        raise @types.DataError::Unsupported(
+                          "a V1 page of column \"\{chunk.name}\" declares BIT_PACKED definition levels, a deprecated encoding MoonFrame does not read",
+                        )
+                      Some(_) => ()
+                      None => raise bad("a V1 level encoding is malformed")
+                    }
+                  _ =>
+                    if !r.skip(inner_wire) {
+                      raise bad("a V1 page header is malformed")
+                    }
                 }
-              2 =>
-                match r.zigzag_i32() {
-                  Some(v) => encoding = v
-                  None => raise bad("a page encoding is malformed")
-                }
-              3 =>
-                match r.zigzag_i32() {
-                  Some(4) =>
-                    raise @types.DataError::Unsupported(
-                      "a V1 page of column \"\{chunk.name}\" declares BIT_PACKED definition levels, a deprecated encoding MoonFrame does not read",
-                    )
-                  Some(_) => ()
-                  None => raise bad("a V1 level encoding is malformed")
-                }
-              _ =>
-                if !r.skip(hi.wire) {
-                  raise bad("a V1 page header is malformed")
-                }
+              }) {
+              raise bad("a V1 page header is malformed")
             }
-          }
-        }
-        7 => {
-          // DictionaryPageHeader: encoding (1) and num_values (2); the
-          // body that follows is PLAIN over the whole value set.
-          let mut inner_last = 0
-          let mut dict_count = 0
-          let mut dict_encoding = 0
-          for ;; {
-            let hi = match r.field_header(inner_last) {
-              Some(h) => h
-              None => raise bad("a dictionary header is malformed")
+          7 => {
+            // DictionaryPageHeader: encoding (1) and num_values (2); the
+            // body that follows is PLAIN over the whole value set.
+            let mut dict_encoding = 0
+            if !walk_fields_raise(r, (inner_id, inner_wire) => {
+                match inner_id {
+                  1 =>
+                    match r.zigzag_i32() {
+                      Some(v) => dict_encoding = v
+                      None => raise bad("a dictionary encoding is malformed")
+                    }
+                  2 =>
+                    // The count names dictionary entries, not frame
+                    // rows — read past it and move on.
+                    match r.zigzag_i32() {
+                      Some(_) => ()
+                      None => raise bad("a dictionary count is malformed")
+                    }
+                  _ =>
+                    if !r.skip(inner_wire) {
+                      raise bad("a dictionary header is malformed")
+                    }
+                }
+              }) {
+              raise bad("a dictionary header is malformed")
             }
-            if hi.wire is Stop {
-              break
-            }
-            inner_last = hi.id
-            match hi.id {
-              1 =>
-                match r.zigzag_i32() {
-                  Some(v) => dict_encoding = v
-                  None => raise bad("a dictionary encoding is malformed")
-                }
-              2 =>
-                match r.zigzag_i32() {
-                  Some(v) => dict_count = v
-                  None => raise bad("a dictionary count is malformed")
-                }
-              _ =>
-                if !r.skip(hi.wire) {
-                  raise bad("a dictionary header is malformed")
-                }
+            if dict_encoding != 0 {
+              if dict_encoding != 2 && dict_encoding != 8 {
+                raise bad("a dictionary page carries an unsupported encoding")
+              }
             }
           }
-          if dict_encoding != 0 {
-            if dict_encoding != 2 && dict_encoding != 8 {
-              raise bad("a dictionary page carries an unsupported encoding")
-            }
-          }
-          ignore(dict_count)
-        }
-        8 => {
-          // DataPageHeaderV2: num_values (1), num_nulls (2), num_rows
-          // (3), encoding (4), definition_levels_byte_length (5),
-          // repetition_levels_byte_length (6), is_compressed (7).
-          v2 = true
-          let mut inner_last = 0
-          for ;; {
-            let hi = match r.field_header(inner_last) {
-              Some(h) => h
-              None => raise bad("a V2 page header is malformed")
-            }
-            if hi.wire is Stop {
-              break
-            }
-            inner_last = hi.id
-            match hi.id {
-              1 =>
-                match r.zigzag_i32() {
-                  Some(v) => num_values = v
-                  None => raise bad("a page count is malformed")
-                }
-              4 =>
-                match r.zigzag_i32() {
-                  Some(v) => encoding = v
-                  None => raise bad("a page encoding is malformed")
-                }
-              5 =>
-                match r.zigzag_i32() {
-                  Some(v) => def_len = v
-                  None => raise bad("a page level length is malformed")
-                }
-              6 =>
-                match r.zigzag_i32() {
-                  Some(v) => rep_len = v
-                  None => raise bad("a page level length is malformed")
-                }
-              7 =>
-                // The compact protocol's bool rides the field header's
-                // own type nibble — the wire type is the value. Any
-                // other wire a hostile header spells is skipped by its
-                // own type, the unknown-field rule.
-                match hi.wire {
-                  BoolTrue => page_compressed = true
-                  BoolFalse => page_compressed = false
-                  Stop | I32V | I64V | BinaryV | ListV | StructV =>
-                    if !r.skip(hi.wire) {
+          8 => {
+            // DataPageHeaderV2: num_values (1), num_nulls (2), num_rows
+            // (3), encoding (4), definition_levels_byte_length (5),
+            // repetition_levels_byte_length (6), is_compressed (7).
+            v2 = true
+            if !walk_fields_raise(r, (inner_id, inner_wire) => {
+                match inner_id {
+                  1 =>
+                    match r.zigzag_i32() {
+                      Some(v) => num_values = v
+                      None => raise bad("a page count is malformed")
+                    }
+                  4 =>
+                    match r.zigzag_i32() {
+                      Some(v) => encoding = v
+                      None => raise bad("a page encoding is malformed")
+                    }
+                  5 =>
+                    match r.zigzag_i32() {
+                      Some(v) => def_len = v
+                      None => raise bad("a page level length is malformed")
+                    }
+                  6 =>
+                    match r.zigzag_i32() {
+                      Some(v) => rep_len = v
+                      None => raise bad("a page level length is malformed")
+                    }
+                  7 =>
+                    // The compact protocol's bool rides the field header's
+                    // own type nibble — the wire type is the value. Any
+                    // other wire a hostile header spells is skipped by its
+                    // own type, the unknown-field rule.
+                    match inner_wire {
+                      BoolTrue => page_compressed = true
+                      BoolFalse => page_compressed = false
+                      Stop | I32V | I64V | BinaryV | ListV | StructV =>
+                        if !r.skip(inner_wire) {
+                          raise bad("a V2 page header is malformed")
+                        }
+                    }
+                  _ =>
+                    if !r.skip(inner_wire) {
                       raise bad("a V2 page header is malformed")
                     }
                 }
-              _ =>
-                if !r.skip(hi.wire) {
-                  raise bad("a V2 page header is malformed")
-                }
+              }) {
+              raise bad("a V2 page header is malformed")
             }
           }
+          _ => if !r.skip(wire) { raise bad("a page header is malformed") }
         }
-        _ => if !r.skip(h.wire) { raise bad("a page header is malformed") }
-      }
+      }) {
+      raise bad("a page header is malformed")
     }
     // `r.pos` is the chunk-relative offset past the header — where the
     // page body sits — and the walk's own offset advances past header

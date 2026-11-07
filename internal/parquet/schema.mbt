@@ -136,6 +136,21 @@ fn converted_tag(c : Converted) -> Int32 {
 }
 
 ///|
+/// The converted annotation a thrift schema row's value names, when it is
+/// one MoonFrame carries — the reading twin of `converted_tag`, so the
+/// tag values have one home the way `physical_tag` / `physical_from_tag`
+/// already do.
+fn converted_from_tag(tag : Int32) -> Converted? {
+  match tag {
+    0 => Some(Utf8C)
+    6 => Some(DateC)
+    10 => Some(TimestampMicrosC)
+    5 => Some(DecimalC)
+    _ => None
+  }
+}
+
+///|
 /// The `INT32` physical value from a thrift schema row, when it is one.
 fn physical_from_tag(tag : Int32) -> Physical? {
   match tag {
@@ -166,7 +181,18 @@ fn map_from_schema(
     Some(p) => p
     None => return None
   }
-  match (physical, converted_value) {
+  // An annotation the reader does not spell refuses the column outright —
+  // it must not fall back to the bare mapping, which would silently
+  // misread the annotated column as its physical dtype.
+  let converted = match converted_value {
+    None => None
+    Some(tag) =>
+      match converted_from_tag(tag) {
+        Some(c) => Some(c)
+        None => return None
+      }
+  }
+  match (physical, converted) {
     (Int32P, None) =>
       Some({ dtype: Int, physical: Int32P, converted: None, decimal_scale: -1, })
     (Int64P, None) =>
@@ -185,28 +211,28 @@ fn map_from_schema(
         converted: None,
         decimal_scale: -1,
       })
-    (ByteArrayP, Some(0)) =>
+    (ByteArrayP, Some(Utf8C)) =>
       Some({
         dtype: String,
         physical: ByteArrayP,
         converted: Some(Utf8C),
         decimal_scale: -1,
       })
-    (Int32P, Some(6)) =>
+    (Int32P, Some(DateC)) =>
       Some({
         dtype: Date,
         physical: Int32P,
         converted: Some(DateC),
         decimal_scale: -1,
       })
-    (Int64P, Some(10)) =>
+    (Int64P, Some(TimestampMicrosC)) =>
       Some({
         dtype: Timestamp,
         physical: Int64P,
         converted: Some(TimestampMicrosC),
         decimal_scale: -1,
       })
-    (Int64P, Some(5)) =>
+    (Int64P, Some(DecimalC)) =>
       // A DECIMAL over INT64: the scale names the dtype, the envelope
       // bounds it (an INT64 payload bounds the precision by
       // construction; a wider declared precision only misdescribes it).

@@ -353,17 +353,10 @@ fn ThriftWriter::write_zigzag(self : ThriftWriter, v : Int64) -> Unit {
 }
 
 ///|
-/// An unsigned LEB128 varint.
+/// An unsigned LEB128 varint, applied to this writer's buffer — the
+/// shared encoder the RLE/Boolean writer also uses.
 fn ThriftWriter::write_varint(self : ThriftWriter, v : UInt64) -> Unit {
-  let mut rest = v
-  for ;; {
-    if rest < 0x80UL {
-      self.buf.push(rest.to_byte())
-      break
-    }
-    self.buf.push(((rest & 0x7FUL) | 0x80UL).to_byte())
-    rest = rest >> 7
-  }
+  push_varint_bytes(self.buf, v)
 }
 
 ///|

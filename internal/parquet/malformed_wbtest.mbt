@@ -48,6 +48,29 @@ test "every truncated footer prefix refuses, never aborts" {
 }
 
 ///|
+test "a file whose leading magic is not PAR1 refuses" {
+  // A parquet file opens with the same magic it closes with; the head
+  // four bytes overwritten leave a file whose trailing half is whole,
+  // so only the leading check refuses it.
+  let columns : Array[@series.Series] = [@series.Series::from_ints("i", [1])]
+  let whole = write_parquet_bytes(columns, ["i"], Uncompressed)
+  let out = Bytes::makei(whole.length(), k => {
+    if k < 4 {
+      b"JUNK"[k]
+    } else {
+      whole[k]
+    }
+  })
+  let result = Ok(ignore(read_parquet_columns(out, None))) catch { e => Err(e) }
+  match result {
+    Ok(_) => fail("a file without the leading magic read as parquet")
+    Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(m))) =>
+      assert_true(m.contains("the leading magic is missing"))
+    Err(_) => fail("the refusal names a different shape than the magic's")
+  }
+}
+
+///|
 test "a schema element with a wrong list element type refuses" {
   // The schema list header naming a non-struct element type (here 5 =
   // i32) is the list-header mismatch arm.

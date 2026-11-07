@@ -60,8 +60,8 @@ fn bad(what : String) -> @types.DataError {
 }
 
 ///|
-/// Parse a whole parquet file's footer: the trailing magic, the length,
-/// the FileMetaData thrift, and the chunk→schema pairing.
+/// Parse a whole parquet file's footer: the magic at both ends, the
+/// length, the FileMetaData thrift, and the chunk→schema pairing.
 fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   let n = bytes.length()
   if n < 12 ||
@@ -70,6 +70,15 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
     bytes[n - 2] != b'R' ||
     bytes[n - 1] != b'1' {
     raise bad("not a parquet file: the trailing magic is missing")
+  }
+  // The format opens with the same magic it closes with — a reader that
+  // checked only the trailing half would accept any garbage prefixed to
+  // a legal file as though the file were parquet from byte zero.
+  if bytes[0] != b'P' ||
+    bytes[1] != b'A' ||
+    bytes[2] != b'R' ||
+    bytes[3] != b'1' {
+    raise bad("not a parquet file: the leading magic is missing")
   }
   let footer_len = le_i32(bytes, n - 8)
   if footer_len <= 0 || footer_len > n - 12 {

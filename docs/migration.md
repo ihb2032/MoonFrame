@@ -313,6 +313,14 @@ What has landed on `main`:
   unit). The thrift skipper reads a byte field (wire type 3) as its
   single raw byte rather than a varint whose continuation bit would
   swallow the next field header.
+- A foreign `DECIMAL` column's annotation now carries the format's own
+  envelope on read: the precision is required, one to eighteen digits
+  over the `INT64` payload, with the scale never past it — a file
+  declaring past that envelope (a missing precision, a precision of
+  zero or nineteen, a scale naming fraction digits the precision does
+  not hold) refuses the column instead of reading cells under an
+  annotation the payload cannot honour. Files MoonFrame writes have
+  always declared precision eighteen.
 - The chart export gains a browser page: `format_vega_html` /
   `write_vega_html` wrap the specification `format_vega_lite` emits in a
   standalone HTML document that loads the Vega runtime from three pinned

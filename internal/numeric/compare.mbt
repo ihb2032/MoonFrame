@@ -36,17 +36,17 @@ pub fn cmp_double_total(a : Double, b : Double) -> Int32 {
 /// reading (`@io`) both check before calling `Double::to_int64`, whose result
 /// is implementation-defined outside this range. Total.
 pub fn double_fits_int64(n : Double) -> Bool {
-  n >= min_int_as_double && n <= max_int_as_double
+  n >= MIN_INT_AS_DOUBLE && n <= MAX_INT_AS_DOUBLE
 }
 
 ///|
 /// `Int64::MIN = -2^63`, exactly representable as a `Double`.
-let min_int_as_double : Double = -9223372036854775808.0
+const MIN_INT_AS_DOUBLE : Double = -9223372036854775808.0
 
 ///|
 /// The largest `Double` strictly below `2^63` (`2^63 - 1024`) — the effective
 /// upper bound, since `Int64::MAX = 2^63 - 1` is not exactly representable.
-let max_int_as_double : Double = 9223372036854774784.0
+const MAX_INT_AS_DOUBLE : Double = 9223372036854774784.0
 
 ///|
 /// `a == b`, comparing an `Int64` and a `Double` **exactly** — no promotion to
@@ -70,7 +70,7 @@ pub fn int64_lt_double(a : Int64, b : Double) -> Bool {
     false
   } else if !double_fits_int64(b) {
     // `b >= 2^63` (or `+Inf`) ⟹ `a < b`; `b < -2^63` (or `-Inf`) ⟹ `a > b`.
-    b > max_int_as_double
+    b > MAX_INT_AS_DOUBLE
   } else {
     let bf = b.floor()
     let bi = bf.to_int64()
@@ -86,7 +86,7 @@ pub fn double_lt_int64(a : Double, b : Int64) -> Bool {
     false
   } else if !double_fits_int64(a) {
     // `a < -2^63` (or `-Inf`) ⟹ `a < b`; `a >= 2^63` (or `+Inf`) ⟹ `a > b`.
-    a < min_int_as_double
+    a < MIN_INT_AS_DOUBLE
   } else {
     a.floor().to_int64() < b
   }

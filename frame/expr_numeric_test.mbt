@@ -676,7 +676,7 @@ test "floor_div: Expr::to_string renders it with //" {
 // `floor_div_i64` routes division by `-1` through negation.
 
 ///|
-let i64_min : Int64 = -9223372036854775808L
+const I64_MIN : Int64 = -9223372036854775808L
 
 ///|
 /// The extremes fixture on the `Numeric` backend (`from_ints` is all-valid) and
@@ -684,7 +684,7 @@ let i64_min : Int64 = -9223372036854775808L
 /// has a fast path for the first and a nullable path for the second, so both
 /// have to be exercised.
 fn extremes(nullable : Bool) -> DataFrame raise @types.DataError {
-  let a = [i64_min, i64_min, -1L, 0L]
+  let a = [I64_MIN, I64_MIN, -1L, 0L]
   let b = [-1L, 1L, -1L, -1L]
   DataFrame::DataFrame(
     if nullable {
@@ -720,8 +720,8 @@ fn extremes_result(
 test "floor_div at Int64::MIN / -1 wraps instead of trapping" {
   // Rows: MIN // -1, MIN // 1, -1 // -1, 0 // -1.
   assert_eq(extremes_result((a, b) => a.floor_div(b)), [
-    @types.Scalar::Int(i64_min),
-    @types.Scalar::Int(i64_min),
+    @types.Scalar::Int(I64_MIN),
+    @types.Scalar::Int(I64_MIN),
     @types.Scalar::Int(1),
     @types.Scalar::Int(0),
   ])
@@ -771,7 +771,7 @@ test "modulo by -1 is zero for every dividend, like modulo by 1" {
   // The special case must agree with the general path wherever that path is
   // defined: `a % -1` and `a % 1` are both `0` for every `a`.
   let df = DataFrame::DataFrame([
-    Series::from_ints("a", [7L, -7L, 0L, 9223372036854775807L, i64_min]),
+    Series::from_ints("a", [7L, -7L, 0L, 9223372036854775807L, I64_MIN]),
   ])
   let out = df.select([
     @expr.col("a").modulo(@expr.lit_int(-1)).with_alias("m"),
@@ -785,23 +785,23 @@ test "modulo by -1 is zero for every dividend, like modulo by 1" {
 ///|
 test "neg / abs / mul wrap at Int64::MIN" {
   let wrapped = [
-    @types.Scalar::Int(i64_min),
-    @types.Scalar::Int(i64_min),
+    @types.Scalar::Int(I64_MIN),
+    @types.Scalar::Int(I64_MIN),
     @types.Scalar::Int(1),
     @types.Scalar::Int(0),
   ]
   // -a and a * b (b = -1 except row 1) are the same wrap.
   assert_eq(extremes_result((a, _) => -a), wrapped)
   assert_eq(extremes_result((a, b) => a * b), [
-    @types.Scalar::Int(i64_min),
-    @types.Scalar::Int(i64_min),
+    @types.Scalar::Int(I64_MIN),
+    @types.Scalar::Int(I64_MIN),
     @types.Scalar::Int(1),
     @types.Scalar::Int(0),
   ])
   // abs leaves MIN alone (no positive counterpart) and is identity on the rest.
   assert_eq(extremes_result((a, _) => a.abs()), [
-    @types.Scalar::Int(i64_min),
-    @types.Scalar::Int(i64_min),
+    @types.Scalar::Int(I64_MIN),
+    @types.Scalar::Int(I64_MIN),
     @types.Scalar::Int(1),
     @types.Scalar::Int(0),
   ])

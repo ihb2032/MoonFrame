@@ -151,9 +151,10 @@ fn encoding_channel(
   if channel.legend is Some(legend) && allows_legend_key(key) {
     ch["legend"] = vega_legend_ref_emit_json(legend)
   }
-  if channel.condition is Some(condition) &&
-    !(channel.value is Some(_)) &&
-    !is_secondary_key(key) {
+  // A set `value` already returned above (the value-definition arm), so a
+  // channel reaching here carries none — the condition key is purely the
+  // secondary-channel gate.
+  if channel.condition is Some(condition) && !is_secondary_key(key) {
     ch["condition"] = vega_condition_emit_json(condition)
   }
   if !is_secondary_key(key) {

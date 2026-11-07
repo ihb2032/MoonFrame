@@ -128,7 +128,7 @@ pub fn VegaBindRadioSelect::VegaBindRadioSelect(
     element,
     name,
     labels: match labels {
-      Some(l) => Some(l.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     options: options.copy(),
@@ -147,10 +147,7 @@ pub fn VegaBindRadioSelect::options(self : VegaBindRadioSelect) -> Array[Json] {
 pub fn VegaBindRadioSelect::labels(
   self : VegaBindRadioSelect,
 ) -> Array[String]? {
-  match self.labels {
-    Some(l) => Some(l.copy())
-    None => None
-  }
+  self.labels.map(l => l.copy())
 }
 
 ///|
@@ -305,11 +302,11 @@ pub fn VegaPointSelect::VegaPointSelect(
     on,
     clear,
     fields: match fields {
-      Some(f) => Some(f.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     encodings: match encodings {
-      Some(e) => Some(e.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     nearest,
@@ -321,19 +318,13 @@ pub fn VegaPointSelect::VegaPointSelect(
 ///|
 /// The projected fields, copied.
 pub fn VegaPointSelect::fields(self : VegaPointSelect) -> Array[String]? {
-  match self.fields {
-    Some(f) => Some(f.copy())
-    None => None
-  }
+  self.fields.map(f => f.copy())
 }
 
 ///|
 /// The projected encoding channels, copied.
 pub fn VegaPointSelect::encodings(self : VegaPointSelect) -> Array[String]? {
-  match self.encodings {
-    Some(e) => Some(e.copy())
-    None => None
-  }
+  self.encodings.map(e => e.copy())
 }
 
 ///|
@@ -377,7 +368,7 @@ pub fn VegaBrush::VegaBrush(
     stroke_opacity,
     stroke_width,
     stroke_dash: match stroke_dash {
-      Some(d) => Some(d.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     stroke_dash_offset,
@@ -388,10 +379,7 @@ pub fn VegaBrush::VegaBrush(
 ///|
 /// The brush dash list, copied.
 pub fn VegaBrush::stroke_dash(self : VegaBrush) -> Array[Double]? {
-  match self.stroke_dash {
-    Some(d) => Some(d.copy())
-    None => None
-  }
+  self.stroke_dash.map(d => d.copy())
 }
 
 ///|
@@ -435,11 +423,11 @@ pub fn VegaIntervalSelect::VegaIntervalSelect(
     zoom,
     mark,
     fields: match fields {
-      Some(f) => Some(f.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     encodings: match encodings {
-      Some(e) => Some(e.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     resolve,
@@ -449,10 +437,7 @@ pub fn VegaIntervalSelect::VegaIntervalSelect(
 ///|
 /// The projected fields, copied.
 pub fn VegaIntervalSelect::fields(self : VegaIntervalSelect) -> Array[String]? {
-  match self.fields {
-    Some(f) => Some(f.copy())
-    None => None
-  }
+  self.fields.map(f => f.copy())
 }
 
 ///|
@@ -460,10 +445,7 @@ pub fn VegaIntervalSelect::fields(self : VegaIntervalSelect) -> Array[String]? {
 pub fn VegaIntervalSelect::encodings(
   self : VegaIntervalSelect,
 ) -> Array[String]? {
-  match self.encodings {
-    Some(e) => Some(e.copy())
-    None => None
-  }
+  self.encodings.map(e => e.copy())
 }
 
 ///|
@@ -568,11 +550,11 @@ pub fn VegaSelectionParam::VegaSelectionParam(
     select,
     bind,
     value: match value {
-      Some(v) => Some(v.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     views: match views {
-      Some(v) => Some(v.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
   }
@@ -581,19 +563,13 @@ pub fn VegaSelectionParam::VegaSelectionParam(
 ///|
 /// The initial selection, copied.
 pub fn VegaSelectionParam::value(self : VegaSelectionParam) -> Array[Json]? {
-  match self.value {
-    Some(v) => Some(v.copy())
-    None => None
-  }
+  self.value.map(v => v.copy())
 }
 
 ///|
 /// The facet views the selection spans, copied.
 pub fn VegaSelectionParam::views(self : VegaSelectionParam) -> Array[String]? {
-  match self.views {
-    Some(v) => Some(v.copy())
-    None => None
-  }
+  self.views.map(v => v.copy())
 }
 
 ///|

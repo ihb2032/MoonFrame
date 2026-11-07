@@ -272,20 +272,14 @@ pub fn VegaLegend::VegaLegend(
 /// The `symbol_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaLegend::symbol_dash(self : VegaLegend) -> Array[Double]? {
-  match self.symbol_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.symbol_dash.map(a => a.copy())
 }
 
 ///|
 /// The `values` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaLegend::values(self : VegaLegend) -> Array[Json]? {
-  match self.values {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.values.map(a => a.copy())
 }
 
 ///|
@@ -713,198 +707,85 @@ pub fn VegaLegendConfig::VegaLegendConfig(
 /// The `symbol_dash` values, copied — reading the field itself
 /// would hand the caller the array the config holds.
 pub fn VegaLegendConfig::symbol_dash(self : VegaLegendConfig) -> Array[Double]? {
-  match self.symbol_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.symbol_dash.map(a => a.copy())
 }
 
 ///|
 /// The emitted JSON object of a `VegaLegendConfig`, every set property
 /// under its schema key.
 fn vega_legend_config_emit_json(x : VegaLegendConfig) -> Json {
-  let obj : Map[String, Json] = Map([])
-  if x.aria is Some(v) {
-    obj["aria"] = Json::boolean(v)
-  }
-  if x.clip_height is Some(v) {
-    obj["clipHeight"] = Json::number(v)
-  }
-  if x.column_padding is Some(v) {
-    obj["columnPadding"] = Json::number(v)
-  }
-  if x.columns is Some(v) {
-    obj["columns"] = Json::number(v)
-  }
-  if x.corner_radius is Some(v) {
-    obj["cornerRadius"] = Json::number(v)
-  }
-  if x.description is Some(v) {
-    obj["description"] = Json::string(v)
-  }
-  if x.direction is Some(v) {
-    obj["direction"] = Json::string(vega_direction_string(v))
-  }
-  if x.fill_color is Some(v) {
-    obj["fillColor"] = Json::string(v)
-  }
-  if x.gradient_length is Some(v) {
-    obj["gradientLength"] = Json::number(v)
-  }
-  if x.gradient_opacity is Some(v) {
-    obj["gradientOpacity"] = Json::number(v)
-  }
-  if x.gradient_stroke_color is Some(v) {
-    obj["gradientStrokeColor"] = Json::string(v)
-  }
-  if x.gradient_stroke_width is Some(v) {
-    obj["gradientStrokeWidth"] = Json::number(v)
-  }
-  if x.gradient_thickness is Some(v) {
-    obj["gradientThickness"] = Json::number(v)
-  }
-  if x.grid_align is Some(v) {
-    obj["gridAlign"] = Json::string(vega_layout_align_string(v))
-  }
-  if x.label_align is Some(v) {
-    obj["labelAlign"] = Json::string(vega_align_string(v))
-  }
-  if x.label_baseline is Some(v) {
-    obj["labelBaseline"] = Json::string(vega_baseline_string(v))
-  }
-  if x.label_color is Some(v) {
-    obj["labelColor"] = Json::string(v)
-  }
-  if x.label_font is Some(v) {
-    obj["labelFont"] = Json::string(v)
-  }
-  if x.label_font_size is Some(v) {
-    obj["labelFontSize"] = Json::number(v)
-  }
-  if x.label_font_style is Some(v) {
-    obj["labelFontStyle"] = Json::string(v)
-  }
-  if x.label_font_weight is Some(v) {
-    obj["labelFontWeight"] = vega_font_weight_emit_json(v)
-  }
-  if x.label_limit is Some(v) {
-    obj["labelLimit"] = Json::number(v)
-  }
-  if x.label_offset is Some(v) {
-    obj["labelOffset"] = Json::number(v)
-  }
-  if x.label_opacity is Some(v) {
-    obj["labelOpacity"] = Json::number(v)
-  }
-  if x.label_overlap is Some(v) {
-    obj["labelOverlap"] = vega_label_overlap_emit_json(v)
-  }
-  if x.label_padding is Some(v) {
-    obj["labelPadding"] = Json::number(v)
-  }
-  if x.label_separation is Some(v) {
-    obj["labelSeparation"] = Json::number(v)
-  }
-  if x.legend_x is Some(v) {
-    obj["legendX"] = Json::number(v)
-  }
-  if x.legend_y is Some(v) {
-    obj["legendY"] = Json::number(v)
-  }
-  if x.offset is Some(v) {
-    obj["offset"] = Json::number(v)
-  }
-  if x.orient is Some(v) {
-    obj["orient"] = Json::string(vega_legend_orient_string(v))
-  }
-  if x.padding is Some(v) {
-    obj["padding"] = Json::number(v)
-  }
-  if x.row_padding is Some(v) {
-    obj["rowPadding"] = Json::number(v)
-  }
-  if x.stroke_color is Some(v) {
-    obj["strokeColor"] = Json::string(v)
-  }
-  if x.symbol_dash is Some(v) {
-    obj["symbolDash"] = Json::array(v.map(fn(n) { Json::number(n) }))
-  }
-  if x.symbol_dash_offset is Some(v) {
-    obj["symbolDashOffset"] = Json::number(v)
-  }
-  if x.symbol_fill_color is Some(v) {
-    obj["symbolFillColor"] = Json::string(v)
-  }
-  if x.symbol_limit is Some(v) {
-    obj["symbolLimit"] = Json::number(v)
-  }
-  if x.symbol_offset is Some(v) {
-    obj["symbolOffset"] = Json::number(v)
-  }
-  if x.symbol_opacity is Some(v) {
-    obj["symbolOpacity"] = Json::number(v)
-  }
-  if x.symbol_size is Some(v) {
-    obj["symbolSize"] = Json::number(v)
-  }
-  if x.symbol_stroke_color is Some(v) {
-    obj["symbolStrokeColor"] = Json::string(v)
-  }
-  if x.symbol_stroke_width is Some(v) {
-    obj["symbolStrokeWidth"] = Json::number(v)
-  }
-  if x.symbol_type is Some(v) {
-    obj["symbolType"] = Json::string(v)
-  }
-  if x.tick_count is Some(v) {
-    obj["tickCount"] = vega_tick_interval_emit_json(v)
-  }
-  if x.title is Some(v) {
-    obj["title"] = Json::string(v)
-  }
-  if x.title_align is Some(v) {
-    obj["titleAlign"] = Json::string(vega_align_string(v))
-  }
-  if x.title_anchor is Some(v) {
-    obj["titleAnchor"] = Json::string(vega_anchor_string(v))
-  }
-  if x.title_baseline is Some(v) {
-    obj["titleBaseline"] = Json::string(vega_baseline_string(v))
-  }
-  if x.title_color is Some(v) {
-    obj["titleColor"] = Json::string(v)
-  }
-  if x.title_font is Some(v) {
-    obj["titleFont"] = Json::string(v)
-  }
-  if x.title_font_size is Some(v) {
-    obj["titleFontSize"] = Json::number(v)
-  }
-  if x.title_font_style is Some(v) {
-    obj["titleFontStyle"] = Json::string(v)
-  }
-  if x.title_font_weight is Some(v) {
-    obj["titleFontWeight"] = vega_font_weight_emit_json(v)
-  }
-  if x.title_limit is Some(v) {
-    obj["titleLimit"] = Json::number(v)
-  }
-  if x.title_line_height is Some(v) {
-    obj["titleLineHeight"] = Json::number(v)
-  }
-  if x.title_opacity is Some(v) {
-    obj["titleOpacity"] = Json::number(v)
-  }
-  if x.title_orient is Some(v) {
-    obj["titleOrient"] = Json::string(vega_title_orient_string(v))
-  }
-  if x.title_padding is Some(v) {
-    obj["titlePadding"] = Json::number(v)
-  }
-  if x.zindex is Some(v) {
-    obj["zindex"] = Json::number(v)
-  }
-  Json::object(obj)
+  // A config is the legend's own field set minus the six a config cannot
+  // carry, so its JSON is the legend's emission over the widened value —
+  // the six filled `None`, emitted by nothing — keeping one field-emission
+  // order instead of two that must be edited together.
+  vega_legend_emit_json({
+    aria: x.aria,
+    clip_height: x.clip_height,
+    column_padding: x.column_padding,
+    columns: x.columns,
+    corner_radius: x.corner_radius,
+    description: x.description,
+    direction: x.direction,
+    fill_color: x.fill_color,
+    format: None,
+    format_type: None,
+    gradient_length: x.gradient_length,
+    gradient_opacity: x.gradient_opacity,
+    gradient_stroke_color: x.gradient_stroke_color,
+    gradient_stroke_width: x.gradient_stroke_width,
+    gradient_thickness: x.gradient_thickness,
+    grid_align: x.grid_align,
+    label_align: x.label_align,
+    label_baseline: x.label_baseline,
+    label_color: x.label_color,
+    label_expr: None,
+    label_font: x.label_font,
+    label_font_size: x.label_font_size,
+    label_font_style: x.label_font_style,
+    label_font_weight: x.label_font_weight,
+    label_limit: x.label_limit,
+    label_offset: x.label_offset,
+    label_opacity: x.label_opacity,
+    label_overlap: x.label_overlap,
+    label_padding: x.label_padding,
+    label_separation: x.label_separation,
+    legend_x: x.legend_x,
+    legend_y: x.legend_y,
+    offset: x.offset,
+    orient: x.orient,
+    padding: x.padding,
+    row_padding: x.row_padding,
+    stroke_color: x.stroke_color,
+    symbol_dash: x.symbol_dash,
+    symbol_dash_offset: x.symbol_dash_offset,
+    symbol_fill_color: x.symbol_fill_color,
+    symbol_limit: x.symbol_limit,
+    symbol_offset: x.symbol_offset,
+    symbol_opacity: x.symbol_opacity,
+    symbol_size: x.symbol_size,
+    symbol_stroke_color: x.symbol_stroke_color,
+    symbol_stroke_width: x.symbol_stroke_width,
+    symbol_type: x.symbol_type,
+    tick_count: x.tick_count,
+    tick_min_step: None,
+    title: x.title,
+    title_align: x.title_align,
+    title_anchor: x.title_anchor,
+    title_baseline: x.title_baseline,
+    title_color: x.title_color,
+    title_font: x.title_font,
+    title_font_size: x.title_font_size,
+    title_font_style: x.title_font_style,
+    title_font_weight: x.title_font_weight,
+    title_limit: x.title_limit,
+    title_line_height: x.title_line_height,
+    title_opacity: x.title_opacity,
+    title_orient: x.title_orient,
+    title_padding: x.title_padding,
+    type_: None,
+    values: None,
+    zindex: x.zindex,
+  })
 }
 
 ///|

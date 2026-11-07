@@ -333,10 +333,7 @@ pub fn VegaMarkStyle::VegaMarkStyle(
 /// The `stroke_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaMarkStyle::stroke_dash(self : VegaMarkStyle) -> Array[Double]? {
-  match self.stroke_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.stroke_dash.map(a => a.copy())
 }
 
 ///|
@@ -540,7 +537,7 @@ fn vega_mark_style_emit_json(x : VegaMarkStyle) -> Json {
     obj["timeUnitBandSize"] = Json::number(v)
   }
   if x.tooltip is Some(v) {
-    obj["tooltip"] = json_identity(v)
+    obj["tooltip"] = v
   }
   if x.url is Some(v) {
     obj["url"] = Json::string(v)
@@ -549,16 +546,16 @@ fn vega_mark_style_emit_json(x : VegaMarkStyle) -> Json {
     obj["width"] = Json::number(v)
   }
   if x.x is Some(v) {
-    obj["x"] = json_identity(v)
+    obj["x"] = v
   }
   if x.x2 is Some(v) {
-    obj["x2"] = json_identity(v)
+    obj["x2"] = v
   }
   if x.y is Some(v) {
-    obj["y"] = json_identity(v)
+    obj["y"] = v
   }
   if x.y2 is Some(v) {
-    obj["y2"] = json_identity(v)
+    obj["y2"] = v
   }
   if x.bin_spacing is Some(v) {
     obj["binSpacing"] = Json::number(v)
@@ -701,10 +698,7 @@ pub fn VegaViewConfig::VegaViewConfig(
 /// The `stroke_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaViewConfig::stroke_dash(self : VegaViewConfig) -> Array[Double]? {
-  match self.stroke_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.stroke_dash.map(a => a.copy())
 }
 
 ///|
@@ -1135,55 +1129,37 @@ pub fn VegaRangeConfig::VegaRangeConfig(
 ///|
 /// The category color list, copied.
 pub fn VegaRangeConfig::category(self : VegaRangeConfig) -> Array[String]? {
-  match self.category {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.category.map(a => a.copy())
 }
 
 ///|
 /// The ordinal color list, copied.
 pub fn VegaRangeConfig::ordinal(self : VegaRangeConfig) -> Array[String]? {
-  match self.ordinal {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.ordinal.map(a => a.copy())
 }
 
 ///|
 /// The ramp color list, copied.
 pub fn VegaRangeConfig::ramp(self : VegaRangeConfig) -> Array[String]? {
-  match self.ramp {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.ramp.map(a => a.copy())
 }
 
 ///|
 /// The diverging color list, copied.
 pub fn VegaRangeConfig::diverging(self : VegaRangeConfig) -> Array[String]? {
-  match self.diverging {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.diverging.map(a => a.copy())
 }
 
 ///|
 /// The heatmap color list, copied.
 pub fn VegaRangeConfig::heatmap(self : VegaRangeConfig) -> Array[String]? {
-  match self.heatmap {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.heatmap.map(a => a.copy())
 }
 
 ///|
 /// The symbol list, copied.
 pub fn VegaRangeConfig::symbol(self : VegaRangeConfig) -> Array[String]? {
-  match self.symbol {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.symbol.map(a => a.copy())
 }
 
 ///|
@@ -1243,10 +1219,10 @@ pub fn VegaLocaleConfig::VegaLocaleConfig(
 fn vega_locale_config_emit_json(x : VegaLocaleConfig) -> Json {
   let obj : Map[String, Json] = Map([])
   if x.number is Some(v) {
-    obj["number"] = json_identity(v)
+    obj["number"] = v
   }
   if x.time is Some(v) {
-    obj["time"] = json_identity(v)
+    obj["time"] = v
   }
   Json::object(obj)
 }
@@ -1358,7 +1334,7 @@ pub fn VegaBoxPlotConfig::VegaBoxPlotConfig(
 fn vega_box_plot_config_emit_json(x : VegaBoxPlotConfig) -> Json {
   let obj : Map[String, Json] = Map([])
   if x.extent is Some(v) {
-    obj["extent"] = json_identity(v)
+    obj["extent"] = v
   }
   if x.box is Some(v) {
     obj["box"] = vega_mark_style_emit_json(v)
@@ -1418,7 +1394,7 @@ pub fn VegaErrorBarConfig::VegaErrorBarConfig(
 fn vega_error_bar_config_emit_json(x : VegaErrorBarConfig) -> Json {
   let obj : Map[String, Json] = Map([])
   if x.extent is Some(v) {
-    obj["extent"] = json_identity(v)
+    obj["extent"] = v
   }
   if x.rule is Some(v) {
     obj["rule"] = vega_mark_style_emit_json(v)
@@ -1472,7 +1448,7 @@ pub fn VegaErrorBandConfig::VegaErrorBandConfig(
 fn vega_error_band_config_emit_json(x : VegaErrorBandConfig) -> Json {
   let obj : Map[String, Json] = Map([])
   if x.extent is Some(v) {
-    obj["extent"] = json_identity(v)
+    obj["extent"] = v
   }
   if x.band is Some(v) {
     obj["band"] = vega_mark_style_emit_json(v)

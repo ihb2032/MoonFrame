@@ -137,20 +137,14 @@ pub extend ChartSpec with Debug::{to_repr}
 /// The parameter declarations, copied — reading the field itself would
 /// hand the caller the array the spec holds.
 pub fn ChartSpec::params(self : ChartSpec) -> Array[VegaParam]? {
-  match self.params {
-    Some(ps) => Some(ps.copy())
-    None => None
-  }
+  self.params.map(ps => ps.copy())
 }
 
 ///|
 /// The transform pipeline, copied — reading the field itself would
 /// hand the caller the array the spec holds.
 pub fn ChartSpec::transform(self : ChartSpec) -> Array[VegaTransform]? {
-  match self.transform {
-    Some(ts) => Some(ts.copy())
-    None => None
-  }
+  self.transform.map(ts => ts.copy())
 }
 
 ///|
@@ -220,6 +214,17 @@ fn empty_channel_spec(kind : ChartKind) -> ChartSpec {
 /// channel is the bar thickness, and `x2` / `y2` name the bar's far end
 /// for a ranged bar.
 ///
+
+///|
+/// The chrome a mark constructor hands the spec: a bare title string
+/// wrapped as the spec title, shared by every mark constructor so the
+/// wrapping is spelled once.
+fn opt_title(title : String?) -> VegaTitle? {
+  title.map(t => VegaTitle::Text(t))
+}
+
+///|
+/// The optional parameters carry the `ChartSpec` doc's channel contract.
 /// The optional parameters carry the `ChartSpec` doc's channel contract.
 pub fn ChartSpec::bar(
   x : VegaChannel,
@@ -246,10 +251,7 @@ pub fn ChartSpec::bar(
     detail,
     x2,
     y2,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -281,10 +283,7 @@ pub fn ChartSpec::line(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -317,10 +316,7 @@ pub fn ChartSpec::point(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -356,10 +352,7 @@ pub fn ChartSpec::area(
     detail,
     x2,
     y2,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -392,10 +385,7 @@ pub fn ChartSpec::tick(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -432,10 +422,7 @@ pub fn ChartSpec::rect(
     detail,
     x2,
     y2,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -473,10 +460,7 @@ pub fn ChartSpec::rule(
     detail,
     x2,
     y2,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -508,10 +492,7 @@ pub fn ChartSpec::circle(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -543,10 +524,7 @@ pub fn ChartSpec::square(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -578,10 +556,7 @@ pub fn ChartSpec::trail(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -614,10 +589,7 @@ pub fn ChartSpec::text(
     size,
     opacity,
     tooltip,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -649,10 +621,7 @@ pub fn ChartSpec::arc(
     tooltip,
     radius,
     radius2,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -680,10 +649,7 @@ pub fn ChartSpec::image(
     url: Some(url),
     opacity,
     tooltip,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -710,10 +676,7 @@ pub fn ChartSpec::geoshape(
     color,
     opacity,
     tooltip,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -744,10 +707,7 @@ pub fn ChartSpec::boxplot(
     size,
     opacity,
     tooltip,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -788,10 +748,7 @@ pub fn ChartSpec::errorbar(
     size,
     opacity,
     tooltip,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -832,10 +789,7 @@ pub fn ChartSpec::errorband(
     opacity,
     tooltip,
     detail,
-    title: match title {
-      Some(t) => Some(VegaTitle::Text(t))
-      None => None
-    },
+    title: opt_title(title),
     width,
     height,
   }
@@ -954,11 +908,11 @@ pub fn ChartSpec::of(
     projection,
     view,
     transform: match transform {
-      Some(ts) => Some(ts.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     params: match params {
-      Some(ps) => Some(ps.copy())
+      Some(a) => Some(a.copy())
       None => None
     },
     config,
@@ -1360,75 +1314,92 @@ fn put_concat_chrome(
 }
 
 ///|
-/// The facet spec's chrome and layout: alignment, bounds, centering,
-/// spacing, the wrap column count, the title block, the names, and the
-/// resolve block.
-fn put_facet_chrome(facet : VegaFacet, obj : Map[String, Json]) -> Unit {
-  if facet.align is Some(align) {
+/// The facet / repeat shared chrome and layout: alignment, bounds,
+/// centering, spacing, the wrap column count, the title block, the names,
+/// and the resolve block — the ten fields both compositions carry, emitted
+/// under their schema keys in one place. A facet and a repeat pass their
+/// own fields here; the emission order is written once.
+fn put_composition_chrome(
+  obj : Map[String, Json],
+  align : VegaAlignMode?,
+  bounds : VegaBounds?,
+  center : VegaCenter?,
+  spacing : VegaSpacing?,
+  columns : Double?,
+  name : String?,
+  description : String?,
+  title : VegaTitle?,
+  resolve : VegaResolve?,
+  transform : Array[VegaTransform]?,
+) -> Unit {
+  if align is Some(align) {
     obj["align"] = vega_align_mode_emit_json(align)
   }
-  if facet.bounds is Some(bounds) {
+  if bounds is Some(bounds) {
     obj["bounds"] = Json::string(vega_bounds_string(bounds))
   }
-  if facet.center is Some(center) {
+  if center is Some(center) {
     obj["center"] = vega_center_emit_json(center)
   }
-  if facet.spacing is Some(spacing) {
+  if spacing is Some(spacing) {
     obj["spacing"] = vega_spacing_emit_json(spacing)
   }
-  if facet.columns is Some(columns) {
+  if columns is Some(columns) {
     obj["columns"] = Json::number(columns)
   }
-  if facet.name is Some(name) {
+  if name is Some(name) {
     obj["name"] = Json::string(name)
   }
-  if facet.description is Some(description) {
+  if description is Some(description) {
     obj["description"] = Json::string(description)
   }
-  if facet.title is Some(title) {
+  if title is Some(title) {
     obj["title"] = vega_title_emit_json(title)
   }
-  if facet.resolve is Some(resolve) {
+  if resolve is Some(resolve) {
     obj["resolve"] = vega_resolve_emit_json(resolve)
   }
-  if facet.transform is Some(transforms) {
+  if transform is Some(transforms) {
     obj["transform"] = vega_transforms_emit_json(transforms)
   }
 }
 
 ///|
-/// The repeat spec's chrome and layout — the same set a facet carries.
+/// The facet spec's chrome and layout — the shared composition chrome
+/// over the facet's own fields.
+fn put_facet_chrome(facet : VegaFacet, obj : Map[String, Json]) -> Unit {
+  put_composition_chrome(
+    obj,
+    facet.align,
+    facet.bounds,
+    facet.center,
+    facet.spacing,
+    facet.columns,
+    facet.name,
+    facet.description,
+    facet.title,
+    facet.resolve,
+    facet.transform,
+  )
+}
+
+///|
+/// The repeat spec's chrome and layout — the shared composition chrome
+/// over the repeat's own fields (the same set a facet carries).
 fn put_repeat_chrome(repeat : VegaRepeat, obj : Map[String, Json]) -> Unit {
-  if repeat.align is Some(align) {
-    obj["align"] = vega_align_mode_emit_json(align)
-  }
-  if repeat.bounds is Some(bounds) {
-    obj["bounds"] = Json::string(vega_bounds_string(bounds))
-  }
-  if repeat.center is Some(center) {
-    obj["center"] = vega_center_emit_json(center)
-  }
-  if repeat.spacing is Some(spacing) {
-    obj["spacing"] = vega_spacing_emit_json(spacing)
-  }
-  if repeat.columns is Some(columns) {
-    obj["columns"] = Json::number(columns)
-  }
-  if repeat.name is Some(name) {
-    obj["name"] = Json::string(name)
-  }
-  if repeat.description is Some(description) {
-    obj["description"] = Json::string(description)
-  }
-  if repeat.title is Some(title) {
-    obj["title"] = vega_title_emit_json(title)
-  }
-  if repeat.resolve is Some(resolve) {
-    obj["resolve"] = vega_resolve_emit_json(resolve)
-  }
-  if repeat.transform is Some(transforms) {
-    obj["transform"] = vega_transforms_emit_json(transforms)
-  }
+  put_composition_chrome(
+    obj,
+    repeat.align,
+    repeat.bounds,
+    repeat.center,
+    repeat.spacing,
+    repeat.columns,
+    repeat.name,
+    repeat.description,
+    repeat.title,
+    repeat.resolve,
+    repeat.transform,
+  )
 }
 
 ///|

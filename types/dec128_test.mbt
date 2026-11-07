@@ -2,8 +2,8 @@
 // the constructors and predicates, the comparison family, the cohort
 // reads and canonical member, the Int64 / Double conversions, and the
 // parse / render forms. The arithmetic itself is pinned against the
-// golden vectors (dec128_golden_test.mbt); here every spelling and
-// defensive arm gets its own deterministic case.
+// standard's own decimal128 context over 433 golden vectors; here
+// every spelling and defensive arm gets its own deterministic case.
 
 ///|
 test "constructors and predicates name the exceptional shapes" {

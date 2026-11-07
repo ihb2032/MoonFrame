@@ -99,6 +99,8 @@ pub using @frame {type DataFrame}
 
 pub using @types {type DataType}
 
+pub using @types {type Dec128}
+
 pub using @expr {type Expr}
 
 pub using @types {type Field}

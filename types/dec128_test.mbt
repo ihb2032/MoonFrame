@@ -288,6 +288,34 @@ test "NaN inputs dominate every operation" {
 }
 
 ///|
+test "an infinity on either side of every operation reads its sign" {
+  let inf = @types.Dec128::infinity()
+  let ninf = @types.Dec128::infinity(neg=true)
+  let one = @types.Dec128::of_int64(1L)
+  let z = @types.Dec128::zero()
+  // Multiply: the finite side first — an infinity times a nonzero is
+  // the signed infinity, times a zero the NaN.
+  assert_true(one.mul(inf).is_infinite())
+  assert_true(one.mul(ninf).is_negative())
+  assert_true(z.mul(inf).is_nan())
+  assert_true(inf.mul(one).is_infinite())
+  assert_true(inf.mul(z).is_nan())
+  // Divide by an infinity: a finite (or zero) over it is a zero —
+  // signed by the pair's signs.
+  assert_true(one.div(inf).is_zero())
+  assert_true(one.div(ninf).is_negative())
+  assert_true(z.div(inf).is_zero())
+  // Add and subtract with the infinity on the right absorb — opposing
+  // infinities the NaN.
+  assert_true(one.add(inf).is_infinite())
+  assert_true(one.add(ninf).is_negative())
+  assert_true(inf.add(ninf).is_nan())
+  assert_true(one.sub(inf).is_negative())
+  assert_true(one.sub(ninf).is_infinite())
+  assert_true(inf.sub(inf).is_nan())
+}
+
+///|
 test "quantize passes the exceptionals and refuses impossible targets" {
   // NaN and ±∞ pass through as values — the round verb's contract.
   assert_true(@types.Dec128::nan().quantize(places=2).is_nan())

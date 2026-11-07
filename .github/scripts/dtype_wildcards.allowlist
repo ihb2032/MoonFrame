@@ -39,6 +39,9 @@ series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (
 series/reduce.mbt numeric_double_reader closure-parameter lines in the reader arms' bodies (i =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt reduce_arg_extremum the Bool order arm names its own comparator ((x, y) => …), a bare-binding line the scanner reads as a catch-all; the arm is exhaustive over Bool
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
 series/series.mbt typed_cells the catch-all decodes the cell or raises TypeMismatch — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_int the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_float the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced

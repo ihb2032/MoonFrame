@@ -464,9 +464,13 @@ pub fn read_csv(
 }
 
 ///|
-/// State of the strict CSV quote validator. The validator mirrors RFC-4180's
-/// field grammar without tokenising or allocating cells; NyaCSV remains the
-/// parser after this pass succeeds.
+/// State of the strict CSV quote validator. The validator mirrors the
+/// quote shapes of RFC-4180's field grammar — which characters may open,
+/// close, and appear inside a quoted field, the doubled-quote escape —
+/// without tokenising or allocating cells; NyaCSV remains the parser
+/// after this pass succeeds. (The grammar's printable-ASCII-only
+/// `TEXTDATA` restriction on unquoted fields is deliberately not
+/// enforced: real CSV files carry UTF-8 there.)
 priv enum CsvQuoteState {
   CsvFieldStart
   CsvUnquoted

@@ -16,11 +16,15 @@
 
 ///|
 /// `Some(days)` when `s` is the ISO date form `YYYY-MM-DD` the `Date`
-/// writer renders — an optional leading `-` for years before year 1,
-/// never on year 0 itself (its one form is the unsigned `0000`), a
-/// year of four or more digits, then two-digit month and day — naming a
-/// real calendar date; `None` for any other shape and for a month or day
-/// the calendar itself refuses (February 30th, a non-leap February 29th).
+/// writer renders — an optional leading sign (`-` for years before
+/// year 1, `+` for the positive years past the four-digit basic range,
+/// where it is the writer's own spelling), never on year 0 itself (its
+/// one form is the unsigned `0000`), a year of four or more digits (a
+/// bare run past four digits is the unsigned expanded spelling earlier
+/// writers emitted, and reads the same), then two-digit month and day —
+/// naming a real calendar date; `None` for any other shape and for a
+/// month or day the calendar itself refuses (February 30th, a non-leap
+/// February 29th).
 /// The last check is structural: the scanned `(year, month, day)` goes
 /// through `days_from_civil` and back through `date_days_to_civil`, and is
 /// accepted exactly when the round trip returns it unchanged — month
@@ -137,20 +141,31 @@ pub fn parse_decimal_unscaled_opt(s : String, scale : Int32) -> Int64? {
 
 ///|
 /// `Some((year, month, day, next))` for the ISO date prefix at the start —
-/// an optional `-`, four-or-more year digits, `-`, two month digits, `-`,
-/// two day digits — with `next` the index after the date; `None` for any
-/// other prefix, and for a `-` on year 0 itself (the writer emits year 0
-/// only unsigned). The month and day are range-screened here (`01`–`12`,
-/// `01`–`31`) so an out-of-range pair refuses without reaching the
-/// calendar round trip, which owns the finer rules.
+/// an optional sign (`-` before year 1, `+` on the positive expanded
+/// years past the four-digit basic range, where it is the writer's own
+/// spelling), four-or-more year digits (a bare run past four digits is
+/// the unsigned expanded spelling earlier writers emitted, and reads the
+/// same), `-`, two month digits, `-`, two day digits — with `next` the
+/// index after the date; `None` for any other prefix, for either sign on
+/// year 0 (the writer emits year 0 only unsigned), and for a `+` over a
+/// four-digit year (the basic range is spelled unsigned). The month and
+/// day are range-screened here (`01`–`12`, `01`–`31`) so an out-of-range
+/// pair refuses without reaching the calendar round trip, which owns the
+/// finer rules.
 fn scan_iso_date(s : String) -> (Int64, Int64, Int64, Int32)? {
   let n = s.length()
   let mut i = 0
-  let neg_year = if i < n && s[i] == '-' {
+  // The expanded form's sign: `-` for years before year 1, `+` for the
+  // positive years past the four-digit basic range (the writer's own
+  // spelling for them).
+  let mut sign = 0 // -1 negative, 1 expanded positive, 0 unsigned
+  if i < n && (s[i] == '-' || s[i] == '+') {
+    if s[i] == '-' {
+      sign = -1
+    } else {
+      sign = 1
+    }
     i = i + 1
-    true
-  } else {
-    false
   }
   let mut year = 0L
   let mut year_digits = 0
@@ -175,9 +190,16 @@ fn scan_iso_date(s : String) -> (Int64, Int64, Int64, Int32)? {
     return None
   }
   // Year 0 has one spelling, the unsigned `0000` — the writer's own, and
-  // ISO 8601's (a signed zero names no year) — so a `-` on an all-zero
-  // run refuses here rather than reading as a second spelling of it.
-  if neg_year && year == 0L {
+  // ISO 8601's (a signed zero names no year, either sign) — so a sign on
+  // an all-zero run refuses here rather than reading as a second
+  // spelling of it.
+  if sign != 0 && year == 0L {
+    return None
+  }
+  // The `+` is the expanded form's own sign: a year inside the basic
+  // range is spelled unsigned, so a plus over four digits is not the
+  // writer's form.
+  if sign > 0 && year_digits == 4 {
     return None
   }
   if i >= n || s[i] != '-' {
@@ -195,7 +217,7 @@ fn scan_iso_date(s : String) -> (Int64, Int64, Int64, Int32)? {
             if day < 1L || day > 31L {
               None
             } else {
-              let signed_year = if neg_year { -year } else { year }
+              let signed_year = if sign < 0 { -year } else { year }
               Some((signed_year, month, day, after_day))
             }
         }

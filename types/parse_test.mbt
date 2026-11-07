@@ -27,6 +27,26 @@ test "parse_date_days_opt round-trips the renderer" {
 }
 
 ///|
+test "parse_date_days_opt reads the expanded years in both spellings" {
+  // The writer spells a year past the four-digit basic range in the
+  // expanded form, sign first — `+10000-…` — and the parser reads that
+  // spelling back. The bare digits are the spelling earlier writers
+  // emitted (a legacy file's cell), value-identical, and read the same;
+  // the negative side always carried its sign.
+  assert_eq(@types.parse_date_days_opt("+10000-01-01"), Some(2_932_897L))
+  assert_eq(@types.parse_date_days_opt("10000-01-01"), Some(2_932_897L))
+  assert_eq(@types.parse_date_days_opt("+12345-06-15"), Some(3_789_556L))
+  assert_eq(@types.parse_date_days_opt("12345-06-15"), Some(3_789_556L))
+  assert_eq(@types.parse_date_days_opt("-194022-09-24"), Some(-71_584_342L))
+  // The timestamp reader composes the same date scan: the expanded year
+  // rides its clock half too.
+  assert_eq(
+    @types.parse_timestamp_micros_opt("+10000-01-01T00:00:00"),
+    Some(2_932_897L * 86_400_000_000L),
+  )
+}
+
+///|
 test "parse_date_days_opt refuses the non-forms and non-dates" {
   // Not the writer's shape.
   assert_eq(@types.parse_date_days_opt(""), None)
@@ -37,7 +57,9 @@ test "parse_date_days_opt refuses the non-forms and non-dates" {
   assert_eq(@types.parse_date_days_opt("2024-01-01 "), None) // trailing space
   assert_eq(@types.parse_date_days_opt(" 2024-01-01"), None)
   assert_eq(@types.parse_date_days_opt("2024-01-01T00:00:00.000000"), None) // a timestamp, not a date
-  assert_eq(@types.parse_date_days_opt("+2024-01-01"), None) // the writer carries no `+`
+  assert_eq(@types.parse_date_days_opt("+2024-01-01"), None) // a `+` rides the expanded years alone
+  assert_eq(@types.parse_date_days_opt("+0000-01-01"), None) // signed year zero — its one form is unsigned
+  assert_eq(@types.parse_date_days_opt("+00000-01-01"), None) // an all-zero run is year 0, either sign
   assert_eq(@types.parse_date_days_opt("-0000-01-01"), None) // signed year zero — its one form is unsigned
   assert_eq(@types.parse_date_days_opt("99999999999999999999-01-01"), None) // a year whose digits leave Int64
   // The calendar's own refusals.

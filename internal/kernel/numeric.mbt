@@ -203,14 +203,7 @@ fn decimal_arith(
       }
       match op {
         Some(v) => cells.push(Some(v))
-        None =>
-          raise decimal_arith_overflow(
-            match dec {
-              Add => "add"
-              Sub => "subtract"
-              Mul => "multiply"
-            },
-          )
+        None => raise decimal_arith_overflow(verb)
       }
     } else {
       cells.push(None)
@@ -459,15 +452,11 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
 /// quotient's own rounding joins. A null on either side nulls the cell; a
 /// decimal zero divides per IEEE like every other operand.
 fn decimal_div_float(left : Series, right : Series) -> Series? {
-  fn scale_of(d : @types.DataType) -> Int32? {
-    match d {
-      Decimal(s) => Some(s)
-      Int => Some(0)
-      // Every other dtype is the plain division path's own question.
-      Float | Bool | String | Date | Timestamp | Duration | Null => None
-    }
-  }
-  match (scale_of(left.dtype()), scale_of(right.dtype())) {
+  // The exact-arithmetic scale mapping (`decimal_arith_scale`) decides
+  // which pair reaches here; every other dtype is the plain division
+  // path's own question.
+  match
+    (decimal_arith_scale(left.dtype()), decimal_arith_scale(right.dtype())) {
     // A pure numeric pair is the plain path's own question.
     (Some(0), Some(0)) | (None, _) | (_, None) => None
     (Some(sa), Some(sb)) => {

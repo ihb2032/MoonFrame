@@ -297,46 +297,27 @@ pub fn eval_positional(
       }
       let cells = operand.to_scalars()
       let out : Array[@types.Scalar] = Array::makei(n, _ => @types.Scalar::Null)
-      // One pass per direction, carrying the nearest present value and the
-      // consecutive-null count since it — the walk a per-cell scan would
-      // redo, done once. A gap of `g` null slots fills when `g <= limit`
-      // (the nulls between the source and the target are `g`), always when
-      // there is no limit.
-      if backward {
-        let mut next : @types.Scalar? = None
-        let mut gap = 0
-        for i = n - 1; i >= 0; i = i - 1 {
-          if valid[i] {
-            out[i] = cells[i]
-            next = Some(cells[i])
-            gap = 0
-          } else {
-            gap = gap + 1
-            match (next, limit) {
-              (Some(v), None) => out[i] = v
-              (Some(v), Some(k)) => if gap <= k { out[i] = v }
-              (None, _) => ()
-            }
+      // One pass in the fill's own direction (the shared traversal),
+      // carrying the nearest present value and the consecutive-null count
+      // since it — the walk a per-cell scan would redo, done once. A gap
+      // of `g` null slots fills when `g <= limit` (the nulls between the
+      // source and the target are `g`), always when there is no limit.
+      let mut carried : @types.Scalar? = None
+      let mut gap = 0
+      visit(n, backward, i => {
+        if valid[i] {
+          out[i] = cells[i]
+          carried = Some(cells[i])
+          gap = 0
+        } else {
+          gap = gap + 1
+          match (carried, limit) {
+            (Some(v), None) => out[i] = v
+            (Some(v), Some(k)) => if gap <= k { out[i] = v }
+            (None, _) => ()
           }
         }
-      } else {
-        let mut last : @types.Scalar? = None
-        let mut gap = 0
-        for i in 0..<n {
-          if valid[i] {
-            out[i] = cells[i]
-            last = Some(cells[i])
-            gap = 0
-          } else {
-            gap = gap + 1
-            match (last, limit) {
-              (Some(v), None) => out[i] = v
-              (Some(v), Some(k)) => if gap <= k { out[i] = v }
-              (None, _) => ()
-            }
-          }
-        }
-      }
+      })
       @series.scalars_to_series(dtype, name, out)
     }
     @ir.PositionalOp::Rolling(stat, window, min_samples, center) =>

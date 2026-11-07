@@ -19,3 +19,10 @@ _coverage/
 *.coverage
 cobertura.xml
 coveralls.json
+
+# Local scratch for reading a `moon coverage analyze` dump (`_cov.txt` is
+# its tee target, the local spelling of /coverage-analyze.txt above). The
+# helper rode along in a commit once; this keeps the next local `git add`
+# from catching it again.
+/_cov_extract.py
+_cov.txt

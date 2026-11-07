@@ -177,6 +177,25 @@ fn reduce_arith(
 }
 
 ///|
+/// The missing-cell skip both extremum reducers read: present
+/// decided, the window position mapped through `at`.
+fn missing_skip(
+  present : (Int32) -> Bool,
+  at : (Int32) -> Int32,
+) -> (Int32) -> Bool {
+  k => !present(at(k))
+}
+
+///|
+/// The min-or-max comparator over a natively ordered cell type —
+/// `want_min` picks the direction. The `Bool` and string arms spell
+/// their own orders (`false < true`; the lexicographic comparator),
+/// not the native one.
+fn[T : Compare] cmp_better(want_min : Bool) -> (T, T) -> Bool {
+  (x, y) => if want_min { x < y } else { x > y }
+}
+
+///|
 /// `min` / `max` reducer over an index window (`want_min` picks which),
 /// keeping the source dtype. Total over every dtype — `Bool` orders
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
@@ -193,8 +212,8 @@ fn reduce_extremum(
     @column.ColumnData::I64(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a[at(k)]
-        let skip = k => !present(at(k))
-        let better = (x, y) => if want_min { x < y } else { x > y }
+        let skip = missing_skip(present, at)
+        let better = cmp_better(want_min)
         match @numeric.fold_extremum(n, get, skip, better) {
           // The extremum lifts through the dtype via the registry's rider
           // lift (`i64_rider_scalar`): a Date column min/maxes to a Date,
@@ -212,7 +231,7 @@ fn reduce_extremum(
         let get = k => a[at(k)]
         // `NaN` is treated as missing (skipped), as in `Series::min`.
         let skip = k => !present(at(k)) || a[at(k)].is_nan()
-        let better = (x, y) => if want_min { x < y } else { x > y }
+        let better = cmp_better(want_min)
         match @numeric.fold_extremum(n, get, skip, better) {
           Some(b) => @types.Scalar::Float(b)
           None => @types.Scalar::Null
@@ -221,7 +240,7 @@ fn reduce_extremum(
     @column.ColumnData::Bool(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a[at(k)]
-        let skip = k => !present(at(k))
+        let skip = missing_skip(present, at)
         // `false < true`: under min `false` beats `true`, under max reverse.
         let better = (x, y) => if want_min { !x && y } else { x && !y }
         match @numeric.fold_extremum(n, get, skip, better) {
@@ -232,7 +251,7 @@ fn reduce_extremum(
     @column.ColumnData::Utf8(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
         let get = k => a.get(at(k))
-        let skip = k => !present(at(k))
+        let skip = missing_skip(present, at)
         let better = (x, y) => {
           if want_min {
             @text.compare_string_lex(x, y) < 0
@@ -547,13 +566,12 @@ fn reduce_arg_extremum(
   match storage.data() {
     @column.ColumnData::I64(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
-        arg_extremum_of(n, k => a[at(k)], k => !present(at(k)), (x, y) => {
-          if want_min {
-            x < y
-          } else {
-            x > y
-          }
-        })
+        arg_extremum_of(
+          n,
+          k => a[at(k)],
+          missing_skip(present, at),
+          cmp_better(want_min),
+        )
       }
     @column.ColumnData::F64(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
@@ -562,7 +580,7 @@ fn reduce_arg_extremum(
           k => a[at(k)],
           // `NaN` is treated as missing (skipped), as in `reduce_extremum`.
           k => !present(at(k)) || a[at(k)].is_nan(),
-          (x, y) => if want_min { x < y } else { x > y },
+          cmp_better(want_min),
         )
       }
     @column.ColumnData::Bool(a) =>
@@ -570,7 +588,7 @@ fn reduce_arg_extremum(
         arg_extremum_of(
           n,
           k => a[at(k)],
-          k => !present(at(k)),
+          missing_skip(present, at),
           // `false < true`: under min `false` beats `true`, under max
           // reverse — `reduce_extremum`'s Bool order.
           (x, y) => if want_min { !x && y } else { x && !y },
@@ -578,7 +596,7 @@ fn reduce_arg_extremum(
       }
     @column.ColumnData::Utf8(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
-        arg_extremum_of(n, k => a.get(at(k)), k => !present(at(k)), (x, y) => {
+        arg_extremum_of(n, k => a.get(at(k)), missing_skip(present, at), (x, y) => {
           // `reduce_extremum`'s comparator (`compare_string_lex`), not the
           // native `String` order — the two disagree on length-mixed input
           // (the native order is shortlex), which would hand `arg_min` the

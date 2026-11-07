@@ -15,6 +15,17 @@ fn[T] fill_buffer(data : ArrayView[T], valid : Array[Bool], v : T) -> Array[T] {
 }
 
 ///|
+/// The every-arm refusal of `fill_null`: a fill value whose scalar
+/// dtype does not match the column it was handed.
+fn fill_mismatch(fill : String, actual : @types.DataType) -> @types.DataError {
+  @types.DataError::TypeMismatch(
+    @types.TypeMismatchDetail::Message(
+      "fill_null type \{fill} does not match column type \{actual}",
+    ),
+  )
+}
+
+///|
 /// Replace every null cell with `value`. `raise TypeMismatch(...)` if
 /// `value` is `Scalar::Null` (filling nulls with null is meaningless) or
 /// if its dtype differs from the series'. The returned series has a
@@ -54,12 +65,7 @@ pub fn Series::fill_null(
           let buf = fill_buffer(data, valid, v)
           Series::from_builtin(self.name, @column.BuiltinColumn::from_ints(buf))
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Int does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Int", self.dtype())
       }
     @types.Scalar::Float(v) =>
       match self.storage.data() {
@@ -70,12 +76,7 @@ pub fn Series::fill_null(
             @column.BuiltinColumn::from_floats(buf),
           )
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Float does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Float", self.dtype())
       }
     @types.Scalar::Bool(v) =>
       match self.storage.data() {
@@ -86,30 +87,18 @@ pub fn Series::fill_null(
             @column.BuiltinColumn::from_bools(buf),
           )
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Bool does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Bool", self.dtype())
       }
     @types.Scalar::String(v) =>
       match self.storage.data() {
         @column.ColumnData::Utf8(data) => {
-          let buf = data
-            .to_strings()
-            .mapi((i, x) => if valid[i] { x } else { v })
+          let buf = fill_buffer(data.to_strings().exact_view(), valid, v)
           Series::from_builtin(
             self.name,
             @column.BuiltinColumn::from_strings(buf),
           )
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type String does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("String", self.dtype())
       }
     // A Date value fills its own dtype only — gated on the column's *dtype*,
     // not the buffer variant: an Int column is also I64-typed, and filling it
@@ -120,12 +109,7 @@ pub fn Series::fill_null(
           let buf = fill_buffer(data, valid, v)
           Series::from_date_options(self.name, buf.map(x => Some(x)))
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Date does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Date", self.dtype())
       }
     // A Timestamp value fills its own dtype only — the Date rule over the
     // same buffer, with microseconds in place of day-counts.
@@ -136,12 +120,7 @@ pub fn Series::fill_null(
           let buf = fill_buffer(data, valid, v)
           Series::from_timestamp_options(self.name, buf.map(x => Some(x)))
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Timestamp does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Timestamp", self.dtype())
       }
     // A Duration value fills its own dtype only — the Timestamp rule over
     // the same buffer, a span in place of an instant.
@@ -152,12 +131,7 @@ pub fn Series::fill_null(
           let buf = fill_buffer(data, valid, v)
           Series::from_duration_options(self.name, buf.map(x => Some(x)))
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Duration does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Duration", self.dtype())
       }
     // A Decimal value fills its own dtype only — the Date rule over the same
     // buffer, with the scale carried by the dtype (the scalar's own scale
@@ -170,12 +144,7 @@ pub fn Series::fill_null(
           let buf = fill_buffer(data, valid, v)
           Series::from_decimal_options(scale, self.name, buf.map(x => Some(x)))
         }
-        _ =>
-          raise @types.DataError::TypeMismatch(
-            @types.TypeMismatchDetail::Message(
-              "fill_null type Decimal(\{scale}) does not match column type \{self.dtype()}",
-            ),
-          )
+        _ => raise fill_mismatch("Decimal(\{scale})", self.dtype())
       }
   }
   self.preserve_backend(filled)

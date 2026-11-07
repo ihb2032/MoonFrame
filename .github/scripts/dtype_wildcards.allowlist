@@ -104,11 +104,6 @@ series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (k =>), not match arms — the scanner is deliberately lexical
 series/series.mbt Series::has_nan only a Float column can hold a NaN, every other dtype answers false - the review point when a second floating dtype lands
 chart/chart.mbt chart_data_values the column is Duration-dtyped (checked above), so its cells are Duration or Null; the wildcard is the null

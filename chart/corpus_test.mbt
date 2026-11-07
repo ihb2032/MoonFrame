@@ -372,6 +372,32 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
       ),
     ),
     (
+      "layer_transform.json",
+      // The layer operator carries its own pipeline: the filter runs
+      // before the children render, so every member plots the filtered
+      // rows — the same wrapper-level `transform` the concat / facet /
+      // repeat corpus specs pin for their operators.
+      @chart.Chart::Layer(
+        @chart.VegaLayer::VegaLayer(
+          [
+            @chart.Chart::of(
+              @chart.ChartSpec::line(@chart.field("cat"), @chart.field("val")),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::point(@chart.field("val"), @chart.field("val")),
+            ),
+          ],
+          transform=[
+            @chart.VegaTransform::Filter(
+              @chart.VegaFilterTransform::VegaFilterTransform(
+                filter=@chart.VegaPredicate::Valid("val", true, None),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    (
       "facet_header.json",
       @chart.Chart::Facet(
         @chart.VegaFacet::VegaFacet(

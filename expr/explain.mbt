@@ -10,7 +10,12 @@
 /// **display syntax** (`//`, `%`, `**` — glyphs, not the `floor_div` /
 /// `modulo` / `pow` call sites they came from), while the postfix method
 /// renderings (`agg_suffix`, `write_str_suffix`) spell the *public method
-/// names* so a reader can copy an `explain` line back into code. The price
+/// names* — a name-level correspondence, not a call-level one: a suffix
+/// names the public method that built its node, but its arguments render in
+/// display syntax (`.rank(dense, descending)`, not the `how=` /
+/// `descending=true` spellings the call sites take), so an `explain` line
+/// is a legible diagnostic to match against a method, not text to paste
+/// back into code. The price
 /// of the second convention is that renaming a public `Expr` method does
 /// not rename its suffix here — a rename must update the suffix table in
 /// the same change, which no guard can force (the outputs are strings, and
@@ -198,20 +203,22 @@ fn push_write_tasks(stack : Array[WriteTask], expr : Expr) -> Unit {
     // `col(a).diff(1)` — the step count renders as a plain integer, the
     // default reading `diff()` itself spells.
     Diff(e, n) => [Node(Expr::of_node(e)), Frag(".diff(\{n})")]
-    // `col(a).clip(lower, upper)` — each side renders only when it exists,
-    // the omitted sides leaving the argument list shorter (and both omitted
-    // never reaching a node at all: the builder returns the operand).
+    // `col(a).clip(lo, hi)` — a two-sided clamp renders positionally, the
+    // two-argument call; a one-sided clamp names the side it keeps
+    // (`lower=` / `upper=`), so the lower-only and upper-only forms cannot
+    // render byte-identical (and both omitted never reaching a node at
+    // all: the builder returns the operand).
     Clip(x, lo, hi) => {
       let ts : Array[WriteTask] = [Node(Expr::of_node(x)), Frag(".clip(")]
-      let mut wrote = false
-      if lo is Some(l) {
+      if lo is Some(l) && hi is Some(h) {
         ts.push(Node(Expr::of_node(l)))
-        wrote = true
-      }
-      if hi is Some(h) {
-        if wrote {
-          ts.push(Frag(", "))
-        }
+        ts.push(Frag(", "))
+        ts.push(Node(Expr::of_node(h)))
+      } else if lo is Some(l) {
+        ts.push(Frag("lower="))
+        ts.push(Node(Expr::of_node(l)))
+      } else if hi is Some(h) {
+        ts.push(Frag("upper="))
         ts.push(Node(Expr::of_node(h)))
       }
       ts.push(Frag(")"))

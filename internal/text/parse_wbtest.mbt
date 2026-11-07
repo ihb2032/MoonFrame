@@ -73,3 +73,26 @@ test "parse_plain_double_opt classifies overflow vs invalid without matching std
   assert_eq(parse_plain_double_opt("."), None)
   assert_eq(parse_plain_double_opt("1abc"), None)
 }
+
+///|
+test "parse_plain_double_opt: underflow is a signed zero, not the overflow arm" {
+  // A magnitude below the smallest subnormal comes back as `0.0` through
+  // the core's success path — the premise the structural overflow split
+  // sits on. If the core ever flipped underflow to an ERANGE-style
+  // failure, the catch arm below would answer `+Infinity` for a value
+  // that underflows; this pin turns that silent flip into a red test.
+  assert_eq(parse_plain_double_opt("1e-999"), Some(0.0))
+  // A leading `+` is a valid finite-decimal spelling, so a `+`-signed
+  // overflowing magnitude rides the catch arm's positive side — the same
+  // branch as `1e999`, never the `-Infinity` a leading `-` takes.
+  assert_eq(parse_plain_double_opt("+1e999"), Some(@double.infinity))
+}
+
+///|
+test "is_finite_decimal_literal: digits on one side of the point are enough" {
+  // The grammar accepts a bare fraction and a trailing point — each has at
+  // least one mantissa digit — while a lone point has none.
+  assert_eq(is_finite_decimal_literal(".5"), true)
+  assert_eq(is_finite_decimal_literal("1."), true)
+  assert_eq(is_finite_decimal_literal("."), false)
+}

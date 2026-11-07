@@ -30,6 +30,11 @@
 // preserves its digits in `Number.repr`). So a full-range `Int64` round-trips
 // exactly, dtype and value intact — only an external JSON integer beyond
 // `Int64`'s own range (|v| ≥ 2^63) is unrepresentable and infers as `Float`.
+// The exact recovery rides the integer *spelling*: `@json.parse` preserves
+// `repr` only for an integer text, so an integral value beyond 2^53 spelled
+// with a decimal point or an exponent (`9007199254740993.0`,
+// `9.007199254740993e15`) parses straight to its nearest `Double` — the
+// value it rounded to, not the digits it spelled — and reads back as that.
 // When such a large integer lands in a `Float` column instead (a sibling cell
 // is fractional, so inference picks `Float`), `json_value_as_float` likewise
 // recovers the nearest finite `Double` from the preserved digits rather than

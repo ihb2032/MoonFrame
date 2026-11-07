@@ -378,6 +378,12 @@ pub fn DataFrame::null_count(
 ///   distinct value
 /// - `mean` (`Float`, nullable): arithmetic mean for numeric columns;
 ///   `Null` for non-numeric or empty / all-null numeric columns
+/// - `25%` (`Float`, nullable): first quartile, linear-interpolated;
+///   `Null` for non-numeric or empty / all-null columns, like the mean
+/// - `50%` (`Float`, nullable): median (the second quartile),
+///   linear-interpolated, nulled on the same conditions as the mean
+/// - `75%` (`Float`, nullable): third quartile, linear-interpolated,
+///   nulled on the same conditions as the mean
 /// - `min` (`String`, nullable): minimum cell rendered via
 ///   `Scalar::to_string`; `Null` for empty / all-null columns
 /// - `max` (`String`, nullable): maximum cell rendered via

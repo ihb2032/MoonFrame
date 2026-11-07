@@ -20,6 +20,14 @@
 // The wildcard-free matches are load-bearing and stay that way: a variant
 // added to `ExprNode` fails to compile here until its case is written, which
 // is what keeps the coverage guard beside it honest.
+//
+// The relation compares `Float` payloads by IEEE semantics — `NaN` is not
+// equal to itself, and `-0.0` equals `0.0`. That is a boundary of this test
+// infrastructure, not a contract of the package: the `Show` renderer the
+// package's other assertions read deliberately distinguishes the two zeros
+// (`lit_float(-0.0)` renders `-0.0`, `lit_float(0.0)` renders `0.0`), so two
+// trees can compare equal here and render apart there — neither half may be
+// quoted as the other's semantics.
 
 ///|
 /// Structural equality, handwritten because the `Map` / `MapBatches` closures

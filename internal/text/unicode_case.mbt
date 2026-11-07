@@ -156,13 +156,13 @@ pub fn map_case(s : String, upper~ : Bool) -> String {
 
 ///|
 /// One character's case mapping appended to `buf`: ASCII takes the
-/// arithmetic arm — the two lookup tables hold no ASCII *source* rows
-/// (ASCII case is one-to-one and unconditional, `a`-`z` and `A`-`Z` are
-// 32 apart, every other ASCII code point is its own mapping) — and the
-// rest of the range consults the special expansions, then the simple
-
-///|
-/// table.
+/// arithmetic arm — the special tables hold no ASCII *source* rows, so
+/// the fast path answers before either lookup is consulted, and the
+/// simple tables' own 26 ASCII letter rows are exactly what the
+/// arithmetic computes (ASCII case is one-to-one and unconditional,
+/// `a`-`z` and `A`-`Z` are 32 apart, every other ASCII code point is its
+/// own mapping) — and the rest of the range consults the special
+/// expansions, then the simple table.
 fn append_case_char(
   buf : StringBuilder,
   specials : Array[(UInt32, Array[UInt32])],

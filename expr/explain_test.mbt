@@ -1,7 +1,7 @@
 ///|
 /// Blackbox snapshots for the handwritten `Show` / `explain` rendering and
-/// behaviour tests for the introspection primitive `children` and the pair
-/// `referenced_columns` / `output_name` built on it. Every rendering arm — the twelve binary symbols, six
+/// behaviour tests for the introspection pair `referenced_columns` /
+/// `output_name`. Every rendering arm — the fourteen binary symbols, six
 /// unary forms, the aggregation suffixes (the parameterised `quantile`
 /// included), cast / alias / ternary, and
 /// each literal kind — is pinned here (the numeric `//` / `%` / `**` and `abs`…`round` arms render-test in `frame`), since `explain` output is demo-
@@ -42,6 +42,11 @@ test "show: every binary operator symbol" {
   inspect(a.ge(b), content="(col(a) >= col(b))")
   inspect(a & b, content="(col(a) & col(b))")
   inspect(a | b, content="(col(a) | col(b))")
+  // The two-argument math pair rides `Binary` too, rendered as the word
+  // form of its function — pinned here so a respelling (`atan_2`) fails
+  // the build rather than silently drifting the plan lines.
+  inspect(a.atan2(b), content="(col(a) atan2 col(b))")
+  inspect(a.hypot(b), content="(col(a) hypot col(b))")
 }
 
 ///|
@@ -492,7 +497,7 @@ test "lit_series: output_name is the series name, an alias overrides it" {
 
 ///|
 /// The null-toolbox suffixes: the directional fills (the limit shown when
-/// set), the finiteness probes, and `clip`'s when-composition rendering.
+/// set), the finiteness probes, and `clip`'s dedicated-node rendering.
 test "show: the fill probes and clip render" {
   inspect(col("v").forward_fill(), content="col(v).forward_fill()")
   inspect(col("v").forward_fill(limit=2), content="col(v).forward_fill(2)")
@@ -500,15 +505,22 @@ test "show: the fill probes and clip render" {
   inspect(col("v").backward_fill(limit=3), content="col(v).backward_fill(3)")
   inspect(col("v").is_finite(), content="col(v).is_finite()")
   inspect(col("v").is_infinite(), content="col(v).is_infinite()")
-  // `clip` is the clip_min-then-clip_max composition, so it renders as
-  // one — the inner when lifts below-lower cells, the outer one presses
-  // everything above upper (the lifted included) back down.
+  // A two-sided clamp renders as the positional two-argument call; a
+  // one-sided clamp names the side it keeps, so the two one-sided forms
+  // cannot render alike.
   inspect(
     col("v").clip(lower=lit_int(2), upper=lit_int(7)),
     content=(
       #|col(v).clip(2, 7)
     ),
   )
+  inspect(col("v").clip(lower=lit_int(2)), content="col(v).clip(lower=2)")
+  inspect(col("v").clip(upper=lit_int(7)), content="col(v).clip(upper=7)")
+  // The same bound on the two sides renders differently — the ambiguity
+  // the side labels exist to close.
+  let lower_only = col("v").clip(lower=lit_int(5)).to_string()
+  let upper_only = col("v").clip(upper=lit_int(5)).to_string()
+  assert_true(lower_only != upper_only)
 }
 
 ///|

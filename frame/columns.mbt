@@ -60,9 +60,10 @@ pub fn DataFrame::with_columns(
   let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
-    // The duplicate is reported before the length contract is consulted —
-    // `select`'s order for the same input — so a second expression that is
-    // both renamed and mis-sized answers as the duplicate it is.
+    // The duplicate is reported before the expression is evaluated and
+    // the length contract consulted — `select`'s order for the same input
+    // — so a second expression that is both renamed and mis-sized answers
+    // as the duplicate it is.
     let name = expr.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)

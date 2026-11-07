@@ -4,9 +4,12 @@
 // do not edit by hand; regenerate. The simple tables are fields 13 / 14,
 // one code point to one code point, sorted by source code point for the
 // binary searches below. The special tables are SpecialCasing's
-// unconditional full mappings — one-to-many expansions, or a
-// many-to-one lowercase fold the simple mapping cannot spell —
-// with the conditional (locale) lines skipped. The range tables are
+// unconditional entries whose mapping is not the identity — the
+// one-to-many expansions above all, plus one-to-one lowercase entries
+// that repeat the simple mapping (a repeat answers the same as the
+// simple table does; the generator's condition is not-identity, not
+// differs-from-simple) — with the conditional (locale) lines skipped.
+// The range tables are
 // the derived properties Final_Sigma reads (Cased, Case_Ignorable).
 // 1525/1508 simple, 103/28 special, 180/524 range entries.
 

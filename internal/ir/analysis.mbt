@@ -15,8 +15,11 @@
 pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
   let acc : @set.Set[String] = @set.Set([])
   // Explicit heap stack (not the call stack): a deeply nested tree would
-  // otherwise overflow and abort. Children pushed right-to-left so the leftmost
-  // pops first; for a `Set` the visit order is not observable anyway.
+  // otherwise overflow and abort. Children pushed right-to-left so the
+  // leftmost pops first — the set this walk builds preserves insertion
+  // order (leftmost column first), one truth with the reversed push
+  // below; the docstring above nonetheless promises no order, so tests
+  // may read this order but no caller may lean on it.
   let stack : Array[ExprNode] = [self]
   for ;; {
     match stack.pop() {
@@ -27,7 +30,8 @@ pub fn ExprNode::referenced_columns(self : ExprNode) -> @set.Set[String] {
           _ => ()
         }
         // Reversed push, so the left-most child pops first — the set's
-        // insertion order (its output contract) reads left to right.
+        // insertion order reads left to right (an implementation fact the
+        // docstring above deliberately does not promise).
         let children = e.children()
         for i = children.length() - 1; i >= 0; i = i - 1 {
           stack.push(children[i])

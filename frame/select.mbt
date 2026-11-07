@@ -33,8 +33,10 @@
 /// Naming follows `with_columns`: each column takes its expression's
 /// output name (alias, else leftmost column reference, else `"literal"`),
 /// and a name produced twice raises `DuplicateColumn` at the second
-/// expression — errors surface in expression order, before later
-/// expressions are evaluated. `select([])` is the projection to zero
+/// expression — checked before that expression is evaluated and in
+/// expression order, the same name-before-evaluation order `with_columns`
+/// keeps, so one list reports the same error through either verb.
+/// `select([])` is the projection to zero
 /// columns, and like any projection it keeps the frame's height: the result
 /// is `self.nrows() × 0`.
 ///
@@ -51,12 +53,16 @@ pub fn DataFrame::select(
   let source_fields = self.schema.fields()
   let seen : Map[String, Unit] = Map([])
   for expr in exprs {
-    let column = eval_expr(expr, self, scope)
+    // The name is claimed before the expression runs — `with_columns`'s
+    // order for the same list — so a duplicate surfaces as the duplicate
+    // it is even when the second expression would also fail to evaluate
+    // (an unknown column, say): one list, one error, either verb.
     let name = expr.output_name()
     if seen.contains(name) {
       raise @types.DataError::DuplicateColumn(name)
     }
     seen[name] = ()
+    let column = eval_expr(expr, self, scope)
     fields.push(self.carried_field(source_fields, expr, column, name))
     evaluated.push(column.rename(name))
   }

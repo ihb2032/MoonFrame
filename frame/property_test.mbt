@@ -128,3 +128,44 @@ test "property: group_by loses no rows" {
     assert_true(prop_group_by_no_row_loss(xs))
   }
 }
+
+///|
+/// The same no-loss partition over a **nullable** key column: a null key
+/// forms its own group under `group_by`, so its rows count toward the total
+/// exactly like a value key's — the null-key group is a group, not a row
+/// the partition drops. (The sort properties keep their non-null domain:
+/// their ordered-read assertion patterns a present `Int` cell, which a null
+/// key would legitimately fail.)
+fn prop_group_by_no_row_loss_nullable(keys : Array[Int64?]) -> Bool {
+  let n = keys.length()
+  try {
+    let df = DataFrame::DataFrame([
+      Series::from_int_options("k", keys),
+      Series::from_ints("ones", Array::make(n, (1 : Int64))),
+    ])
+    let summed = df
+      .group_by([@expr.col("k")])
+      .agg([@expr.col("ones").sum().with_alias("ones_sum")])
+      .get_column("ones_sum")
+      .sum()
+    summed == @types.Scalar::Int(n.to_int64())
+  } catch {
+    _ => false
+  }
+}
+
+///|
+test "property: group_by loses no rows, null keys included" {
+  // The key generator mixes nulls into the same small domain, so the null
+  // group and value groups collide across generated frames.
+  let key = @gen.one_of([
+    @gen.pure(None),
+    @gen.int_range(0, 5).map(k => Some(k.to_int64())),
+  ])
+  for
+    keys in @gen.int_range(1, 30)
+    .flat_map(n => key.array_with_size(n))
+    .samples(count=100, seed=37UL) {
+    assert_true(prop_group_by_no_row_loss_nullable(keys))
+  }
+}

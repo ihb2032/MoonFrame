@@ -880,8 +880,11 @@ pub fn Expr::rolling_median(
 /// The `ewm_*` family's shared doc — the three verbs differ only in the
 /// statistic, so their contract is stated once: each output cell is the
 /// exponentially-weighted statistic of every value up to that row, blended
-/// by `alpha ∈ (0, 1]` — exactly one of `span~` (`alpha = 2 / (span + 1)`,
-/// `span > 1`) or `alpha~` must be given, and `adjust~` (default `true`)
+/// by `alpha ∈ (0, 1]` — given as `span~` (`alpha = 2 / (span + 1)`,
+/// `span > 1`) or `alpha~`, at least one of the two; when both are given,
+/// `span~` wins and `alpha~` is ignored (the builder reads `alpha~` only
+/// when no `span~` was given, so a double-set build is exactly the
+/// span-only tree). `adjust~` (default `true`)
 /// keeps the earlier samples' full weight (the recursive blend is the
 /// `adjust=false` form). A null cell nulls the output but the recurrence
 /// carries per `ignore_nulls~`: `true` (not the default) skips the cell
@@ -901,8 +904,11 @@ fn Expr::ewm_of(
   min_samples~ : Int32,
   ignore_nulls~ : Bool,
 ) -> Expr {
+  // Span first, alpha only when no span was given — the two-`Some` case
+  // keeps a defined winner rather than dropping both into the `0.0`
+  // sentinel, where it would be indistinguishable from neither-given.
   let a = match (span, alpha) {
-    (Some(s), None) => Some(2.0 / (s + 1.0))
+    (Some(s), _) => Some(2.0 / (s + 1.0))
     (None, Some(a)) => Some(a)
     _ => None
   }

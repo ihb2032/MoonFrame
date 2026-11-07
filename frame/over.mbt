@@ -67,9 +67,12 @@ fn eval_over(
     }
   }
   // Stitch: each group's result lands back at the group's own rows, a
-  // length-1 result broadcast within the group. Every group evaluates the
-  // same expression, so the dtypes agree and the first group's fixes the
-  // output column's.
+  // length-1 result broadcast within the group. Groups evaluate the same
+  // expression, but a `map` closure can answer a different dtype per
+  // group — the stitch below promotes an `Int`/`Float` disagreement and
+  // nulls any other cell it cannot express, the grouped `agg` rule, so
+  // the first group's dtype survives only as the all-null fallback's
+  // witness.
   let mut dtype = @types.DataType::Null
   let mut first = true
   let cells : Array[@types.Scalar] = Array::makei(n, _ => @types.Scalar::Null)
@@ -90,7 +93,19 @@ fn eval_over(
       cells[rows[r]] = part_cells[if part.len() == 1 { 0 } else { r }]
     }
   }
-  Series::from_scalars(@expr.Expr::of_node(inner).output_name(), cells, dtype~).try_column_to_numeric()
+  // Cross-group dtype stitching rides the same promotion-and-projection
+  // the grouped `agg` and `map` evaluators use: an `Int` group beside a
+  // `Float` group promotes to `Float` (the arithmetic engine's rule)
+  // rather than raising a misleading `TypeMismatch`, and the tolerant
+  // projection (`scalars_to_series`) nulls a minority cell it cannot
+  // express — a mixed-scale `Decimal` stitch lands the off-scale minority
+  // as null, like `map`'s own mixed-scale result does.
+  let cells = @kernel.promote_mixed_int_float(cells)
+  let witness = match @kernel.infer_cells_dtype(cells) {
+    Some(p) => p
+    None => dtype
+  }
+  scalars_to_series(witness, @expr.Expr::of_node(inner).output_name(), cells)
 }
 
 ///|

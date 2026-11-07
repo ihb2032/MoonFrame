@@ -216,6 +216,30 @@ test "duplicate output names raise DuplicateColumn at the second expression" {
 }
 
 ///|
+test "a duplicate whose second expression would also fail reports the duplicate, either verb" {
+  // The name is claimed before the expression runs — `with_columns`'s own
+  // order — so the same list reports the same error through both verbs:
+  // the alias collides on `a` before the unknown `zzz` inside is read.
+  let df = select_df()
+  let exprs = [
+    @expr.col("a"),
+    (@expr.col("zzz") + @expr.lit_int(1)).with_alias("a"),
+  ]
+  assert_eq(
+    Ok(df.select(exprs)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::DuplicateColumn("a")),
+  )
+  assert_eq(
+    Ok(df.with_columns(exprs)) catch {
+      e => Err(e)
+    },
+    Err(@types.DataError::DuplicateColumn("a")),
+  )
+}
+
+///|
 test "evaluation errors surface: unknown column, dtype mismatch" {
   assert_eq(
     Ok(sel_df().select([@expr.col("zzz")])) catch {

@@ -337,3 +337,84 @@ test "a window inside a filter predicate evaluates, and is not pushed" {
   assert_true(explained.contains(".over(col(g))"))
   assert_true(explained.contains("FILTER"))
 }
+
+///|
+test "a dtype-changing map closure stitches cross-group dtypes by promotion" {
+  // Group a answers Int cells, group b Float — the closure's return type
+  // varies by group. The stitch promotes to Float like `expr_map` and the
+  // grouped `agg` promise for a mixed result, rather than raising a
+  // misleading TypeMismatch against the first group's Int dtype.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("g", ["a", "a", "b", "b"]),
+    Series::from_ints("x", [1, 2, 3, 4]),
+  ])
+  let out = df.select([
+    @expr.col("x")
+    .map_elements(label="m", (c : @types.Scalar) => {
+      if c.as_int() <= 2L {
+        @types.Scalar::Int(c.as_int() * 10L)
+      } else {
+        @types.Scalar::Float(c.as_int().to_double() / 4.0)
+      }
+    })
+    .over([@expr.col("g")])
+    .with_alias("m"),
+  ])
+  assert_eq(out.get_column("m").dtype(), @types.DataType::Float)
+  assert_eq(out.get_column("m").to_scalars(), [
+    @types.Scalar::Float(10.0),
+    @types.Scalar::Float(20.0),
+    @types.Scalar::Float(0.75),
+    @types.Scalar::Float(1.0),
+  ])
+}
+
+///|
+test "a mixed-scale decimal stitch nulls the off-scale minority" {
+  // The same tolerance `map` itself keeps (a closure answering two decimal
+  // scales nulls the minority): the scale-2 group fixes the column, the
+  // scale-3 cells land null rather than being re-read through the wrong
+  // scale.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("g", ["a", "a", "b", "b"]),
+    Series::from_ints("x", [1, 2, 3, 4]),
+  ])
+  let out = df.select([
+    @expr.col("x")
+    .map_elements(label="m", (c : @types.Scalar) => {
+      if c.as_int() <= 2L {
+        @types.Scalar::Decimal(2, c.as_int() * 100L)
+      } else {
+        @types.Scalar::Decimal(3, c.as_int() * 1000L)
+      }
+    })
+    .over([@expr.col("g")])
+    .with_alias("m"),
+  ])
+  assert_eq(out.get_column("m").dtype(), @types.DataType::Decimal(2))
+  assert_true(out.item(0, "m") is @types.Scalar::Decimal(2, 100L))
+  assert_true(out.item(1, "m") is @types.Scalar::Decimal(2, 200L))
+  assert_true(out.item(2, "m") is @types.Scalar::Null)
+  assert_true(out.item(3, "m") is @types.Scalar::Null)
+}
+
+///|
+test "an all-null window result keeps the inner expression's dtype" {
+  // Every group holds one row, so a `shift(1)` answers null for each: no
+  // cell fixes the stitched dtype, and the first group's own dtype — the
+  // all-null fallback's witness — types the column, the `agg` / `map`
+  // fallback rule.
+  let df = DataFrame::DataFrame([
+    Series::from_strings("g", ["a", "b", "c"]),
+    Series::from_ints("x", [1, 2, 3]),
+  ])
+  let out = df.select([
+    @expr.col("x").shift(1).over([@expr.col("g")]).with_alias("lag"),
+  ])
+  assert_eq(out.get_column("lag").dtype(), @types.DataType::Int)
+  assert_eq(out.get_column("lag").to_scalars(), [
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+    @types.Scalar::Null,
+  ])
+}

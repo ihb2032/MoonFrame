@@ -339,6 +339,308 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
         ],
       ),
     ),
+    // The one-mark-per-spec half of the mark coverage: every ChartKind
+    // the corpus had no spec for gets one, so each mark's own emitted
+    // spelling rides a schema-walked file.
+    (
+      "mark_tick.json",
+      @chart.ChartSpec::tick(@chart.field("cat"), @chart.field("val")),
+    ),
+    (
+      "mark_rect.json",
+      @chart.ChartSpec::rect(@chart.field("cat"), @chart.field("val")),
+    ),
+    (
+      "mark_rule.json",
+      @chart.ChartSpec::rule(@chart.field("cat"), @chart.field("val")),
+    ),
+    (
+      "mark_circle.json",
+      @chart.ChartSpec::circle(@chart.field("val"), @chart.field("val")),
+    ),
+    (
+      "mark_square.json",
+      @chart.ChartSpec::square(@chart.field("val"), @chart.field("val")),
+    ),
+    (
+      "mark_trail.json",
+      @chart.ChartSpec::trail(@chart.field("ts"), @chart.field("val")),
+    ),
+    (
+      "mark_text.json",
+      @chart.ChartSpec::text(
+        @chart.field("cat"),
+        @chart.field("val"),
+        @chart.field("grp"),
+        size=@chart.field("val"),
+      ),
+    ),
+    (
+      "mark_errorband.json",
+      @chart.ChartSpec::errorband(
+        @chart.field("cat"),
+        @chart.field("val"),
+        y_error=@chart.field("val"),
+        y_error2=@chart.field("val"),
+      ),
+    ),
+    // The one-transform-per-spec half of the transform coverage: every
+    // VegaTransform variant the corpus had no spec for gets one. The
+    // encodings reference original frame columns (or `count()`) — the
+    // emitter resolves channel fields against the frame, not against
+    // what the transforms will have produced.
+    (
+      "transform_bin.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.VegaChannel::count(),
+        transform=[
+          @chart.VegaTransform::Bin(
+            @chart.VegaBinTransform::VegaBinTransform(
+              bin=@chart.VegaBin::Params(
+                @chart.VegaBinParams::VegaBinParams(maxbins=10),
+              ),
+              field="val",
+              as_=@chart.VegaAsField::Pair("val_start", "val_end"),
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_density.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Area,
+        x=@chart.field("val"),
+        y=@chart.VegaChannel::count(),
+        transform=[
+          @chart.VegaTransform::Density(
+            @chart.VegaDensityTransform::VegaDensityTransform(
+              density="val",
+              as_=["v", "d"],
+              bandwidth=0.5,
+              counts=true,
+              cumulative=true,
+              extent=[0.0, 10.0],
+              groupby=["grp"],
+              steps=20,
+              minsteps=2,
+              maxsteps=50,
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_extent.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Extent(
+            @chart.VegaExtentTransform::VegaExtentTransform(
+              extent="val",
+              param="extent_param",
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_flatten.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("grp"),
+        y=@chart.VegaChannel::count(),
+        transform=[
+          @chart.VegaTransform::Flatten(
+            @chart.VegaFlattenTransform::VegaFlattenTransform(flatten=["cat"], as_=[
+              "flat",
+            ]),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_impute.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("grp"),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Impute(
+            @chart.VegaImputeTransform::VegaImputeTransform(
+              impute="val",
+              key="ts",
+              method_=@chart.VegaImputeMethod::Mean,
+              groupby=["grp"],
+              frame=[-1.0, 1.0],
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_joinaggregate.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        color=@chart.field("grp"),
+        transform=[
+          @chart.VegaTransform::JoinAggregate(
+            @chart.VegaJoinAggregateTransform::VegaJoinAggregateTransform(
+              joinaggregate=[
+                @chart.VegaAggField::VegaAggField(
+                  op=@chart.VegaAggregate::Mean,
+                  field="val",
+                  as_="avg",
+                ),
+              ],
+              groupby=["grp"],
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_loess.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("ts"),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Loess(
+            @chart.VegaLoessTransform::VegaLoessTransform(
+              loess="val",
+              on="ts",
+              as_=["f", "d"],
+              bandwidth=0.3,
+              groupby=["grp"],
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_pivot.json",
+      // The pivot consumes `cat` and `val` (they become columns), so the
+      // encoding counts rows over what survives — the same rule the
+      // window corpus spec follows.
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("grp"),
+        y=@chart.VegaChannel::count(),
+        transform=[
+          @chart.VegaTransform::Pivot(
+            @chart.VegaPivotTransform::VegaPivotTransform(
+              pivot="cat",
+              value="val",
+              groupby=["grp"],
+              limit=5,
+              op=@chart.VegaAggregate::Sum,
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_quantile.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("grp"),
+        y=@chart.VegaChannel::count(),
+        transform=[
+          @chart.VegaTransform::Quantile(
+            @chart.VegaQuantileTransform::VegaQuantileTransform(
+              quantile="val",
+              as_=["q", "v"],
+              probs=[0.25, 0.75],
+              step=0.01,
+              groupby=["grp"],
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_regression.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Line,
+        x=@chart.field("ts"),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Regression(
+            @chart.VegaRegressionTransform::VegaRegressionTransform(
+              regression="val",
+              on="ts",
+              as_=["f", "d"],
+              method_=@chart.VegaRegressionMethod::Poly,
+              order=2,
+              groupby=["grp"],
+              params=true,
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_sample.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::Sample(
+            @chart.VegaSampleTransform::VegaSampleTransform(sample=1),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_stack.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        color=@chart.field("grp"),
+        transform=[
+          @chart.VegaTransform::Stack(
+            @chart.VegaStackTransform::VegaStackTransform(
+              stack="val",
+              groupby=["cat"],
+              as_=@chart.VegaAsField::Pair("lo", "hi"),
+              offset=@chart.VegaStackOffset::Normalize,
+              sort=[
+                @chart.VegaSortField::VegaSortField(
+                  field="ts",
+                  order=@chart.VegaSort::Descending,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+    (
+      "transform_timeunit.json",
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Line,
+        x=@chart.field("ts", time_unit=@chart.VegaTimeUnit::Month),
+        y=@chart.field("val"),
+        transform=[
+          @chart.VegaTransform::TimeUnit(
+            @chart.VegaTimeUnitTransform::VegaTimeUnitTransform(
+              time_unit=@chart.VegaTimeUnit::Month,
+              field="ts",
+              as_="month",
+            ),
+          ),
+        ],
+      ),
+    ),
   ]
 }
 
@@ -489,6 +791,26 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
                 @chart.field("ts", time_unit=@chart.VegaTimeUnit::Month),
                 @chart.field("val"),
               ),
+            ),
+          ],
+          bounds=@chart.VegaBounds::Flush,
+        ),
+      ),
+    ),
+    (
+      "hconcat_pair.json",
+      // The horizontal half of the concat operators — the one direction
+      // the corpus had no spec for; its children and chrome mirror
+      // `vconcat_pair`'s so the pair of files pins the layout
+      // difference alone.
+      @chart.Chart::HConcat(
+        @chart.VegaConcat::VegaConcat(
+          [
+            @chart.Chart::of(
+              @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+            ),
+            @chart.Chart::of(
+              @chart.ChartSpec::point(@chart.field("val"), @chart.field("val")),
             ),
           ],
           bounds=@chart.VegaBounds::Flush,

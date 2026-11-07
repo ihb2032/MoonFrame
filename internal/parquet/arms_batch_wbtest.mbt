@@ -201,15 +201,17 @@ fn v2_page_header(
 }
 
 ///|
-/// A complete dictionary-page header over a body of `body_len` bytes.
+/// A complete dictionary-page header over a body of `body_len` bytes,
+/// its inner fields in the parquet thrift bindings' own order:
+/// num_values (1) then encoding (2).
 fn dict_page_header(encoding : Int32, count : Int32, body_len : Int32) -> Bytes {
   let pw = thrift_writer()
   pw.i32_field(1, 2)
   pw.i32_field(2, body_len)
   pw.i32_field(3, body_len)
   pw.struct_field_begin(7)
-  pw.i32_field(1, encoding)
-  pw.i32_field(2, count)
+  pw.i32_field(1, count)
+  pw.i32_field(2, encoding)
   pw.struct_end()
   pw.struct_end()
   pw.finish()

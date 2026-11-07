@@ -666,22 +666,23 @@ fn decode_column(
               raise bad("a V1 page header is malformed")
             }
           7 => {
-            // DictionaryPageHeader: encoding (1) and num_values (2); the
-            // body that follows is PLAIN over the whole value set.
+            // DictionaryPageHeader: num_values (1) and encoding (2), the
+            // ids the parquet thrift bindings define; the body that
+            // follows is PLAIN over the whole value set.
             let mut dict_encoding = 0
             if !walk_fields_raise(r, (inner_id, inner_wire) => {
                 match inner_id {
                   1 =>
-                    match r.zigzag_i32() {
-                      Some(v) => dict_encoding = v
-                      None => raise bad("a dictionary encoding is malformed")
-                    }
-                  2 =>
                     // The count names dictionary entries, not frame
                     // rows — read past it and move on.
                     match r.zigzag_i32() {
                       Some(_) => ()
                       None => raise bad("a dictionary count is malformed")
+                    }
+                  2 =>
+                    match r.zigzag_i32() {
+                      Some(v) => dict_encoding = v
+                      None => raise bad("a dictionary encoding is malformed")
                     }
                   _ =>
                     if !r.skip(inner_wire) {

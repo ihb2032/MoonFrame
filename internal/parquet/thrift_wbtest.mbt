@@ -120,6 +120,65 @@ test "the reader skips unknown fields by wire type" {
 }
 
 ///|
+test "a byte field skips as its one raw byte" {
+  // Wire type 3 (BYTE) carries a single raw byte, not the varint the
+  // i16 / i32 family rides — the parquet metadata itself spells no byte
+  // field, so the type matters to the unknown-field skip alone. A skip
+  // that read it as a varint would swallow the next header's first byte
+  // through the continuation bit, so the i32 after it reading back
+  // proves the spelling. Bytes: field 1 (delta 1, type 3) + 0xAB, field
+  // 2 (delta 1, type 5) + zigzag 11, stop.
+  let bytes = Bytes::from_array([0x13, 0xAB, 0x15, 0x16, 0x00])
+  let r = thrift_reader(bytes)
+  let mut last = 0
+  let mut value = 0
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    if h.id == 1 {
+      assert_true(h.wire is ByteV)
+      assert_true(r.skip(h.wire))
+    } else if h.id == 2 {
+      value = r.zigzag_i32().unwrap()
+    }
+  }
+  assert_eq(value, 11)
+  // A byte field's payload cut short refuses rather than aborting: the
+  // header byte is consumed, nothing follows it.
+  let cut = thrift_reader(Bytes::from_array([0x13]))
+  cut.pos = 1
+  assert_true(!cut.skip(ByteV))
+}
+
+///|
+test "a list of byte elements skips one byte each" {
+  // Field 1 (delta 1, type 9), a two-element list of bytes (0x23: size
+  // 2, element type 3), elements 0xAB / 0xCD — both past 0x80, so a
+  // varint reading would fold the pair into one element and misalign
+  // the field after it — then field 2's i32 and the stop.
+  let bytes = Bytes::from_array([0x19, 0x23, 0xAB, 0xCD, 0x15, 0x16, 0x00])
+  let r = thrift_reader(bytes)
+  let mut last = 0
+  let mut value = 0
+  for ;; {
+    let h = r.field_header(last).unwrap()
+    if h.wire is Stop {
+      break
+    }
+    last = h.id
+    if h.id == 1 {
+      assert_true(r.skip(h.wire))
+    } else if h.id == 2 {
+      value = r.zigzag_i32().unwrap()
+    }
+  }
+  assert_eq(value, 11)
+}
+
+///|
 test "a truncated buffer refuses instead of aborting" {
   let w = thrift_writer()
   w.binary_field(3, b"\x01\x02\x03")

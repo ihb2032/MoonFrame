@@ -13,7 +13,8 @@ priv enum WireType {
   Stop
   BoolTrue
   BoolFalse
-  I32V // byte / i16 / i32 share the varint coding
+  ByteV // one raw byte — not the varint the i16 / i32 family rides
+  I32V
   I64V
   BinaryV
   ListV
@@ -164,7 +165,8 @@ fn ThriftReader::field_header(
       let wire : WireType = match nibble {
         1 => BoolTrue
         2 => BoolFalse
-        3 | 4 | 5 => I32V
+        3 => ByteV
+        4 | 5 => I32V
         6 => I64V
         8 => BinaryV
         9 | 10 => ListV
@@ -215,6 +217,7 @@ fn ThriftReader::skip(self : ThriftReader, wire : WireType) -> Bool {
 fn ThriftReader::skip_value(self : ThriftReader, wire : WireType) -> Bool {
   match wire {
     Stop | BoolTrue | BoolFalse => true
+    ByteV => self.byte() is Some(_)
     I32V | I64V => self.varint() is Some(_)
     BinaryV => self.binary() is Some(_)
     ListV =>
@@ -236,7 +239,8 @@ fn ThriftReader::skip_value(self : ThriftReader, wire : WireType) -> Bool {
           }
           let elem_wire = match elem {
             1 | 2 => BoolTrue
-            3 | 4 | 5 => I32V
+            3 => ByteV
+            4 | 5 => I32V
             6 => I64V
             8 => BinaryV
             9 | 10 => ListV

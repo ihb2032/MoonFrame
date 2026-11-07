@@ -732,7 +732,7 @@ fn decode_column(
                     match inner_wire {
                       BoolTrue => page_compressed = true
                       BoolFalse => page_compressed = false
-                      Stop | I32V | I64V | BinaryV | ListV | StructV =>
+                      Stop | ByteV | I32V | I64V | BinaryV | ListV | StructV =>
                         if !r.skip(inner_wire) {
                           raise bad("a V2 page header is malformed")
                         }

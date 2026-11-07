@@ -34,6 +34,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Install, `moon doc`, publish — minutes. The cap is for a hung index
+    # fetch or a stuck Pages upload, not the happy path.
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

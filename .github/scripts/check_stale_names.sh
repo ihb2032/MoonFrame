@@ -27,8 +27,12 @@
 #     prose. Where a bare name is worth pinning in *one* file — the file that
 #     used to own the symbol, whose comments are the ones that will name it —
 #     write the entry as `path/to/file.mbt:name` and it is checked there alone.
-#     That is how the `Bitmap` comments naming its own deleted constructors are
-#     held, while `Series::from_bools` goes on living.
+#     That is how the `Bitmap` comments in `internal/buffer/bitmap.mbt` naming
+#     its own deleted constructors are held, while `Series::from_bools` goes
+#     on living. A scoped entry whose file is not tracked fails the run: when
+#     the file moves, the pin must move with it, or it quietly guards nothing
+#     — which is exactly how the column/buffer restructure left three entries
+#     pointing at a path nothing would ever read again.
 #
 # Usage: .github/scripts/check_stale_names.sh [repo-root]
 # Exit 0 when clean, 1 when a removed name is found.
@@ -85,9 +89,9 @@ color_type
 to_markdown_with_limit
 to_html_with_options
 coalesce_into
-internal/column/bitmap.mbt:from_bools
-internal/column/bitmap.mbt:bit_and
-internal/column/bitmap.mbt:all_null
+internal/buffer/bitmap.mbt:from_bools
+internal/buffer/bitmap.mbt:bit_and
+internal/buffer/bitmap.mbt:all_null
 internal/kernel/numeric.mbt:expr_eval.mbt
 # Removed with the column/buffer restructure (unreleased): the physical
 # mapping moved into the dtype registry (@types.DataType::physical).
@@ -151,6 +155,12 @@ if [ -z "$files" ]; then
 fi
 
 fail=0
+# The loop body runs in a subshell (the pipe), so the exit status has to ride
+# out through a file rather than a variable. mktemp rather than a PID-keyed
+# name: a stale file from a killed earlier run must never look like this run's
+# verdict, and a PID is only unique among *live* processes.
+flag=$(mktemp)
+trap 'rm -f "$flag"' EXIT INT TERM
 printf '%s\n' "$patterns" | while IFS= read -r pattern; do
   [ -n "$pattern" ] || continue
   # The list's own comments (`# Removed with …`) explain a group of names;
@@ -175,7 +185,18 @@ printf '%s\n' "$patterns" | while IFS= read -r pattern; do
   esac
   if [ -n "$scope" ]; then
     scoped=$(printf '%s\n' "$files" | grep -x -F -- "$scope" || true)
-    [ -n "$scoped" ] || continue
+    if [ -z "$scoped" ]; then
+      # The reverse check, aligned with the stale-entry rules the engine-seam
+      # and internal-surface guards run: a scoped entry whose scope file is
+      # not tracked pins nothing and fails nobody — it is a pin nobody has
+      # re-read since the file moved out from under it.
+      printf '  scoped entry "%s:%s": the scope file is not tracked\n' \
+        "$scope" "$pattern"
+      printf '    Move the entry to the file'"'"'s current path, or drop it if the\n'
+      printf '    pin is no longer worth anything.\n'
+      fail=1
+      continue
+    fi
   else
     scoped=$files
   fi
@@ -187,13 +208,12 @@ printf '%s\n' "$patterns" | while IFS= read -r pattern; do
     printf '%s\n' "$hits" | sed 's/^/    /'
     fail=1
   fi
-  # The loop body runs in a subshell (the pipe), so the exit status has to
-  # ride out through a file rather than a variable.
-  [ "$fail" -eq 0 ] || echo dirty >"${TMPDIR:-/tmp}/.stale_names_$$"
+  # The loop body runs in a subshell (the pipe), so the exit status rides out
+  # through the flag file named above.
+  [ "$fail" -eq 0 ] || echo dirty >"$flag"
 done
 
-if [ -f "${TMPDIR:-/tmp}/.stale_names_$$" ]; then
-  rm -f "${TMPDIR:-/tmp}/.stale_names_$$"
+if [ -s "$flag" ]; then
   printf 'stale names: found\n'
   exit 1
 fi

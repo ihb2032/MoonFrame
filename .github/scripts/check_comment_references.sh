@@ -106,7 +106,12 @@ trap 'rm -f "$index" "$pairs" "$refs" "$paths" "$pkgmap" "$types"' EXIT INT TERM
 
 # Pass 1 — what the code declares, by package directory. Comment lines are
 # stripped first: a name two comments agree on and no declaration carries is
-# exactly the drift being looked for, so it must not count as evidence.
+# exactly the drift being looked for, so it must not count as evidence. A
+# line carrying a block-string segment marker (`#|` / `$|` — the multi-line
+# literal syntax, the same rule lib_moonbit_source.sh's strip_noncode applies)
+# is stripped with them, marker anywhere on the line: its text is a string, so
+# a `Type::method` spelled inside one is a *quotation*, not a declaration, and
+# the code before the marker is a `let` binding at most, never a declaration.
 printf '%s\n%s\n' "$sources" "$interfaces" | grep . |
   xargs awk '
     FNR == 1 {
@@ -115,6 +120,7 @@ printf '%s\n%s\n' "$sources" "$interfaces" | grep . |
       code = (FILENAME ~ /\.mbti$/)
     }
     !code && /^[[:space:]]*(\/\/\/|\/\/)/ { next }
+    !code && /[#$]\|/ { next }
     {
       line = $0
       while (match(line, /[A-Za-z_][A-Za-z0-9_]*/)) {
@@ -132,11 +138,15 @@ printf '%s\n%s\n' "$sources" "$interfaces" | grep . |
   xargs grep -hoE '^(pub(\(all\))? )?(priv )?(struct|enum|type|suberror) [A-Z][A-Za-z0-9_]*' |
   sed 's/.* //' | LC_ALL=C sort -u >"$types"
 
-# Pass 2 — the `Type::method` pairs the code spells out, same rule.
+# Pass 2 — the `Type::method` pairs the code spells out, same rule — comments
+# and block-string lines are not code, so neither can vouch for a pair (the
+# block-string half is what a fixture pins: prose inside a literal is
+# quotation, exactly like prose after `//`).
 printf '%s\n%s\n' "$sources" "$interfaces" | grep . |
   xargs awk '
     FNR == 1 { code = (FILENAME ~ /\.mbti$/) }
     !code && /^[[:space:]]*(\/\/\/|\/\/)/ { next }
+    !code && /[#$]\|/ { next }
     {
       line = $0
       # `#alias(short)` gives a method a second spelling, and a comment may
@@ -189,6 +199,13 @@ printf '%s\n%s\n' "$sources" "$prose" | grep . |
             j++
           }
           i = j + 1
+        } else if (c == "#" && substr(line, i + 1, 1) == "|") {
+          # A block-string segment starts here and runs to end of line: what
+          # follows is text, so a `//` further on opens no comment and a
+          # backticked reference riding it is not a claim.
+          return ""
+        } else if (c == "$" && substr(line, i + 1, 1) == "|") {
+          return ""
         } else if (c == "/" && substr(line, i + 1, 1) == "/") {
           return substr(line, i)
         } else {
@@ -299,6 +316,10 @@ layout=$(git ls-files '*.mbt' | grep . |
             j++
           }
           i = j + 1
+        } else if (c == "#" && substr(line, i + 1, 1) == "|") {
+          return ""
+        } else if (c == "$" && substr(line, i + 1, 1) == "|") {
+          return ""
         } else if (c == "/" && substr(line, i + 1, 1) == "/") {
           return substr(line, i)
         } else {
@@ -308,6 +329,9 @@ layout=$(git ls-files '*.mbt' | grep . |
       return ""
     }
     {
+      # The same block-string rule as the resolution passes, inside
+      # comment_part: a segment is text, so a `.mbt` path or "this file"
+      # inside one navigates nowhere.
       line = comment_part($0)
       if (line == "") next
       if (line ~ /doc-guard: (historical|unresolved)/) next

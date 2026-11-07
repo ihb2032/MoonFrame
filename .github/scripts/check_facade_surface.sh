@@ -217,7 +217,17 @@ extract() {
         alias = ""
         next
       }
-      /^pub(\(all\))? (struct|enum|type|suberror|trait) / {
+      /^pub(\([a-z]+\))? (struct|enum|type|suberror|trait) / {
+        # The visibility qualifiers MoonBit spells on a type — `pub`,
+        # `pub(all)`, `pub(open)`, `pub(abstract)`, `pub(sealed)` — all
+        # publish the type, so all of them are read here. Anything else in
+        # the parentheses is refused outright (the whitelist rule above).
+        if (match($0, /^pub\([a-z]+\)/)) {
+          qual = substr($0, 5, RLENGTH - 5)
+          if (qual != "all" && qual != "open" && qual != "abstract" &&
+              qual != "sealed")
+            print "refused " $0 " <- " pkg
+        }
         tname = $3
         sub(/[{].*/, "", tname)
         key = tname " " pkg
@@ -258,6 +268,23 @@ extract() {
 
 current=$(extract)
 count() { printf '%s\n' "$1" | grep -cE ' <- ' || true; }
+
+# A visibility qualifier the extractor does not know is a type this lock
+# cannot classify, and the old pattern — `pub(\(all\))?` — let it fall out of
+# the snapshot silently: `pub(open)` arriving with the language would have
+# dropped every type carrying it from the pin in one release. The set is a
+# whitelist, so a new qualifier fails here and is taught deliberately.
+refused=$(printf '%s\n' "$current" | sed -n 's/^refused //p' || true)
+if [ -n "$refused" ]; then
+  printf 'facade surface: a visibility qualifier the extractor does not know:\n'
+  printf '%s\n' "$refused" | sed 's/^/  /'
+  printf '  The extractor reads pub, pub(all), pub(open), pub(abstract) and\n'
+  printf '  pub(sealed). Add the new qualifier to the whitelist — so every\n'
+  printf '  type carrying it is classified as re-exported / intermediate /\n'
+  printf '  qualified — rather than widening the pattern to any `pub(…)`\n'
+  printf '  spelling, which could not fail and so could not be taught.\n'
+  exit 1
+fi
 
 # The rule, checked ahead of — and independently of — the snapshot, so
 # regenerating cannot turn a leaked helper type into a shipped one. Every
@@ -419,8 +446,15 @@ fi
 # `[^[:alnum:]_]` directly after `.*` inside an alternation is mis-handled by
 # at least one grep in use here, and a type merely *ending* in one of these
 # names is worth the same look anyway.
+# The container names are enumerated from the interfaces the bundled core
+# ships — builtin's Array / FixedArray / ArrayView / MutArrayView /
+# ReadOnlyArray / UninitializedArray / Map / Set / StringBuilder, buffer's
+# Buffer, deque's Deque, hashmap / hashset, queue / priority_queue, sorted_map
+# / sorted_set — rather than named from memory, and the read-only views are
+# held to the same rule as the writable containers: reading one hands the
+# caller a live alias into state someone else is holding.
 mutable_fields=$(printf '%s\n' "$current" |
-  grep -E '^(field|value) [^:]*: .*((Array|FixedArray|Map|Set|Ref|ArrayView)\[|(StringBuilder|Buffer)([^[:alnum:]_]|$))' ||
+  grep -E '^(field|value) [^:]*: .*((Array|FixedArray|MutArrayView|ReadOnlyArray|UninitializedArray|ArrayView|Map|HashMap|SortedMap|Set|HashSet|SortedSet|Deque|Queue|PriorityQueue|Ref)\[|(StringBuilder|Buffer)([^[:alnum:]_]|$))' ||
   true)
 if [ -n "$mutable_fields" ]; then
   printf 'facade surface: a public field or value holding a mutable container:\n'

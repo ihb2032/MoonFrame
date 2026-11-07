@@ -35,6 +35,13 @@ jobs:
   build:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # The whole gate in one job: install + check + fmt + info + the guard
+    # suite + tests on every backend + the fuzzer + coverage + benchmarks.
+    # A full run is minutes; the slowest leg (Windows) still lands far under
+    # this. The cap exists for the runaway case — a wedged install, a test
+    # that never exits — so a hung run fails in an hour instead of holding a
+    # runner for GitHub's six-hour default.
+    timeout-minutes: 60
     strategy:
       # Don't cancel the other OSes when one fails — we want the full
       # cross-platform picture on every run.

@@ -78,6 +78,11 @@ set -eu
 # Shared with the engine-seam guard: both look for callers, and neither should
 # count a name inside a string or a comment as one.
 . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moonbit_source.sh"
+# Shared with the layering and engine-seam guards: the manifest reader, which
+# refuses a dependency block it cannot parse rather than dropping the edge —
+# the audit searches only packages that import the one being audited, so an
+# under-read graph is an audit that looked at nobody.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib_moon_pkg.sh"
 
 root="."
 write=0
@@ -96,34 +101,27 @@ production_files=$(git ls-files '*.mbt' | grep -vE '_(test|wbtest)\.mbt$' |
   grep -v '^examples/' || true)
 
 # `<pkg> <dep>` per production import, so only a package that can actually name
-# a symbol is searched for calls to it.
+# a symbol is searched for calls to it. The reader (lib_moon_pkg.sh) refuses a
+# dependency block it cannot parse: an audit over an under-read graph searched
+# no one and proved nothing, so a refusal fails the run before any verdict.
 edges=$(git ls-files '*moon.pkg' | grep -v '^examples/' |
   while IFS= read -r manifest; do
     pkg=$(dirname "$manifest")
     [ "$pkg" != "." ] || pkg=root
-    awk -v pkg="$pkg" '
-      /^import \{/ { inblock = 1; n = 0; next }
-      inblock && /^\}/ {
-        # The marker is read off a comment-stripped copy of the closing line
-        # (the check_layering rule): `} // for "test"` is a test block
-        # wearing a comment, and a comment must not be able to disguise — or
-        # forge — the marker.
-        closer = $0
-        sub(/\/\/.*/, "", closer)
-        if (closer !~ /for "(wb)?test"/) for (i = 1; i <= n; i++) print pkg " " dep[i]
-        inblock = 0
-        next
-      }
-      inblock {
-        want = "\"ihb2032/MoonFrame/"
-        if (index($0, want) > 0) {
-          d = substr($0, index($0, want) + length(want))
-          sub(/".*/, "", d)
-          dep[++n] = d
-        }
-      }
-    ' "$manifest"
+    moon_pkg_imports "$manifest" "$pkg" "ihb2032/MoonFrame"
   done | LC_ALL=C sort -u)
+
+case "$edges" in
+  *'FAIL '*)
+    printf 'internal surface: a moon.pkg manifest the import reader refuses:\n'
+    printf '%s\n' "$edges" | sed -n 's/^FAIL /  /p'
+    printf '  The audit searches only importers; a dependency block the\n'
+    printf '  reader never saw is a package it searched for no one. The\n'
+    printf '  reader accepts the canonical `moon fmt` form — see\n'
+    printf '  lib_moon_pkg.sh.\n'
+    exit 1
+    ;;
+esac
 
 has_outside_caller() {
   # has_outside_caller <declaring-pkg> <symbol>
@@ -287,31 +285,47 @@ if [ -f moon.mod ] && command -v moon >/dev/null 2>&1 &&
   probe_available=1
 fi
 
-probe_files=""
-# Deliberately not a `… | while read` loop: that runs in a subshell, where
-# clearing the list of files to restore has no effect on the shell that filled
-# it — the second batch then finds stale entries, skips taking a backup, and
-# the probe's edit becomes permanent.
+# The probes edit a source and run `moon check` — in a throwaway copy of the
+# module, never in the working tree. The earlier design backed each file up
+# and restored it on the way out, which held unless the process died between
+# the two; probing a copy closes that window: the edit, the check, and any
+# crash either causes all land in a directory the trap removes. The copy is
+# made once, lazily — the tracked files at their working-tree state plus the
+# dependency cache — and its `_build` then serves every later probe
+# incrementally, the way the real tree's did when the probes ran in place.
+probe_root=""
+probe_edited=""
+trap '[ -z "$probe_root" ] || rm -rf "$probe_root"' EXIT INT TERM
+
+probe_copy() {
+  [ -n "$probe_root" ] && return 0
+  probe_root=$(mktemp -d)
+  git ls-files -z |
+    tar --null -cnf - -T - | (cd "$probe_root" && tar -xf -)
+  [ ! -d .mooncakes ] || cp -R .mooncakes "$probe_root/"
+}
+
 restore_probe() {
-  saved=$probe_files
-  probe_files=""
+  # Between batches: put the edited files back as the working tree has them,
+  # so one batch's privatizations cannot break the next batch's view. A
+  # duplicate entry copies twice, which is harmless, so none is deduplicated.
   old_ifs=$IFS
   IFS='
 '
-  for pair in $saved; do
+  for file in $probe_edited; do
     IFS=$old_ifs
-    [ -n "$pair" ] || continue
-    cp "${pair#*|}" "${pair%%|*}"
-    rm -f "${pair#*|}"
+    [ -n "$file" ] || continue
+    cp "$file" "$probe_root/$file"
     IFS='
 '
   done
   IFS=$old_ifs
+  probe_edited=""
 }
-trap 'restore_probe' EXIT INT TERM
 
 privatize() {
-  # privatize <declaring-pkg> <symbol-spelling>; records the file for restore.
+  # privatize <declaring-pkg> <symbol-spelling>; edits the copy and records
+  # the file for restore_probe.
   decl=$(printf '%s\n' "$production_files" | grep "^$1/[^/]*\$" |
     while IFS= read -r f; do
       [ -f "$f" ] || continue
@@ -321,15 +335,10 @@ privatize() {
   file=${decl%%:*}
   rest=${decl#*:}
   line=${rest%%:*}
-  case "$probe_files" in
-    *"$file|"*) : ;;
-    *)
-      backup=$(mktemp)
-      cp "$file" "$backup"
-      probe_files="$probe_files$file|$backup
-" ;;
-  esac
-  sed -i "${line}s/^pub fn/fn/" "$file"
+  probe_copy
+  probe_edited="$probe_edited$file
+"
+  sed -i "${line}s/^pub fn/fn/" "$probe_root/$file"
 }
 
 # Which of <symbols> the diagnostics blame on a file outside <pkg>. Every
@@ -341,7 +350,7 @@ privatize() {
 probed_outside() {
   pkg=$1
   syms=$2
-  out=$(moon check 2>&1 || true)
+  out=$(cd "$probe_root" && moon check 2>&1 || true)
   blocks=$(printf '%s\n' "$out" | tr '\\' '/' |
     awk -v pkg="/$pkg/" '
       /╭─\[/ { path = $0; keep = (index(path, pkg) == 0); next }
@@ -364,9 +373,11 @@ all_methods=$(printf '%s\n' "$production_files" | while IFS= read -r f; do
 done | sed 's/^pub(all) //; s/^pub //; s/^fn//; s/^\[[^]]*\]//; s/^[[:space:]]*//; s/(.*//' |
   LC_ALL=C sort -u)
 
-for pkg in $(git ls-files 'internal/*/moon.pkg' | while IFS= read -r m; do
-  dirname "$m"
-done); do
+# Any depth under `internal/` — the same definition of "an internal package"
+# check_internal_packages.sh uses. Git's default pathspec globbing does cross
+# directory boundaries, but writing the any-depth form keeps the audit and the
+# package inventory visibly the same rule rather than the same by accident.
+for pkg in $(git ls-files -- internal | sed -n 's:/moon\.pkg$::p'); do
   mbti="$pkg/pkg.generated.mbti"
   # What the package publishes, from the file the compiler writes. `pub fn[T] …`
   # is a declaration too: matching only the ungenerified spelling once left
@@ -568,7 +579,7 @@ fi
 # interface must not carry one. (The interfaces are tracked, so a change shows
 # in the diff either way; what this adds is that putting a field back is a
 # decision someone argues for rather than a line nobody notices.)
-fields=$(git ls-files 'internal/*/pkg.generated.mbti' |
+fields=$(git ls-files -- internal | grep 'pkg\.generated\.mbti$' |
   while IFS= read -r mbti; do
     [ -f "$mbti" ] || continue
     awk -v file="$mbti" '
@@ -611,7 +622,7 @@ fi
 # is a question — does production need this, or is a test reaching for the
 # convenience of an operator? An equality a package's own tests want belongs in
 # a `_wbtest.mbt`, which compiles inside the package and publishes nothing.
-for mbti in $(git ls-files 'internal/*/pkg.generated.mbti'); do
+for mbti in $(git ls-files -- internal | grep 'pkg\.generated\.mbti$'); do
   [ -f "$mbti" ] || continue
   pkg=$(dirname "$mbti")
   impls=$(grep -c '^pub impl \|^pub extend ' "$mbti" || true)

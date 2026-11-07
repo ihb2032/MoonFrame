@@ -226,9 +226,17 @@ expect_out 1 'no work tree' 'version: the scan cannot be skipped silently' \
 # ── stale names ───────────────────────────────────────────────────────────
 mkstale() {
   # mkstale <dir> <file> <content>
-  mkdir -p "$1/docs" "$1/$(dirname "$2")"
+  # The two files the scoped entries pin — `internal/buffer/bitmap.mbt`,
+  # `internal/kernel/numeric.mbt` — are created in every fixture: without
+  # them the run would fail on the dead-scope rule instead of the case the
+  # fixture exists to test.
+  mkdir -p "$1/docs" "$1/$(dirname "$2")" "$1/internal/buffer" "$1/internal/kernel"
   (cd "$1" && git init -q . && git config user.email t@t &&
     git config user.name t && git config core.autocrlf false)
+  printf '///|\nfn bitmap_helpers_live_here() -> Int { 0 }\n' \
+    >"$1/internal/buffer/bitmap.mbt"
+  printf '///|\nfn numeric_helpers_live_here() -> Int { 0 }\n' \
+    >"$1/internal/kernel/numeric.mbt"
   printf '%s\n' "$3" >"$1/$2"
   (cd "$1" && git add -A && git commit -qm f)
 }
@@ -250,8 +258,11 @@ expect 0 'stale: the migration guide is exempt' \
 
 # A file-scoped entry (`path:name`) is what makes a bare name pinnable: the
 # repository has live symbols of the same short name, so the pattern must fire
-# in the one file that used to own the deleted one and nowhere else.
-mkstale "$work/s_scoped" internal/column/bitmap.mbt \
+# in the one file that used to own the deleted one and nowhere else. The scope
+# path is the file's *current* home — the column/buffer restructure moved it,
+# and three entries pointed at the old path for exactly as long as nothing
+# checked that a scope file exists.
+mkstale "$work/s_scoped" internal/buffer/bitmap.mbt \
   '/// packs validity like `from_bools` did.'
 expect_out 1 'from_bools' 'stale: a bare name in the file it is scoped to' \
   sh "$scripts/check_stale_names.sh" "$work/s_scoped"
@@ -260,6 +271,21 @@ mkstale "$work/s_scoped_elsewhere" series/series.mbt \
   '/// `Series::from_bools` builds a Bool column.'
 expect 0 'stale: the same bare name outside that file is untouched' \
   sh "$scripts/check_stale_names.sh" "$work/s_scoped_elsewhere"
+
+# The reverse check: a scoped entry whose scope file is not tracked pins
+# nothing and fails nobody — a pin nobody has re-read since the file moved
+# out from under it. (The fixture carries the kernel scope file but not the
+# buffer one, so only the buffer entries are dead.)
+mkdir -p "$work/s_dead_scope/docs" "$work/s_dead_scope/internal/kernel"
+(cd "$work/s_dead_scope" && git init -q . && git config user.email t@t &&
+  git config user.name t && git config core.autocrlf false)
+printf '# Clean prose\n' >"$work/s_dead_scope/README.md"
+printf '///|\nfn numeric_helpers_live_here() -> Int { 0 }\n' \
+  >"$work/s_dead_scope/internal/kernel/numeric.mbt"
+(cd "$work/s_dead_scope" && git add -A && git commit -qm f)
+expect_out 1 'the scope file is not tracked' \
+  'stale: a scoped entry whose scope file is gone' \
+  sh "$scripts/check_stale_names.sh" "$work/s_dead_scope"
 
 # ── enum surface ──────────────────────────────────────────────────────────
 mkenum() {
@@ -411,6 +437,44 @@ pub type RowKey Int" "$fs_snap
 type RowKey <- frame"
 expect 0 'facade surface: a re-exported pub type is a facade type' \
   sh "$scripts/check_facade_surface.sh" "$work/fs_type_named"
+
+# The visibility qualifiers beyond pub / pub(all) — pub(open), pub(abstract),
+# pub(sealed) — all publish a type, so all of them reach the pin; the old
+# `pub(\(all\))?` pattern silently matched none of them, and a type carrying
+# one would have fallen out of the snapshot in a single release. A qualifier
+# outside the set fails out loud instead, because a pattern widened to any
+# `pub(…)` could not fail and so could not be taught.
+mkfacadesurface "$work/fs_open_struct" "$fs_root
+pub using @frame {type Pane}" "$fs_frame
+pub(open) struct Pane {
+  // private fields
+}
+pub fn Pane::width(Self) -> Int" "$(printf '%s\n' "$fs_snap" \
+  'method Pane::width(Self) -> Int <- frame' 'type Pane <- frame' | LC_ALL=C sort)"
+expect 0 'facade surface: a pub(open) type is pinned like any other' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_open_struct"
+
+mkfacadesurface "$work/fs_sealed_enum" "$fs_root
+pub using @frame {type Tone}" "$fs_frame
+pub(sealed) enum Tone {
+  Quiet
+}" "$(printf '%s\n' "$fs_snap" 'type Tone <- frame' | LC_ALL=C sort)"
+expect 0 'facade surface: a pub(sealed) enum is pinned like any other' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_sealed_enum"
+
+mkfacadesurface "$work/fs_abstract_type" "$fs_root
+pub using @frame {type Opaque}" "$fs_frame
+pub(abstract) type Opaque Int" "$(printf '%s\n' "$fs_snap" 'type Opaque <- frame' | LC_ALL=C sort)"
+expect 0 'facade surface: a pub(abstract) type is pinned like any other' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_abstract_type"
+
+mkfacadesurface "$work/fs_unknown_qualifier" "$fs_root" "$fs_frame
+pub(broken) struct Ghost {
+  // private fields
+}" "$fs_snap"
+expect_out 1 'qualifier the extractor does not know' \
+  'facade surface: an unknown pub(…) qualifier fails out loud' \
+  sh "$scripts/check_facade_surface.sh" "$work/fs_unknown_qualifier"
 
 # The gap a root-file-only lock left open: a method added to a re-exported
 # type reaches callers as `@moonframe.DataFrame::debug_storage` while the
@@ -924,6 +988,33 @@ printf '{ "import": ["ihb2032/MoonFrame"] }\n' \
 expect 0 'layering: the CI fixture keeps its JSON manifest' \
   sh "$scripts/check_layering.sh" "$work/ly_json_fixture"
 
+# The import reader (lib_moon_pkg.sh) refuses what it cannot parse, out loud —
+# and reads the one-line spelling instead of dropping it. Each manifest below
+# is a shape the old three-line awk read wrongly: silently (a single-line
+# block vanished from the graph, taking its rules with it) or not at all (an
+# indented closer left the block open, a dependency keyword it had never been
+# told about never entered it). The single-line case carries an edge the rules
+# must still refuse, so the fixture proves the edge survived the reader.
+mklayering "$work/ly_single_line" 'import { "ihb2032/MoonFrame/internal/column" }' \
+  "$ly_kernel" "$ly_root"
+expect_out 1 'imports internal/column' \
+  'layering: a single-line import block is read, not dropped' \
+  sh "$scripts/check_layering.sh" "$work/ly_single_line"
+
+mklayering "$work/ly_indented_close" 'import {
+  "ihb2032/MoonFrame/series",
+  }' "$ly_kernel" "$ly_root"
+expect_out 1 'import reader refuses' \
+  'layering: a block closed by an indented brace is refused' \
+  sh "$scripts/check_layering.sh" "$work/ly_indented_close"
+
+mklayering "$work/ly_preload" 'preload {
+  "ihb2032/MoonFrame/internal/column",
+}' "$ly_kernel" "$ly_root"
+expect_out 1 'unrecognised statement `preload`' \
+  'layering: a dependency keyword the reader does not know is refused' \
+  sh "$scripts/check_layering.sh" "$work/ly_preload"
+
 # ── engine seams ──────────────────────────────────────────────────────────
 mkseams() {
   # mkseams <dir> <series-source> <snapshot-body|--> [test-source] [allowlist]
@@ -1333,6 +1424,36 @@ pub fn test_only_probe(column : Series) -> Int {
 expect 0 'engine seams: a whitebox test declaration is out of scope' \
   sh "$scripts/check_engine_seams.sh" "$work/es_wbtest"
 
+# Both attributes on one line are both read. The pair rule used to see only
+# whichever attribute opened the line, so `#doc(hidden) #internal(engine, …)`
+# read as half-marked — the louder failure of the two directions, since the
+# seam then failed as unpaired while carrying both attributes in the source.
+es_inline=$(printf '%s\n' "$es_source" |
+  sed -e 's|^#doc(hidden)$|#doc(hidden) #internal(engine, "MoonFrame execution engine API")|' \
+    -e '/^#internal(engine/d')
+mkseams "$work/es_attrs_inline" "$es_inline" "$es_snap"
+expect 0 'engine seams: both attributes on one line are both read' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_attrs_inline"
+
+# The manifest reader is wired into the caller scan: a manifest it refuses
+# fails the run before any seam is credited or discredited, and the one-line
+# import spelling still carries the edge that credits `io` with the calls —
+# without it every seam here would read as caller-less instead.
+mkseams "$work/es_manifest_single" "$es_source" "$es_snap"
+printf 'import { "ihb2032/MoonFrame/series" }\n' \
+  >"$work/es_manifest_single/io/moon.pkg"
+(cd "$work/es_manifest_single" && git add -A && git commit -qm single)
+expect 0 'engine seams: a single-line import block still credits the importer' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_manifest_single"
+
+mkseams "$work/es_manifest_refused" "$es_source" "$es_snap"
+printf 'preload {\n  "ihb2032/MoonFrame/series",\n}\n' \
+  >"$work/es_manifest_refused/io/moon.pkg"
+(cd "$work/es_manifest_refused" && git add -A && git commit -qm preload)
+expect_out 1 'import reader refuses' \
+  'engine seams: a manifest the import reader refuses fails the run' \
+  sh "$scripts/check_engine_seams.sh" "$work/es_manifest_refused"
+
 # ── internal surface ──────────────────────────────────────────────────────
 mksurface() {
   # mksurface <dir> <internal-column-source> [allowlist] [kernel-source]
@@ -1716,6 +1837,28 @@ if printf '%s' "$got_out" | grep -q 'credited by a shared name'; then
   exit 1
 fi
 
+# The manifest reader, wired into the audit: the one-line import spelling
+# still tells it who may call what (so `len` finds its caller and the run is
+# clean), and a refused manifest fails the run before any symbol is called
+# unreachable — an audit over an under-read graph searched no one.
+mksurface "$work/is_manifest_single" '///|
+pub fn BuiltinColumn::len(self : BuiltinColumn) -> Int {
+  ignore(self)
+}'
+printf 'import { "ihb2032/MoonFrame/internal/column" }\n' \
+  >"$work/is_manifest_single/series/moon.pkg"
+(cd "$work/is_manifest_single" && git add -A && git commit -qm single)
+expect 0 'internal surface: a single-line import block still finds the caller' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_manifest_single"
+
+mksurface "$work/is_manifest_refused" "$is_source"
+printf 'preload {\n  "ihb2032/MoonFrame/internal/column",\n}\n' \
+  >"$work/is_manifest_refused/series/moon.pkg"
+(cd "$work/is_manifest_refused" && git add -A && git commit -qm preload)
+expect_out 1 'import reader refuses' \
+  'internal surface: a refused manifest fails before any verdict' \
+  sh "$scripts/check_internal_surface.sh" "$work/is_manifest_refused"
+
 # ── comment references ────────────────────────────────────────────────────
 # A fixture module with one package that declares things, one that names them
 # in comments, and a prose file — the three places a reference can sit.
@@ -1900,6 +2043,31 @@ pub fn use_it() -> String {
 }'
 expect 0 'comment references: code and strings are not comments' \
   sh "$scripts/check_comment_references.sh" "$work/cr_code"
+
+# A block-string segment (`#|` after only whitespace) is neither comment nor
+# code: a `//` inside one is text rather than a comment opener, so a dead
+# reference riding one is not a claim being checked — and prose inside one is
+# not *evidence* either, which is the half the declaration index used to get
+# wrong: a `Type::method` pair spelled in a literal vouched for comments that
+# named it, and two strings agreeing is not a declaration.
+mkrefs "$work/cr_block_string" 'pub fn use_it() -> String {
+  let s = #| see http://example.com//x — `@series.vanished_fn` rode here
+  s
+}'
+expect 0 'comment references: a block-string line is not a comment' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_block_string"
+
+mkrefs "$work/cr_block_evidence" '///|
+/// Reads `Series::vanished`.
+pub fn use_it() -> Int {
+  0
+}'
+printf '///|\npub fn blocky() -> String {\n  let s = #| Series::vanished\n  s\n}\n' \
+  >>"$work/cr_block_evidence/series/series.mbt"
+(cd "$work/cr_block_evidence" && git add -A && git commit -qm blockstring)
+expect_out 1 'has no such method' \
+  'comment references: prose inside a block string is not declaration evidence' \
+  sh "$scripts/check_comment_references.sh" "$work/cr_block_evidence"
 
 # ── the repository itself ─────────────────────────────────────────────────
 expect 0 'repo: version identity' sh "$scripts/check_version_identity.sh" "$root"

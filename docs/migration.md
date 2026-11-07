@@ -337,6 +337,14 @@ What has landed on `main`:
   ISO 8601 agrees a signed zero is no year. The signed form now refuses
   like every other shape the writers do not emit; the unsigned one is
   unchanged.
+- A year past the ISO 8601 basic range renders in the expanded form's
+  own sign: a `Date` or `Timestamp` in year 10000 or beyond now renders
+  `+10000-…` where it rendered the bare digits before (the negative side
+  always carried its `-`; an expanded year without its sign is no ISO
+  spelling). The parser reads the signed spelling back — and still reads
+  the bare digits too, the spelling earlier writers emitted — while a
+  `+` on a four-digit year and a signed year zero (`+0000-…`, like
+  `-0000-…`) refuse as shapes no writer spells.
 
 ## v0.8.0 → v0.8.1
 

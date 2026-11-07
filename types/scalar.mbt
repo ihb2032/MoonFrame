@@ -163,7 +163,8 @@ fn pad_zero(n : Int64, width : Int32) -> String {
 /// before 1970) included. The year is zero-padded to four digits — ISO
 /// 8601's `YYYY` basic range is `0000`–`9999`, so year 800 renders
 /// `0800-…` and year 0 `0000-…`; a year outside the basic range carries
-/// its sign (the expanded-representation form).
+/// the expanded-representation form's sign — `-` below year 1, `+` above
+/// 9999 (an expanded year without its sign is no ISO spelling).
 fn date_days_to_iso(days : Int64) -> String {
   let (year, m, d) = date_days_to_civil(days)
 
@@ -172,6 +173,8 @@ fn date_days_to_iso(days : Int64) -> String {
   // `|days| / 365`), so negating is safe.
   let year_text = if year < 0 {
     "-" + pad_zero(-year, 4)
+  } else if year > 9999 {
+    "+" + pad_zero(year, 4)
   } else {
     pad_zero(year, 4)
   }

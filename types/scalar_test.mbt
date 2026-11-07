@@ -130,10 +130,13 @@ test "Scalar::Date refuses the typed accessors of foreign variants" {
 test "Scalar::Date renders ISO years zero-padded to four digits" {
   // ISO 8601's `YYYY` basic range is 0000-9999: the epoch's own era renders
   // padded, a negative year carries its sign over a padded magnitude, and a
-  // year beyond 9999 keeps its full expanded spelling.
+  // year beyond 9999 keeps its full expanded spelling — the expanded form
+  // carrying its sign both directions (`-` below year 1, `+` above 9999).
   assert_eq(Scalar::Date(-719528L).to_string(), "0000-01-01")
   assert_eq(Scalar::Date(-720000L).to_string(), "-0002-09-16")
   assert_eq(Scalar::Date(2932896L).to_string(), "9999-12-31")
+  assert_eq(Scalar::Date(2932896L + 1L).to_string(), "+10000-01-01")
+  assert_eq(Scalar::Date(3789556L).to_string(), "+12345-06-15")
   assert_eq(Scalar::Date(-71584342L).to_string(), "-194022-09-24")
   // The Show form shares the rendering.
   inspect(Scalar::Date(-719528L), content="Date(0000-01-01)")
@@ -202,13 +205,13 @@ test "calendar renderings survive the Int64 extremes" {
   inspect(
     @types.Scalar::Date(max).to_string(),
     content=(
-      #|25252734927768524-07-27
+      #|+25252734927768524-07-27
     ),
   )
   inspect(
     @types.Scalar::Date(max - 719_468L).to_string(),
     content=(
-      #|25252734927766554-09-25
+      #|+25252734927766554-09-25
     ),
   )
 }

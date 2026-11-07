@@ -361,6 +361,35 @@ fn reduce_variance(
 /// **propagated** — the `sum` / `mean` rule, not the `min` / `max` skip: a
 /// window that contains one has that value's order statistic. An empty /
 /// all-null window reduces to `Scalar::Null`.
+
+///|
+/// Collect a window's present values, noting whether any was `NaN` —
+/// the shared collection of the median and quantile reducers (a `NaN`
+/// anywhere in the window is the whole answer, so it is detected
+/// before the sorted middles are read).
+fn collect_present_skipping_nan(
+  n : Int32,
+  at : (Int32) -> Int32,
+  present : (Int32) -> Bool,
+  read : (Int32) -> Double,
+) -> (Array[Double], Bool) {
+  let vals : Array[Double] = []
+  let mut saw_nan = false
+  for k in 0..<n {
+    let i = at(k)
+    if present(i) {
+      let v = read(i)
+      if v.is_nan() {
+        saw_nan = true
+      } else {
+        vals.push(v)
+      }
+    }
+  }
+  (vals, saw_nan)
+}
+
+///|
 fn reduce_median(
   storage : @column.ColumnStorage,
 ) -> ((Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError) raise @types.DataError {
@@ -370,19 +399,7 @@ fn reduce_median(
     // Collect the present values, then sort: the median is the middle by
     // order. A `NaN` anywhere in the window is the whole answer, so it is
     // detected before the middles are read.
-    let vals : Array[Double] = []
-    let mut saw_nan = false
-    for k in 0..<n {
-      let i = at(k)
-      if present(i) {
-        let v = read(i)
-        if v.is_nan() {
-          saw_nan = true
-        } else {
-          vals.push(v)
-        }
-      }
-    }
+    let (vals, saw_nan) = collect_present_skipping_nan(n, at, present, read)
     if saw_nan {
       @types.Scalar::Float(@double.not_a_number)
     } else {
@@ -443,19 +460,7 @@ fn reduce_quantile(
     // Collect the present values, then sort: the quantile reads the sorted
     // order at pos = q * (m - 1). A `NaN` anywhere in the window is the whole
     // answer, so it is detected before positions are read — the median rule.
-    let vals : Array[Double] = []
-    let mut saw_nan = false
-    for k in 0..<n {
-      let i = at(k)
-      if present(i) {
-        let v = read(i)
-        if v.is_nan() {
-          saw_nan = true
-        } else {
-          vals.push(v)
-        }
-      }
-    }
+    let (vals, saw_nan) = collect_present_skipping_nan(n, at, present, read)
     if saw_nan {
       @types.Scalar::Float(@double.not_a_number)
     } else {

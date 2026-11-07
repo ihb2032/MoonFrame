@@ -143,6 +143,19 @@ pub impl Show for Scalar with fn output(self, logger) {
 }
 
 ///|
+/// Zero-pad a non-negative `Int64`'s decimal text to `width` digits —
+/// one body for the ISO renderers' two- / four- / six-digit fields,
+/// the width living at each call site.
+fn pad_zero(n : Int64, width : Int32) -> String {
+  let s = n.to_string()
+  if s.length() >= width {
+    s
+  } else {
+    String::make(width - s.length(), '0') + s
+  }
+}
+
+///|
 /// Render whole days since the Unix epoch as an ISO `YYYY-MM-DD` date —
 /// the one rendering a `Scalar::Date` has (value form, `Show` form, CSV /
 /// JSON cell form all share it, so the spellings cannot drift). Proleptic
@@ -153,30 +166,16 @@ pub impl Show for Scalar with fn output(self, logger) {
 /// its sign (the expanded-representation form).
 fn date_days_to_iso(days : Int64) -> String {
   let (year, m, d) = date_days_to_civil(days)
-  fn pad2(n : Int64) -> String {
-    if n < 10 {
-      "0\{n}"
-    } else {
-      n.to_string()
-    }
-  }
 
   // The year pads its magnitude to four digits and carries its own sign —
   // `Int64::MIN` cannot occur here (the algorithm's `y` is bounded by
   // `|days| / 365`), so negating is safe.
-  fn pad4(n : Int64) -> String {
-    if n < 10 {
-      "000\{n}"
-    } else if n < 100 {
-      "00\{n}"
-    } else if n < 1000 {
-      "0\{n}"
-    } else {
-      n.to_string()
-    }
+  let year_text = if year < 0 {
+    "-" + pad_zero(-year, 4)
+  } else {
+    pad_zero(year, 4)
   }
-  let year_text = if year < 0 { "-" + pad4(-year) } else { pad4(year) }
-  "\{year_text}-\{pad2(m)}-\{pad2(d)}"
+  "\{year_text}-\{pad_zero(m, 2)}-\{pad_zero(d, 2)}"
 }
 
 ///|
@@ -226,32 +225,9 @@ pub fn day_micros_to_clock(within_day : Int64) -> (Int64, Int64, Int64, Int64) {
 /// year sign, the time-of-day stays in `[00:00:00, 24:00:00)`.
 fn timestamp_micros_to_iso(micros : Int64) -> String {
   let (day, rem) = timestamp_micros_to_day(micros)
-  fn pad2(n : Int64) -> String {
-    if n < 10 {
-      "0\{n}"
-    } else {
-      n.to_string()
-    }
-  }
-
-  fn pad6(n : Int64) -> String {
-    if n < 10 {
-      "00000\{n}"
-    } else if n < 100 {
-      "0000\{n}"
-    } else if n < 1000 {
-      "000\{n}"
-    } else if n < 10000 {
-      "00\{n}"
-    } else if n < 100000 {
-      "0\{n}"
-    } else {
-      n.to_string()
-    }
-  }
 
   let (hour, minute, second, frac) = day_micros_to_clock(rem)
-  "\{date_days_to_iso(day)}T\{pad2(hour)}:\{pad2(minute)}:\{pad2(second)}.\{pad6(frac)}"
+  "\{date_days_to_iso(day)}T\{pad_zero(hour, 2)}:\{pad_zero(minute, 2)}:\{pad_zero(second, 2)}.\{pad_zero(frac, 6)}"
 }
 
 ///|
@@ -278,26 +254,11 @@ fn duration_micros_to_iso(micros : Int64) -> String {
   let minute = (rem % 3_600_000_000UL / 60_000_000UL).reinterpret_as_int64()
   let second = (rem % 60_000_000UL / 1_000_000UL).reinterpret_as_int64()
   let frac = (rem % 1_000_000UL).reinterpret_as_int64()
-  fn pad6(n : Int64) -> String {
-    if n < 10 {
-      "00000\{n}"
-    } else if n < 100 {
-      "0000\{n}"
-    } else if n < 1000 {
-      "000\{n}"
-    } else if n < 10000 {
-      "00\{n}"
-    } else if n < 100000 {
-      "0\{n}"
-    } else {
-      n.to_string()
-    }
-  }
 
   let days_text = if days == 0L { "" } else { "\{days}D" }
   let hour_text = if hour == 0L { "" } else { "\{hour}H" }
   let minute_text = if minute == 0L { "" } else { "\{minute}M" }
-  "\{sign}P\{days_text}T\{hour_text}\{minute_text}\{second}.\{pad6(frac)}S"
+  "\{sign}P\{days_text}T\{hour_text}\{minute_text}\{second}.\{pad_zero(frac, 6)}S"
 }
 
 ///|

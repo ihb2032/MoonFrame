@@ -51,4 +51,5 @@ series -> internal/numeric
 series -> internal/order
 series -> internal/text
 series -> types
+types -> internal/numeric
 types -> internal/text

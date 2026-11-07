@@ -74,8 +74,8 @@ pub fn parse_timestamp_micros_opt(s : String) -> Int64? {
             } else {
               // The validated ranges bound `clock` below one day, so
               // only the day scaling can leave the range.
-              match checked_mul(days, 86_400_000_000L) {
-                Some(day_us) => checked_add(day_us, clock)
+              match @numeric.mul_checked(days, 86_400_000_000L) {
+                Some(day_us) => @numeric.add_checked(day_us, clock)
                 None => None
               }
             }
@@ -379,12 +379,12 @@ fn express_at_scale(
   let signed_frac = if neg { -frac } else { frac }
   let mut whole = int_part
   for _ in 0..<scale {
-    match checked_mul(whole, 10L) {
+    match @numeric.mul_checked(whole, 10L) {
       Some(v) => whole = v
       None => return None
     }
   }
-  checked_add(whole, signed_frac)
+  @numeric.add_checked(whole, signed_frac)
 }
 
 ///|
@@ -416,40 +416,14 @@ fn digit_at(s : String, i : Int32) -> Int64? {
 /// The checked `Int64` push a digit run accumulates by — the digit
 /// carrying its run's sign, so a negative run descends from zero and
 /// lands on `MIN` where the same digits climbed as positives would
-/// overflow — the same range tests the decimal dtype's own envelope
-/// rides, spelled here because the value-type package sits below the
-/// numeric package that owns the other copy. A `None` is the parser's
-/// refusal (a digit run whose value leaves `Int64`), never a wrap into a
-/// confidently wrong count.
+/// overflow — riding the numeric package's own checked multiply and add
+/// (the layering allows the import; this package once carried line copies
+/// of both beside them). A `None` is the parser's refusal (a digit run
+/// whose value leaves `Int64`), never a wrap into a confidently wrong
+/// count.
 fn checked_push(v : Int64, d : Int64) -> Int64? {
-  match checked_mul(v, 10L) {
-    Some(t) => checked_add(t, d)
+  match @numeric.mul_checked(v, 10L) {
+    Some(t) => @numeric.add_checked(t, d)
     None => None
-  }
-}
-
-///|
-fn checked_add(a : Int64, b : Int64) -> Int64? {
-  let r = a + b
-  if (a >= 0L && b >= 0L && r < 0L) || (a < 0L && b < 0L && r >= 0L) {
-    None
-  } else {
-    Some(r)
-  }
-}
-
-///|
-/// The multiplier is positive at every call site (a digit push's `10`,
-/// the day-to-microsecond bound), so the divide-back verification sees no
-/// trapping division and no wraparound it could miss.
-fn checked_mul(a : Int64, b : Int64) -> Int64? {
-  if a == 0L || b == 0L {
-    return Some(0L)
-  }
-  let r = a * b
-  if r / a != b || r / b != a {
-    None
-  } else {
-    Some(r)
   }
 }

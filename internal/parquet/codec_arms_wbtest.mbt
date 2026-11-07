@@ -219,26 +219,32 @@ test "the thrift skipper walks every wire type" {
 ///|
 test "the schema mapping refuses what MoonFrame cannot carry" {
   // FLOAT (4): would narrow a Double.
-  assert_true(map_from_schema(4, None, None) is None)
+  assert_true(map_from_schema(4, None, None, None) is None)
   // INT96 (3) and FIXED_LEN_BYTE_ARRAY (7): dtypes MoonFrame does not
   // spell.
-  assert_true(map_from_schema(3, None, None) is None)
-  assert_true(map_from_schema(7, Some(5), None) is None)
-  // A DECIMAL without a scale, or with one outside the envelope.
-  assert_true(map_from_schema(2, Some(5), None) is None)
-  assert_true(map_from_schema(2, Some(5), Some(19)) is None)
-  assert_true(map_from_schema(2, Some(5), Some(-1)) is None)
+  assert_true(map_from_schema(3, None, None, None) is None)
+  assert_true(map_from_schema(7, Some(5), None, None) is None)
+  // A DECIMAL without a scale, or with one past the precision's own
+  // envelope — the format makes the precision required and, over the
+  // INT64 payload, one to eighteen digits with the scale never past it.
+  assert_true(map_from_schema(2, Some(5), None, None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(0)) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(19)) is None)
+  assert_true(map_from_schema(2, Some(5), Some(5), Some(4)) is None)
+  assert_true(map_from_schema(2, Some(5), Some(-1), Some(18)) is None)
   // A BYTE_ARRAY without UTF8 is raw binary, not a String.
-  assert_true(map_from_schema(6, None, None) is None)
+  assert_true(map_from_schema(6, None, None, None) is None)
   // A DATE must ride INT32; a TIMESTAMP_MICROS must ride INT64.
-  assert_true(map_from_schema(2, Some(6), None) is None)
-  assert_true(map_from_schema(1, Some(10), None) is None)
+  assert_true(map_from_schema(2, Some(6), None, None) is None)
+  assert_true(map_from_schema(1, Some(10), None, None) is None)
   // And the mapping the riders ride — a bare INT32 among them, the
   // signed shape a foreign int column carries.
-  assert_true(map_from_schema(1, None, None) is Some(_))
-  assert_true(map_from_schema(1, Some(6), None) is Some(_))
-  assert_true(map_from_schema(2, Some(10), None) is Some(_))
-  assert_true(map_from_schema(2, Some(5), Some(2)) is Some(_))
+  assert_true(map_from_schema(1, None, None, None) is Some(_))
+  assert_true(map_from_schema(1, Some(6), None, None) is Some(_))
+  assert_true(map_from_schema(2, Some(10), None, None) is Some(_))
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(18)) is Some(_))
+  assert_true(map_from_schema(2, Some(5), Some(18), Some(18)) is Some(_))
   assert_eq(decimal_precision(), 18)
   // The dtype table's own refusal: a Null column cannot ride.
   assert_true(dtype_map(@types.DataType::Null) is None)

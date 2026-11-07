@@ -145,6 +145,7 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
             schema[i].physical,
             schema[i].converted,
             schema[i].decimal_scale,
+            schema[i].decimal_precision,
           ) {
           Some(map) => Some((map, schema[i].repetition == 0))
           None => None
@@ -195,13 +196,14 @@ priv struct SchemaElem {
   num_children : Int32
   converted : Int32?
   decimal_scale : Int32?
+  decimal_precision : Int32?
 }
 
 ///|
 /// Read the schema list itself: the size byte / varint, then each
 /// element struct's fields — the physical type (1), the repetition type
 /// (3), the name (4), the child count (5), the converted annotation (6),
-/// and the decimal scale (7).
+/// the decimal scale (7), and the decimal precision (8).
 fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
   let count = match list_header(r, 12) {
     Some(c) => c
@@ -214,6 +216,7 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
     let mut num_children = 0
     let mut converted : Int32? = None
     let mut scale : Int32? = None
+    let mut precision : Int32? = None
     let walked = walk_fields(r, (id, wire) => {
       match id {
         1 =>
@@ -264,6 +267,14 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
             }
             None => false
           }
+        8 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              precision = Some(v)
+              true
+            }
+            None => false
+          }
         _ => r.skip(wire)
       }
     })
@@ -277,6 +288,7 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
       num_children,
       converted,
       decimal_scale: scale,
+      decimal_precision: precision,
     })
   }
   true

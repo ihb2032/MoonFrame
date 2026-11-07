@@ -171,11 +171,14 @@ fn physical_from_tag(tag : Int32) -> Physical? {
 /// type refuses — the first would narrow, the latter two carry dtypes
 /// (`TIMESTAMP` pre-converted, `DECIMAL` over bytes) MoonFrame does not
 /// spell. A `BYTE_ARRAY` without `UTF8` also refuses (a raw binary
-/// column is not a `String`).
+/// column is not a `String`). A `DECIMAL` annotation carries the
+/// format's own envelope: the precision required, one to eighteen
+/// digits over the `INT64` payload, the scale never past it.
 fn map_from_schema(
   physical_tag_value : Int32,
   converted_value : Int32?,
   decimal_scale : Int32?,
+  decimal_precision : Int32?,
 ) -> DtypeMap? {
   let physical = match physical_from_tag(physical_tag_value) {
     Some(p) => p
@@ -233,12 +236,17 @@ fn map_from_schema(
         decimal_scale: -1,
       })
     (Int64P, Some(DecimalC)) =>
-      // A DECIMAL over INT64: the scale names the dtype, the envelope
-      // bounds it (an INT64 payload bounds the precision by
-      // construction; a wider declared precision only misdescribes it).
-      match decimal_scale {
-        Some(scale) =>
-          if scale >= 0 && scale <= 18 {
+      // A DECIMAL over INT64: the scale names the dtype, and the
+      // annotation's own envelope bounds both — the format's decimal
+      // rules make the precision required and, over an INT64 payload,
+      // one to eighteen digits (the type's own ceiling: an Int64 spells
+      // no more), with the scale never past the precision it names
+      // fraction digits inside. A file declaring past that envelope is
+      // not a decimal the INT64 payload can honour, so it refuses
+      // naming the column rather than misreading the cells.
+      match (decimal_scale, decimal_precision) {
+        (Some(scale), Some(p)) =>
+          if scale >= 0 && scale <= p && p >= 1 && p <= 18 {
             Some({
               dtype: Decimal(scale),
               physical: Int64P,
@@ -248,7 +256,7 @@ fn map_from_schema(
           } else {
             None
           }
-        None => None
+        _ => None
       }
     _ => None
   }

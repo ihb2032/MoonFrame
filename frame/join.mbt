@@ -263,14 +263,10 @@ fn DataFrame::plan_join_rows(
       let right_index = index_by_join_key(right_key_scalars, other.nrows())
       // `Left` / `Outer` keep an unmatched left row (null right); `Inner`
       // drops it. `Outer` additionally appends the unmatched right rows.
-      let keep_unmatched_left = match options.how {
-        Left | Outer => true
-        Inner | Right | Cross | Semi | Anti => false
-      }
-      let emit_unmatched_right = match options.how {
-        Outer => true
-        Inner | Left | Right | Cross | Semi | Anti => false
-      }
+      // The alternatives the outer match already ruled out (`Right` and the
+      // semi-join pair) never reach this arm.
+      let keep_unmatched_left = options.how is Left || options.how is Outer
+      let emit_unmatched_right = options.how is Outer
       // Track which right rows were paired, so `Outer` can emit the rest.
       // Only `Outer` reads this, so `Inner` / `Left` skip both the buffer and
       // the per-match write below.
@@ -360,108 +356,108 @@ fn DataFrame::assemble_join_output(
       on_set[k] = ()
     }
   }
-  let left_names : Map[String, Unit] = Map([])
-  for n in self.columns() {
-    left_names[n] = ()
-  }
   let out_cols : Array[Series] = []
   // A right join leads with the right frame's columns: the right schema
   // (key included, values from the right) comes first in right order and
   // the left frame's non-key columns follow in left order, a clashing left
   // column taking the suffix — the left join's own layout with the two
-  // sides exchanged.
+  // sides exchanged, which is what the shared emission below spells with
+  // the lead and follow roles handed the right frame first.
   if options.how is Right {
-    let right_names : Map[String, Unit] = Map([])
-    for n in other.columns() {
-      right_names[n] = ()
-    }
-    for col in other.column_series() {
-      if coalesce && on_set.contains(col.name()) {
-        // The merged key sits at the right frame's key position, drawing
-        // each cell from whichever side is present — every output row has
-        // the right key, so the right leads and the left fills.
-        let right_key = col.gather_series_opt(right_rows, col.name())
-        let left_key = self
-          .get_column(col.name())
-          .gather_series_opt(left_rows, col.name())
-        let merged = right_key.coalesce_columns(left_key, col.name())
-        out_cols.push(col.preserve_backend(merged))
-      } else {
-        out_cols.push(
-          col.preserve_backend(col.gather_series_opt(right_rows, col.name())),
-        )
-      }
-    }
-    for col in self.column_series() {
-      if !(coalesce && on_set.contains(col.name())) {
-        let out_name = if right_names.contains(col.name()) {
-          col.name() + options.suffix
-        } else {
-          col.name()
-        }
-        out_cols.push(
-          col.preserve_backend(col.gather_series_opt(left_rows, out_name)),
-        )
-      }
-    }
+    emit_join_columns(
+      other,
+      self,
+      right_rows,
+      left_rows,
+      coalesce,
+      on_set,
+      options.suffix,
+      out_cols,
+    )
     return DataFrame::from_parts(out_cols, left_rows.length())
   }
-  // Assemble the output columns. Left columns are gathered with `None ->
-  // null` (a kept unmatched-right row has no left cell). A coalesced key
-  // sits in its left position but draws each cell from whichever side is
-  // present (`coalesce_columns`); the matching right key column is then dropped
-  // below.
-  //
-  // A join is a row rebuild, so each output column canonicalises onto the
-  // backend its own gathered cells imply (the documented row-rebuild
-  // classification): all-valid numeric cells land on `Numeric`, and a column that picks
-  // up a null from an unmatched row's `None` is nullable and stays `Builtin`.
-  // `gather_series_opt` already does that — the `preserve_backend` wrapper is
-  // the belt to its braces, a no-op on a canonicalised result either way, kept
-  // so a future gather that stops canonicalising cannot silently demote a
-  // `Numeric` source here. The coalesced key follows the **left** key column's
-  // backend (its values share the pre-checked-equal key dtype).
-  for col in self.column_series() {
-    if coalesce && on_set.contains(col.name()) {
-      // `other` has this key (validated above), so `get_column`'s
-      // `ColumnNotFound` is forwarded but never taken. The left key is the
-      // base — taken where the row has a left match, else the right fills
-      // the gap (the present side on `Outer`); a `Right` join never reaches
-      // here, its early-return block above merging from the right instead.
-      let left_key = col.gather_series_opt(left_rows, col.name())
-      let right_key = other
-        .get_column(col.name())
-        .gather_series_opt(right_rows, col.name())
-      let merged = left_key.coalesce_columns(right_key, col.name())
-      out_cols.push(col.preserve_backend(merged))
-    } else {
-      out_cols.push(
-        col.preserve_backend(col.gather_series_opt(left_rows, col.name())),
-      )
-    }
-  }
-  // Right columns are gathered with `None -> null` and renamed on a name
-  // collision with the left frame. A right key column is dropped only when
-  // coalescing (its values are already in the kept key); otherwise every
-  // right column is emitted, suffixed on a clash — a kept key column always
-  // clashes, so it becomes `<key><suffix>`.
-  for col in other.column_series() {
-    if !(coalesce && on_set.contains(col.name())) {
-      let out_name = if left_names.contains(col.name()) {
-        col.name() + options.suffix
-      } else {
-        col.name()
-      }
-      out_cols.push(
-        col.preserve_backend(col.gather_series_opt(right_rows, out_name)),
-      )
-    }
-  }
+  emit_join_columns(
+    self,
+    other,
+    left_rows,
+    right_rows,
+    coalesce,
+    on_set,
+    options.suffix,
+    out_cols,
+  )
   // The row plan fixes the height: every gathered column is `left_rows` long
   // (`right_rows` is parallel to it), and when neither frame has a column to
   // infer from, the plan is the only thing that still knows how many rows the
   // join produced — `2×0` cross `3×0` is `6×0`.
   DataFrame::from_parts(out_cols, left_rows.length())
+}
+
+///|
+/// Emit a join's output columns: the lead frame's columns first — a
+/// coalesced key sits at the lead frame's key position, merging the follow
+/// frame's key into it — then the follow frame's non-key columns, a name
+/// clashing with a lead column taking the suffix. Both join layouts (the
+/// general left-lead one and the right join's mirrored right-lead one) are
+/// this one emission with the sides exchanged.
+///
+/// A join is a row rebuild, so each output column canonicalises onto the
+/// backend its own gathered cells imply (the documented row-rebuild
+/// classification): all-valid numeric cells land on `Numeric`, and a column
+/// that picks up a null from an unmatched row's `None` is nullable and
+/// stays `Builtin`. `gather_series_opt` already does that — the
+/// `preserve_backend` wrapper is the belt to its braces, a no-op on a
+/// canonicalised result either way, kept so a future gather that stops
+/// canonicalising cannot silently demote a `Numeric` source here. The
+/// coalesced key follows the **lead** key column's backend (its values
+/// share the pre-checked-equal key dtype), and the follow frame bears the
+/// key too (validated before assembly), so the follow-side `get_column`'s
+/// `ColumnNotFound` is forwarded but never taken.
+fn emit_join_columns(
+  lead : DataFrame,
+  follow : DataFrame,
+  lead_rows : Array[Int32?],
+  follow_rows : Array[Int32?],
+  coalesce : Bool,
+  on_set : Map[String, Unit],
+  suffix : String,
+  out_cols : Array[Series],
+) -> Unit raise @types.DataError {
+  let lead_names : Map[String, Unit] = Map([])
+  for n in lead.columns() {
+    lead_names[n] = ()
+  }
+  for col in lead.column_series() {
+    if coalesce && on_set.contains(col.name()) {
+      let lead_key = col.gather_series_opt(lead_rows, col.name())
+      let follow_key = follow
+        .get_column(col.name())
+        .gather_series_opt(follow_rows, col.name())
+      let merged = lead_key.coalesce_columns(follow_key, col.name())
+      out_cols.push(col.preserve_backend(merged))
+    } else {
+      out_cols.push(
+        col.preserve_backend(col.gather_series_opt(lead_rows, col.name())),
+      )
+    }
+  }
+  // The follow frame's columns are gathered with `None -> null` and renamed
+  // on a name collision with the lead frame. A follow key column is dropped
+  // only when coalescing (its values are already in the kept key);
+  // otherwise every follow column is emitted, suffixed on a clash — a kept
+  // key column always clashes, so it becomes `<key><suffix>`.
+  for col in follow.column_series() {
+    if !(coalesce && on_set.contains(col.name())) {
+      let out_name = if lead_names.contains(col.name()) {
+        col.name() + suffix
+      } else {
+        col.name()
+      }
+      out_cols.push(
+        col.preserve_backend(col.gather_series_opt(follow_rows, out_name)),
+      )
+    }
+  }
 }
 
 ///|
@@ -512,8 +508,8 @@ fn DataFrame::resolve_join_keys(
   }
   let ln = self.nrows()
   let rn = right.nrows()
-  let lscope = Array::makei(ln, i => i)
-  let rscope = Array::makei(rn, i => i)
+  let lscope = identity_scope(ln)
+  let rscope = identity_scope(rn)
   let left_key_scalars : Array[Array[KeyCell]] = []
   let right_key_scalars : Array[Array[KeyCell]] = []
   // The running `seen` set raises `DuplicateColumn` at a bare-`col` key

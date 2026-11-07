@@ -5,6 +5,7 @@
 // only (`sort` for row arrangement and `unique` for row identity stay in
 // their own files). The row counts they share come from `@order`:
 // `window_take` for the head/tail convention, `slice_start` /
+// `slice_len` for the saturating window.
 
 ///|
 /// Keep only the rows where `predicate` evaluates to `true` — MoonFrame's
@@ -57,7 +58,7 @@ pub fn DataFrame::filter_row_indices(
   predicate : @expr.Expr,
 ) -> Array[Int32] raise @types.DataError {
   let n = self.nrows()
-  let scope = Array::makei(n, i => i)
+  let scope = identity_scope(n)
   // Stretch a length-1 mask (literal / aggregation) over the frame, down to
   // zero rows on an empty one, and reject an off-frame one — the shared length
   // contract.
@@ -76,8 +77,6 @@ pub fn DataFrame::filter_row_indices(
       )
   }
 }
-
-// `slice_len` for the saturating window.
 
 ///|
 /// First `n` rows (or all rows if `n >= nrows`). A negative
@@ -219,8 +218,6 @@ pub fn DataFrame::gather(
   let new_cols = self.columns.map(c => c.gather_series(indices.exact_view()))
   self.with_same_schema(new_cols, indices.length())
 }
-
-// frame already carries, and a counter that would run past `Int64::MAX`.
 
 ///|
 /// Reverse the row order, keeping every column and its dtype. The schema

@@ -234,6 +234,33 @@ fn DataFrame::reduce_to_row(
 /// aggregation kernel (which reduces every dtype and raises on a non-numeric
 /// `sum` / `mean`): the whole-frame reductions tolerate non-reducible
 /// columns by nulling them, matching `df.sum()`.
+
+///|
+/// A float statistic's `(cell, dtype)` pair under the whole-frame rule: a
+/// numeric column whose gate is met holds the statistic as a `Float` cell,
+/// every other column (non-numeric, or below the gate) a `Null` cell — a
+/// reduction always produces a value slot — with `Float` the output dtype
+/// exactly when the operand column is numeric. `value` arrives as an
+/// `Option` because the gates differ per statistic: `mean_opt` folds its
+/// own emptiness guard, `median` / `quantile` read the raising accessor
+/// under `count() > 0`, and the sample statistics need `count() >= 2`.
+fn float_stat(
+  numeric : Bool,
+  value : Double?,
+  dtype : @types.DataType,
+) -> (@types.Scalar, @types.DataType) {
+  let out_dtype = if numeric { @types.DataType::Float } else { dtype }
+  if numeric {
+    match value {
+      Some(v) => (@types.Scalar::Float(v), out_dtype)
+      None => (@types.Scalar::Null, out_dtype)
+    }
+  } else {
+    (@types.Scalar::Null, out_dtype)
+  }
+}
+
+///|
 fn reduce_column(
   s : Series,
   op : FrameReduceOp,
@@ -273,63 +300,62 @@ fn reduce_column(
       (if orderable { s.min() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Max =>
       (if orderable { s.max() } else { @types.Scalar::Null }, dtype)
-    FrameReduceOp::Mean => {
+    FrameReduceOp::Mean =>
       // `mean_opt` is the total form of `Series::mean`: `Some` for a numeric
       // column with a non-null cell, `None` for an empty / all-null one (where
       // a whole-frame reduction wants a `Null` cell, not `InvalidOperation`).
-      let cell = if numeric {
-        match s.mean_opt() {
-          Some(m) => @types.Scalar::Float(m)
-          None => @types.Scalar::Null
-        }
-      } else {
-        @types.Scalar::Null
-      }
-      (cell, if numeric { @types.DataType::Float } else { dtype })
-    }
+      float_stat(numeric, if numeric { s.mean_opt() } else { None }, dtype)
     // `median` / `quantile` share `mean`'s shape: a numeric column with at
     // least one non-null cell holds the statistic as `Float`, everything else
     // (non-numeric, empty, all-null) a `Null` cell. The `count() > 0` guard is
     // what makes the raising `Series` call total here — `mean_opt` folded that
     // guard in for `mean`, and these read the plain accessor under the same
     // guard `mean_opt` itself would apply.
-    FrameReduceOp::Median => {
-      let cell = if numeric && s.count() > 0 {
-        @types.Scalar::Float(s.median())
-      } else {
-        @types.Scalar::Null
-      }
-      (cell, if numeric { @types.DataType::Float } else { dtype })
-    }
-    FrameReduceOp::Quantile(q, interpolation) => {
-      let cell = if numeric && s.count() > 0 {
-        @types.Scalar::Float(s.quantile(q, interpolation~))
-      } else {
-        @types.Scalar::Null
-      }
-      (cell, if numeric { @types.DataType::Float } else { dtype })
-    }
+    FrameReduceOp::Median =>
+      float_stat(
+        numeric,
+        if numeric && s.count() > 0 {
+          Some(s.median())
+        } else {
+          None
+        },
+        dtype,
+      )
+    FrameReduceOp::Quantile(q, interpolation) =>
+      float_stat(
+        numeric,
+        if numeric && s.count() > 0 {
+          Some(s.quantile(q, interpolation~))
+        } else {
+          None
+        },
+        dtype,
+      )
     // `std` / `variance` additionally need a sample denominator: a numeric
     // column with fewer than two non-null cells has no sample statistic, so it
     // takes the `Null` cell rather than the raising accessor's
     // `InvalidOperation` — the whole-frame rule that a reduction always
     // produces a value slot.
-    FrameReduceOp::Std => {
-      let cell = if numeric && s.count() >= 2 {
-        @types.Scalar::Float(s.std())
-      } else {
-        @types.Scalar::Null
-      }
-      (cell, if numeric { @types.DataType::Float } else { dtype })
-    }
-    FrameReduceOp::Var => {
-      let cell = if numeric && s.count() >= 2 {
-        @types.Scalar::Float(s.variance())
-      } else {
-        @types.Scalar::Null
-      }
-      (cell, if numeric { @types.DataType::Float } else { dtype })
-    }
+    FrameReduceOp::Std =>
+      float_stat(
+        numeric,
+        if numeric && s.count() >= 2 {
+          Some(s.std())
+        } else {
+          None
+        },
+        dtype,
+      )
+    FrameReduceOp::Var =>
+      float_stat(
+        numeric,
+        if numeric && s.count() >= 2 {
+          Some(s.variance())
+        } else {
+          None
+        },
+        dtype,
+      )
     // `n_unique` is dtype-independent like `count`: the distinct value
     // count of every column — a null counts as one distinct value, every
     // `NaN` as one bucket.

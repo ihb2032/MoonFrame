@@ -110,10 +110,7 @@ pub fn DataFrame::unique(
     // Keep only rows whose key occurs exactly once: count occurrences, then keep
     // the rows in a singleton bucket.
     KeepStrategy::None => {
-      let count : Map[Array[KeyCell], Int32] = Map([])
-      for i in 0..<n {
-        count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
-      }
+      let count = key_occurrence_counts(keys, n)
       for i in 0..<n {
         if count.get(keys[i]) == Some(1) {
           kept.push(i)
@@ -135,6 +132,21 @@ pub fn DataFrame::unique(
 }
 
 ///|
+/// Count each composite key's occurrences — the counting pass both the
+/// `KeepStrategy::None` arm and `duplication_mask` run over the same
+/// pre-assembled per-row keys.
+fn key_occurrence_counts(
+  keys : Array[Array[KeyCell]],
+  n : Int32,
+) -> Map[Array[KeyCell], Int32] {
+  let count : Map[Array[KeyCell], Int32] = Map([])
+  for i in 0..<n {
+    count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
+  }
+  count
+}
+
+///|
 /// The shared row-mask driver: one `Bool` cell per row, `true` where the
 /// row's composite key — the same `KeyCell` tuple `unique` / `group_by` key
 /// on — occurs more than once (`duplicated`) or exactly once (`unique`).
@@ -149,10 +161,7 @@ fn DataFrame::duplication_mask(
   let n = self.nrows()
   let cells = self.columns.map(c => c.key_cells())
   let keys = Array::makei(n, i => row_group_key(cells, i))
-  let count : Map[Array[KeyCell], Int32] = Map([])
-  for i in 0..<n {
-    count[keys[i]] = count.get(keys[i]).unwrap_or(0) + 1
-  }
+  let count = key_occurrence_counts(keys, n)
   Series::from_bools(
     name,
     // A key's count is always recorded — the loop above visited this very

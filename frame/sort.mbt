@@ -73,7 +73,7 @@ pub fn DataFrame::sort(
   // first offending key (unknown column, dtype clash, off-frame length);
   // `Array::map` forwards that raise.
   let n = self.nrows()
-  let scope = Array::makei(n, i => i)
+  let scope = identity_scope(n)
   let sort_keys = keys.map(key => {
     let (expr, descending, nulls_last) = key
     let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)

@@ -40,7 +40,7 @@ fn eval_over(
   // `ColumnNotFound` on a 0-row frame exactly as it does on any other
   // (`group_by`'s reading; the groups an empty frame lacks would otherwise
   // swallow the error).
-  let identity = Array::makei(n, i => i)
+  let identity = identity_scope(n)
   let key_columns : Array[Series] = []
   for key in keys {
     let evaluated = eval_expr(@expr.Expr::of_node(key), df, identity)
@@ -53,14 +53,13 @@ fn eval_over(
     return eval_expr(@expr.Expr::of_node(inner), df, identity)
   }
   // The partition: one pass over the rows building each group's row list,
-  // keyed by the row's key cells — the same map `group_by` builds, so the
-  // null-key and NaN-folding rules cannot drift between the two.
+  // keyed by the row's key cells — the same key assembly `group_by` runs
+  // (`row_group_key`), so the null-key and NaN-folding rules cannot drift
+  // between the two.
   let by_key : Map[Array[KeyCell], Array[Int32]] = Map([])
   let per_column = key_columns.map(c => c.key_cells())
   for i in 0..<n {
-    let row_key : Array[KeyCell] = Array::makei(per_column.length(), k => {
-      per_column[k][i]
-    })
+    let row_key = row_group_key(per_column, i)
     match by_key.get(row_key) {
       Some(rows) => rows.push(i)
       None => by_key[row_key] = [i]

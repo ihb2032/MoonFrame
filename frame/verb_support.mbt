@@ -14,10 +14,53 @@
 //   - `resolve_subset_columns` ← drop / drop_nulls / unique
 //   - `is_identity_perm`       ← gather's no-op short-circuit; the expression
 //     evaluator's whole-frame scope detection shares it
+//   - `identity_scope`         ← every verb that evaluates expressions
+//     against an unfiltered frame (the projections, the key materialisers,
+//     the sort and join keys, the window verbs)
+//   - `claim_eval_rename`      ← select / with_columns
 //
 // A new verb starts here: pick the rebuild path that matches what it changes
 // (rows only, an edited field vector, renamed fields) instead of
 // reconstructing one.
+
+///|
+/// The whole-frame evaluation scope — the identity permutation
+/// `[0, nrows)` — the one spelling of the fact that a verb evaluates its
+/// expressions against every row in order. The expression evaluator's
+/// whole-frame detection (`is_identity_perm`) is this value's read-side
+/// twin.
+fn identity_scope(n : Int32) -> Array[Int32] {
+  Array::makei(n, i => i)
+}
+
+///|
+/// Claim one expression's output name, evaluate it, and read the field it
+/// carries — the shared body of `select`'s and `with_columns`' expression
+/// loops. The name is claimed before the expression runs — one list, one
+/// error, either verb — so a duplicate surfaces as the duplicate it is
+/// even when the second expression would also fail to evaluate. The
+/// broadcast height and where the column lands stay with the caller:
+/// `select` defers the broadcast to the height it computes from every
+/// result, `with_columns` broadcasts to the frame and places by the
+/// schema's index. (`group_by` / `pivot` materialise keys in the other
+/// order — evaluated, then named — a deliberate difference their own
+/// helper carries.)
+fn DataFrame::claim_eval_rename(
+  self : DataFrame,
+  expr : @expr.Expr,
+  seen : Map[String, Unit],
+  source_fields : Array[@types.Field],
+  scope : Array[Int32],
+) -> (String, Series, @types.Field) raise @types.DataError {
+  let name = expr.output_name()
+  if seen.contains(name) {
+    raise @types.DataError::DuplicateColumn(name)
+  }
+  seen[name] = ()
+  let column = eval_expr(expr, self, scope)
+  let field = self.carried_field(source_fields, expr, column, name)
+  (name, column.rename(name), field)
+}
 
 ///|
 /// `from_parts` under a caller-supplied field vector — the constructor behind

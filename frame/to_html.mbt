@@ -10,9 +10,9 @@
 // Like `to_markdown`, this is a pure, dependency-free renderer that
 // sits on `DataFrame` (the IO boundary: the rendering here is pure,
 // and only external serialisation writes to the outside).
-// Values are read column-major through `column_series()` /
-// `to_scalars()`, exactly as `to_markdown` does, so a change to
-// `Series::storage` is invisible here.
+// Values are read through the shared cell matrix both renderers build
+// (`table_cell_matrix`), so a change to how a column's cells are read
+// is invisible here.
 
 ///|
 /// Options for `DataFrame::to_html`. Fields are read-only outside the

@@ -127,7 +127,10 @@ pub fn VegaBindRadioSelect::VegaBindRadioSelect(
     debounce,
     element,
     name,
-    labels: labels.map(l => l.copy()),
+    labels: match labels {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     options: options.copy(),
   }
 }
@@ -298,8 +301,14 @@ pub fn VegaPointSelect::VegaPointSelect(
   {
     on,
     clear,
-    fields: fields.map(f => f.copy()),
-    encodings: encodings.map(e => e.copy()),
+    fields: match fields {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    encodings: match encodings {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     nearest,
     toggle,
     resolve,
@@ -358,7 +367,10 @@ pub fn VegaBrush::VegaBrush(
     stroke,
     stroke_opacity,
     stroke_width,
-    stroke_dash: stroke_dash.map(d => d.copy()),
+    stroke_dash: match stroke_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     stroke_dash_offset,
     cursor,
   }
@@ -410,8 +422,14 @@ pub fn VegaIntervalSelect::VegaIntervalSelect(
     translate,
     zoom,
     mark,
-    fields: fields.map(f => f.copy()),
-    encodings: encodings.map(e => e.copy()),
+    fields: match fields {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    encodings: match encodings {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     resolve,
   }
 }
@@ -531,8 +549,14 @@ pub fn VegaSelectionParam::VegaSelectionParam(
     name,
     select,
     bind,
-    value: value.map(v => v.copy()),
-    views: views.map(v => v.copy()),
+    value: match value {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    views: match views {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 

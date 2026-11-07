@@ -165,7 +165,10 @@ pub fn VegaProjection::VegaProjection(
     fraction,
     lobes,
     parallel,
-    parallels: parallels.map(a => a.copy()),
+    parallels: match parallels {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     point_radius,
     precision,
     radius,

@@ -296,7 +296,10 @@ pub fn VegaMarkStyle::VegaMarkStyle(
     start_angle,
     stroke,
     stroke_cap,
-    stroke_dash: stroke_dash.map(a => a.copy()),
+    stroke_dash: match stroke_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     stroke_dash_offset,
     stroke_join,
     stroke_miter_limit,
@@ -679,7 +682,10 @@ pub fn VegaViewConfig::VegaViewConfig(
     opacity,
     stroke,
     stroke_cap,
-    stroke_dash: stroke_dash.map(a => a.copy()),
+    stroke_dash: match stroke_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     stroke_dash_offset,
     stroke_join,
     stroke_miter_limit,
@@ -1093,12 +1099,30 @@ pub fn VegaRangeConfig::VegaRangeConfig(
   symbol? : Array[String],
 ) -> VegaRangeConfig {
   {
-    category: category.map(a => a.copy()),
-    ordinal: ordinal.map(a => a.copy()),
-    ramp: ramp.map(a => a.copy()),
-    diverging: diverging.map(a => a.copy()),
-    heatmap: heatmap.map(a => a.copy()),
-    symbol: symbol.map(a => a.copy()),
+    category: match category {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    ordinal: match ordinal {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    ramp: match ramp {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    diverging: match diverging {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    heatmap: match heatmap {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    symbol: match symbol {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 

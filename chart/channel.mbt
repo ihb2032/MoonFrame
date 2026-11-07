@@ -230,8 +230,14 @@ pub fn VegaBinParams::VegaBinParams(
     minstep,
     binned,
     extent,
-    divide: divide.map(d => d.copy()),
-    steps: steps.map(s => s.copy()),
+    divide: match divide {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    steps: match steps {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 

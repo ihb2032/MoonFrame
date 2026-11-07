@@ -230,7 +230,10 @@ pub fn VegaLegend::VegaLegend(
     padding,
     row_padding,
     stroke_color,
-    symbol_dash: symbol_dash.map(a => a.copy()),
+    symbol_dash: match symbol_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     symbol_dash_offset,
     symbol_fill_color,
     symbol_limit,
@@ -257,7 +260,10 @@ pub fn VegaLegend::VegaLegend(
     title_orient,
     title_padding,
     type_,
-    values: values.map(a => a.copy()),
+    values: match values {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     zindex,
   }
 }
@@ -665,7 +671,10 @@ pub fn VegaLegendConfig::VegaLegendConfig(
     padding,
     row_padding,
     stroke_color,
-    symbol_dash: symbol_dash.map(a => a.copy()),
+    symbol_dash: match symbol_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     symbol_dash_offset,
     symbol_fill_color,
     symbol_limit,

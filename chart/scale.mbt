@@ -169,7 +169,14 @@ pub fn VegaSchemeParams::VegaSchemeParams(
   extent? : Array[Double],
   count? : Double,
 ) -> VegaSchemeParams {
-  { name, extent: extent.map(a => a.copy()), count, }
+  {
+    name,
+    extent: match extent {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    count,
+  }
 }
 
 ///|

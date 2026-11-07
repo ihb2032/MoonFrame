@@ -275,7 +275,10 @@ pub fn VegaAxis::VegaAxis(
     domain,
     domain_cap,
     domain_color,
-    domain_dash: domain_dash.map(a => a.copy()),
+    domain_dash: match domain_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     domain_dash_offset,
     domain_opacity,
     domain_width,
@@ -284,7 +287,10 @@ pub fn VegaAxis::VegaAxis(
     grid,
     grid_cap,
     grid_color,
-    grid_dash: grid_dash.map(a => a.copy()),
+    grid_dash: match grid_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     grid_dash_offset,
     grid_opacity,
     grid_width,
@@ -318,7 +324,10 @@ pub fn VegaAxis::VegaAxis(
     tick_cap,
     tick_color,
     tick_count,
-    tick_dash: tick_dash.map(a => a.copy()),
+    tick_dash: match tick_dash {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     tick_dash_offset,
     tick_extra,
     tick_min_step,
@@ -345,7 +354,10 @@ pub fn VegaAxis::VegaAxis(
     title_x,
     title_y,
     translate,
-    values: values.map(a => a.copy()),
+    values: match values {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     zindex,
   }
 }

@@ -907,8 +907,14 @@ pub fn ChartSpec::of(
     background,
     projection,
     view,
-    transform: transform.map(ts => ts.copy()),
-    params: params.map(ps => ps.copy()),
+    transform: match transform {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    params: match params {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     config,
     usermeta,
   }

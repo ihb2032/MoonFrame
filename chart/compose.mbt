@@ -391,7 +391,10 @@ pub fn VegaLayer::VegaLayer(
     view,
     projection,
     resolve,
-    transform: transform.map(ts => ts.copy()),
+    transform: match transform {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 
@@ -459,7 +462,10 @@ pub fn VegaConcat::VegaConcat(
     name,
     description,
     resolve,
-    transform: transform.map(ts => ts.copy()),
+    transform: match transform {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 
@@ -528,7 +534,10 @@ pub fn VegaFacet::VegaFacet(
     name,
     description,
     resolve,
-    transform: transform.map(ts => ts.copy()),
+    transform: match transform {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 
@@ -580,8 +589,14 @@ pub fn VegaRepeat::VegaRepeat(
   transform? : Array[VegaTransform],
 ) -> VegaRepeat {
   {
-    row: row.map(r => r.copy()),
-    column: column.map(c => c.copy()),
+    row: match row {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+    column: match column {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     spec,
     align,
     bounds,
@@ -592,7 +607,10 @@ pub fn VegaRepeat::VegaRepeat(
     name,
     description,
     resolve,
-    transform: transform.map(ts => ts.copy()),
+    transform: match transform {
+      Some(a) => Some(a.copy())
+      None => None
+    },
   }
 }
 

@@ -184,7 +184,10 @@ pub fn VegaConfig::VegaConfig(
     field_title,
     aria,
     line_break,
-    params: params.map(ps => ps.copy()),
+    params: match params {
+      Some(a) => Some(a.copy())
+      None => None
+    },
     mark,
     bar,
     line,

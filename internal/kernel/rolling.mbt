@@ -11,6 +11,24 @@
 // tests beside the positional ones.
 
 ///|
+/// Row `i`'s rolling window span `[lo, hi]` over an `n`-row column: the
+/// `back` rows behind and `forward` rows ahead, clamped to the column —
+/// decided on comparisons that cannot overflow (`forward` near
+/// `Int::MAX` and a large `i` would wrap `i + forward` negative), the
+/// `gather_every` idiom. The rescan statistics and the extrema deque
+/// read the same span through this one spelling.
+fn window_bounds(
+  i : Int32,
+  back : Int32,
+  forward : Int32,
+  n : Int32,
+) -> (Int32, Int32) {
+  let lo = if i - back < 0 { 0 } else { i - back }
+  let hi = if forward >= n - i { n - 1 } else { i + forward }
+  (lo, hi)
+}
+
+///|
 /// Evaluate the rolling statistic over an operand column, keeping the
 /// operand's name — the window bounds are this function's own; `valid` is
 /// the caller's materialised validity (shared with the other positional
@@ -63,8 +81,7 @@ fn eval_rolling(
         return @series.Series::from_int_options(
           name,
           rolling_extrema(n, valid, back, forward, need, stat is Min, j => {
-            let v : Int64? = Some(a[j])
-            v
+            Some(a[j])
           }),
         )
       }
@@ -88,11 +105,7 @@ fn eval_rolling(
         Array::makei(n, _ => None)
       }
       for i in 0..<n {
-        let lo = if i - back < 0 { 0 } else { i - back }
-        // Decide on a comparison that cannot overflow (`forward` near
-        // `Int::MAX` and a large `i` would wrap `i + forward` negative) —
-        // the `gather_every` idiom.
-        let hi = if forward >= n - i { n - 1 } else { i + forward }
+        let (lo, hi) = window_bounds(i, back, forward, n)
         let mut acc : Int64? = None
         let widened : Array[Double] = []
         let mut present_count = 0
@@ -153,11 +166,7 @@ fn eval_rolling(
       // rules), while Min / Max skip it.
       let out : Array[Double?] = Array::makei(n, _ => None)
       for i in 0..<n {
-        let lo = if i - back < 0 { 0 } else { i - back }
-        // Decide on a comparison that cannot overflow (`forward` near
-        // `Int::MAX` and a large `i` would wrap `i + forward` negative) —
-        // the `gather_every` idiom.
-        let hi = if forward >= n - i { n - 1 } else { i + forward }
+        let (lo, hi) = window_bounds(i, back, forward, n)
         let vals : Array[Double] = []
         let mut saw_nan = false
         let mut present_count = 0
@@ -333,9 +342,9 @@ fn[T : Compare] rolling_extrema(
   let mut pushed = 0
   let mut leaving = 0
   for i in 0..<n {
-    // Fill the window's new right edge: cells up to `min(n-1, i+forward)`
-    // — the same bounds decision the rescan makes, spelled once.
-    let hi = if forward >= n - i { n - 1 } else { i + forward }
+    // Fill the window's new right edge: cells up to the shared bounds
+    // decision's `hi`.
+    let hi = window_bounds(i, back, forward, n).1
     while pushed <= hi {
       if valid[pushed] {
         present = present + 1

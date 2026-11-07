@@ -222,6 +222,51 @@ priv struct ClipBound[T] {
 }
 
 ///|
+/// Clamp each cell against the optional bounds — the shared body of the
+/// clip fast path's `Int64` and `Double` arms, generic over the cell
+/// type (the comparison is all the loop needs). A bound's cell for row
+/// `i` is its own slot for a literal bound, row `i`'s slot otherwise; a
+/// null bound cell leaves the operand's cell untouched, as a null operand
+/// cell nulls the output.
+fn[T : Compare] clip_cells(
+  a : ArrayView[T],
+  op_valid : Array[Bool],
+  lo : ClipBound[T]?,
+  hi : ClipBound[T]?,
+  n : Int32,
+) -> Array[T?] {
+  fn at(bound : ClipBound[T]?, i : Int32) -> T? {
+    match bound {
+      None => None
+      Some(b) => {
+        let idx = if b.literal { 0 } else { i }
+        if b.valid[idx] {
+          Some(b.buf[idx])
+        } else {
+          None
+        }
+      }
+    }
+  }
+  Array::makei(n, i => {
+    if !op_valid[i] {
+      None
+    } else {
+      let mut v = a[i]
+      match at(lo, i) {
+        Some(lo_v) => if v < lo_v { v = lo_v }
+        None => ()
+      }
+      match at(hi, i) {
+        Some(hi_v) => if v > hi_v { v = hi_v }
+        None => ()
+      }
+      Some(v)
+    }
+  })
+}
+
+///|
 /// The single-pass clip over same-dtype numeric buffers, `None` for every
 /// shape it does not own. One cell decision per row: a null operand stays
 /// null, a null bound cell means no bound on that side (the operand passes
@@ -275,35 +320,7 @@ fn try_clip_buffers(
         Some(None) => return None
         None => None
       }
-      fn at(bound : ClipBound[Int64]?, i : Int32) -> Int64? {
-        match bound {
-          None => None
-          Some(b) => {
-            let idx = if b.literal { 0 } else { i }
-            if b.valid[idx] {
-              Some(b.buf[idx])
-            } else {
-              None
-            }
-          }
-        }
-      }
-      let out : Array[Int64?] = Array::makei(n, i => {
-        if !op_valid[i] {
-          None
-        } else {
-          let mut v = a[i]
-          match at(lo, i) {
-            Some(lo_v) => if v < lo_v { v = lo_v }
-            None => ()
-          }
-          match at(hi, i) {
-            Some(hi_v) => if v > hi_v { v = hi_v }
-            None => ()
-          }
-          Some(v)
-        }
-      })
+      let out = clip_cells(a, op_valid, lo, hi, n)
       Some(
         Series::from_int_options(operand.name(), out).try_column_to_numeric(),
       )
@@ -319,35 +336,7 @@ fn try_clip_buffers(
         Some(None) => return None
         None => None
       }
-      fn at(bound : ClipBound[Double]?, i : Int32) -> Double? {
-        match bound {
-          None => None
-          Some(b) => {
-            let idx = if b.literal { 0 } else { i }
-            if b.valid[idx] {
-              Some(b.buf[idx])
-            } else {
-              None
-            }
-          }
-        }
-      }
-      let out : Array[Double?] = Array::makei(n, i => {
-        if !op_valid[i] {
-          None
-        } else {
-          let mut v = a[i]
-          match at(lo, i) {
-            Some(lo_v) => if v < lo_v { v = lo_v }
-            None => ()
-          }
-          match at(hi, i) {
-            Some(hi_v) => if v > hi_v { v = hi_v }
-            None => ()
-          }
-          Some(v)
-        }
-      })
+      let out = clip_cells(a, op_valid, lo, hi, n)
       Some(
         Series::from_float_options(operand.name(), out).try_column_to_numeric(),
       )

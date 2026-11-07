@@ -39,7 +39,7 @@ fn temporal_arith(
     for i in 0..<ls.length() {
       match (ls[i], rs[i]) {
         (Timestamp(a), Timestamp(b)) =>
-          match sub_checked_us(a, b) {
+          match @numeric.sub_checked(a, b) {
             Some(v) => cells.push(Some(v))
             None => {
               overflow = true
@@ -49,7 +49,7 @@ fn temporal_arith(
         (Date(a), Date(b)) =>
           match @numeric.sub_checked(a, b) {
             Some(days) =>
-              match mul_checked_us(days, 86_400_000_000L) {
+              match @numeric.mul_checked(days, 86_400_000_000L) {
                 Some(v) => cells.push(Some(v))
                 None => {
                   overflow = true
@@ -93,7 +93,7 @@ fn temporal_arith(
             }
           }
         (Date(a), Duration(d)) =>
-          match mul_checked_us(a, 86_400_000_000L) {
+          match @numeric.mul_checked(a, 86_400_000_000L) {
             Some(micros) =>
               match shift_us(micros, d, add) {
                 Some(v) => cells.push(Some(v))
@@ -121,33 +121,12 @@ fn temporal_arith(
 }
 
 ///|
-/// The checked difference of two microsecond counts — subtraction's own
-/// `MIN` trap (`a − MIN` wraps before any later check sees it), spelled
-/// once.
-fn sub_checked_us(a : Int64, b : Int64) -> Int64? {
-  if b == -9_223_372_036_854_775_808L {
-    if a >= 0L {
-      None
-    } else {
-      Some(a - b)
-    }
-  } else {
-    @numeric.add_checked(a, -b)
-  }
-}
-
-///|
-/// The checked product a day count scales by.
-fn mul_checked_us(a : Int64, b : Int64) -> Int64? {
-  @numeric.mul_checked(a, b)
-}
-
-///|
-/// The checked instant shift: `a ± d`.
+/// The checked instant shift: `a ± d` — the numeric package's own
+/// checked add / subtract / multiply over the microsecond counts.
 fn shift_us(a : Int64, d : Int64, add : Bool) -> Int64? {
   if add {
     @numeric.add_checked(a, d)
   } else {
-    sub_checked_us(a, d)
+    @numeric.sub_checked(a, d)
   }
 }

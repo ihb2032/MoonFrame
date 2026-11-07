@@ -50,7 +50,6 @@ internal/parquet/build.mbt build_series the page walk fixes one Scalar variant p
 internal/parquet/write.mbt encode_plain_value the map fixes the (physical, scalar) pair; the wildcard raises loudly — a cell the map cannot carry refuses the write
 internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
 internal/parquet/read.mbt decode_plain_values the catch's wildcard is the malformed-UTF-8 raise — the loud refusal, not a silent swallow
-internal/kernel/numeric.mbt scale_of the cell match carries the lifting pair spelled arms; the wildcard is the null cell (the dtype gate above admits only lifting pairs and nulls)
 internal/kernel/temporal.mbt temporal_arith the cell match is over the temporal pairs; the wildcard is the null (or mixed) source pair — one per the date and the shift half
 internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate
 internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate

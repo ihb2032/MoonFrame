@@ -6,7 +6,7 @@
 // on every backend.
 
 ///|
-let sample_csv : String =
+const SAMPLE_CSV : String =
   #|region,product,revenue,cost,quantity
   #|west,widget,100,60,10
   #|east,gadget,80,30,5
@@ -18,7 +18,7 @@ let sample_csv : String =
 
 ///|
 fn read_sample() -> @moonframe.DataFrame raise @moonframe.DataError {
-  @io.parse_csv_str(sample_csv)
+  @io.parse_csv_str(SAMPLE_CSV)
 }
 
 ///|

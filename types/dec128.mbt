@@ -22,41 +22,41 @@
 
 ///|
 /// One limb's radix — nine decimal digits per Int64.
-let dec_base : Int64 = 1_000_000_000L
+const DEC_BASE : Int64 = 1_000_000_000L
 
 ///|
 /// The stored coefficient's limb count — four limbs hold 36 digits,
 /// the format's 34 with room for a carry.
-let dec_limbs : Int32 = 4
+const DEC_LIMBS : Int32 = 4
 
 ///|
 /// The workspace limb count — eight limbs hold 72 digits: the 68-digit
 /// exact product, and the aligned addends, both with headroom.
-let dec_work_limbs : Int32 = 8
+const DEC_WORK_LIMBS : Int32 = 8
 
 ///|
 /// The format's precision — significant decimal digits.
-let dec_prec : Int32 = 34
+const DEC_PREC : Int32 = 34
 
 ///|
 /// The format's exponent ceiling, and its subnormal floor —
 /// Etiny = Emin − (p − 1).
-let dec_emax : Int32 = 6144
+const DEC_EMAX : Int32 = 6144
 
 ///|
-let dec_etiny : Int32 = -6176
+const DEC_ETINY : Int32 = -6176
 
 ///|
 /// The guard width the adder aligns at — 33 digits below the coarser
 /// addend's exponent keeps every digit a 34-digit sum can read, with the
 /// round-up carry to spare (69 of the workspace's 70 digits).$
-let dec_align_guard : Int32 = 35
+const DEC_ALIGN_GUARD : Int32 = 35
 
 ///|
 /// The digit headroom the parser and the shifts keep — 70 of the
 /// workspace's 72 digits, so a shift-and-add carry never leaves the
 /// top limb.
-let dec_digit_limit : Int32 = 70
+const DEC_DIGIT_LIMIT : Int32 = 70
 
 ///|
 /// An IEEE 754 decimal128 value. The fields are the representation,
@@ -75,31 +75,31 @@ pub struct Dec128 {
 
 ///|
 /// The value kinds, spelled — `kind`'s three numbers, once.
-let dec_kind_finite : Int32 = 0
+const DEC_KIND_FINITE : Int32 = 0
 
 ///|
-let dec_kind_inf : Int32 = 1
+const DEC_KIND_INF : Int32 = 1
 
 ///|
-let dec_kind_nan : Int32 = 2
+const DEC_KIND_NAN : Int32 = 2
 
 // ── workspace mechanics ───────────────────────────────────────────────
 
 ///|
 /// A zeroed workspace.
 fn dec_work() -> FixedArray[Int64] {
-  FixedArray::makei(dec_work_limbs, _ => 0L)
+  FixedArray::makei(DEC_WORK_LIMBS, _ => 0L)
 }
 
 ///|
 /// Propagate every limb into range — carry from the little end. The
 /// callers keep the value inside eight limbs by construction.
 fn dec_carry(fa : FixedArray[Int64]) -> Unit {
-  for i in 0..<(dec_work_limbs - 1) {
+  for i in 0..<(DEC_WORK_LIMBS - 1) {
     let v = fa[i]
-    if v >= dec_base {
-      fa[i] = v % dec_base
-      fa[i + 1] = fa[i + 1] + v / dec_base
+    if v >= DEC_BASE {
+      fa[i] = v % DEC_BASE
+      fa[i + 1] = fa[i + 1] + v / DEC_BASE
     }
   }
 }
@@ -162,7 +162,7 @@ fn dec_shift_left(fa : FixedArray[Int64], k : Int32) -> Unit {
   }
   let whole = k / 9
   if whole > 0 {
-    for j = dec_work_limbs - 1; j >= whole; j = j - 1 {
+    for j = DEC_WORK_LIMBS - 1; j >= whole; j = j - 1 {
       fa[j] = fa[j - whole]
     }
     for j in 0..<whole {
@@ -175,7 +175,7 @@ fn dec_shift_left(fa : FixedArray[Int64], k : Int32) -> Unit {
     for _ in 0..<part {
       scale = scale * 10L
     }
-    for j = dec_work_limbs - 1; j >= 0; j = j - 1 {
+    for j = DEC_WORK_LIMBS - 1; j >= 0; j = j - 1 {
       fa[j] = fa[j] * scale
     }
     dec_carry(fa)
@@ -213,10 +213,10 @@ fn dec_drop_digits(fa : FixedArray[Int64], k : Int32) -> (Int32, Bool) {
   }
   let whole = k / 9
   if whole > 0 {
-    for j in 0..<(dec_work_limbs - whole) {
+    for j in 0..<(DEC_WORK_LIMBS - whole) {
       fa[j] = fa[j + whole]
     }
-    for j in (dec_work_limbs - whole)..<dec_work_limbs {
+    for j in (DEC_WORK_LIMBS - whole)..<DEC_WORK_LIMBS {
       fa[j] = 0L
     }
   }
@@ -227,8 +227,8 @@ fn dec_drop_digits(fa : FixedArray[Int64], k : Int32) -> (Int32, Bool) {
       scale = scale * 10L
     }
     let mut rem = 0L
-    for j = dec_work_limbs - 1; j >= 0; j = j - 1 {
-      let cur = fa[j] + rem * dec_base
+    for j = DEC_WORK_LIMBS - 1; j >= 0; j = j - 1 {
+      let cur = fa[j] + rem * DEC_BASE
       fa[j] = cur / scale
       rem = cur % scale
     }
@@ -304,56 +304,56 @@ fn dec_finish(
   let mut exact = !sticky
   // Precision: at most 34 significant digits.
   let mut digits = dec_sig_digits(fa)
-  if digits > dec_prec {
-    let (guard_digit, tail) = dec_drop_digits(fa, digits - dec_prec)
+  if digits > DEC_PREC {
+    let (guard_digit, tail) = dec_drop_digits(fa, digits - DEC_PREC)
     sticky = sticky || tail
     // Exactness survives a drop of zeros only — a guard digit or a
     // nonzero tail is a digit the value lost.
     if guard_digit != 0 || tail {
       exact = false
     }
-    exp = dec_add_i32(exp, digits - dec_prec)
+    exp = dec_add_i32(exp, digits - DEC_PREC)
     dec_round_guard(fa, guard_digit, sticky)
     // The round-up may carry a fresh top digit out (all nines): one
     // digit past the format, dropped exactly — the zero it leaves
     // cannot round again.
     digits = dec_sig_digits(fa)
-    if digits > dec_prec {
-      let _ = dec_drop_digits(fa, digits - dec_prec)
-      exp = dec_add_i32(exp, digits - dec_prec)
+    if digits > DEC_PREC {
+      let _ = dec_drop_digits(fa, digits - DEC_PREC)
+      exp = dec_add_i32(exp, digits - DEC_PREC)
     }
   }
   // Range: the subnormal floor, then the ceiling.
   if dec_sig_limbs(fa) == 0 {
-    let e = if exp > dec_emax {
-      dec_emax
-    } else if exp < dec_etiny {
-      dec_etiny
+    let e = if exp > DEC_EMAX {
+      DEC_EMAX
+    } else if exp < DEC_ETINY {
+      DEC_ETINY
     } else {
       exp
     }
-    return (dec_of_parts(neg, dec_kind_finite, fa, e), exact)
+    return (dec_of_parts(neg, DEC_KIND_FINITE, fa, e), exact)
   }
-  if exp < dec_etiny {
-    let (guard_digit, tail) = dec_drop_digits(fa, dec_sub_i32(dec_etiny, exp))
+  if exp < DEC_ETINY {
+    let (guard_digit, tail) = dec_drop_digits(fa, dec_sub_i32(DEC_ETINY, exp))
     sticky = sticky || tail
     if guard_digit != 0 || tail {
       exact = false
     }
-    exp = dec_etiny
+    exp = DEC_ETINY
     dec_round_guard(fa, guard_digit, sticky)
     if dec_sig_limbs(fa) == 0 {
-      return (dec_of_parts(neg, dec_kind_finite, fa, dec_etiny), exact)
+      return (dec_of_parts(neg, DEC_KIND_FINITE, fa, DEC_ETINY), exact)
     }
   }
   // The ceiling is the VALUE's, not the quantum's: a magnitude whose
   // leading digit sits past 10^Emax is an infinity however many
   // trailing zeros its cohort carries (the adjusted exponent reads
   // the leading digit's place).
-  if dec_add_i32(exp, dec_sig_digits(fa) - 1) > dec_emax {
+  if dec_add_i32(exp, dec_sig_digits(fa) - 1) > DEC_EMAX {
     return (Dec128::infinity(neg~), exact)
   }
-  (dec_of_parts(neg, dec_kind_finite, fa, exp), exact)
+  (dec_of_parts(neg, DEC_KIND_FINITE, fa, exp), exact)
 }
 
 ///|
@@ -387,7 +387,7 @@ fn dec_of_parts(
   fa : FixedArray[Int64],
   exp : Int32,
 ) -> Dec128 {
-  { neg, kind, limbs: FixedArray::makei(dec_limbs, i => fa[i]), exp, }
+  { neg, kind, limbs: FixedArray::makei(DEC_LIMBS, i => fa[i]), exp, }
 }
 
 // ── constructors ─────────────────────────────────────────────────────
@@ -398,8 +398,8 @@ fn dec_of_parts(
 pub fn Dec128::nan() -> Dec128 {
   {
     neg: false,
-    kind: dec_kind_nan,
-    limbs: FixedArray::makei(dec_limbs, _ => 0L),
+    kind: DEC_KIND_NAN,
+    limbs: FixedArray::makei(DEC_LIMBS, _ => 0L),
     exp: 0,
   }
 }
@@ -409,8 +409,8 @@ pub fn Dec128::nan() -> Dec128 {
 pub fn Dec128::infinity(neg~ : Bool = false) -> Dec128 {
   {
     neg,
-    kind: dec_kind_inf,
-    limbs: FixedArray::makei(dec_limbs, _ => 0L),
+    kind: DEC_KIND_INF,
+    limbs: FixedArray::makei(DEC_LIMBS, _ => 0L),
     exp: 0,
   }
 }
@@ -421,8 +421,8 @@ pub fn Dec128::infinity(neg~ : Bool = false) -> Dec128 {
 pub fn Dec128::zero(neg~ : Bool = false) -> Dec128 {
   {
     neg,
-    kind: dec_kind_finite,
-    limbs: FixedArray::makei(dec_limbs, _ => 0L),
+    kind: DEC_KIND_FINITE,
+    limbs: FixedArray::makei(DEC_LIMBS, _ => 0L),
     exp: 0,
   }
 }
@@ -438,8 +438,8 @@ fn dec_load_i64(v : Int64) -> (Bool, FixedArray[Int64]) {
   let fa = dec_work()
   let mut rest = mag
   let mut i = 0
-  let base = dec_base.reinterpret_as_uint64()
-  while rest > 0UL && i < dec_work_limbs {
+  let base = DEC_BASE.reinterpret_as_uint64()
+  while rest > 0UL && i < DEC_WORK_LIMBS {
     fa[i] = (rest % base).reinterpret_as_int64()
     rest = rest / base
     i = i + 1
@@ -488,26 +488,26 @@ pub fn Dec128::from_double(d : Double) -> Dec128 {
 ///|
 /// NaN — the value that equals nothing, itself included.
 pub fn Dec128::is_nan(self : Dec128) -> Bool {
-  self.kind == dec_kind_nan
+  self.kind == DEC_KIND_NAN
 }
 
 ///|
 /// ±∞.
 pub fn Dec128::is_infinite(self : Dec128) -> Bool {
-  self.kind == dec_kind_inf
+  self.kind == DEC_KIND_INF
 }
 
 ///|
 /// A finite value — the zeroes and the subnormals among them.
 pub fn Dec128::is_finite(self : Dec128) -> Bool {
-  self.kind == dec_kind_finite
+  self.kind == DEC_KIND_FINITE
 }
 
 ///|
 /// The sign bit — negative for the negative finite values, −0, and −∞;
 /// false on NaN (its sign carries nothing).
 pub fn Dec128::is_negative(self : Dec128) -> Bool {
-  if self.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN {
     false
   } else {
     self.neg
@@ -517,7 +517,7 @@ pub fn Dec128::is_negative(self : Dec128) -> Bool {
 ///|
 /// A zero coefficient — +0 or −0 (never true on the exceptionals).
 pub fn Dec128::is_zero(self : Dec128) -> Bool {
-  self.kind == dec_kind_finite && dec_sig_limbs(self.limbs) == 0
+  self.kind == DEC_KIND_FINITE && dec_sig_limbs(self.limbs) == 0
 }
 
 ///|
@@ -526,7 +526,7 @@ pub fn Dec128::is_zero(self : Dec128) -> Bool {
 /// value). A cohort's members differ in exactly this and the
 /// coefficient's trailing zeros.
 pub fn Dec128::exponent(self : Dec128) -> Int32? {
-  if self.kind == dec_kind_finite {
+  if self.kind == DEC_KIND_FINITE {
     Some(self.exp)
   } else {
     None
@@ -538,7 +538,7 @@ pub fn Dec128::exponent(self : Dec128) -> Int32? {
 /// power of ten the leading digit sits at (the ordering magnitude);
 /// `None` on the exceptionals.
 pub fn Dec128::adjusted_exponent(self : Dec128) -> Int32? {
-  if self.kind == dec_kind_finite {
+  if self.kind == DEC_KIND_FINITE {
     Some(dec_add_i32(self.exp, dec_sig_digits(self.limbs) - 1))
   } else {
     None
@@ -550,7 +550,7 @@ pub fn Dec128::adjusted_exponent(self : Dec128) -> Int32? {
 /// zeros kept — the cohort's own spelling ("150" at exponent −2 is
 /// 1.50, not 1.5). Empty for a zero; `None` on the exceptionals.
 pub fn Dec128::coefficient_digits(self : Dec128) -> Array[Int32]? {
-  if self.kind != dec_kind_finite {
+  if self.kind != DEC_KIND_FINITE {
     return None
   }
   let out : Array[Int32] = []
@@ -610,9 +610,9 @@ fn dec_cmp_magnitude(a : Dec128, b : Dec128) -> Int32 {
 /// stable sort keeps their input order), magnitudes ascending.
 pub fn Dec128::cmp_total(self : Dec128, other : Dec128) -> Int32 {
   let rank = (d : Dec128) => {
-    if d.kind == dec_kind_nan {
+    if d.kind == DEC_KIND_NAN {
       3
-    } else if d.kind == dec_kind_inf {
+    } else if d.kind == DEC_KIND_INF {
       2
     } else {
       1
@@ -666,13 +666,13 @@ pub fn Dec128::cmp_total(self : Dec128, other : Dec128) -> Int32 {
 /// 1.00), ±0 equals ∓0, and NaN equals nothing, itself included (the
 /// Double Eq precedent; a hash carrier must canonicalize first).
 pub fn Dec128::equal(self : Dec128, other : Dec128) -> Bool {
-  if self.kind == dec_kind_nan || other.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     return false
   }
   if self.kind != other.kind {
     return false
   }
-  if self.kind != dec_kind_finite {
+  if self.kind != DEC_KIND_FINITE {
     return self.neg == other.neg
   }
   let za = dec_sig_limbs(self.limbs) == 0
@@ -686,7 +686,7 @@ pub fn Dec128::equal(self : Dec128, other : Dec128) -> Bool {
 ///|
 /// IEEE less-than — `false` whenever either side is NaN.
 pub fn Dec128::lt(self : Dec128, other : Dec128) -> Bool {
-  if self.kind == dec_kind_nan || other.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     false
   } else {
     self.cmp_total(other) < 0
@@ -696,7 +696,7 @@ pub fn Dec128::lt(self : Dec128, other : Dec128) -> Bool {
 ///|
 /// IEEE less-or-equal — `false` whenever either side is NaN.
 pub fn Dec128::le(self : Dec128, other : Dec128) -> Bool {
-  if self.kind == dec_kind_nan || other.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     false
   } else {
     self.cmp_total(other) <= 0
@@ -720,22 +720,22 @@ pub fn Dec128::ge(self : Dec128, other : Dec128) -> Bool {
 /// left on a zero), so value-equal decimals hash and key alike. The
 /// exceptionals are their own canonical shapes.
 pub fn Dec128::canonical(self : Dec128) -> Dec128 {
-  if self.kind != dec_kind_finite {
+  if self.kind != DEC_KIND_FINITE {
     return self
   }
   let fa = dec_work()
-  for i in 0..<dec_limbs {
+  for i in 0..<DEC_LIMBS {
     fa[i] = self.limbs[i]
   }
   let mut exp = self.exp
   if dec_sig_limbs(fa) == 0 {
-    return dec_of_parts(self.neg, dec_kind_finite, fa, 0)
+    return dec_of_parts(self.neg, DEC_KIND_FINITE, fa, 0)
   }
   while dec_sig_digits(fa) > 1 && dec_digit_at(fa, 0) == 0 {
     let _ = dec_drop_digits(fa, 1)
     exp = dec_add_i32(exp, 1)
   }
-  dec_of_parts(self.neg, dec_kind_finite, fa, exp)
+  dec_of_parts(self.neg, DEC_KIND_FINITE, fa, exp)
 }
 
 // ── arithmetic ───────────────────────────────────────────────────────
@@ -744,7 +744,7 @@ pub fn Dec128::canonical(self : Dec128) -> Dec128 {
 /// Negation — the sign flipped on the finite values and the zeroes
 /// (−0 stays a value); NaN unchanged (its sign carries nothing).
 pub fn Dec128::neg(self : Dec128) -> Dec128 {
-  if self.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN {
     return self
   }
   { ..self, neg: !self.neg, }
@@ -753,7 +753,7 @@ pub fn Dec128::neg(self : Dec128) -> Dec128 {
 ///|
 /// Absolute value — the sign cleared; NaN unchanged.
 pub fn Dec128::abs(self : Dec128) -> Dec128 {
-  if self.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN {
     return self
   }
   { ..self, neg: false, }
@@ -763,7 +763,7 @@ pub fn Dec128::abs(self : Dec128) -> Dec128 {
 /// Copy the stored limbs into a fresh workspace.
 fn dec_load(d : Dec128) -> FixedArray[Int64] {
   let fa = dec_work()
-  for i in 0..<dec_limbs {
+  for i in 0..<DEC_LIMBS {
     fa[i] = d.limbs[i]
   }
   fa
@@ -790,18 +790,18 @@ pub fn Dec128::sub(self : Dec128, other : Dec128) -> Dec128 {
 ///|
 /// The adder behind `add` / `sub`.
 fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
-  if a.kind == dec_kind_nan || b.kind == dec_kind_nan {
+  if a.kind == DEC_KIND_NAN || b.kind == DEC_KIND_NAN {
     return Dec128::nan()
   }
   let bn = if sub { b.neg() } else { b }
-  if a.kind == dec_kind_inf || bn.kind == dec_kind_inf {
-    if a.kind == dec_kind_inf && bn.kind == dec_kind_inf {
+  if a.kind == DEC_KIND_INF || bn.kind == DEC_KIND_INF {
+    if a.kind == DEC_KIND_INF && bn.kind == DEC_KIND_INF {
       if a.neg == bn.neg {
         return a
       }
       return Dec128::nan() // ∞ + (−∞): the invalid shape
     }
-    return if a.kind == dec_kind_inf { a } else { bn }
+    return if a.kind == DEC_KIND_INF { a } else { bn }
   }
   if dec_sig_limbs(bn.limbs) == 0 {
     return a
@@ -817,7 +817,7 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
   // digits, inside the workspace's 70 with the carry to spare.
   let e_fine = if a.exp < bn.exp { a.exp } else { bn.exp }
   let e_coarse = if a.exp >= bn.exp { a.exp } else { bn.exp }
-  let window_foot = dec_add_i32(e_coarse, -dec_align_guard)
+  let window_foot = dec_add_i32(e_coarse, -DEC_ALIGN_GUARD)
   let e_work = if window_foot > e_fine { window_foot } else { e_fine }
   let wa = dec_load(a)
   let wb = dec_load(bn)
@@ -847,7 +847,7 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
 /// the preferred. Division's refinement — the exact quotient's guard
 /// scaling shifts back out.
 fn dec_refine_up(out : Dec128, preferred : Int32) -> Dec128 {
-  if out.kind != dec_kind_finite || dec_sig_limbs(out.limbs) == 0 {
+  if out.kind != DEC_KIND_FINITE || dec_sig_limbs(out.limbs) == 0 {
     return out
   }
   if out.exp >= preferred {
@@ -859,7 +859,7 @@ fn dec_refine_up(out : Dec128, preferred : Int32) -> Dec128 {
     let _ = dec_drop_digits(fa, 1)
     exp = dec_add_i32(exp, 1)
   }
-  dec_of_parts(out.neg, dec_kind_finite, fa, exp)
+  dec_of_parts(out.neg, DEC_KIND_FINITE, fa, exp)
 }
 
 ///|
@@ -883,7 +883,7 @@ fn dec_align_to(fa : FixedArray[Int64], from : Int32, to : Int32) -> Bool {
 ///|
 /// Workspace add — little-endian limb sums, carries after.
 fn dec_add_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Unit {
-  for i in 0..<dec_work_limbs {
+  for i in 0..<DEC_WORK_LIMBS {
     a[i] = a[i] + b[i]
   }
   dec_carry(a)
@@ -893,10 +893,10 @@ fn dec_add_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Unit {
 /// Workspace subtract — `a − b`, magnitudes, a ≥ b by the callers.
 fn dec_sub_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Unit {
   let mut borrow = 0L
-  for i in 0..<dec_work_limbs {
+  for i in 0..<DEC_WORK_LIMBS {
     let cur = a[i] - b[i] + borrow
     if cur < 0L {
-      a[i] = cur + dec_base
+      a[i] = cur + DEC_BASE
       borrow = -1L
     } else {
       a[i] = cur
@@ -908,7 +908,7 @@ fn dec_sub_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Unit {
 ///|
 /// Workspace magnitude compare — little-endian from the top.
 fn dec_cmp_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Int32 {
-  for i = dec_work_limbs - 1; i >= 0; i = i - 1 {
+  for i = DEC_WORK_LIMBS - 1; i >= 0; i = i - 1 {
     if a[i] != b[i] {
       return if a[i] < b[i] { -1 } else { 1 }
     }
@@ -923,15 +923,15 @@ fn dec_cmp_work(a : FixedArray[Int64], b : FixedArray[Int64]) -> Int32 {
 /// an exact one keeping the operands' exponents' sum — the preferred
 /// exponent, cohort trailing zeros and all.
 pub fn Dec128::mul(self : Dec128, other : Dec128) -> Dec128 {
-  if self.kind == dec_kind_nan || other.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     return Dec128::nan()
   }
-  if self.kind == dec_kind_inf || other.kind == dec_kind_inf {
+  if self.kind == DEC_KIND_INF || other.kind == DEC_KIND_INF {
     // ∞ × 0 is the NaN — and the zero test reads the *finite* side's
     // coefficient: an infinity's own limbs are zero by construction.
-    let self_zero = self.kind == dec_kind_finite &&
+    let self_zero = self.kind == DEC_KIND_FINITE &&
       dec_sig_limbs(self.limbs) == 0
-    let other_zero = other.kind == dec_kind_finite &&
+    let other_zero = other.kind == DEC_KIND_FINITE &&
       dec_sig_limbs(other.limbs) == 0
     if self_zero || other_zero {
       return Dec128::nan()
@@ -967,16 +967,16 @@ pub fn Dec128::mul(self : Dec128, other : Dec128) -> Dec128 {
 /// shifts back out toward the preferred exponent — dividend exponent
 /// minus divisor exponent.
 pub fn Dec128::div(self : Dec128, other : Dec128) -> Dec128 {
-  if self.kind == dec_kind_nan || other.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     return Dec128::nan()
   }
-  if self.kind == dec_kind_inf {
-    if other.kind == dec_kind_inf {
+  if self.kind == DEC_KIND_INF {
+    if other.kind == DEC_KIND_INF {
       return Dec128::nan()
     }
     return Dec128::infinity(neg=self.neg != other.neg)
   }
-  if other.kind == dec_kind_inf {
+  if other.kind == DEC_KIND_INF {
     return Dec128::zero(neg=self.neg != other.neg)
   }
   let a_zero = dec_sig_limbs(self.limbs) == 0
@@ -996,7 +996,7 @@ pub fn Dec128::div(self : Dec128, other : Dec128) -> Dec128 {
   // arise inside the format).
   let da = dec_sig_digits(self.limbs)
   let db = dec_sig_digits(other.limbs)
-  let s = dec_prec + 1 + db - da
+  let s = DEC_PREC + 1 + db - da
   let numer = dec_load(self)
   dec_shift_left(numer, s)
   let divisor = dec_load(other)
@@ -1028,22 +1028,22 @@ fn dec_div_work(
   let top = divisor[nb - 1]
   let quot = dec_work()
   // The running remainder, one limb longer than the divisor's count.
-  let rem = FixedArray::makei(dec_work_limbs + 1, _ => 0L)
-  for i = dec_work_limbs - 1; i >= 0; i = i - 1 {
+  let rem = FixedArray::makei(DEC_WORK_LIMBS + 1, _ => 0L)
+  for i = DEC_WORK_LIMBS - 1; i >= 0; i = i - 1 {
     // rem = rem · BASE + numer[i].
     let mut carry = numer[i]
-    for j = 0; j <= dec_work_limbs; j = j + 1 {
-      let cur = rem[j] * dec_base + carry
-      rem[j] = cur % dec_base
-      carry = cur / dec_base
+    for j = 0; j <= DEC_WORK_LIMBS; j = j + 1 {
+      let cur = rem[j] * DEC_BASE + carry
+      rem[j] = cur % DEC_BASE
+      carry = cur / DEC_BASE
     }
     if carry != 0L || !dec_rem_zero(rem) {
       // The estimate, off the remainder's window around the divisor's
       // top limb; corrected down while it overshot.
-      let rem_top = rem[nb] * dec_base + rem[nb - 1]
+      let rem_top = rem[nb] * DEC_BASE + rem[nb - 1]
       let mut q = rem_top / top
-      if q >= dec_base {
-        q = dec_base - 1L
+      if q >= DEC_BASE {
+        q = DEC_BASE - 1L
       }
       while q > 0L && dec_rem_lt_mul(rem, divisor, q) {
         q = q - 1L
@@ -1074,17 +1074,17 @@ fn dec_rem_lt_mul(
   divisor : FixedArray[Int64],
   q : Int64,
 ) -> Bool {
-  let prod = FixedArray::makei(dec_work_limbs + 1, _ => 0L)
+  let prod = FixedArray::makei(DEC_WORK_LIMBS + 1, _ => 0L)
   let mut carry = 0L
-  for i in 0..<(dec_work_limbs + 1) {
-    let d = if i < dec_work_limbs { divisor[i] } else { 0L }
+  for i in 0..<(DEC_WORK_LIMBS + 1) {
+    let d = if i < DEC_WORK_LIMBS { divisor[i] } else { 0L }
     let cur = q * d + carry
-    prod[i] = cur % dec_base
-    carry = cur / dec_base
+    prod[i] = cur % DEC_BASE
+    carry = cur / DEC_BASE
   }
   // rem < prod, little-endian from the top (carry-out past prod means
   // the product left the window — rem is certainly below it).
-  for i = dec_work_limbs; i >= 0; i = i - 1 {
+  for i = DEC_WORK_LIMBS; i >= 0; i = i - 1 {
     if rem[i] != prod[i] {
       return rem[i] < prod[i]
     }
@@ -1101,13 +1101,13 @@ fn dec_rem_sub_mul(
   q : Int64,
 ) -> Unit {
   let mut borrow = 0L
-  for i in 0..<(dec_work_limbs + 1) {
-    let d = if i < dec_work_limbs { divisor[i] } else { 0L }
+  for i in 0..<(DEC_WORK_LIMBS + 1) {
+    let d = if i < DEC_WORK_LIMBS { divisor[i] } else { 0L }
     let sub = q * d + borrow
-    borrow = sub / dec_base
-    let mut cur = rem[i] - sub % dec_base
+    borrow = sub / DEC_BASE
+    let mut cur = rem[i] - sub % DEC_BASE
     while cur < 0L {
-      cur = cur + dec_base
+      cur = cur + DEC_BASE
       borrow = borrow + 1L
     }
     rem[i] = cur
@@ -1123,7 +1123,7 @@ fn dec_rem_sub_mul(
 /// value whose coefficient cannot hold that exponent (past 34 digits
 /// there) is the quantize-invalid shape, a NaN.
 pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
-  if self.kind != dec_kind_finite {
+  if self.kind != DEC_KIND_FINITE {
     return self
   }
   let target = dec_add_i32(0, -places)
@@ -1131,11 +1131,11 @@ pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
   // and a value whose digits past the target run beyond the format's
   // 34 (a coefficient that cannot exist there). Both are the
   // quantize-invalid shape, a NaN.
-  if target < dec_etiny {
+  if target < DEC_ETINY {
     return Dec128::nan()
   }
   let adj = dec_add_i32(self.exp, dec_sig_digits(self.limbs) - 1)
-  if dec_sub_i32(adj, target) + 1 > dec_prec {
+  if dec_sub_i32(adj, target) + 1 > DEC_PREC {
     return Dec128::nan()
   }
   let fa = dec_load(self)
@@ -1154,7 +1154,7 @@ pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
     dec_shift_left(fa, dec_sub_i32(self.exp, target))
   }
   dec_round_guard(fa, guard_digit, sticky)
-  dec_of_parts(self.neg, dec_kind_finite, fa, target)
+  dec_of_parts(self.neg, DEC_KIND_FINITE, fa, target)
 }
 
 ///|
@@ -1162,7 +1162,7 @@ pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
 /// `None` otherwise (a fraction, a magnitude past Int64, or an
 /// exceptional).
 pub fn Dec128::to_int64(self : Dec128) -> Int64? {
-  if self.kind != dec_kind_finite {
+  if self.kind != DEC_KIND_FINITE {
     return None
   }
   let fa = dec_load(self)
@@ -1175,7 +1175,7 @@ pub fn Dec128::to_int64(self : Dec128) -> Int64? {
     }
   } else if self.exp > 0 {
     let digits = dec_sig_digits(fa)
-    if digits + self.exp > dec_work_limbs * 9 {
+    if digits + self.exp > DEC_WORK_LIMBS * 9 {
       return None
     }
     dec_shift_left(fa, self.exp)
@@ -1187,8 +1187,8 @@ pub fn Dec128::to_int64(self : Dec128) -> Int64? {
 /// The workspace's limbs as a signed Int64 — `None` past the range.
 fn dec_work_to_int64(neg : Bool, fa : FixedArray[Int64]) -> Int64? {
   let mut mag = 0UL
-  for i = dec_work_limbs - 1; i >= 0; i = i - 1 {
-    mag = mag * dec_base.reinterpret_as_uint64() + fa[i].reinterpret_as_uint64()
+  for i = DEC_WORK_LIMBS - 1; i >= 0; i = i - 1 {
+    mag = mag * DEC_BASE.reinterpret_as_uint64() + fa[i].reinterpret_as_uint64()
   }
   let limit = if neg {
     9_223_372_036_854_775_808UL // |MIN| reads back exactly
@@ -1218,10 +1218,10 @@ fn dec_parse_double_or_nan(s : String) -> Double {
 /// parser (a correctly-rounded conversion), the exceptionals mapped
 /// across.
 pub fn Dec128::to_double(self : Dec128) -> Double {
-  if self.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN {
     return @double.not_a_number
   }
-  if self.kind == dec_kind_inf {
+  if self.kind == DEC_KIND_INF {
     return if self.neg { @double.neg_infinity } else { @double.infinity }
   }
   dec_parse_double_or_nan(self.to_string())
@@ -1290,13 +1290,13 @@ pub fn Dec128::parse_opt(s : String) -> Dec128? {
       return false // a leading zero scales nothing
     }
     seen_significant = true
-    if sig_collected < dec_digit_limit {
+    if sig_collected < DEC_DIGIT_LIMIT {
       // fa = fa·10 + d, little-endian.
       let mut carry = d.to_int64()
-      for k in 0..<dec_work_limbs {
+      for k in 0..<DEC_WORK_LIMBS {
         let cur = fa[k] * 10L + carry
-        fa[k] = cur % dec_base
-        carry = cur / dec_base
+        fa[k] = cur % DEC_BASE
+        carry = cur / DEC_BASE
       }
       sig_collected = sig_collected + 1
       return false
@@ -1367,10 +1367,10 @@ pub fn Dec128::parse_opt(s : String) -> Dec128? {
 /// `inf` / `-inf` / `NaN`. `parse_opt` reads every spelling back
 /// exactly.
 pub fn Dec128::to_string(self : Dec128) -> String {
-  if self.kind == dec_kind_nan {
+  if self.kind == DEC_KIND_NAN {
     return "NaN"
   }
-  if self.kind == dec_kind_inf {
+  if self.kind == DEC_KIND_INF {
     return if self.neg { "-inf" } else { "inf" }
   }
   let sign = if self.neg { "-" } else { "" }

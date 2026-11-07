@@ -319,83 +319,40 @@ pub fn VegaTitleConfig::VegaTitleConfig(
 /// The emitted JSON object of a `VegaTitleConfig`, every set property
 /// under its schema key.
 fn vega_title_config_emit_json(x : VegaTitleConfig) -> Json {
-  let obj : Map[String, Json] = Map([])
-  if x.align is Some(v) {
-    obj["align"] = Json::string(vega_align_string(v))
-  }
-  if x.anchor is Some(v) {
-    obj["anchor"] = Json::string(vega_anchor_string(v))
-  }
-  if x.angle is Some(v) {
-    obj["angle"] = Json::number(v)
-  }
-  if x.aria is Some(v) {
-    obj["aria"] = Json::boolean(v)
-  }
-  if x.baseline is Some(v) {
-    obj["baseline"] = Json::string(vega_baseline_string(v))
-  }
-  if x.color is Some(v) {
-    obj["color"] = Json::string(v)
-  }
-  if x.dx is Some(v) {
-    obj["dx"] = Json::number(v)
-  }
-  if x.dy is Some(v) {
-    obj["dy"] = Json::number(v)
-  }
-  if x.font is Some(v) {
-    obj["font"] = Json::string(v)
-  }
-  if x.font_size is Some(v) {
-    obj["fontSize"] = Json::number(v)
-  }
-  if x.font_style is Some(v) {
-    obj["fontStyle"] = Json::string(v)
-  }
-  if x.font_weight is Some(v) {
-    obj["fontWeight"] = vega_font_weight_emit_json(v)
-  }
-  if x.frame is Some(v) {
-    obj["frame"] = Json::string(vega_title_frame_string(v))
-  }
-  if x.limit is Some(v) {
-    obj["limit"] = Json::number(v)
-  }
-  if x.line_height is Some(v) {
-    obj["lineHeight"] = Json::number(v)
-  }
-  if x.offset is Some(v) {
-    obj["offset"] = Json::number(v)
-  }
-  if x.orient is Some(v) {
-    obj["orient"] = Json::string(vega_title_orient_string(v))
-  }
-  if x.subtitle_color is Some(v) {
-    obj["subtitleColor"] = Json::string(v)
-  }
-  if x.subtitle_font is Some(v) {
-    obj["subtitleFont"] = Json::string(v)
-  }
-  if x.subtitle_font_size is Some(v) {
-    obj["subtitleFontSize"] = Json::number(v)
-  }
-  if x.subtitle_font_style is Some(v) {
-    obj["subtitleFontStyle"] = Json::string(v)
-  }
-  if x.subtitle_font_weight is Some(v) {
-    obj["subtitleFontWeight"] = vega_font_weight_emit_json(v)
-  }
-  if x.subtitle_line_height is Some(v) {
-    obj["subtitleLineHeight"] = Json::number(v)
-  }
-  if x.subtitle_padding is Some(v) {
-    obj["subtitlePadding"] = Json::number(v)
-  }
-  if x.zindex is Some(v) {
-    obj["zindex"] = Json::number(v)
-  }
-  Json::object(obj)
+  // A config is the title params' field set minus the three a config
+  // cannot carry, so its JSON is the params' emission over the widened
+  // value — the three filled `None`, emitted by nothing — keeping one
+  // field-emission order instead of two that must be edited together.
+  vega_title_params_emit_json({
+    text: None,
+    align: x.align,
+    anchor: x.anchor,
+    angle: x.angle,
+    aria: x.aria,
+    baseline: x.baseline,
+    color: x.color,
+    dx: x.dx,
+    dy: x.dy,
+    font: x.font,
+    font_size: x.font_size,
+    font_style: x.font_style,
+    font_weight: x.font_weight,
+    frame: x.frame,
+    limit: x.limit,
+    line_height: x.line_height,
+    offset: x.offset,
+    orient: x.orient,
+    style: None,
+    subtitle: None,
+    subtitle_color: x.subtitle_color,
+    subtitle_font: x.subtitle_font,
+    subtitle_font_size: x.subtitle_font_size,
+    subtitle_font_style: x.subtitle_font_style,
+    subtitle_font_weight: x.subtitle_font_weight,
+    subtitle_line_height: x.subtitle_line_height,
+    subtitle_padding: x.subtitle_padding,
+    zindex: x.zindex,
+  })
 }
 
 ///|

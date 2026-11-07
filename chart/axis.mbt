@@ -275,10 +275,7 @@ pub fn VegaAxis::VegaAxis(
     domain,
     domain_cap,
     domain_color,
-    domain_dash: match domain_dash {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    domain_dash: domain_dash.map(a => a.copy()),
     domain_dash_offset,
     domain_opacity,
     domain_width,
@@ -287,10 +284,7 @@ pub fn VegaAxis::VegaAxis(
     grid,
     grid_cap,
     grid_color,
-    grid_dash: match grid_dash {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    grid_dash: grid_dash.map(a => a.copy()),
     grid_dash_offset,
     grid_opacity,
     grid_width,
@@ -324,10 +318,7 @@ pub fn VegaAxis::VegaAxis(
     tick_cap,
     tick_color,
     tick_count,
-    tick_dash: match tick_dash {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    tick_dash: tick_dash.map(a => a.copy()),
     tick_dash_offset,
     tick_extra,
     tick_min_step,
@@ -354,10 +345,7 @@ pub fn VegaAxis::VegaAxis(
     title_x,
     title_y,
     translate,
-    values: match values {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    values: values.map(a => a.copy()),
     zindex,
   }
 }
@@ -366,40 +354,28 @@ pub fn VegaAxis::VegaAxis(
 /// The `domain_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaAxis::domain_dash(self : VegaAxis) -> Array[Double]? {
-  match self.domain_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.domain_dash.map(a => a.copy())
 }
 
 ///|
 /// The `grid_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaAxis::grid_dash(self : VegaAxis) -> Array[Double]? {
-  match self.grid_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.grid_dash.map(a => a.copy())
 }
 
 ///|
 /// The `tick_dash` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaAxis::tick_dash(self : VegaAxis) -> Array[Double]? {
-  match self.tick_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.tick_dash.map(a => a.copy())
 }
 
 ///|
 /// The `values` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaAxis::values(self : VegaAxis) -> Array[Json]? {
-  match self.values {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.values.map(a => a.copy())
 }
 
 ///|

@@ -230,14 +230,8 @@ pub fn VegaBinParams::VegaBinParams(
     minstep,
     binned,
     extent,
-    divide: match divide {
-      Some(d) => Some(d.copy())
-      None => None
-    },
-    steps: match steps {
-      Some(s) => Some(s.copy())
-      None => None
-    },
+    divide: divide.map(d => d.copy()),
+    steps: steps.map(s => s.copy()),
   }
 }
 
@@ -581,40 +575,8 @@ pub fn field(
 }
 
 ///|
-/// A constant-value encoding channel: the channel shows the given JSON
-/// value for every row (the schema's value definition — a fixed color, a
-/// fixed size) instead of reading a column. Its `type` inference has no
-/// column to read, so the emitted definition carries only the value (and
-/// any `title` / `format` set on the channel through a builder is
-/// unreachable — use `field` when a column is wanted).
-pub fn constant(value : Json) -> VegaChannel {
-  {
-    field: None,
-    repeat_ref: None,
-    aggregate: None,
-    bin: None,
-    time_unit: None,
-    sort: None,
-    type_override: None,
-    title: None,
-    format: None,
-    stack: None,
-    band_position: None,
-    scale: None,
-    axis: None,
-    legend: None,
-    condition: None,
-    value: Some(value),
-    datum: None,
-  }
-}
-
-///|
-/// A constant-datum encoding channel: like `constant`, but the value
-/// passes through the channel's scale (a scale type must fit — a number
-/// under a linear scale) rather than being shown verbatim. The schema's
-/// datum definition.
-pub fn datum(value : Json) -> VegaChannel {
+/// The all-unset channel every constant-style builder starts from.
+fn empty_channel() -> VegaChannel {
   {
     field: None,
     repeat_ref: None,
@@ -632,8 +594,28 @@ pub fn datum(value : Json) -> VegaChannel {
     legend: None,
     condition: None,
     value: None,
-    datum: Some(value),
+    datum: None,
   }
+}
+
+///|
+/// A constant-value encoding channel: the channel shows the given JSON
+/// value for every row (the schema's value definition — a fixed color, a
+/// fixed size) instead of reading a column. Its `type` inference has no
+/// column to read, so the emitted definition carries only the value (and
+/// any `title` / `format` set on the channel through a builder is
+/// unreachable — use `field` when a column is wanted).
+pub fn constant(value : Json) -> VegaChannel {
+  { ..empty_channel(), value: Some(value), }
+}
+
+///|
+/// A constant-datum encoding channel: like `constant`, but the value
+/// passes through the channel's scale (a scale type must fit — a number
+/// under a linear scale) rather than being shown verbatim. The schema's
+/// datum definition.
+pub fn datum(value : Json) -> VegaChannel {
+  { ..empty_channel(), datum: Some(value), }
 }
 
 ///|
@@ -643,25 +625,7 @@ pub fn datum(value : Json) -> VegaChannel {
 /// a histogram is `ChartSpec::bar(field("price", bin=On),
 /// VegaChannel::count())`.
 pub fn VegaChannel::count() -> VegaChannel {
-  {
-    field: None,
-    repeat_ref: None,
-    aggregate: Some(Count),
-    bin: None,
-    time_unit: None,
-    sort: None,
-    type_override: None,
-    title: None,
-    format: None,
-    stack: None,
-    band_position: None,
-    scale: None,
-    axis: None,
-    legend: None,
-    condition: None,
-    value: None,
-    datum: None,
-  }
+  { ..empty_channel(), aggregate: Some(Count), }
 }
 
 ///|

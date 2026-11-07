@@ -26,10 +26,7 @@ pub extend VegaAggField with Eq::{equal, not_equal}
 pub extend VegaAggField with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// One aggregation field: the operator, its output name, and the column it reads.
 pub fn VegaAggField::VegaAggField(
   op~ : VegaAggregate,
   as_~ : String,
@@ -143,10 +140,7 @@ pub extend VegaWindowField with Eq::{equal, not_equal}
 pub extend VegaWindowField with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// One window field: the calculation, its output name, and the column it reads.
 pub fn VegaWindowField::VegaWindowField(
   op~ : VegaWindowFieldOp,
   as_~ : String,
@@ -198,10 +192,7 @@ pub extend VegaSortField with Eq::{equal, not_equal}
 pub extend VegaSortField with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// One sort field: the column, its order, and the optional bin it sorts within.
 pub fn VegaSortField::VegaSortField(
   field~ : String,
   order? : VegaSort,
@@ -307,10 +298,7 @@ pub extend VegaImputeSequence with Eq::{equal, not_equal}
 pub extend VegaImputeSequence with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The sequence of imputation values for the impute transform.
 pub fn VegaImputeSequence::VegaImputeSequence(
   stop~ : Double,
   start? : Double,
@@ -427,10 +415,7 @@ pub extend VegaBinTransform with Eq::{equal, not_equal}
 pub extend VegaBinTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The bin transform: one numeric column binned into discrete bins.
 pub fn VegaBinTransform::VegaBinTransform(
   bin~ : VegaBin,
   field~ : String,
@@ -474,10 +459,7 @@ pub extend VegaCalculateTransform with Eq::{equal, not_equal}
 pub extend VegaCalculateTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The calculate transform: one derived column per expression.
 pub fn VegaCalculateTransform::VegaCalculateTransform(
   calculate~ : String,
   as_~ : String,
@@ -665,10 +647,7 @@ pub extend VegaExtentTransform with Eq::{equal, not_equal}
 pub extend VegaExtentTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The extent transform: a column's min and max as a signal.
 pub fn VegaExtentTransform::VegaExtentTransform(
   extent~ : String,
   param~ : String,
@@ -706,10 +685,7 @@ pub extend VegaFilterTransform with Eq::{equal, not_equal}
 pub extend VegaFilterTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The filter transform: keep the rows a predicate accepts.
 pub fn VegaFilterTransform::VegaFilterTransform(
   filter~ : VegaPredicate,
 ) -> VegaFilterTransform {
@@ -1211,10 +1187,7 @@ pub extend VegaLookupTransform with Eq::{equal, not_equal}
 pub extend VegaLookupTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The lookup transform: join a secondary table onto the rows by key.
 pub fn VegaLookupTransform::VegaLookupTransform(
   lookup~ : String,
   from_~ : VegaLookupFrom,
@@ -1618,10 +1591,7 @@ pub extend VegaSampleTransform with Eq::{equal, not_equal}
 pub extend VegaSampleTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The sample transform: a random or targeted row sample.
 pub fn VegaSampleTransform::VegaSampleTransform(
   sample~ : Double,
 ) -> VegaSampleTransform {
@@ -1777,10 +1747,7 @@ pub extend VegaTimeUnitTransform with Eq::{equal, not_equal}
 pub extend VegaTimeUnitTransform with Debug::{to_repr}
 
 ///|
-/// The array properties are copied at construction, so
-/// arrays the caller mutates afterwards cannot move a
-/// chart already built; read them back through their
-/// accessors, which copy again.
+/// The time-unit transform: one column binned into calendar units.
 pub fn VegaTimeUnitTransform::VegaTimeUnitTransform(
   time_unit~ : VegaTimeUnit,
   field~ : String,

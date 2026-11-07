@@ -184,10 +184,7 @@ pub fn VegaConfig::VegaConfig(
     field_title,
     aria,
     line_break,
-    params: match params {
-      Some(ps) => Some(ps.copy())
-      None => None
-    },
+    params: params.map(ps => ps.copy()),
     mark,
     bar,
     line,
@@ -258,10 +255,7 @@ pub fn VegaConfig::VegaConfig(
 /// The params list, copied — reading the field itself would hand the
 /// caller the array the theme holds.
 pub fn VegaConfig::params(self : VegaConfig) -> Array[Json]? {
-  match self.params {
-    Some(ps) => Some(ps.copy())
-    None => None
-  }
+  self.params.map(ps => ps.copy())
 }
 
 ///|

@@ -165,10 +165,7 @@ pub fn VegaProjection::VegaProjection(
     fraction,
     lobes,
     parallel,
-    parallels: match parallels {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    parallels: parallels.map(a => a.copy()),
     point_radius,
     precision,
     radius,
@@ -188,10 +185,7 @@ pub fn VegaProjection::VegaProjection(
 /// The `parallels` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaProjection::parallels(self : VegaProjection) -> Array[Double]? {
-  match self.parallels {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.parallels.map(a => a.copy())
 }
 
 ///|

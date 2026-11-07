@@ -391,10 +391,7 @@ pub fn VegaLayer::VegaLayer(
     view,
     projection,
     resolve,
-    transform: match transform {
-      Some(ts) => Some(ts.copy())
-      None => None
-    },
+    transform: transform.map(ts => ts.copy()),
   }
 }
 
@@ -462,10 +459,7 @@ pub fn VegaConcat::VegaConcat(
     name,
     description,
     resolve,
-    transform: match transform {
-      Some(ts) => Some(ts.copy())
-      None => None
-    },
+    transform: transform.map(ts => ts.copy()),
   }
 }
 
@@ -534,10 +528,7 @@ pub fn VegaFacet::VegaFacet(
     name,
     description,
     resolve,
-    transform: match transform {
-      Some(ts) => Some(ts.copy())
-      None => None
-    },
+    transform: transform.map(ts => ts.copy()),
   }
 }
 
@@ -589,14 +580,8 @@ pub fn VegaRepeat::VegaRepeat(
   transform? : Array[VegaTransform],
 ) -> VegaRepeat {
   {
-    row: match row {
-      Some(r) => Some(r.copy())
-      None => None
-    },
-    column: match column {
-      Some(c) => Some(c.copy())
-      None => None
-    },
+    row: row.map(r => r.copy()),
+    column: column.map(c => c.copy()),
     spec,
     align,
     bounds,
@@ -607,29 +592,20 @@ pub fn VegaRepeat::VegaRepeat(
     name,
     description,
     resolve,
-    transform: match transform {
-      Some(ts) => Some(ts.copy())
-      None => None
-    },
+    transform: transform.map(ts => ts.copy()),
   }
 }
 
 ///|
 /// The repeated-over row fields, copied.
 pub fn VegaRepeat::row(self : VegaRepeat) -> Array[String]? {
-  match self.row {
-    Some(r) => Some(r.copy())
-    None => None
-  }
+  self.row.map(r => r.copy())
 }
 
 ///|
 /// The repeated-over column fields, copied.
 pub fn VegaRepeat::column(self : VegaRepeat) -> Array[String]? {
-  match self.column {
-    Some(c) => Some(c.copy())
-    None => None
-  }
+  self.column.map(c => c.copy())
 }
 
 ///|

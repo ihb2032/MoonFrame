@@ -67,10 +67,7 @@ pub fn VegaViewBackground::VegaViewBackground(
     opacity,
     stroke,
     stroke_cap,
-    stroke_dash: match stroke_dash {
-      Some(a) => Some(a.copy())
-      None => None
-    },
+    stroke_dash: stroke_dash.map(a => a.copy()),
     stroke_dash_offset,
     stroke_join,
     stroke_miter_limit,
@@ -86,10 +83,7 @@ pub fn VegaViewBackground::VegaViewBackground(
 pub fn VegaViewBackground::stroke_dash(
   self : VegaViewBackground,
 ) -> Array[Double]? {
-  match self.stroke_dash {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.stroke_dash.map(a => a.copy())
 }
 
 ///|

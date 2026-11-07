@@ -169,24 +169,14 @@ pub fn VegaSchemeParams::VegaSchemeParams(
   extent? : Array[Double],
   count? : Double,
 ) -> VegaSchemeParams {
-  {
-    name,
-    extent: match extent {
-      Some(a) => Some(a.copy())
-      None => None
-    },
-    count,
-  }
+  { name, extent: extent.map(a => a.copy()), count, }
 }
 
 ///|
 /// The `extent` values, copied — reading the field itself
 /// would hand the caller the array the spec holds.
 pub fn VegaSchemeParams::extent(self : VegaSchemeParams) -> Array[Double]? {
-  match self.extent {
-    Some(a) => Some(a.copy())
-    None => None
-  }
+  self.extent.map(a => a.copy())
 }
 
 ///|
@@ -279,17 +269,25 @@ pub extend VegaTickInterval with Eq::{equal, not_equal}
 pub extend VegaTickInterval with Debug::{to_repr}
 
 ///|
+
+///|
+/// The shared `Step` payload of the tick-interval and nice settings: the
+/// interval string beside its step multiplier, one object.
+fn interval_step_json(interval : VegaTimeInterval, step : Double) -> Json {
+  let obj : Map[String, Json] = Map([])
+  obj["interval"] = Json::string(vega_time_interval_string(interval))
+  obj["step"] = Json::number(step)
+  Json::object(obj)
+}
+
+///|
+/// The JSON of each form, per the schema's union arms.
 /// The JSON of each form, per the schema's union arms.
 fn vega_tick_interval_emit_json(v : VegaTickInterval) -> Json {
   match v {
     Count(n) => Json::number(n)
     Interval(i) => Json::string(vega_time_interval_string(i))
-    Step(interval, step) => {
-      let obj : Map[String, Json] = Map([])
-      obj["interval"] = Json::string(vega_time_interval_string(interval))
-      obj["step"] = Json::number(step)
-      Json::object(obj)
-    }
+    Step(interval, step) => interval_step_json(interval, step)
   }
 }
 
@@ -316,12 +314,7 @@ fn vega_nice_emit_json(v : VegaNice) -> Json {
     Bool(b) => Json::boolean(b)
     Ticks(n) => Json::number(n)
     Interval(i) => Json::string(vega_time_interval_string(i))
-    Step(interval, step) => {
-      let obj : Map[String, Json] = Map([])
-      obj["interval"] = Json::string(vega_time_interval_string(interval))
-      obj["step"] = Json::number(step)
-      Json::object(obj)
-    }
+    Step(interval, step) => interval_step_json(interval, step)
   }
 }
 

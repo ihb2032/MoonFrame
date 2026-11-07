@@ -48,7 +48,7 @@ pub fn DataFrame::with_columns(
     return self
   }
   let n = self.nrows()
-  let scope = Array::makei(n, i => i)
+  let scope = identity_scope(n)
   // `column_series` returns a fresh, owned array, so in-place replacement
   // can't perturb `self`.
   let out = self.column_series()
@@ -64,14 +64,10 @@ pub fn DataFrame::with_columns(
     // the length contract consulted — `select`'s order for the same input
     // — so a second expression that is both renamed and mis-sized answers
     // as the duplicate it is.
-    let name = expr.output_name()
-    if seen.contains(name) {
-      raise @types.DataError::DuplicateColumn(name)
-    }
-    seen[name] = ()
-    let column = @kernel.broadcast_series(eval_expr(expr, self, scope), n)
-    let field = self.carried_field(source_fields, expr, column, name)
-    let renamed = column.rename(name)
+    let (name, renamed, field) = self.claim_eval_rename(
+      expr, seen, source_fields, scope,
+    )
+    let renamed = @kernel.broadcast_series(renamed, n)
     // The schema's index decides overwrite-or-append: a name the frame
     // already carries replaces that column in place, a new name appends.
     match self.schema.index_maybe(name) {

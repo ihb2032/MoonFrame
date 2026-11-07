@@ -74,27 +74,18 @@ pub fn DataFrame::group_by(
   self : DataFrame,
   keys : Array[@expr.Expr],
 ) -> GroupedDataFrame raise @types.DataError {
-  // Materialise each key expression into a key column, mirroring `select`:
-  // evaluate over the whole frame, broadcast a length-1 (literal /
-  // aggregation) key up to frame height, name by the expression's output
-  // name, and reject a name produced twice up front — before `agg` could
-  // build two same-named key columns. Evaluation raises `ColumnNotFound` /
-  // `TypeMismatch` / `LengthMismatch` on the first offending key (in `keys`
-  // order); the seen-check raises `DuplicateColumn` at the repeat, after that
-  // key's own evaluation (so an evaluation error there surfaces first, like
-  // `select`).
+  // Materialise each key expression into a key column, the route `pivot`
+  // shares (`materialize_key_columns`): evaluate over the whole frame,
+  // broadcast a length-1 (literal / aggregation) key up to frame height,
+  // name by the expression's output name, and reject a name produced twice
+  // — before `agg` could build two same-named key columns. Evaluation
+  // raises `ColumnNotFound` / `TypeMismatch` / `LengthMismatch` on the
+  // first offending key (in `keys` order); the seen-check raises
+  // `DuplicateColumn` at the repeat, after that key's own evaluation (so
+  // an evaluation error there surfaces first).
   let n = self.nrows()
-  let scope = Array::makei(n, i => i)
-  let seen : Map[String, Unit] = Map([])
-  let key_columns = keys.map(key => {
-    let column = @kernel.broadcast_series(eval_expr(key, self, scope), n)
-    let name = key.output_name()
-    if seen.contains(name) {
-      raise @types.DataError::DuplicateColumn(name)
-    }
-    seen[name] = ()
-    column.rename(name)
-  })
+  let scope = identity_scope(n)
+  let key_columns = materialize_key_columns(keys, self, n, scope)
   // `by_key` maps a composite key to that key's row indices, growing each
   // group in place (`Array` is a mutable reference, so the cell fetched by
   // `get` is the stored one). `to_scalars` is total, so per-row key assembly

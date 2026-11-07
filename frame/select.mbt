@@ -47,7 +47,7 @@ pub fn DataFrame::select(
   self : DataFrame,
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
-  let scope = Array::makei(self.nrows(), i => i)
+  let scope = identity_scope(self.nrows())
   let evaluated : Array[Series] = []
   let fields : Array[@types.Field] = []
   let source_fields = self.schema.fields()
@@ -57,14 +57,11 @@ pub fn DataFrame::select(
     // order for the same list — so a duplicate surfaces as the duplicate
     // it is even when the second expression would also fail to evaluate
     // (an unknown column, say): one list, one error, either verb.
-    let name = expr.output_name()
-    if seen.contains(name) {
-      raise @types.DataError::DuplicateColumn(name)
-    }
-    seen[name] = ()
-    let column = eval_expr(expr, self, scope)
-    fields.push(self.carried_field(source_fields, expr, column, name))
-    evaluated.push(column.rename(name))
+    let (_, renamed, field) = self.claim_eval_rename(
+      expr, seen, source_fields, scope,
+    )
+    fields.push(field)
+    evaluated.push(renamed)
   }
   // The output height is the frame's own row count when any result is
   // frame-tall, otherwise 1 — every result is then a length-1 literal or

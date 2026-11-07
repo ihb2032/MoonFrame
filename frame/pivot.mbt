@@ -91,7 +91,7 @@ pub fn DataFrame::pivot(
     raise @types.DataError::InvalidOperation("pivot needs at least one on key")
   }
   let n = self.nrows()
-  let scope = Array::makei(n, i => i)
+  let scope = identity_scope(n)
   // The names an omitted side's default skips: `on`'s own names plus the
   // given list's — resolved against the original expr lists, each into its
   // own set.
@@ -112,18 +112,18 @@ pub fn DataFrame::pivot(
   let (index_cols, values_cols) = match (index, values) {
     (Some(i), Some(v)) =>
       (
-        materialize_pivot_keys(i, self, n, scope),
-        materialize_pivot_keys(v, self, n, scope),
+        materialize_key_columns(i, self, n, scope),
+        materialize_key_columns(v, self, n, scope),
       )
     (Some(i), None) =>
       (
-        materialize_pivot_keys(i, self, n, scope),
+        materialize_key_columns(i, self, n, scope),
         columns_except(self, skip_names(i)),
       )
     (None, Some(v)) =>
       (
         columns_except(self, skip_names(v)),
-        materialize_pivot_keys(v, self, n, scope),
+        materialize_key_columns(v, self, n, scope),
       )
     (None, None) =>
       raise @types.DataError::InvalidOperation(
@@ -133,7 +133,7 @@ pub fn DataFrame::pivot(
   // Materialise the `on` key columns (the same route), last of the three
   // lists — the pair above has already refused the shape with nothing to
   // reshape.
-  let on_cols = materialize_pivot_keys(on, self, n, scope)
+  let on_cols = materialize_key_columns(on, self, n, scope)
   if values_cols.is_empty() {
     raise @types.DataError::InvalidOperation(
       "pivot resolved no values column to reshape",
@@ -166,11 +166,14 @@ pub fn DataFrame::pivot(
 }
 
 ///|
-/// Evaluate the key / value expressions of a pivot: `group_by`'s
-/// materialisation — evaluate over the whole frame, broadcast a length-1
-/// key, rename by the output name, and reject a duplicate output name at
-/// the second occurrence.
-fn materialize_pivot_keys(
+/// Evaluate a key-expression list into key columns — the materialisation
+/// `group_by` and `pivot` share: evaluate over the whole frame, broadcast a
+/// length-1 (literal / aggregation) key up to frame height, rename by the
+/// output name, and reject a duplicate output name at the second
+/// occurrence — *after* that key's own evaluation (so an evaluation error
+/// surfaces first), the deliberate order difference from the projections'
+/// name-before-evaluation claim.
+fn materialize_key_columns(
   keys : Array[@expr.Expr],
   df : DataFrame,
   n : Int32,

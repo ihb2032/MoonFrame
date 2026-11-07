@@ -33,58 +33,18 @@ priv struct Folded {
 /// `MapBatches` (the closure would run at optimize time and stop running at
 /// collect — an observable change for an impure closure, and `explain`
 /// already runs the optimizer, so it would run twice). Their subtrees are
-/// left untouched as whole units. The walk is the analysis pattern —
-/// discovery, reverse for children-first, classify from the children's
-/// outcomes — iterative and total at any depth.
+/// left untouched as whole units. The walk rides the shared gated
+/// post-order fold — `fold_descends` is the opacity gate, iterative and
+/// total at any depth.
 fn fold_expr(expr : @expr.Expr) -> (@expr.Expr, Bool) {
-  let discover : Array[@ir.ExprNode] = [expr.node()]
-  let order : Array[@ir.ExprNode] = []
-  let arities : Array[Int32] = []
-  for ;; {
-    match discover.pop() {
-      None => break
-      Some(node) =>
-        // The excluded shapes are not descended into: their subtrees are
-        // opaque units to this rule (see the header for each reason), so
-        // their children never enter the walk.
-        if fold_descends(node) {
-          let mut count = 0
-          order.push(node)
-          node.each_child(k => {
-            discover.push(k)
-            count += 1
-          })
-          arities.push(count)
-        } else {
-          order.push(node)
-          arities.push(-1)
-        }
-    }
-  }
-  let values : Array[Folded] = []
-  for i = order.length() - 1; i >= 0; i = i - 1 {
-    let node = order[i]
-    if arities[i] < 0 {
+  let top = expr
+    .node()
+    .fold_postorder_opaque(
+      fold_descends,
       // An excluded unit, or a bare column: kept verbatim, never literal.
-      values.push({ node, lit: node is @ir.ExprNode::Lit(_), changed: false, })
-      continue
-    }
-    // Pop the children's outcomes and restore input order — the value stack
-    // yields them last-first, and unlike the fused analysis (whose verdicts
-    // are order-blind conjunctions) the rebuild below slots children
-    // positionally: a `Binary`'s operands and an `IsBetween`'s operand and
-    // bounds are not interchangeable.
-    let popped : Array[Folded] = []
-    for _ in 0..<arities[i] {
-      popped.push(values[values.length() - 1])
-      let _ = values.pop()
-    }
-    let kids : Array[Folded] = Array::makei(popped.length(), k => {
-      popped[popped.length() - 1 - k]
-    })
-    values.push(fold_node(node, kids))
-  }
-  let top = values[values.length() - 1]
+      node => { node, lit: node is @ir.ExprNode::Lit(_), changed: false, },
+      (node, kids) => fold_node(node, kids),
+    )
   (@expr.Expr::of_node(top.node), top.changed)
 }
 
@@ -134,10 +94,13 @@ fn fold_descends(node : @ir.ExprNode) -> Bool {
 fn fold_node(node : @ir.ExprNode, kids : Array[Folded]) -> Folded {
   let all_lit = kids.all(k => k.lit)
   let below_changed = kids.any(k => k.changed)
-  // The node rebuilt over folded children, when any child moved.
+  // The node rebuilt over folded children, when any child moved — the
+  // shared shape rebuild, exhaustive over the variant set in the AST
+  // package (`rebuild_children`); the shapes the walk never descends into
+  // never reach it, their subtrees having moved nothing.
   let rebuilt : @ir.ExprNode = if below_changed {
     let new_kids = kids.map(k => k.node)
-    rebuild_over(node, new_kids)
+    node.rebuild_children(new_kids)
   } else {
     node
   }
@@ -170,57 +133,6 @@ fn fold_node(node : @ir.ExprNode, kids : Array[Folded]) -> Folded {
     }
   }
   { node: rebuilt, lit: false, changed: below_changed, }
-}
-
-///|
-/// Rebuild one foldable node over new children, verbatim payloads. The
-/// excluded shapes never reach this (they are not descended into), and their
-/// arms keep the node unchanged as a defensive identity — a future variant
-/// added to `ExprNode` fails both this match and `fold_descends`'s until it
-/// picks a side.
-fn rebuild_over(
-  node : @ir.ExprNode,
-  kids : Array[@ir.ExprNode],
-) -> @ir.ExprNode {
-  match node {
-    @ir.ExprNode::Binary(op, _, _) => Binary(op, kids[0], kids[1])
-    @ir.ExprNode::Unary(op, _) => Unary(op, kids[0])
-    @ir.ExprNode::Str(op, _) => Str(op, kids[0])
-    @ir.ExprNode::Cast(_, target) => Cast(kids[0], target)
-    @ir.ExprNode::Alias(_, name) => Alias(kids[0], name)
-    @ir.ExprNode::Ternary(_, _, _) => Ternary(kids[0], kids[1], kids[2])
-    @ir.ExprNode::FillNull(_, _) => FillNull(kids[0], kids[1])
-    @ir.ExprNode::FillNan(_, _) => FillNan(kids[0], kids[1])
-    @ir.ExprNode::Diff(_, n) => Diff(kids[0], n)
-    // The kids array carries only the bounds that exist (the `children`
-    // order: operand, then lower, then upper), so the original node's
-    // `Option` structure decides which slot each folded kid returns to.
-    @ir.ExprNode::Clip(_, lo, hi) => {
-      fn take(present : Bool, idx : Int32) -> @ir.ExprNode? {
-        if present {
-          Some(kids[idx])
-        } else {
-          None
-        }
-      }
-      Clip(
-        kids[0],
-        take(lo is Some(_), 1),
-        take(hi is Some(_), if lo is Some(_) { 2 } else { 1 }),
-      )
-    }
-    @ir.ExprNode::IsIn(_, members) => IsIn(kids[0], members)
-    @ir.ExprNode::IsBetween(_, _, _, closed) =>
-      IsBetween(kids[0], kids[1], kids[2], closed)
-    @ir.ExprNode::Agg(op, _) => Agg(op, kids[0])
-    @ir.ExprNode::Positional(op, _) => Positional(op, kids[0])
-    // The shapes the walk never descends into and the childless leaves —
-    // no folded child can sit under them, so this is a structural identity.
-    // The wildcard is deliberate: the descent gate (fold_descends)
-    // is where a future variant fails compilation until it picks a side; here the
-    // silent default (keep the node verbatim) is the conservative one.
-    _ => node
-  }
 }
 
 ///|
@@ -271,31 +183,33 @@ fn fold_list(exprs : Array[@expr.Expr]) -> (Array[@expr.Expr], Bool) {
 /// options record, and no query shape has asked yet). The walk is the
 /// shared post-order rebuild — total, iterative.
 fn LogicalPlan::simplify_expressions(self : LogicalPlan) -> (LogicalPlan, Bool) {
-  let values : Array[LogicalPlan] = []
-  let mut changed = false
-  for node in self.post_order() {
-    match node {
-      Scan(_) => values.push(node)
-      Unary(_, op) => {
-        let (new_op, op_changed) = op.map_exprs(e => fold_one(e))
-        changed = changed || op_changed
-        values.push(Unary(pop_top(values), new_op))
-      }
-      Join(_, _, options) => rejoin(values, options)
-      Aggregate(_, keys, exprs) => {
-        let (new_keys, k_changed) = fold_list(keys)
-        let (new_exprs, e_changed) = fold_list(exprs)
-        changed = changed || k_changed || e_changed
-        values.push(Aggregate(pop_top(values), new_keys, new_exprs))
-      }
-      AggregateAll(_, keys, op2) => {
-        let (new_keys, k_changed) = fold_list(keys)
-        changed = changed || k_changed
-        values.push(AggregateAll(pop_top(values), new_keys, op2))
-      }
-    }
-  }
-  (pop_top(values), changed)
+  self.rebuild_postorder(
+    source => (Scan(source), false),
+    (op, child) => {
+      let (input, input_changed) = child
+      let (new_op, op_changed) = op.map_exprs(e => fold_one(e))
+      (Unary(input, new_op), input_changed || op_changed)
+    },
+    (options, left, right) => {
+      let (l, l_changed) = left
+      let (r, r_changed) = right
+      (Join(l, r, options), l_changed || r_changed)
+    },
+    (keys, exprs, below) => {
+      let (input, input_changed) = below
+      let (new_keys, k_changed) = fold_list(keys)
+      let (new_exprs, e_changed) = fold_list(exprs)
+      (
+        Aggregate(input, new_keys, new_exprs),
+        input_changed || k_changed || e_changed,
+      )
+    },
+    (keys, op2, below) => {
+      let (input, input_changed) = below
+      let (new_keys, k_changed) = fold_list(keys)
+      (AggregateAll(input, new_keys, op2), input_changed || k_changed)
+    },
+  )
 }
 
 ///|

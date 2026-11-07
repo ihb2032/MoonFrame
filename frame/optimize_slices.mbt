@@ -14,43 +14,36 @@
 /// into its now-rewritten input through `place_slice`. Bottom-up over the
 /// shared post-order — iterative, total, like every engine walk.
 fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
-  let values : Array[LogicalPlan] = []
-  // The value risk (both dtype families) of each rebuilt subtree, stepped
-  // alongside the rebuild exactly as `push_predicates` does — a sunk window
-  // moves rows, never names, so a window node's accumulator is its
-  // input's.
-  let risks : Array[PlanRisk] = []
-  for node in self.post_order() {
-    match node {
-      Scan(_) => {
-        values.push(node)
-        risks.push(plan_risk_step(node, risks))
+  // The value risk (both dtype families) of each rebuilt subtree, threaded
+  // beside the plan exactly as `push_predicates` does — a sunk window moves
+  // rows, never names, so a window node's accumulator is its input's.
+  self.rebuild_postorder(
+    source => (Scan(source), risk_of_scan(source)),
+    (op, input_risk) => {
+      let (input, risk) = input_risk
+      if op is Head(_) || op is Tail(_) || op is Slice(_, _) {
+        (input.place_slice(op, value_risk=flat_risk(risk)), risk)
+      } else {
+        (Unary(input, op), risk_of_unary(op, risk))
       }
-      Unary(_, op) =>
-        if op is Head(_) || op is Tail(_) || op is Slice(_, _) {
-          let input = pop_top(values)
-          let risk = pop_top(risks)
-          values.push(input.place_slice(op, value_risk=flat_risk(risk)))
-          risks.push(risk)
-        } else {
-          values.push(Unary(pop_top(values), op))
-          risks.push(plan_risk_step(node, risks))
-        }
-      Join(_, _, options) => {
-        rejoin(values, options)
-        risks.push(plan_risk_step(node, risks))
-      }
-      Aggregate(_, keys, exprs) => {
-        values.push(Aggregate(pop_top(values), keys, exprs))
-        risks.push(plan_risk_step(node, risks))
-      }
-      AggregateAll(_, keys, op2) => {
-        values.push(AggregateAll(pop_top(values), keys, op2))
-        risks.push(plan_risk_step(node, risks))
-      }
-    }
-  }
-  pop_top(values)
+    },
+    (options, left, right) => {
+      let (l, l_risk) = left
+      let (r, r_risk) = right
+      (Join(l, r, options), risk_of_join(options, l_risk, r_risk))
+    },
+    (keys, exprs, below) => {
+      let (input, below_risk) = below
+      (
+        Aggregate(input, keys, exprs),
+        risk_of_aggregate(keys, exprs, below_risk),
+      )
+    },
+    (keys, op2, below) => {
+      let (input, below_risk) = below
+      (AggregateAll(input, keys, op2), below_risk)
+    },
+  ).0
 }
 
 ///|
@@ -79,7 +72,6 @@ fn LogicalPlan::place_slice(
   // pass hands in the risk it already maintains for this subtree — this
   // entry has a single caller, so the risk is a required label, not an
   // optional with a re-walk fallback.
-  let value_risk = value_risk
   let mut cur = self
   let mut window = window
   let mut descending = true

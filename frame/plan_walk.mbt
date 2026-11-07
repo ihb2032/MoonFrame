@@ -72,6 +72,48 @@ fn rejoin(values : Array[LogicalPlan], options : JoinOptions) -> Unit {
 }
 
 ///|
+/// The rebuild skeleton every local optimizer pass rides: nodes in
+/// post-order (children before parents, left subtree before right) off one
+/// value stack, each node recombined from its children's already-built
+/// values through the hook its kind selects. The pass-specific behaviour
+/// lives entirely in the hooks — which `FrameOp` to sink, how to fold a
+/// stage's expressions, what accumulator to thread beside the plan — while
+/// the five-arm match and the stack plumbing are spelled once here, so a
+/// node kind added to `LogicalPlan` fails this one match until its hook
+/// carries it, not each pass's loop. Each hook receives the payloads it
+/// needs (`Scan` its source, `Join` its options with the two sides' values
+/// left-then-right, the aggregates their key and expression lists), never
+/// the node itself: a rebuilt plan is a fresh tree over the same payloads.
+/// Iterative over an explicit value stack (not the call stack) and total
+/// at any depth.
+fn[V] LogicalPlan::rebuild_postorder(
+  self : LogicalPlan,
+  scan : (ScanSource) -> V,
+  unary : (FrameOp, V) -> V,
+  join : (JoinOptions, V, V) -> V,
+  aggregate : (Array[@expr.Expr], Array[@expr.Expr], V) -> V,
+  aggregate_all : (Array[@expr.Expr], LazyAggAll, V) -> V,
+) -> V {
+  let values : Array[V] = []
+  for node in self.post_order() {
+    match node {
+      Scan(source) => values.push(scan(source))
+      Unary(_, op) => values.push(unary(op, pop_top(values)))
+      Join(_, _, options) => {
+        let right = pop_top(values)
+        let left = pop_top(values)
+        values.push(join(options, left, right))
+      }
+      Aggregate(_, keys, exprs) =>
+        values.push(aggregate(keys, exprs, pop_top(values)))
+      AggregateAll(_, keys, op2) =>
+        values.push(aggregate_all(keys, op2, pop_top(values)))
+    }
+  }
+  pop_top(values)
+}
+
+///|
 /// Whether `node` is already in `seen`, by **physical identity** — the
 /// object, not its value. `LazyFrame::join` stores the other frame's plan by
 /// reference, so `lf.join(lf, …)` builds a DAG whose `Join` holds the same

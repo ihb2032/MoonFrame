@@ -36,14 +36,18 @@
 
 ///|
 /// The value risk a plan carries, one accumulator per dtype family.
-/// Walked over the shared post-order with an explicit value stack, total
-/// at any depth like the passes it serves.
+/// Walked over the shared post-order rebuild with the pure risk steps
+/// below, total at any depth like the passes it serves.
 fn value_risk_in_plan(plan : LogicalPlan) -> ValueRisk {
-  let risks : Array[PlanRisk] = []
-  for node in plan.post_order() {
-    risks.push(plan_risk_step(node, risks))
-  }
-  flat_risk(pop_top(risks))
+  flat_risk(
+    plan.rebuild_postorder(
+      risk_of_scan,
+      risk_of_unary,
+      risk_of_join,
+      risk_of_aggregate,
+      (_, _, below) => below,
+    ),
+  )
 }
 
 ///|
@@ -115,19 +119,17 @@ fn flat_risk(acc : PlanRisk) -> ValueRisk {
 }
 
 ///|
-/// One node's step of the bottom-up risk walk: pops the (already
-/// processed) children's accumulators off `risks` and pushes this
-/// subtree's — the same per-arm propagation the walk used to spell inside
-/// its own loop, factored out so the pushdown passes can run it alongside
-/// their rebuild stacks and know each rebuilt subtree's risk without
-/// re-walking it (a stack of F filters paid one full walk each, Θ(F·N);
-/// the shared step keeps every pass Θ(N)). The row verbs and
-/// `AggregateAll` are pass-throughs: the children's accumulators pop and
-/// return as the node's own, exactly as the children's values stayed on
-/// the walk's stack unread.
-fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
-  match node {
-    Scan(InMemory(df)) => {
+/// One node's step of the bottom-up risk walk, in the pure form the shared
+/// rebuild and the pushdown passes' hooks read: the (already processed)
+/// children's accumulators arrive as values, not stack slots, so the same
+/// single-source steps serve the standalone walk and the passes' threaded
+/// accumulators alike, keeping every pass Θ(N) in the plan (a stack of F
+/// filters once paid one full walk each, Θ(F·N)). The row verbs and
+/// `AggregateAll` are pass-throughs: the child's accumulator returns as
+/// the node's own, exactly as the child's value stayed unread.
+fn risk_of_scan(source : ScanSource) -> PlanRisk {
+  match source {
+    InMemory(df) => {
       let decimal = @set.Set([])
       let temporal = @set.Set([])
       for f in df.schema().fields() {
@@ -143,7 +145,7 @@ fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
       }
       { decimal: leaf_acc(decimal), temporal: leaf_acc(temporal), }
     }
-    Scan(File(fs)) => {
+    File(fs) => {
       // The file leaf's columns are real but not nameable here — the
       // probes (`may_carry_decimal` / `may_carry_temporal`) say only
       // whether such columns may exist — so both arms carry no names and
@@ -160,113 +162,120 @@ fn plan_risk_step(node : LogicalPlan, risks : Array[PlanRisk]) -> PlanRisk {
         temporal: { stage: empty, union: empty, any: fs.may_carry_temporal, },
       }
     }
-    Unary(_, Select(exprs)) | Unary(_, WithColumns(exprs)) => {
-      let below = pop_top(risks)
+  }
+}
+
+///|
+/// The unary step, keyed on the operation: the projection-style verbs
+/// recompute both families' stage sets through their per-verb accumulators,
+/// and the row verbs (filter / sort / window / gather / drop / fill / …)
+/// rename nothing, so the child's accumulator is the node's own. For the
+/// verbs that do drop or replace columns (`Drop`, `WithRowIndex`,
+/// `Reduce`) keeping the old names is the over-approximating direction —
+/// a family name that no longer exists can only fence more, never less.
+/// Exhaustive on purpose, mirroring `frame_op_names` — the exact
+/// vocabulary walk, which lists the same verbs as its own pass-through
+/// set: a verb added to `FrameOp` fails this match until it declares here
+/// whether either family's names ride through it, instead of falling into
+/// a silent default.
+fn risk_of_unary(op : FrameOp, below : PlanRisk) -> PlanRisk {
+  match op {
+    Select(exprs) | WithColumns(exprs) =>
       {
         decimal: proj_acc(exprs, below.decimal, expr_touches_decimal),
         temporal: proj_acc(exprs, below.temporal, expr_touches_temporal),
       }
-    }
-    Unary(_, Rename(pairs)) => {
-      let below = pop_top(risks)
+    Rename(pairs) =>
       {
         decimal: rename_acc(below.decimal, pairs),
         temporal: rename_acc(below.temporal, pairs),
       }
-    }
     // The closure is total and collect runs it on exactly these column
     // names, so running it here reads the mapping rather than guessing it.
-    Unary(_, RenameWith(f)) => {
-      let below = pop_top(risks)
+    RenameWith(f) =>
       {
         decimal: rename_with_acc(below.decimal, f),
         temporal: rename_with_acc(below.temporal, f),
       }
-    }
-    Unary(_, Unpivot(_, _, _, value_name)) => {
-      let below = pop_top(risks)
+    Unpivot(_, _, _, value_name) =>
       {
         decimal: unpivot_acc(below.decimal, value_name),
         temporal: unpivot_acc(below.temporal, value_name),
       }
-    }
-    Unary(_, Pivot(_, _, _, _)) => {
-      let below = pop_top(risks)
+    Pivot(_, _, _, _) =>
       {
         decimal: pivot_acc(below.decimal),
         temporal: pivot_acc(below.temporal),
       }
-    }
-    // The row verbs (filter / sort / window / gather / drop / fill / …)
-    // rename nothing, so the children's accumulators are the node's own.
-    // For the verbs that do drop or replace columns (`Drop`,
-    // `WithRowIndex`, `Reduce`) keeping the old names is the
-    // over-approximating direction — a family name that no longer exists
-    // can only fence more, never less. Exhaustive on purpose, mirroring
-    // `frame_op_names` — the exact vocabulary walk, which lists the same
-    // verbs as its own pass-through set: a verb added to `FrameOp` fails
-    // this match until it declares here whether either family's names ride
-    // through it, instead of falling into a silent default.
-    Unary(_, Filter(_))
-    | Unary(_, Sort(_))
-    | Unary(_, Head(_))
-    | Unary(_, Tail(_))
-    | Unary(_, Slice(_, _))
-    | Unary(_, GatherEvery(_, _))
-    | Unary(_, TopK(_, _, _))
-    | Unary(_, BottomK(_, _, _))
-    | Unary(_, Drop(_))
-    | Unary(_, Unique(_, _))
-    | Unary(_, Reverse)
-    | Unary(_, WithRowIndex(_, _))
-    | Unary(_, DropNulls(_))
-    | Unary(_, FillNull(_))
-    | Unary(_, FillNullDir(_, _))
-    | Unary(_, FillNan(_))
-    | Unary(_, Reduce(_)) => pop_top(risks)
-    Aggregate(_, keys, exprs) => {
-      let below = pop_top(risks)
-      {
-        decimal: agg_acc(keys, exprs, below.decimal, expr_touches_decimal),
-        temporal: agg_acc(keys, exprs, below.temporal, expr_touches_temporal),
-      }
-    }
-    // A whole-frame aggregation reuses its input column names (each
-    // non-key column aggregates under its own name), so the children's
-    // sets passing through is exact, not merely conservative — and the
-    // pushdown passes never cross one anyway.
-    AggregateAll(_, _, _) => pop_top(risks)
-    Join(_, _, options) => {
-      let right = pop_top(risks)
-      let left = pop_top(risks)
-      // A right join leads with the right frame's columns and suffixes a
-      // clashing *left* one — the swapped-left-join spelling — so the
-      // suffixed offering switches sides with `how`; the unsuffixed pair
-      // carries every non-clashing name either way.
-      let suffixed_is_left = options.how is Right
-      {
-        decimal: join_acc(
-          left.decimal,
-          right.decimal,
-          if suffixed_is_left {
-            left.decimal
-          } else {
-            right.decimal
-          },
-          options.suffix,
-        ),
-        temporal: join_acc(
-          left.temporal,
-          right.temporal,
-          if suffixed_is_left {
-            left.temporal
-          } else {
-            right.temporal
-          },
-          options.suffix,
-        ),
-      }
-    }
+    Filter(_)
+    | Sort(_)
+    | Head(_)
+    | Tail(_)
+    | Slice(_, _)
+    | GatherEvery(_, _)
+    | TopK(_, _, _)
+    | BottomK(_, _, _)
+    | Drop(_)
+    | Unique(_, _)
+    | Reverse
+    | WithRowIndex(_, _)
+    | DropNulls(_)
+    | FillNull(_)
+    | FillNullDir(_, _)
+    | FillNan(_)
+    | Reduce(_) => below
+  }
+}
+
+///|
+/// The aggregate step: a key's or cell's output name counts when its
+/// expression so much as reads one of the family's names the subtree
+/// carries (or the subtree raised the family's `any`).
+fn risk_of_aggregate(
+  keys : Array[@expr.Expr],
+  exprs : Array[@expr.Expr],
+  below : PlanRisk,
+) -> PlanRisk {
+  {
+    decimal: agg_acc(keys, exprs, below.decimal, expr_touches_decimal),
+    temporal: agg_acc(keys, exprs, below.temporal, expr_touches_temporal),
+  }
+}
+
+///|
+/// The join step. A right join leads with the right frame's columns and
+/// suffixes a clashing *left* one — the swapped-left-join spelling — so
+/// the suffixed offering switches sides with `how`; the unsuffixed pair
+/// carries every non-clashing name either way. A whole-frame aggregation
+/// (`AggregateAll`) reuses its input column names, so its step is the
+/// pass-through the shared rebuild's last hook spells inline.
+fn risk_of_join(
+  options : JoinOptions,
+  left : PlanRisk,
+  right : PlanRisk,
+) -> PlanRisk {
+  let suffixed_is_left = options.how is Right
+  {
+    decimal: join_acc(
+      left.decimal,
+      right.decimal,
+      if suffixed_is_left {
+        left.decimal
+      } else {
+        right.decimal
+      },
+      options.suffix,
+    ),
+    temporal: join_acc(
+      left.temporal,
+      right.temporal,
+      if suffixed_is_left {
+        left.temporal
+      } else {
+        right.temporal
+      },
+      options.suffix,
+    ),
   }
 }
 
@@ -432,8 +441,8 @@ fn union_sets(
 /// variant added to `ExprNode` fails this match until it declares its
 /// children here rather than silently inheriting it. The operator tags
 /// carry no decision of their own — every member of `Unary` / `Str` / …
-/// reads the same operand — so the walk binds the operand and descends
-/// regardless of the member, `each_child`'s shape spelled inline.
+/// reads the same operand — so the descent rides `each_child` for all of
+/// them, the arm list staying the exhaustive half.
 fn expr_touches_decimal(expr : @ir.ExprNode, risk : @set.Set[String]) -> Bool {
   expr_touches_family(expr, risk, v => v is @types.Scalar::Decimal(_, _))
 }
@@ -467,61 +476,30 @@ fn expr_touches_family(
       @ir.ExprNode::Lit(value) => if lit(value) { return true }
       // A literal series is a leaf that names no column.
       @ir.ExprNode::LitSeries(_) => ()
-      @ir.ExprNode::Binary(_, l, r) => {
-        stack.push(l)
-        stack.push(r)
-      }
-      @ir.ExprNode::Unary(_, e)
-      | @ir.ExprNode::Agg(_, e)
-      | @ir.ExprNode::Str(_, e)
-      | @ir.ExprNode::Positional(_, e)
-      | @ir.ExprNode::Cast(e, _)
-      | @ir.ExprNode::Alias(e, _)
-      | @ir.ExprNode::Diff(e, _) => stack.push(e)
-      @ir.ExprNode::Ternary(c, t, fl) => {
-        stack.push(c)
-        stack.push(t)
-        stack.push(fl)
-      }
-      @ir.ExprNode::FillNull(o, v) | @ir.ExprNode::FillNan(o, v) => {
-        stack.push(o)
-        stack.push(v)
-      }
-      // Only the bounds that exist are walked, mirroring `each_child`: an
-      // omitted side is no node at all.
-      @ir.ExprNode::Clip(x, lo, hi) => {
-        stack.push(x)
-        if lo is Some(l) {
-          stack.push(l)
-        }
-        if hi is Some(h) {
-          stack.push(h)
-        }
-      }
-      // The members are values, not sub-nodes (`each_child` walks the
+      // The descent rides `each_child` — the one spelling of the tree's
+      // shape — while the arm list stays exhaustive: a variant added to
+      // `ExprNode` fails this match until it declares whether the family
+      // touches it, rather than silently inheriting the descent. An
+      // `IsIn`'s members are values, not sub-nodes (`each_child` walks the
       // operand alone), and a decimal *member* is a comparison operand the
-      // checked-op walk classifies, not a decimal column read: the descent
-      // keeps to the operand, the walk's established semantics.
-      @ir.ExprNode::IsIn(e, _) => stack.push(e)
-      @ir.ExprNode::IsBetween(x, lo, hi, _) => {
-        stack.push(x)
-        stack.push(lo)
-        stack.push(hi)
-      }
-      @ir.ExprNode::Map(_, inputs, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::MapBatches(_, inputs, _, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::Over(inner, keys) => {
-        stack.push(inner)
-        for k in keys {
-          stack.push(k)
-        }
-      }
+      // checked-op walk classifies, not a decimal column read.
+      @ir.ExprNode::Binary(_, _, _)
+      | @ir.ExprNode::Unary(_, _)
+      | @ir.ExprNode::Agg(_, _)
+      | @ir.ExprNode::Str(_, _)
+      | @ir.ExprNode::Positional(_, _)
+      | @ir.ExprNode::Cast(_, _)
+      | @ir.ExprNode::Alias(_, _)
+      | @ir.ExprNode::Diff(_, _)
+      | @ir.ExprNode::Ternary(_, _, _)
+      | @ir.ExprNode::FillNull(_, _)
+      | @ir.ExprNode::FillNan(_, _)
+      | @ir.ExprNode::Clip(_, _, _)
+      | @ir.ExprNode::IsIn(_, _)
+      | @ir.ExprNode::IsBetween(_, _, _, _)
+      | @ir.ExprNode::Map(_, _, _)
+      | @ir.ExprNode::MapBatches(_, _, _, _)
+      | @ir.ExprNode::Over(_, _) => node.each_child(k => stack.push(k))
     }
   }
   false
@@ -550,7 +528,7 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
   while stack.length() > 0 {
     let node = pop_top(stack)
     match node {
-      @ir.ExprNode::Binary(op, l, r) =>
+      @ir.ExprNode::Binary(op, _, _) =>
         match op {
           @ir.BinOp::Add
           | @ir.BinOp::Sub
@@ -574,10 +552,7 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
           @ir.BinOp::And
           | @ir.BinOp::Or
           | @ir.BinOp::Atan2
-          | @ir.BinOp::Hypot => {
-            stack.push(l)
-            stack.push(r)
-          }
+          | @ir.BinOp::Hypot => node.each_child(k => stack.push(k))
         }
       // `is_between` and `is_in` are the comparison sugar: they descend into
       // the same `eval_compare` rescale a `Ge` / `Eq` takes, so a decimal
@@ -601,36 +576,22 @@ fn expr_has_decimal_checked_op(expr : @ir.ExprNode) -> Bool {
       @ir.ExprNode::Col(_)
       | @ir.ExprNode::Lit(_)
       | @ir.ExprNode::LitSeries(_) => ()
-      @ir.ExprNode::Unary(_, e)
-      | @ir.ExprNode::Agg(_, e)
-      | @ir.ExprNode::Str(_, e)
-      | @ir.ExprNode::Positional(_, e)
-      | @ir.ExprNode::Cast(e, _)
-      | @ir.ExprNode::Alias(e, _) => stack.push(e)
-      @ir.ExprNode::Ternary(c, t, fl) => {
-        stack.push(c)
-        stack.push(t)
-        stack.push(fl)
-      }
-      @ir.ExprNode::FillNull(o, v) | @ir.ExprNode::FillNan(o, v) => {
-        stack.push(o)
-        stack.push(v)
-      }
-      @ir.ExprNode::Diff(e, _) => stack.push(e)
-      @ir.ExprNode::Map(_, inputs, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::MapBatches(_, inputs, _, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::Over(inner, keys) => {
-        stack.push(inner)
-        for k in keys {
-          stack.push(k)
-        }
-      }
+      // The descent rides `each_child`, the arm list staying the
+      // exhaustive half (a variant added to `ExprNode` declares its place
+      // among the decisions above or here).
+      @ir.ExprNode::Unary(_, _)
+      | @ir.ExprNode::Agg(_, _)
+      | @ir.ExprNode::Str(_, _)
+      | @ir.ExprNode::Positional(_, _)
+      | @ir.ExprNode::Cast(_, _)
+      | @ir.ExprNode::Alias(_, _)
+      | @ir.ExprNode::Ternary(_, _, _)
+      | @ir.ExprNode::FillNull(_, _)
+      | @ir.ExprNode::FillNan(_, _)
+      | @ir.ExprNode::Diff(_, _)
+      | @ir.ExprNode::Map(_, _, _)
+      | @ir.ExprNode::MapBatches(_, _, _, _)
+      | @ir.ExprNode::Over(_, _) => node.each_child(k => stack.push(k))
     }
   }
   false
@@ -677,61 +638,32 @@ fn expr_has_temporal_checked_op(expr : @ir.ExprNode) -> Bool {
         | @ir.BinOp::Or
         | @ir.BinOp::Atan2
         | @ir.BinOp::Hypot,
-        l,
-        r
-      ) => {
-        stack.push(l)
-        stack.push(r)
-      }
+        _,
+        _
+      ) => node.each_child(k => stack.push(k))
       // The leaves carry no operand to check.
       @ir.ExprNode::Col(_)
       | @ir.ExprNode::Lit(_)
       | @ir.ExprNode::LitSeries(_) => ()
-      @ir.ExprNode::Unary(_, e)
-      | @ir.ExprNode::Agg(_, e)
-      | @ir.ExprNode::Str(_, e)
-      | @ir.ExprNode::Positional(_, e)
-      | @ir.ExprNode::Cast(e, _)
-      | @ir.ExprNode::Alias(e, _) => stack.push(e)
-      @ir.ExprNode::Ternary(c, t, fl) => {
-        stack.push(c)
-        stack.push(t)
-        stack.push(fl)
-      }
-      @ir.ExprNode::FillNull(o, v) | @ir.ExprNode::FillNan(o, v) => {
-        stack.push(o)
-        stack.push(v)
-      }
-      @ir.ExprNode::Diff(e, _) => stack.push(e)
-      @ir.ExprNode::Clip(x, lo, hi) => {
-        stack.push(x)
-        if lo is Some(l) {
-          stack.push(l)
-        }
-        if hi is Some(h) {
-          stack.push(h)
-        }
-      }
-      @ir.ExprNode::IsIn(e, _) => stack.push(e)
-      @ir.ExprNode::IsBetween(x, lo, hi, _) => {
-        stack.push(x)
-        stack.push(lo)
-        stack.push(hi)
-      }
-      @ir.ExprNode::Map(_, inputs, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::MapBatches(_, inputs, _, _) =>
-        for e in inputs {
-          stack.push(e)
-        }
-      @ir.ExprNode::Over(inner, keys) => {
-        stack.push(inner)
-        for k in keys {
-          stack.push(k)
-        }
-      }
+      // The descent rides `each_child`, the arm list staying the
+      // exhaustive half (a variant added to `ExprNode` declares its place
+      // among the decisions above or here).
+      @ir.ExprNode::Unary(_, _)
+      | @ir.ExprNode::Agg(_, _)
+      | @ir.ExprNode::Str(_, _)
+      | @ir.ExprNode::Positional(_, _)
+      | @ir.ExprNode::Cast(_, _)
+      | @ir.ExprNode::Alias(_, _)
+      | @ir.ExprNode::Ternary(_, _, _)
+      | @ir.ExprNode::FillNull(_, _)
+      | @ir.ExprNode::FillNan(_, _)
+      | @ir.ExprNode::Diff(_, _)
+      | @ir.ExprNode::Clip(_, _, _)
+      | @ir.ExprNode::IsIn(_, _)
+      | @ir.ExprNode::IsBetween(_, _, _, _)
+      | @ir.ExprNode::Map(_, _, _)
+      | @ir.ExprNode::MapBatches(_, _, _, _)
+      | @ir.ExprNode::Over(_, _) => node.each_child(k => stack.push(k))
     }
   }
   false

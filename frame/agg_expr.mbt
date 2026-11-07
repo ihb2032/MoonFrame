@@ -217,7 +217,10 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
   // aggregation expression formerly overflowed and aborted in this pre-pass,
   // which the doc calls structural and total. `Lit` / `Agg` are terminal (an
   // aggregation reduces regardless of its operand), `Col` / `Map` / `LitSeries`
-  // fail, and the combinators require every child to reduce.
+  // fail, and the combinators require every child to reduce. The descent
+  // rides `each_child`, the arm list staying the exhaustive half: a variant
+  // added to `ExprNode` fails this match until it declares whether it
+  // reduces, rather than silently inheriting the descent.
   let stack : Array[@ir.ExprNode] = [expr.node()]
   for ;; {
     match stack.pop() {
@@ -238,40 +241,22 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
               return false
             }
           @ir.ExprNode::Lit(_) | @ir.ExprNode::Agg(_, _) => ()
-          @ir.ExprNode::Binary(_, l, r)
-          | @ir.ExprNode::FillNull(l, r)
-          | @ir.ExprNode::FillNan(l, r) => {
-            stack.push(l)
-            stack.push(r)
-          }
-          @ir.ExprNode::Unary(_, e2)
-          | @ir.ExprNode::Str(_, e2)
-          | @ir.ExprNode::Positional(_, e2)
-          | @ir.ExprNode::Diff(e2, _)
-          | @ir.ExprNode::Cast(e2, _)
-          | @ir.ExprNode::Alias(e2, _)
-          | @ir.ExprNode::IsIn(e2, _) => stack.push(e2)
-          @ir.ExprNode::Ternary(c, t, f) => {
-            stack.push(c)
-            stack.push(t)
-            stack.push(f)
-          }
+          @ir.ExprNode::Binary(_, _, _)
+          | @ir.ExprNode::FillNull(_, _)
+          | @ir.ExprNode::FillNan(_, _)
+          | @ir.ExprNode::Unary(_, _)
+          | @ir.ExprNode::Str(_, _)
+          | @ir.ExprNode::Positional(_, _)
+          | @ir.ExprNode::Diff(_, _)
+          | @ir.ExprNode::Cast(_, _)
+          | @ir.ExprNode::Alias(_, _)
+          | @ir.ExprNode::IsIn(_, _)
+          | @ir.ExprNode::Ternary(_, _, _)
           // A clamp is row-wise over its operand and whichever bounds exist
           // (`children` order: operand, then lower, then upper).
-          @ir.ExprNode::Clip(x, lo, hi) => {
-            stack.push(x)
-            if lo is Some(l) {
-              stack.push(l)
-            }
-            if hi is Some(h) {
-              stack.push(h)
-            }
-          }
-          @ir.ExprNode::IsBetween(x, lo, hi, _) => {
-            stack.push(x)
-            stack.push(lo)
-            stack.push(hi)
-          }
+          | @ir.ExprNode::Clip(_, _, _)
+          | @ir.ExprNode::IsBetween(_, _, _, _) =>
+            e.each_child(k => stack.push(k))
         }
     }
   }

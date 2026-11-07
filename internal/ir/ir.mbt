@@ -147,27 +147,21 @@ fn ExprNode::children(self : ExprNode) -> Array[ExprNode] {
 }
 
 ///|
-/// Rewrite every `Col` reference through `mapping`, keeping any name the
-/// mapping does not carry. The tree-shaped twin of `children`: the same
-/// shape-only walk, rebuilding each node over its rewritten children with
-/// every other payload — operator tags, literals, aliases, the `Map` /
-/// `MapBatches` closures — carried verbatim, so the result evaluates the
-/// same expression against a frame that bears the new spellings. Total.
-/// Exhaustive on purpose, like `children`: a variant added to `ExprNode`
-/// fails this match until its sub-nodes are carried through, so a column
-/// reference can never hide under an unrewritten payload.
-///
-/// Iterative, like every engine walk: the tree is discovered with an
-/// explicit stack (`children` per node) into a post-order, then rebuilt in
-/// reverse discovery order so each node's children are renamed before the
-/// node itself. No recursion — a machine-built predicate of any depth
-/// renames without overflowing the stack. The rebuild `match` stays
-/// exhaustive for the same reason the recursive form was: a new variant
-/// fails compilation here until its rebuild arm exists.
-pub fn ExprNode::rename_columns(
+/// A bottom-up fold over the expression tree — the walk shape the engine's
+/// analyses and rewrites share. Discovery emits every node ahead of its
+/// descendants while recording each node's child count; iterating that
+/// emission backwards then hands `visit` each node with its children's
+/// already-folded values in **input order** (the value stack yields them
+/// last-first, so the walk reverses the pop — a `Binary`'s operands and an
+/// `IsBetween`'s operand and bounds are not interchangeable). Explicit
+/// stacks, not the call stack — a machine-built expression of any depth
+/// folds without overflowing and aborting. Total; `each_child` is the only
+/// place the tree's shape is spelled, so a variant added to `ExprNode`
+/// joins this walk the moment it declares its children there.
+pub fn[T] ExprNode::fold_postorder(
   self : ExprNode,
-  mapping : Map[String, String],
-) -> ExprNode {
+  visit : (ExprNode, Array[T]) -> T,
+) -> T {
   let discover : Array[ExprNode] = [self]
   let order : Array[ExprNode] = []
   let arities : Array[Int32] = []
@@ -185,74 +179,157 @@ pub fn ExprNode::rename_columns(
       }
     }
   }
-  let values : Array[ExprNode] = []
+  let values : Array[T] = []
   for i = order.length() - 1; i >= 0; i = i - 1 {
-    let node = order[i]
-    // Pop the rewritten children and restore input order — the value stack
-    // yields them last-first, and the rebuild below slots children
-    // positionally (an operand and its bounds are not interchangeable).
-    let popped : Array[ExprNode] = []
-    for _ in 0..<arities[i] {
-      popped.push(values[values.length() - 1])
-      let _ = values.pop()
-    }
-    let kids : Array[ExprNode] = Array::makei(popped.length(), k => {
-      popped[popped.length() - 1 - k]
-    })
-    values.push(
-      match node {
-        Col(name) =>
-          match mapping.get(name) {
-            Some(renamed) => Col(renamed)
-            None => node
-          }
-        Lit(_) | LitSeries(_) => node
-        Binary(op, _, _) => Binary(op, kids[0], kids[1])
-        Unary(op, _) => Unary(op, kids[0])
-        Agg(op, _) => Agg(op, kids[0])
-        Str(op, _) => Str(op, kids[0])
-        Positional(op, _) => Positional(op, kids[0])
-        Cast(_, target) => Cast(kids[0], target)
-        Alias(_, name) => Alias(kids[0], name)
-        Ternary(_, _, _) => Ternary(kids[0], kids[1], kids[2])
-        FillNull(_, _) => FillNull(kids[0], kids[1])
-        FillNan(_, _) => FillNan(kids[0], kids[1])
-        Diff(_, n) => Diff(kids[0], n)
-        // The kids array carries only the bounds that exist (the `children`
-        // order: operand, then lower, then upper), so the original node's
-        // `Option` structure decides which slot each renamed kid returns to.
-        Clip(_, lo, hi) => {
-          fn take(present : Bool, idx : Int32) -> ExprNode? {
-            if present {
-              Some(kids[idx])
-            } else {
-              None
-            }
-          }
-          Clip(
-            kids[0],
-            take(lo is Some(_), 1),
-            take(hi is Some(_), if lo is Some(_) { 2 } else { 1 }),
-          )
-        }
-        IsIn(_, members) => IsIn(kids[0], members)
-        IsBetween(_, _, _, closed) =>
-          IsBetween(kids[0], kids[1], kids[2], closed)
-        Map(label, _, f) => Map(label, kids, f)
-        MapBatches(label, _, returns_bool, f) =>
-          MapBatches(label, kids, returns_bool, f)
-        // `kids` carries the inner first, then one key each (the
-        // `children` order), so the rebuilt keys are the tail of the array.
-        Over(_, keys) => {
-          let rebuilt : Array[ExprNode] = Array::makei(keys.length(), k => {
-            kids[k + 1]
-          })
-          Over(kids[0], rebuilt)
-        }
-      },
-    )
+    values.push(visit(order[i], pop_in_order(values, arities[i])))
   }
   values[values.length() - 1]
+}
+
+///|
+/// The gated twin of `fold_postorder`, for the rewrites that treat some
+/// subtrees as opaque units: `descends` says which nodes' children enter
+/// the walk — any other node is an opaque unit whose value `unit` hands
+/// out directly, a sealed box the fold neither walks nor rebuilds. Every
+/// descended node combines through `visit` exactly as the plain fold
+/// does. The gate itself stays an exhaustive `match` at the caller (which
+/// shapes stay opaque is a semantic decision per rewrite, so a variant
+/// added to `ExprNode` fails that match until it picks a side).
+pub fn[T] ExprNode::fold_postorder_opaque(
+  self : ExprNode,
+  descends : (ExprNode) -> Bool,
+  unit : (ExprNode) -> T,
+  visit : (ExprNode, Array[T]) -> T,
+) -> T {
+  let discover : Array[ExprNode] = [self]
+  let order : Array[ExprNode] = []
+  let arities : Array[Int32] = []
+  for ;; {
+    match discover.pop() {
+      None => break
+      Some(node) =>
+        if descends(node) {
+          let mut count = 0
+          order.push(node)
+          node.each_child(k => {
+            discover.push(k)
+            count += 1
+          })
+          arities.push(count)
+        } else {
+          order.push(node)
+          arities.push(-1)
+        }
+    }
+  }
+  let values : Array[T] = []
+  for i = order.length() - 1; i >= 0; i = i - 1 {
+    if arities[i] < 0 {
+      values.push(unit(order[i]))
+    } else {
+      values.push(visit(order[i], pop_in_order(values, arities[i])))
+    }
+  }
+  values[values.length() - 1]
+}
+
+///|
+/// Pop `arity` values off a fold's value stack and return them in input
+/// order. The stack yields children last-first, so the result reverses the
+/// pop; `arity` 0 reads an empty array (a leaf visits with no children).
+fn[T] pop_in_order(stack : Array[T], arity : Int32) -> Array[T] {
+  let popped : Array[T] = []
+  for _ in 0..<arity {
+    popped.push(stack[stack.length() - 1])
+    let _ = stack.pop()
+  }
+  Array::makei(popped.length(), k => popped[popped.length() - 1 - k])
+}
+
+///|
+/// Rebuild one node over new children, every other payload — operator tags,
+/// literals, aliases, the `Map` / `MapBatches` closures — carried verbatim:
+/// the tree-shaped twin of `each_child`, and the one place the tree's
+/// *reassembly* shape is spelled. The kids array carries only the children
+/// that exist, in the `each_child` order (a `Clip`'s omitted bound is no
+/// slot at all, an `Over`'s keys are the tail), so the original node's own
+/// structure decides which slot each rebuilt kid returns to. Exhaustive on
+/// purpose, like `each_child`: a variant added to `ExprNode` fails this
+/// match until its rebuild arm exists, so no child can hide under an
+/// unrewritten payload.
+pub fn ExprNode::rebuild_children(
+  self : ExprNode,
+  kids : Array[ExprNode],
+) -> ExprNode {
+  match self {
+    Col(_) | Lit(_) | LitSeries(_) => self
+    Binary(op, _, _) => Binary(op, kids[0], kids[1])
+    Unary(op, _) => Unary(op, kids[0])
+    Agg(op, _) => Agg(op, kids[0])
+    Str(op, _) => Str(op, kids[0])
+    Positional(op, _) => Positional(op, kids[0])
+    Cast(_, target) => Cast(kids[0], target)
+    Alias(_, name) => Alias(kids[0], name)
+    Ternary(_, _, _) => Ternary(kids[0], kids[1], kids[2])
+    FillNull(_, _) => FillNull(kids[0], kids[1])
+    FillNan(_, _) => FillNan(kids[0], kids[1])
+    Diff(_, n) => Diff(kids[0], n)
+    Clip(_, lo, hi) => {
+      fn take(present : Bool, idx : Int32) -> ExprNode? {
+        if present {
+          Some(kids[idx])
+        } else {
+          None
+        }
+      }
+      Clip(
+        kids[0],
+        take(lo is Some(_), 1),
+        take(hi is Some(_), if lo is Some(_) { 2 } else { 1 }),
+      )
+    }
+    IsIn(_, members) => IsIn(kids[0], members)
+    IsBetween(_, _, _, closed) => IsBetween(kids[0], kids[1], kids[2], closed)
+    Map(label, _, f) => Map(label, kids.copy(), f)
+    MapBatches(label, _, returns_bool, f) =>
+      MapBatches(label, kids.copy(), returns_bool, f)
+    // The rebuilt keys are the tail of the kids array (the `each_child`
+    // order: the windowed expression first, then one key each).
+    Over(_, keys) => {
+      let rebuilt : Array[ExprNode] = Array::makei(keys.length(), k => {
+        kids[k + 1]
+      })
+      Over(kids[0], rebuilt)
+    }
+  }
+}
+
+///|
+/// Rewrite every `Col` reference through `mapping`, keeping any name the
+/// mapping does not carry. The tree-shaped twin of `children`: the same
+/// shape-only walk, rebuilding each node over its rewritten children with
+/// every other payload — operator tags, literals, aliases, the `Map` /
+/// `MapBatches` closures — carried verbatim, so the result evaluates the
+/// same expression against a frame that bears the new spellings. Total.
+///
+/// Rides `fold_postorder` — iterative, like every engine walk, so a
+/// machine-built predicate of any depth renames without overflowing the
+/// stack — with the rebuild delegated to `rebuild_children`, the one
+/// exhaustive shape match; only the `Col` renaming is this walk's own.
+pub fn ExprNode::rename_columns(
+  self : ExprNode,
+  mapping : Map[String, String],
+) -> ExprNode {
+  self.fold_postorder((node, kids) => {
+    match node {
+      Col(name) =>
+        match mapping.get(name) {
+          Some(renamed) => Col(renamed)
+          None => node
+        }
+      _ => node.rebuild_children(kids)
+    }
+  })
 }
 
 ///|

@@ -765,3 +765,244 @@ test "a repeat over rows alone, its accessors read back both halves" {
   )
   assert_eq(rowless.row(), None)
 }
+
+///|
+test "a repeat's field lists resolve their columns against the frame" {
+  // The repeat lists name columns of the shared frame — the facet
+  // sibling of the encoding channels' existence check, so a missing one
+  // raises ColumnNotFound rather than emitting a repeat over a
+  // nonexistent field.
+  let refused = Ok(
+    @chart.format_vega_lite(
+      compose_df(),
+      @chart.Chart::Repeat(
+        @chart.VegaRepeat::VegaRepeat(
+          @chart.Chart::of(
+            @chart.ChartSpec::line(
+              @chart.field("cat"),
+              @chart.VegaChannel::repeat(
+                repeat_ref=@chart.VegaRepeatRef::Column,
+              ),
+            ),
+          ),
+          column=["val", "missing"],
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused is Err(@types.DataError::ColumnNotFound(_)))
+}
+
+///|
+test "a layer member must be a single view or a layer" {
+  // The schema's layer array takes a unit or layer spec alone; each of
+  // the composition operators that cannot layer is refused loudly, with
+  // the host and the child shape named.
+  let df = compose_df()
+  let layer_over = (child : @chart.Chart) => {
+    @chart.Chart::Layer(
+      @chart.VegaLayer::VegaLayer([
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+        ),
+        child,
+      ]),
+    )
+  }
+  let vconcat = layer_over(
+    @chart.Chart::VConcat(
+      @chart.VegaConcat::VegaConcat([
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+        ),
+      ]),
+    ),
+  )
+  let refused_vconcat = Ok(@chart.format_vega_lite(df, vconcat)) catch {
+    e => Err(e)
+  }
+  assert_true(refused_vconcat is Err(@types.DataError::InvalidOperation(_)))
+  let hconcat = layer_over(
+    @chart.Chart::HConcat(
+      @chart.VegaConcat::VegaConcat([
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+        ),
+      ]),
+    ),
+  )
+  let refused_hconcat = Ok(@chart.format_vega_lite(df, hconcat)) catch {
+    e => Err(e)
+  }
+  assert_true(refused_hconcat is Err(@types.DataError::InvalidOperation(_)))
+  let wrapped = layer_over(
+    @chart.Chart::Concat(
+      @chart.VegaConcat::VegaConcat([
+        @chart.Chart::of(
+          @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+        ),
+      ]),
+    ),
+  )
+  let refused_concat = Ok(@chart.format_vega_lite(df, wrapped)) catch {
+    e => Err(e)
+  }
+  assert_true(refused_concat is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "a facet's spec must be a single view or a layer" {
+  let df = compose_df()
+  let faceted = (spec : @chart.Chart) => {
+    @chart.Chart::Facet(
+      @chart.VegaFacet::VegaFacet(
+        spec,
+        row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+      ),
+    )
+  }
+  // A layered child spec is the shape the schema's facet spec takes
+  // after normalization — legal here, and the emission carries it.
+  let layered = Ok(
+    @chart.format_vega_lite(
+      df,
+      faceted(
+        @chart.Chart::Layer(
+          @chart.VegaLayer::VegaLayer([
+            @chart.Chart::of(
+              @chart.ChartSpec::point(@chart.field("val"), @chart.field("val")),
+            ),
+          ]),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(layered is Ok(_))
+  // A facet or repeat under a facet is refused loudly, host and child
+  // shape named.
+  let refused_facet = Ok(
+    @chart.format_vega_lite(
+      df,
+      faceted(
+        @chart.Chart::Facet(
+          @chart.VegaFacet::VegaFacet(
+            @chart.Chart::of(
+              @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+            ),
+            row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+          ),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_facet is Err(@types.DataError::InvalidOperation(_)))
+  let refused_repeat = Ok(
+    @chart.format_vega_lite(
+      df,
+      faceted(
+        @chart.Chart::Repeat(
+          @chart.VegaRepeat::VegaRepeat(
+            @chart.Chart::of(
+              @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+            ),
+            column=["val"],
+          ),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_repeat is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "a composition with nothing to compose raises" {
+  // An empty layer / concat array, a facet with neither channel, and a
+  // repeat with no non-empty field list all have nothing to compose, and
+  // each is refused at emission rather than shipping a spec the schema's
+  // minItems / required shapes would reject.
+  let df = compose_df()
+  let view = @chart.Chart::of(
+    @chart.ChartSpec::bar(@chart.field("cat"), @chart.field("val")),
+  )
+  let empty_layer = @chart.Chart::Layer(@chart.VegaLayer::VegaLayer([]))
+  let refused_layer = Ok(@chart.format_vega_lite(df, empty_layer)) catch {
+    e => Err(e)
+  }
+  assert_true(refused_layer is Err(@types.DataError::InvalidOperation(_)))
+  let refused_vconcat = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::VConcat(@chart.VegaConcat::VegaConcat([])),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_vconcat is Err(@types.DataError::InvalidOperation(_)))
+  let refused_hconcat = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::HConcat(@chart.VegaConcat::VegaConcat([])),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_hconcat is Err(@types.DataError::InvalidOperation(_)))
+  let refused_concat = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::Concat(@chart.VegaConcat::VegaConcat([])),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_concat is Err(@types.DataError::InvalidOperation(_)))
+  let refused_facet = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::Facet(@chart.VegaFacet::VegaFacet(view)),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_facet is Err(@types.DataError::InvalidOperation(_)))
+  let refused_repeat = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::Repeat(
+        @chart.VegaRepeat::VegaRepeat(view, row=[], column=[]),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused_repeat is Err(@types.DataError::InvalidOperation(_)))
+  // One non-empty list is enough — a repeat over rows alone stands.
+  let rows_alone = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::Repeat(
+        @chart.VegaRepeat::VegaRepeat(
+          @chart.Chart::of(
+            @chart.ChartSpec::line(
+              @chart.field("cat"),
+              @chart.VegaChannel::repeat(repeat_ref=@chart.VegaRepeatRef::Row),
+            ),
+          ),
+          row=["val", "ts"],
+          column=[],
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(rows_alone is Ok(_))
+}

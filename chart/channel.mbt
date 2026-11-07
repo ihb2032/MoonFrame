@@ -458,10 +458,44 @@ pub fn VegaSides::VegaSides(
 }
 
 ///|
+/// A reference to a repeat variable — the placeholder a child spec inside
+/// a `Repeat` composition names where a plain field reference would name a
+/// column: `Row → {"repeat": "row"}`, `Column → {"repeat": "column"}`.
+/// The schema's `RepeatRef` enum also lists `"repeat"` and `"layer"`,
+/// which belong to hosts this mirror does not build (a wrapped
+/// repeat-of-concats and a layer-level field spec), so the two variants
+/// here are the reachable set. `pub(all)` so callers can name the
+/// variants; a channel carrying one is built with `VegaChannel::repeat`.
+#derive(Eq, Debug)
+pub(all) enum VegaRepeatRef {
+  Row
+  Column
+}
+
+///|
+pub extend VegaRepeatRef with Eq::{equal, not_equal}
+
+///|
+pub extend VegaRepeatRef with Debug::{to_repr}
+
+///|
+/// The schema's `RepeatRef` string for a variant, one arm per variant.
+fn repeat_ref_string(reference : VegaRepeatRef) -> String {
+  match reference {
+    Row => "row"
+    Column => "column"
+  }
+}
+
+///|
 /// One encoding-channel definition: a column `field` plus optional
-/// pass-through modifiers, or — instead of a field — a constant `value` or
-/// a constant `datum` (the schema's value / datum definitions; a channel
-/// is exactly one of the three, and the builders keep it that way).
+/// pass-through modifiers, or — instead of a field — a reference to a
+/// repeat variable (`repeat_ref`, the placeholder a child spec inside a
+/// `Repeat` composition resolves per panel) or a constant `value` or a
+/// constant `datum` (the schema's value / datum definitions; a channel
+/// is exactly one of the four, and the builders keep it that way — a
+/// `field` and a `repeat_ref` on one channel raise `InvalidOperation` at
+/// emission, since the schema's `field` slot holds one or the other).
 /// `aggregate` declares an aggregation over the column (a `Count`
 /// aggregate ignores the field — no column is read, and the channel's
 /// `type` is `"quantitative"`); `bin` declares binning; `time_unit`
@@ -472,11 +506,12 @@ pub fn VegaSides::VegaSides(
 /// overrides position stacking; `band_position` places a mark within its
 /// band (0 start, 0.5 middle, 1 end). The modifiers are declared, not
 /// computed — the Vega-Lite runtime evaluates them at render time. Build
-/// one with `field` / `constant` / `datum`; fields are read-only outside
-/// the package.
+/// one with `field` / `VegaChannel::repeat` / `constant` / `datum`;
+/// fields are read-only outside the package.
 #derive(Eq, Debug)
 pub struct VegaChannel {
   field : String?
+  repeat_ref : VegaRepeatRef?
   aggregate : VegaAggregate?
   bin : VegaBin?
   time_unit : VegaTimeUnit?
@@ -526,6 +561,7 @@ pub fn field(
 ) -> VegaChannel {
   {
     field: Some(name),
+    repeat_ref: None,
     aggregate,
     bin,
     time_unit,
@@ -554,6 +590,7 @@ pub fn field(
 pub fn constant(value : Json) -> VegaChannel {
   {
     field: None,
+    repeat_ref: None,
     aggregate: None,
     bin: None,
     time_unit: None,
@@ -580,6 +617,7 @@ pub fn constant(value : Json) -> VegaChannel {
 pub fn datum(value : Json) -> VegaChannel {
   {
     field: None,
+    repeat_ref: None,
     aggregate: None,
     bin: None,
     time_unit: None,
@@ -607,6 +645,7 @@ pub fn datum(value : Json) -> VegaChannel {
 pub fn VegaChannel::count() -> VegaChannel {
   {
     field: None,
+    repeat_ref: None,
     aggregate: Some(Count),
     bin: None,
     time_unit: None,
@@ -620,6 +659,53 @@ pub fn VegaChannel::count() -> VegaChannel {
     axis: None,
     legend: None,
     condition: None,
+    value: None,
+    datum: None,
+  }
+}
+
+///|
+/// The repeat-reference encoding channel: instead of naming one column,
+/// the channel names the repeat variable of the enclosing `Repeat`
+/// composition — each panel resolves it to the field that panel repeats
+/// over. Accepts the same pass-through modifiers as `field`; the
+/// dtype→type rule has no single column to read (the column varies per
+/// panel), so an unset `type_override` types the channel
+/// `"quantitative"` — set `type_override` when the repeated fields are
+/// temporal or nominal. A `Count` aggregate ignores the reference the
+/// way it ignores a field.
+pub fn VegaChannel::repeat(
+  repeat_ref~ : VegaRepeatRef,
+  aggregate? : VegaAggregate,
+  bin? : VegaBin,
+  time_unit? : VegaTimeUnit,
+  sort? : VegaChannelSort,
+  type_override? : VegaType,
+  title? : String,
+  format? : String,
+  stack? : VegaStack,
+  band_position? : Double,
+  scale? : VegaScaleRef,
+  axis? : VegaAxisRef,
+  legend? : VegaLegendRef,
+  condition? : VegaCondition,
+) -> VegaChannel {
+  {
+    field: None,
+    repeat_ref: Some(repeat_ref),
+    aggregate,
+    bin,
+    time_unit,
+    sort,
+    type_override,
+    title,
+    format,
+    stack,
+    band_position,
+    scale,
+    axis,
+    legend,
+    condition,
     value: None,
     datum: None,
   }

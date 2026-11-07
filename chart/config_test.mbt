@@ -444,13 +444,12 @@ test "every config leaf fires: view, scale, range, format, composites" {
       "\"minStrokeWidth\":0", "\"offsetBandPaddingInner\":0.6", "\"offsetBandPaddingOuter\":0.7",
       "\"quantileCount\":10", "\"quantizeCount\":20", "\"rectBandPaddingInner\":0.8",
       "\"round\":true", "\"tickBandPaddingInner\":0.9", "\"useUnaggregatedDomain\":true",
-      "\"xReverse\":true", "\"zero\":true", "\"point\":{\"type\":\"point\",\"nearest\":true}",
-      "\"ordinal\":[\"o\"]", "\"diverging\":[\"d\"]", "\"heatmap\":[\"h\"]", "\"symbol\":[\"s\"]",
-      "\"box\":{}", "\"outliers\":{}", "\"ticks\":{}", "\"extent\":1", "\"size\":9",
-      "\"extent\":\"stdev\"", "\"extent\":\"ci\"", "\"band\":{}", "\"borders\":{}",
-      "\"tension\":0.9", "\"dateTime\":\"%A\"", "\"numberFormatType\":\"currency\"",
-      "\"normalizedNumberFormat\":\".0%\"", "\"normalizedNumberFormatType\":\"currency\"",
-      "\"timeFormat\":\"%Y\"", "\"timeFormatType\":\"time\"",
+      "\"xReverse\":true", "\"zero\":true", "\"point\":{\"nearest\":true}", "\"ordinal\":[\"o\"]",
+      "\"diverging\":[\"d\"]", "\"heatmap\":[\"h\"]", "\"symbol\":[\"s\"]", "\"box\":{}",
+      "\"outliers\":{}", "\"ticks\":{}", "\"extent\":1", "\"size\":9", "\"extent\":\"stdev\"",
+      "\"extent\":\"ci\"", "\"band\":{}", "\"borders\":{}", "\"tension\":0.9", "\"dateTime\":\"%A\"",
+      "\"numberFormatType\":\"currency\"", "\"normalizedNumberFormat\":\".0%\"",
+      "\"normalizedNumberFormatType\":\"currency\"", "\"timeFormat\":\"%Y\"", "\"timeFormatType\":\"time\"",
     ] {
     assert_true(spec.contains(needle))
   }
@@ -708,4 +707,42 @@ test "the tooltip format block fires every leaf, and a fixed discrete size" {
   assert_true(spec.contains("\"timeFormat\":\"%Y\""))
   assert_true(spec.contains("\"timeFormatType\":\"time\""))
   assert_true(spec.contains("\"discreteHeight\":200"))
+}
+
+///|
+test "a theme carries the per-orientation axis keys and the disable flag" {
+  // config.axis and its per-orientation keys (axisXBand … axisYTemporal)
+  // are the schema's AxisConfig — the one axis shape that carries
+  // `disable`.
+  let disabled = @chart.VegaAxis::VegaAxis(disable=true, grid=false)
+  let spec = themed_spec(
+    @chart.VegaConfig::VegaConfig(
+      axis=disabled,
+      axis_x_band=@chart.VegaAxis::VegaAxis(
+        tick_count=@chart.VegaTickInterval::Count(5),
+      ),
+      axis_x_discrete=@chart.VegaAxis::VegaAxis(labels=false),
+      axis_x_point=@chart.VegaAxis::VegaAxis(label_angle=-30),
+      axis_x_quantitative=@chart.VegaAxis::VegaAxis(zindex=1),
+      axis_x_temporal=@chart.VegaAxis::VegaAxis(format="%Y"),
+      axis_y_band=@chart.VegaAxis::VegaAxis(tick_extra=true),
+      axis_y_discrete=@chart.VegaAxis::VegaAxis(domain=true),
+      axis_y_point=@chart.VegaAxis::VegaAxis(position=2),
+      axis_y_quantitative=@chart.VegaAxis::VegaAxis(min_extent=10),
+      axis_y_temporal=@chart.VegaAxis::VegaAxis(
+        orient=@chart.VegaAxisOrient::Right,
+      ),
+    ),
+  )
+  assert_true(spec.contains("\"axis\":{\"disable\":true,\"grid\":false}"))
+  for
+    needle in [
+      "\"axisXBand\":{\"tickCount\":5}", "\"axisXDiscrete\":{\"labels\":false}",
+      "\"axisXPoint\":{\"labelAngle\":-30}", "\"axisXQuantitative\":{\"zindex\":1}",
+      "\"axisXTemporal\":{\"format\":\"%Y\"}", "\"axisYBand\":{\"tickExtra\":true}",
+      "\"axisYDiscrete\":{\"domain\":true}", "\"axisYPoint\":{\"position\":2}", "\"axisYQuantitative\":{\"minExtent\":10}",
+      "\"axisYTemporal\":{\"orient\":\"right\"}",
+    ] {
+    assert_true(spec.contains(needle))
+  }
 }

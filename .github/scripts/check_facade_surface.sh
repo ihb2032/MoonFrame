@@ -125,7 +125,7 @@ qualified_reach="io/format_csv io/format_json io/format_ndjson io/parse_csv_str 
 # chart symbol not on it must NOT be on the facade — `@chart.VegaScale`, not
 # a bare `VegaScale` nobody promised. Shrink or grow the list only alongside
 # the facade comment that draws the same line.
-chart_main="chart/Chart chart/ChartSpec chart/ChartKind chart/VegaAggregate chart/VegaAutoSize chart/VegaBin chart/VegaBinParams chart/VegaChannel chart/VegaChannelSort chart/VegaExtent chart/VegaPadding chart/VegaSort chart/VegaSortChannel chart/VegaStack chart/VegaTimeUnit chart/VegaType chart/constant chart/datum chart/field chart/format_vega_html chart/format_vega_lite chart/plot chart/write_vega_html chart/write_vega_lite"
+chart_main="chart/Chart chart/ChartSpec chart/ChartKind chart/VegaAggregate chart/VegaAutoSize chart/VegaBin chart/VegaBinParams chart/VegaChannel chart/VegaChannelSort chart/VegaExtent chart/VegaPadding chart/VegaRepeatRef chart/VegaSort chart/VegaSortChannel chart/VegaStack chart/VegaTimeUnit chart/VegaType chart/constant chart/datum chart/field chart/format_vega_html chart/format_vega_lite chart/plot chart/write_vega_html chart/write_vega_lite"
 
 # Tracked public interfaces only: `git ls-files` never lists a `_build` copy,
 # `internal/` (at any depth) carries no compatibility promise, and `examples/`

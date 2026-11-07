@@ -207,7 +207,7 @@ test "VegaImputeTransform emits its every property under its schema keys" {
             impute="val",
             key="ts",
             keyvals=[Json::number(1), Json::number(2)],
-            method_="mean",
+            method_=@chart.VegaImputeMethod::Mean,
             value=Json::number(0),
             groupby=["cat"],
             frame=[-1.0, 1.0],
@@ -338,7 +338,7 @@ test "VegaRegressionTransform emits its every property under its schema keys" {
             on="ts",
             as_=["f", "d"],
             extent=[0.0, 1.0],
-            method_="poly",
+            method_=@chart.VegaRegressionMethod::Poly,
             order=2,
             groupby=["grp"],
             params=true,
@@ -374,7 +374,7 @@ test "VegaStackTransform emits its every property under its schema keys" {
             stack="val",
             groupby=["cat"],
             as_=@chart.VegaAsField::Pair("lo", "hi"),
-            offset="normalize",
+            offset=@chart.VegaStackOffset::Normalize,
             sort=[
               @chart.VegaSortField::VegaSortField(
                 field="ts",
@@ -522,13 +522,36 @@ test "every predicate arm emits its own shape" {
       ),
       "{\"field\":\"ts\",\"equal\":1,\"timeUnit\":\"month\"}",
     ),
-    (@chart.VegaPredicate::Lt("val", 5, None), "{\"field\":\"val\",\"lt\":5}"),
-    (@chart.VegaPredicate::Lte("val", 5, None), "{\"field\":\"val\",\"lte\":5}"),
     (
-      @chart.VegaPredicate::Gt("val", 5, Some(@chart.VegaTimeUnit::Year)),
+      @chart.VegaPredicate::Lt("val", Json::number(5), None),
+      "{\"field\":\"val\",\"lt\":5}",
+    ),
+    (
+      @chart.VegaPredicate::Lte("val", Json::number(5), None),
+      "{\"field\":\"val\",\"lte\":5}",
+    ),
+    (
+      @chart.VegaPredicate::Gt(
+        "val",
+        Json::number(5),
+        Some(@chart.VegaTimeUnit::Year),
+      ),
       "{\"field\":\"val\",\"gt\":5,\"timeUnit\":\"year\"}",
     ),
-    (@chart.VegaPredicate::Gte("val", 5, None), "{\"field\":\"val\",\"gte\":5}"),
+    (
+      @chart.VegaPredicate::Gte("val", Json::number(5), None),
+      "{\"field\":\"val\",\"gte\":5}",
+    ),
+    // The comparison bound is the schema's number | string | DateTime
+    // union, so a string bound passes through like Equal's does.
+    (
+      @chart.VegaPredicate::Lt("cat", Json::string("m"), None),
+      "{\"field\":\"cat\",\"lt\":\"m\"}",
+    ),
+    (
+      @chart.VegaPredicate::Gte("cat", Json::string("m"), None),
+      "{\"field\":\"cat\",\"gte\":\"m\"}",
+    ),
     (
       @chart.VegaPredicate::Range("val", (0, 10), None),
       "{\"field\":\"val\",\"range\":[0,10]}",
@@ -675,4 +698,114 @@ test "a composition carries its own transform pipeline" {
       "],\"transform\":[{\"filter\":{\"field\":\"val\",\"valid\":true}}]",
     ),
   )
+}
+
+///|
+test "each VegaStackOffset variant emits the schema's offset string" {
+  let cases = [
+    (@chart.VegaStackOffset::Zero, "zero"),
+    (@chart.VegaStackOffset::Center, "center"),
+    (@chart.VegaStackOffset::Normalize, "normalize"),
+  ]
+  for c in cases {
+    let (offset, expected) = c
+    assert_eq(
+      transform_array(
+        with_transforms([
+          @chart.VegaTransform::Stack(
+            @chart.VegaStackTransform::VegaStackTransform(
+              stack="val",
+              groupby=["cat"],
+              as_=@chart.VegaAsField::One("stacked"),
+              offset~,
+            ),
+          ),
+        ]),
+      ),
+      "[{\"stack\":\"val\",\"groupby\":[\"cat\"],\"as\":\"stacked\",\"offset\":\"\{expected}\"}]",
+    )
+  }
+}
+
+///|
+test "each VegaImputeMethod variant emits the schema's method string" {
+  let cases = [
+    (@chart.VegaImputeMethod::Value, "value"),
+    (@chart.VegaImputeMethod::Median, "median"),
+    (@chart.VegaImputeMethod::Max, "max"),
+    (@chart.VegaImputeMethod::Min, "min"),
+    (@chart.VegaImputeMethod::Mean, "mean"),
+  ]
+  for c in cases {
+    let (method_, expected) = c
+    assert_eq(
+      transform_array(
+        with_transforms([
+          @chart.VegaTransform::Impute(
+            @chart.VegaImputeTransform::VegaImputeTransform(
+              impute="val",
+              key="ts",
+              method_~,
+            ),
+          ),
+        ]),
+      ),
+      "[{\"impute\":\"val\",\"key\":\"ts\",\"method\":\"\{expected}\"}]",
+    )
+  }
+}
+
+///|
+test "each VegaRegressionMethod variant emits the schema's method string" {
+  let cases = [
+    (@chart.VegaRegressionMethod::Linear, "linear"),
+    (@chart.VegaRegressionMethod::Log, "log"),
+    (@chart.VegaRegressionMethod::Exp, "exp"),
+    (@chart.VegaRegressionMethod::Pow, "pow"),
+    (@chart.VegaRegressionMethod::Quad, "quad"),
+    (@chart.VegaRegressionMethod::Poly, "poly"),
+  ]
+  for c in cases {
+    let (method_, expected) = c
+    assert_eq(
+      transform_array(
+        with_transforms([
+          @chart.VegaTransform::Regression(
+            @chart.VegaRegressionTransform::VegaRegressionTransform(
+              regression="val",
+              on="ts",
+              method_~,
+            ),
+          ),
+        ]),
+      ),
+      "[{\"regression\":\"val\",\"on\":\"ts\",\"method\":\"\{expected}\"}]",
+    )
+  }
+}
+
+///|
+test "a density transform resolves its densities independently or shared" {
+  let independent = transform_array(
+    with_transforms([
+      @chart.VegaTransform::Density(
+        @chart.VegaDensityTransform::VegaDensityTransform(
+          density="val",
+          resolve=@chart.VegaResolveMode::Independent,
+        ),
+      ),
+    ]),
+  )
+  assert_eq(independent, "[{\"density\":\"val\",\"resolve\":\"independent\"}]")
+  let shared = transform_array(
+    with_transforms([
+      @chart.VegaTransform::Density(
+        @chart.VegaDensityTransform::VegaDensityTransform(
+          density="val",
+          resolve=@chart.VegaResolveMode::Shared,
+        ),
+      ),
+    ]),
+  )
+  assert_eq(shared, "[{\"density\":\"val\",\"resolve\":\"shared\"}]")
 }

@@ -9,19 +9,22 @@
 /// A filter predicate, the schema's `PredicateComposition`: a Vega
 /// expression string (`Expr` — passed through verbatim), a parameter
 /// reference (`Param` — a brush or input widget, by name), a field
-/// comparison (`Equal` / `Range` / `OneOf` / `Valid`, each with an
-/// optional `timeUnit` truncation), or a composition of predicates
-/// (`Not` / `And` / `Or`). `pub(all)` so callers build the variants;
-/// the array-carrying ones take copies at the builder functions.
+/// comparison (`Equal` / `Lt` / `Lte` / `Gt` / `Gte` with a `Json` bound
+/// — the schema allows a number, a string, or a DateTime object there,
+/// matching `Equal`'s bound; `Range` with a number pair; `OneOf` with a
+/// value list; `Valid` with a flag — each with an optional `timeUnit`
+/// truncation), or a composition of predicates (`Not` / `And` / `Or`).
+/// `pub(all)` so callers build the variants; the array-carrying ones
+/// take copies at the builder functions.
 #derive(Eq, Debug)
 pub(all) enum VegaPredicate {
   Expr(String)
   Param(String)
   Equal(String, Json, VegaTimeUnit?)
-  Lt(String, Double, VegaTimeUnit?)
-  Lte(String, Double, VegaTimeUnit?)
-  Gt(String, Double, VegaTimeUnit?)
-  Gte(String, Double, VegaTimeUnit?)
+  Lt(String, Json, VegaTimeUnit?)
+  Lte(String, Json, VegaTimeUnit?)
+  Gt(String, Json, VegaTimeUnit?)
+  Gte(String, Json, VegaTimeUnit?)
   Range(String, (Double, Double), VegaTimeUnit?)
   OneOf(String, Array[Json], VegaTimeUnit?)
   Valid(String, Bool, VegaTimeUnit?)
@@ -89,25 +92,25 @@ fn vega_predicate_emit_json(p : VegaPredicate) -> Json {
     }
     Lt(field, bound, time_unit) => {
       obj["field"] = Json::string(escape_vega_field(field))
-      obj["lt"] = Json::number(bound)
+      obj["lt"] = bound
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Lte(field, bound, time_unit) => {
       obj["field"] = Json::string(escape_vega_field(field))
-      obj["lte"] = Json::number(bound)
+      obj["lte"] = bound
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Gt(field, bound, time_unit) => {
       obj["field"] = Json::string(escape_vega_field(field))
-      obj["gt"] = Json::number(bound)
+      obj["gt"] = bound
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }
     Gte(field, bound, time_unit) => {
       obj["field"] = Json::string(escape_vega_field(field))
-      obj["gte"] = Json::number(bound)
+      obj["gte"] = bound
       put_predicate_time_unit(obj, time_unit)
       Json::object(obj)
     }

@@ -409,3 +409,112 @@ test "the remaining widget, brush, and accessor arms all fire" {
   assert_true(spec.contains("\"debounce\":50"))
   assert_true(spec.contains("\"element\":\"#box\""))
 }
+
+///|
+test "selector fields escape like every other field reference" {
+  // The projected fields are column names, so a dotted one selects on
+  // the literal column rather than a nested path — the same escape the
+  // encoding channels, lookup, and predicates apply.
+  let spec = @chart.format_vega_lite(
+    params_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Point,
+        x=@chart.field("val"),
+        y=@chart.field("val"),
+        params=[
+          @chart.VegaParam::Selection(
+            @chart.VegaSelectionParam::VegaSelectionParam(
+              name="picked",
+              select=@chart.VegaSelect::Point(
+                @chart.VegaPointSelect::VegaPointSelect(fields=["price.usd"]),
+              ),
+            ),
+          ),
+          @chart.VegaParam::Selection(
+            @chart.VegaSelectionParam::VegaSelectionParam(
+              name="brush",
+              select=@chart.VegaSelect::Interval(
+                @chart.VegaIntervalSelect::VegaIntervalSelect(fields=[
+                  "price.usd",
+                ]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  )
+  // The emitted JSON escapes the escape itself: the field text is
+  // `price\.usd`, which the JSON stringifier writes with the backslash
+  // doubled.
+  assert_true(spec.contains("\"fields\":[\"price\\\\.usd\"]"))
+}
+
+///|
+test "a radio / select binding may render as a dropdown" {
+  // The schema's BindRadioSelect.input enum lists radio and select; the
+  // default emission stays "radio", and input=Select spells the other
+  // arm.
+  let dropdown = @chart.format_vega_lite(
+    params_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        params=[
+          @chart.VegaParam::Variable(
+            @chart.VegaVariableParam::VegaVariableParam(
+              name="region",
+              bind=@chart.VegaBind::RadioSelect(
+                @chart.VegaBindRadioSelect::VegaBindRadioSelect(
+                  [Json::string("north"), Json::string("south")],
+                  input=@chart.VegaRadioSelectInput::Select,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  )
+  assert_true(
+    dropdown.contains(
+      "\"bind\":{\"input\":\"select\",\"options\":[\"north\",\"south\"]}",
+    ),
+  )
+  let radio = @chart.VegaBindRadioSelect::VegaBindRadioSelect([
+    Json::string("a"),
+  ])
+  assert_true(radio.input is None)
+  // The explicit radio arm spells the same input as the unset default.
+  let explicit_radio = @chart.format_vega_lite(
+    params_df(),
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        params=[
+          @chart.VegaParam::Variable(
+            @chart.VegaVariableParam::VegaVariableParam(
+              name="region",
+              bind=@chart.VegaBind::RadioSelect(
+                @chart.VegaBindRadioSelect::VegaBindRadioSelect(
+                  [Json::string("north")],
+                  input=@chart.VegaRadioSelectInput::Radio,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  )
+  assert_true(
+    explicit_radio.contains(
+      "\"bind\":{\"input\":\"radio\",\"options\":[\"north\"]}",
+    ),
+  )
+}

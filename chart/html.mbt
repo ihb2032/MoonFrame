@@ -37,8 +37,16 @@
 ///
 /// Each field channel names a column of `df`, resolved in the fixed
 /// order the `ChartSpec` doc states, and the first name absent from the
-/// frame raises `ColumnNotFound(name)` — the one reason this is not
-/// **total**. Before embedding, every literal `<` in the emitted JSON
+/// frame raises `ColumnNotFound(name)`. This is not **total**, for the
+/// same full set of reasons `format_vega_lite`'s doc enumerates — the
+/// `ColumnNotFound` family (a channel column, a facet channel's column,
+/// a repeat field-list name) and the `InvalidOperation` family (a
+/// constant a position or offset channel's value definition refuses, a
+/// channel carrying both a `field` and a repeat reference, a facet sort
+/// keyed on another channel, a composition child of an illegal shape
+/// for its host, and a composition with nothing to compose); the spec
+/// emission underneath is the shared one. Before embedding, every
+/// literal `<` in the emitted JSON
 /// is rewritten to its `\u003c` JSON escape, and the U+2028 / U+2029
 /// line separators likewise, so chart data cannot close the host
 /// `<script>` element early; the embedded text is the same JSON value,

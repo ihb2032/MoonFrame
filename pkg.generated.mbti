@@ -153,6 +153,8 @@ pub using @chart {type VegaExtent}
 
 pub using @chart {type VegaPadding}
 
+pub using @chart {type VegaRepeatRef}
+
 pub using @chart {type VegaSort}
 
 pub using @chart {type VegaSortChannel}

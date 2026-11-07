@@ -60,10 +60,44 @@ pub fn VegaBindCheckbox::VegaBindCheckbox(
 }
 
 ///|
-/// A radio-button / dropdown binding: the options to choose among, and
-/// optional display labels for them.
+/// The widget a radio / select binding renders, the schema's
+/// `BindRadioSelect.input` enum: `Radio → "radio"` (a radio group, the
+/// default an unset `input` emits) and `Select → "select"` (a dropdown).
+/// A dedicated enum rather than a `String` because the schema lists
+/// exactly these two — the same cohesion `VegaInterpolateParamType`
+/// gives a narrower schema enum — and rather than reusing a wider input
+/// type because no other widget's input is constrained to two arms.
+/// `pub(all)` so callers can name the variants.
+#derive(Eq, Debug)
+pub(all) enum VegaRadioSelectInput {
+  Radio
+  Select
+}
+
+///|
+pub extend VegaRadioSelectInput with Eq::{equal, not_equal}
+
+///|
+pub extend VegaRadioSelectInput with Debug::{to_repr}
+
+///|
+/// The schema's `BindRadioSelect.input` string for a variant, one arm
+/// per variant.
+fn vega_radio_select_input_string(v : VegaRadioSelectInput) -> String {
+  match v {
+    Radio => "radio"
+    Select => "select"
+  }
+}
+
+///|
+/// A radio-button / dropdown binding: the options to choose among,
+/// optional display labels for them, and the widget's input kind (a
+/// radio group, or a dropdown through `input=Select`; unset emits the
+/// schema's default `"radio"`).
 #derive(Eq, Debug)
 pub struct VegaBindRadioSelect {
+  input : VegaRadioSelectInput?
   debounce : Double?
   element : String?
   name : String?
@@ -82,12 +116,14 @@ pub extend VegaBindRadioSelect with Debug::{to_repr}
 /// and optional labels (copied); the rest optional.
 pub fn VegaBindRadioSelect::VegaBindRadioSelect(
   options : Array[Json],
+  input? : VegaRadioSelectInput,
   labels? : Array[String],
   debounce? : Double,
   element? : String,
   name? : String,
 ) -> VegaBindRadioSelect {
   {
+    input,
     debounce,
     element,
     name,
@@ -592,7 +628,12 @@ fn vega_bind_emit_json(b : VegaBind) -> Json {
       Json::object(obj)
     }
     RadioSelect(r) => {
-      obj["input"] = Json::string("radio")
+      obj["input"] = Json::string(
+        match r.input {
+          Some(input) => vega_radio_select_input_string(input)
+          None => "radio"
+        },
+      )
       obj["options"] = Json::array(r.options.copy())
       if r.labels is Some(labels) {
         obj["labels"] = Json::array(labels.map(fn(l) { Json::string(l) }))
@@ -658,12 +699,20 @@ fn put_bind_common(
 }
 
 ///|
-/// The JSON of a selection trigger.
-fn vega_select_emit_json(s : VegaSelect) -> Json {
+/// The JSON of a selection trigger. `with_type` says whether the
+/// `type` key rides along: the parameter form (`params[].select`) names
+/// its trigger kind through it, while the config form
+/// (`config.selection.point` / `.interval`) is typed by the key it sits
+/// under — the schema's `*SelectionConfigWithoutType` shapes carry no
+/// `type` and reject one (`additionalProperties: false`) — so the config
+/// emitters pass `false` and the key is left out.
+fn vega_select_emit_json(s : VegaSelect, with_type : Bool) -> Json {
   match s {
     Point(p) => {
       let obj : Map[String, Json] = Map([])
-      obj["type"] = Json::string("point")
+      if with_type {
+        obj["type"] = Json::string("point")
+      }
       put_select_common(obj, p.on, p.clear, p.fields, p.encodings, p.resolve)
       if p.nearest is Some(nearest) {
         obj["nearest"] = Json::boolean(nearest)
@@ -675,7 +724,9 @@ fn vega_select_emit_json(s : VegaSelect) -> Json {
     }
     Interval(i) => {
       let obj : Map[String, Json] = Map([])
-      obj["type"] = Json::string("interval")
+      if with_type {
+        obj["type"] = Json::string("interval")
+      }
       put_select_common(obj, i.on, i.clear, i.fields, i.encodings, i.resolve)
       if i.translate is Some(translate) {
         obj["translate"] = Json::string(translate)
@@ -692,7 +743,11 @@ fn vega_select_emit_json(s : VegaSelect) -> Json {
 }
 
 ///|
-/// The keys both trigger kinds share.
+/// The keys both trigger kinds share. The projected `fields` are column
+/// names, so they escape like every other field reference
+/// (`escape_vega_field`) — a selector projecting a column literally named
+/// `price.usd` selects on that column, not on a nested path; the
+/// `encodings` are channel names, which the schema spells bare.
 fn put_select_common(
   obj : Map[String, Json],
   on : String?,
@@ -708,7 +763,9 @@ fn put_select_common(
     obj["clear"] = Json::string(c)
   }
   if fields is Some(f) {
-    obj["fields"] = Json::array(f.map(fn(x) { Json::string(x) }))
+    obj["fields"] = Json::array(
+      f.map(fn(x) { Json::string(escape_vega_field(x)) }),
+    )
   }
   if encodings is Some(e) {
     obj["encodings"] = Json::array(e.map(fn(x) { Json::string(x) }))
@@ -777,7 +834,7 @@ fn vega_param_emit_json(p : VegaParam, nested : Bool) -> Json {
     }
     Selection(s) => {
       obj["name"] = Json::string(s.name)
-      obj["select"] = vega_select_emit_json(s.select)
+      obj["select"] = vega_select_emit_json(s.select, true)
       if s.bind is Some(bind) {
         obj["bind"] = vega_bind_emit_json(bind)
       }

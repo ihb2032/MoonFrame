@@ -175,6 +175,7 @@ pub using @chart {
   type VegaChannelSort,
   type VegaExtent,
   type VegaPadding,
+  type VegaRepeatRef,
   type VegaSort,
   type VegaSortChannel,
   type VegaStack,

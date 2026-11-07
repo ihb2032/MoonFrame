@@ -160,6 +160,10 @@ fn corpus_specs() -> Array[(String, @chart.ChartSpec)] {
           ),
         ),
         y=@chart.field("val"),
+        // The x sort keys on the size channel's values (`-size`), so the
+        // channel rides the spec too — a by-channel sort on a channel
+        // the spec never encodes sorts on nothing.
+        size=@chart.field("val"),
         color=@chart.field(
           "grp",
           sort=@chart.VegaChannelSort::ByField(
@@ -401,8 +405,15 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
           @chart.Chart::of(
             @chart.ChartSpec::line(
               @chart.field("cat"),
-              @chart.field("val"),
-              title="Dummy",
+              // The y channel references the repeat variable itself —
+              // each panel plots the field that panel repeats over,
+              // which is what makes the panels differ; a plain field
+              // here would render every panel identical.
+              @chart.VegaChannel::repeat(
+                repeat_ref=@chart.VegaRepeatRef::Column,
+                aggregate=Mean,
+              ),
+              title="Measures",
             ),
           ),
           column=["val", "ts", "price.usd"],
@@ -490,7 +501,13 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
         @chart.ChartSpec::of(
           @chart.ChartKind::Line,
           x=@chart.field("ts", time_unit=@chart.VegaTimeUnit::Month),
-          y=@chart.field("val", aggregate=Sum),
+          // The fold below removes `val` and `running` from the data
+          // (replacing them with the key / value pair), so the encoding
+          // counts rows instead of reading a folded-away field — a
+          // column the runtime can resolve after every transform has
+          // run. `ts` and `grp` survive the fold untouched.
+          y=@chart.VegaChannel::count(),
+          color=@chart.field("grp"),
           transform=[
             @chart.VegaTransform::Window(
               @chart.VegaWindowTransform::VegaWindowTransform(
@@ -671,6 +688,57 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
             ),
           ),
           row=@chart.VegaFacetChannel::VegaFacetChannel(field="grp"),
+        ),
+      ),
+    ),
+    (
+      "lookup_param.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          transform=[
+            // The parameter-driven lookup source: the schema's
+            // LookupSelection, whose `key` and `param` are both required.
+            @chart.VegaTransform::Lookup(
+              @chart.VegaLookupTransform::VegaLookupTransform(
+                lookup="cat",
+                from_=@chart.VegaLookupFrom::Param("grp", "picked"),
+              ),
+            ),
+          ],
+          params=[
+            @chart.VegaParam::Selection(
+              @chart.VegaSelectionParam::VegaSelectionParam(
+                name="picked",
+                select=@chart.VegaSelect::Point(
+                  @chart.VegaPointSelect::VegaPointSelect(fields=["grp"]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    (
+      "config_selection.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          config=@chart.VegaConfig::VegaConfig(
+            selection=@chart.VegaSelectionConfig::VegaSelectionConfig(
+              point=@chart.VegaPointSelect::VegaPointSelect(nearest=true, fields=[
+                "cat",
+              ]),
+              interval=@chart.VegaIntervalSelect::VegaIntervalSelect(
+                zoom="wheel!",
+                encodings=["x"],
+              ),
+            ),
+          ),
         ),
       ),
     ),

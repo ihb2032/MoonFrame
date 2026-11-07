@@ -245,8 +245,8 @@ fn vega_header_emit_json(x : VegaHeader) -> Json {
 /// is narrower than an encoding channel's too: `FacetFieldDef.sort` has
 /// no bare-channel form, so a `ByChannel` sort raises `InvalidOperation`
 /// at emission (sort by a field or by an explicit order instead). Every
-/// property is optional except in spirit: a facet channel without a
-/// `field` facets on nothing, and the schema requires one.
+/// property is optional; a facet channel without a `field` facets on
+/// nothing.
 #derive(Eq, Debug)
 pub struct VegaFacetChannel {
   field : String?

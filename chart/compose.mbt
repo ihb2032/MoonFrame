@@ -149,9 +149,7 @@ pub extend VegaAlignMode with Debug::{to_repr}
 
 ///|
 /// A composition's bounds calculation: `Full → "full"` (the default,
-// each sub-view sized to its full extent) and `Flush → "flush"` (the
-
-///|
+/// each sub-view sized to its full extent) and `Flush → "flush"` (the
 /// sub-views' outer edges only, for tighter grids).
 #derive(Eq, Debug)
 pub(all) enum VegaBounds {

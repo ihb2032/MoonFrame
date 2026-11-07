@@ -1056,7 +1056,11 @@ pub fn VegaSelectionConfig::VegaSelectionConfig(
 
 ///|
 /// The emitted JSON object of a `VegaSelectionConfig`, every set property
-/// under its schema key.
+/// under its schema key. Each trigger emits without its `type` key: the
+/// config shapes (`PointSelectionConfigWithoutType` /
+/// `IntervalSelectionConfigWithoutType`) are typed by the key they sit
+/// under, carry no `type` of their own, and reject one
+/// (`additionalProperties: false`).
 fn vega_selection_config_emit_json(x : VegaSelectionConfig) -> Json {
   let obj : Map[String, Json] = Map([])
   if x.point is Some(v) {
@@ -1486,13 +1490,16 @@ fn vega_error_band_config_emit_json(x : VegaErrorBandConfig) -> Json {
 }
 
 ///|
-/// The JSON of a point trigger's config form.
+/// The JSON of a point trigger's config form — the trigger's own keys
+/// without the parameter form's `type` (see
+/// `vega_selection_config_emit_json`).
 fn vega_point_select_emit_json(p : VegaPointSelect) -> Json {
-  vega_select_emit_json(Point(p))
+  vega_select_emit_json(Point(p), false)
 }
 
 ///|
-/// The JSON of an interval trigger's config form.
+/// The JSON of an interval trigger's config form, `type`-less the same
+/// way.
 fn vega_interval_select_emit_json(i : VegaIntervalSelect) -> Json {
-  vega_select_emit_json(Interval(i))
+  vega_select_emit_json(Interval(i), false)
 }

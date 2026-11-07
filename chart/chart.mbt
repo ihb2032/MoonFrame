@@ -39,7 +39,8 @@
 
 ///|
 /// A chart specification: the `mark` kind, its encoding channels (each a
-/// `VegaChannel`, built with `field` / `constant` / `datum`), and the
+/// `VegaChannel`, built with `field` / `VegaChannel::repeat` /
+/// `constant` / `datum`), and the
 /// optional top-level chrome (`title`, `width` / `height` as a
 /// `VegaExtent`, `name`, `description`, `autosize`, `padding`,
 /// `background`). Fields are read-only outside the package — build a
@@ -993,9 +994,22 @@ pub fn ChartSpec::of(
 ///
 /// The spec's channels are resolved in the fixed order the `ChartSpec`
 /// doc states (`x` first through `order` last), and the first name
-/// absent from `df` raises `ColumnNotFound(name)`; this is the one
-/// reason the function is not **total** (it accepts column names, and a
-/// name can be wrong). The declared modifiers are not computed here —
+/// absent from `df` raises `ColumnNotFound(name)`. The function is not
+/// **total**, and this is the full set of reasons it raises:
+///
+/// - `ColumnNotFound` — a channel column, a facet channel's column, or a
+///   repeat field-list name absent from `df` (the composition halves are
+///   resolved ahead of their children, in the order they are written).
+/// - `InvalidOperation` — a constant a position channel's value
+///   definition refuses (not a number or `"width"` / `"height"`), a
+///   constant on an offset channel that is not a number, a channel
+///   carrying both a `field` and a repeat reference, a facet sort keyed
+///   on another channel (the bare-channel form), and a composition shape
+///   the schema rejects: a layer member or a facet's spec that is not a
+///   single view or a layer, or a layer / concat / facet / repeat with
+///   nothing to compose (see `chart_emit`).
+///
+/// The declared modifiers are not computed here —
 /// the Vega-Lite runtime evaluates them at render time. The emitted text
 /// is always valid JSON (it is built through `@json` and stringified),
 /// so it round-trips through any standards-compliant JSON / Vega-Lite
@@ -1084,6 +1098,15 @@ priv enum VegaChildHost {
 /// filtered against its host's allowed set, and a nested child's
 /// selection params drop their `views` key (it exists only on the
 /// top-level parameter form).
+///
+/// The composition hosts validate their own shape here rather than
+/// emitting a spec the schema would reject: a `layer` member and a
+/// facet's `spec` take a single view or a layer alone (a concat, facet,
+/// or repeat cannot nest there), and every composition carries
+/// something to compose — a layer or concat with children, a facet with
+/// a row or column channel, a repeat with a non-empty field list. Each
+/// violation raises `InvalidOperation`, naming the host and the child
+/// shape that does not fit it.
 fn chart_emit(
   chart : Chart,
   df : @frame.DataFrame,
@@ -1093,30 +1116,43 @@ fn chart_emit(
   match chart {
     Single(spec) => unit_emit(spec, df, obj, host)
     Layer(layer) => {
+      require_non_empty("layer", layer.layer.length())
+      for child in layer.layer {
+        require_layer_host("a layer member", child)
+      }
       obj["layer"] = Json::array(
         layer.layer.map(child => chart_child(child, df, LayerMember)),
       )
       put_layer_chrome(layer, obj)
     }
     VConcat(concat) => {
+      require_non_empty("vconcat", concat.concat.length())
       obj["vconcat"] = Json::array(
         concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     HConcat(concat) => {
+      require_non_empty("hconcat", concat.concat.length())
       obj["hconcat"] = Json::array(
         concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, false)
     }
     Concat(concat) => {
+      require_non_empty("concat", concat.concat.length())
       obj["concat"] = Json::array(
         concat.concat.map(child => chart_child(child, df, CompositionChild)),
       )
       put_concat_chrome(concat, obj, true)
     }
     Facet(facet) => {
+      if facet.row is None && facet.column is None {
+        raise @types.DataError::InvalidOperation(
+          "a facet needs a row or a column channel to facet on — both are unset, and there is nothing to compose",
+        )
+      }
+      require_layer_host("a facet's spec", facet.spec)
       // The facet's own channels resolve before its spec: the row /
       // column fields name columns of the shared frame, and a missing one
       // raises `ColumnNotFound` ahead of the child.
@@ -1135,24 +1171,102 @@ fn chart_emit(
       put_facet_chrome(facet, obj)
     }
     Repeat(repeat) => {
-      let repeat_obj : Map[String, Json] = Map([])
-      // The repeat lists name columns, so they escape like any other
-      // field reference — a dotted column repeats on itself, not on a
-      // nested path.
-      if repeat.row is Some(row) {
-        repeat_obj["row"] = Json::array(
-          row.map(fn(f) { Json::string(escape_vega_field(f)) }),
+      if is_empty_list(repeat.row) && is_empty_list(repeat.column) {
+        raise @types.DataError::InvalidOperation(
+          "a repeat needs a non-empty row or column field list — both are unset or empty, and there is nothing to repeat over",
         )
       }
+      let repeat_obj : Map[String, Json] = Map([])
+      // The repeat lists name columns of the shared frame — each is
+      // resolved the way an encoding channel's field is (a missing one
+      // raises `ColumnNotFound`), then escapes like any other field
+      // reference: a dotted column repeats on itself, not on a nested
+      // path.
+      if repeat.row is Some(row) {
+        repeat_obj["row"] = repeat_list_json(df, row)
+      }
       if repeat.column is Some(column) {
-        repeat_obj["column"] = Json::array(
-          column.map(fn(f) { Json::string(escape_vega_field(f)) }),
-        )
+        repeat_obj["column"] = repeat_list_json(df, column)
       }
       obj["repeat"] = Json::object(repeat_obj)
       obj["spec"] = chart_child(repeat.spec, df, CompositionChild)
       put_repeat_chrome(repeat, obj)
     }
+  }
+}
+
+///|
+/// A repeat field list as the schema's array: each name resolved against
+/// the frame (a missing one raises `ColumnNotFound` — the repeat sibling
+/// of the encoding channels' existence check) and escaped like any other
+/// field reference.
+fn repeat_list_json(
+  df : @frame.DataFrame,
+  names : Array[String],
+) -> Json raise @types.DataError {
+  let out : Array[Json] = []
+  for name in names {
+    ignore(df.get_column(name))
+    out.push(Json::string(escape_vega_field(name)))
+  }
+  Json::array(out)
+}
+
+///|
+/// Whether a repeat list carries no fields at all — unset, or empty.
+fn is_empty_list(names : Array[String]?) -> Bool {
+  match names {
+    Some(list) => list.length() == 0
+    None => true
+  }
+}
+
+///|
+/// Refuse an empty composition array loudly — a layer or concat with no
+/// children has nothing to compose, and the emitted spec would be one
+/// the schema's minItems rejects.
+fn require_non_empty(
+  host : String,
+  length : Int32,
+) -> Unit raise @types.DataError {
+  if length == 0 {
+    raise @types.DataError::InvalidOperation(
+      "the \{host} array is empty — a composition needs at least one child chart",
+    )
+  }
+}
+
+///|
+/// The composition hosts whose child is a single view or a layer alone
+/// (the schema's `LayerAndUnitSpec`): a `layer` member and a facet's
+/// `spec`. A concat, facet, or repeat child there raises
+/// `InvalidOperation`, naming the host and the shape that does not fit.
+fn require_layer_host(
+  host : String,
+  child : Chart,
+) -> Unit raise @types.DataError {
+  match child {
+    Single(_) | Layer(_) => ()
+    VConcat(_) =>
+      raise @types.DataError::InvalidOperation(
+        "\{host} must be a single view or a layer; a vertical concat cannot nest there (the schema's LayerAndUnitSpec takes a unit or layer spec alone)",
+      )
+    HConcat(_) =>
+      raise @types.DataError::InvalidOperation(
+        "\{host} must be a single view or a layer; a horizontal concat cannot nest there (the schema's LayerAndUnitSpec takes a unit or layer spec alone)",
+      )
+    Concat(_) =>
+      raise @types.DataError::InvalidOperation(
+        "\{host} must be a single view or a layer; a wrapped concat cannot nest there (the schema's LayerAndUnitSpec takes a unit or layer spec alone)",
+      )
+    Facet(_) =>
+      raise @types.DataError::InvalidOperation(
+        "\{host} must be a single view or a layer; a facet cannot nest there (the schema's LayerAndUnitSpec takes a unit or layer spec alone)",
+      )
+    Repeat(_) =>
+      raise @types.DataError::InvalidOperation(
+        "\{host} must be a single view or a layer; a repeat cannot nest there (the schema's LayerAndUnitSpec takes a unit or layer spec alone)",
+      )
   }
 }
 

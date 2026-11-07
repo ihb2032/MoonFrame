@@ -145,14 +145,17 @@ test "a lookup may enrich from a parameter-driven source" {
           @chart.VegaTransform::Lookup(
             @chart.VegaLookupTransform::VegaLookupTransform(
               lookup="cat",
-              from_=@chart.VegaLookupFrom::Param("regions"),
+              // The schema's LookupSelection: `key` and `param` are both
+              // required — the data-side key to look up, and the
+              // selection parameter to look up against.
+              from_=@chart.VegaLookupFrom::Param("cat", "regions"),
             ),
           ),
         ],
       ),
     ),
   )
-  assert_true(spec.contains("\"from\":{\"param\":\"regions\"}"))
+  assert_true(spec.contains("\"from\":{\"key\":\"cat\",\"param\":\"regions\"}"))
 }
 
 ///|

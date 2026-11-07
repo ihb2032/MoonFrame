@@ -211,3 +211,25 @@ test "explain: join inputs stack at the same depth with their own sub-pipelines"
     "    SCAN [3×2]",
   )
 }
+
+///|
+test "explain: rename spellings and scan projections escape column names" {
+  // A hostile column name cannot inject a line break or a quote into a
+  // rendered plan line: the rename's two spellings and a file source's
+  // projected column list render through the same escape the path and
+  // the row-index column use, quoted like a string literal. The two
+  // labels that name bare columns are pinned here; the expression
+  // renderers carry their own `Show` forms.
+  let renamed = LazyFrame::LazyFrame(plan_sales_df()).rename([
+    ("qty", "a\nb"),
+    ("region", "c\"d"),
+  ])
+  assert_eq(
+    renamed.explain(),
+    "RENAME [\"qty\" -> \"a\\nb\", \"region\" -> \"c\\\"d\"]\n  SCAN [4×3]",
+  )
+  let projected = @io.scan_csv("sales.csv").select([@expr.col("a\nb")])
+  let rendered = projected.explain(optimized=true)
+  assert_true(rendered.contains("SCAN_CSV \"sales.csv\" [\"a\\nb\"]"))
+  assert_false(rendered.contains("SCAN_CSV \"sales.csv\" [\"a\nb\"]"))
+}

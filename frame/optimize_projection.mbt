@@ -218,11 +218,13 @@ fn FrameOp::frame_op_required(
 /// output column exists. The existence filters (`Semi` / `Anti`) are the
 /// pure case: their output is the left schema alone, so the whole
 /// requirement goes left and the right side narrows to its key columns
-/// (its rows are probed, never emitted). A side whose names are not
-/// statically knowable (a file source somewhere below it) cannot have a
-/// requirement attributed — it keeps everything (`None`), except that its
-/// key columns are still statically required, so a semi join's right file
-/// source still narrows to its keys.
+/// (its rows are probed, never emitted — no output clash can involve them,
+/// so their split needs no nameable-side premise). Every other `how` splits
+/// through `rename_aware_split`, where a side whose names are not
+/// statically knowable (a file source somewhere below it) bars the split
+/// in full: both sides keep everything (`None`), the barrier treatment —
+/// the semi / anti arms are the one place a still-unknown side narrows,
+/// and only to its statically required keys.
 fn join_requirements(
   left : LogicalPlan,
   right : LogicalPlan,
@@ -311,6 +313,16 @@ fn join_requirements(
 /// collect where the as-built plan raised. Every such clash pins all its
 /// participants: the renaming column, the primary column that makes the
 /// rename happen, and the column the new spelling collides with.
+///
+/// The pin can only be computed against names it can see, and a clash
+/// names columns on *both* sides — so a side whose names are not
+/// statically knowable (a file source somewhere below it) bars the split
+/// outright: both sides keep their whole output (the barrier treatment),
+/// because narrowing the knowable side alone could drop a clash
+/// participant the unknowable side was party to and dissolve the very
+/// `DuplicateColumn` the split exists to preserve. Over-keeping is the
+/// safe direction a requirement always takes; what is lost is the
+/// knowable side's narrowing, until both sides are nameable.
 fn rename_aware_split(
   primary : LogicalPlan,
   secondary : LogicalPlan,
@@ -319,74 +331,60 @@ fn rename_aware_split(
   needed : @set.Set[String],
   suffix : String,
 ) -> (@set.Set[String]?, @set.Set[String]?) {
+  // The bidirectional barrier: either side unknowable, neither narrows.
+  guard primary.output_names() is Some(p) && secondary.output_names() is Some(s) else {
+    return (None, None)
+  }
   let mapped_back = @set.Set([])
   let pin_secondary = @set.Set([])
   let pin_primary = @set.Set([])
-  let secondary_names_opt = secondary.output_names()
-  let primary_names_opt = primary.output_names()
-  match (primary_names_opt, secondary_names_opt) {
-    (Some(p), Some(s)) =>
-      s.each(bare => {
-        if p.contains(bare) {
-          // The suffix spelling this secondary column takes: with an empty
-          // suffix it stays `bare`, colliding with the primary column of
-          // that name by definition. The primary's own `bare` column is
-          // pinned alongside: it is what makes the rename happen, so
-          // pruning it would leave the secondary column un-renamed and
-          // dissolve the clash after all.
-          let suffixed = bare + suffix
-          if p.contains(suffixed) {
-            pin_secondary.add(bare)
-            pin_primary.add(bare)
-            pin_primary.add(suffixed)
-          }
-          // The secondary frame's own column of the suffixed name: the
-          // rename collides inside the join's secondary inventory.
-          if s.contains(suffixed) {
-            pin_secondary.add(bare)
-            pin_secondary.add(suffixed)
-            pin_primary.add(bare)
-          }
-        }
-      })
-    _ => ()
-  }
-  let secondary_req = match secondary_names_opt {
-    None => Option::None
-    Some(names) => {
-      let acc = @set.Set([])
-      needed.each(name => {
-        if names.contains(name) {
-          acc.add(name)
-        }
-        // A suffixed output name maps back to the secondary column it
-        // renamed; an empty suffix strips nothing, so the `contains` test
-        // above already made the same offer.
-        if suffix != "" && name.has_suffix(suffix) {
-          let bare = name[0:name.length() - suffix.length()].to_owned()
-          if names.contains(bare) {
-            acc.add(bare)
-            mapped_back.add(bare)
-          }
-        }
-      })
-      add_all(acc, secondary_key_reads)
-      add_all(acc, pin_secondary)
-      Some(acc)
+  s.each(bare => {
+    if p.contains(bare) {
+      // The suffix spelling this secondary column takes: with an empty
+      // suffix it stays `bare`, colliding with the primary column of
+      // that name by definition. The primary's own `bare` column is
+      // pinned alongside: it is what makes the rename happen, so
+      // pruning it would leave the secondary column un-renamed and
+      // dissolve the clash after all.
+      let suffixed = bare + suffix
+      if p.contains(suffixed) {
+        pin_secondary.add(bare)
+        pin_primary.add(bare)
+        pin_primary.add(suffixed)
+      }
+      // The secondary frame's own column of the suffixed name: the
+      // rename collides inside the join's secondary inventory.
+      if s.contains(suffixed) {
+        pin_secondary.add(bare)
+        pin_secondary.add(suffixed)
+        pin_primary.add(bare)
+      }
     }
-  }
-  let primary_req = match primary_names_opt {
-    None => Option::None
-    Some(names) => {
-      let acc = @set.Set([])
-      needed.each(name => if names.contains(name) { acc.add(name) })
-      mapped_back.each(name => if names.contains(name) { acc.add(name) })
-      add_all(acc, primary_key_reads)
-      add_all(acc, pin_primary)
-      Some(acc)
+  })
+  let secondary_acc = @set.Set([])
+  needed.each(name => {
+    if s.contains(name) {
+      secondary_acc.add(name)
     }
-  }
-  (primary_req, secondary_req)
+    // A suffixed output name maps back to the secondary column it
+    // renamed; an empty suffix strips nothing, so the `contains` test
+    // above already made the same offer.
+    if suffix != "" && name.has_suffix(suffix) {
+      let bare = name[0:name.length() - suffix.length()].to_owned()
+      if s.contains(bare) {
+        secondary_acc.add(bare)
+        mapped_back.add(bare)
+      }
+    }
+  })
+  add_all(secondary_acc, secondary_key_reads)
+  add_all(secondary_acc, pin_secondary)
+  let primary_acc = @set.Set([])
+  needed.each(name => if p.contains(name) { primary_acc.add(name) })
+  mapped_back.each(name => if p.contains(name) { primary_acc.add(name) })
+  add_all(primary_acc, primary_key_reads)
+  add_all(primary_acc, pin_primary)
+  (Some(primary_acc), Some(secondary_acc))
 }
 
 ///|

@@ -1166,7 +1166,7 @@ test "scan_csv: an absorbed predicate keeps its columns out of the projection" {
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [col(region)]\n" +
-    "  SCAN_CSV \"sales.csv\" [region] WHERE (col(qty) > 50)",
+    "  SCAN_CSV \"sales.csv\" [\"region\"] WHERE (col(qty) > 50)",
   )
 }
 
@@ -1438,6 +1438,93 @@ test "fence: decimal neg and abs carry the checked refusal" {
     assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
     assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
   }
+}
+
+///|
+test "fence: decimal round carries the checked refusal" {
+  // The widening rescale refuses on values — `round(decimals=1)` over a
+  // scale-0 magnitude near the 18-digit bound is a checked multiply past
+  // the envelope — so the checked-op list carries the unary triple's
+  // third member: without it a sinking filter or slice prunes the
+  // refusing row before the round ever reads it and swallows the error.
+  // Both pass forms pin it — the filter sink and the head slice, the
+  // neg / abs test's shape.
+  let df = DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_decimal_options(0, "d", [
+      Some(1L),
+      Some(9000000000000000000L),
+    ]),
+  ])
+  let r = @expr.col("d").round(decimals=1).with_alias("r")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let filtered = LazyFrame::LazyFrame(df).with_columns([r]).filter(predicate)
+  assert_eq(filtered.explain(optimized=true), filtered.explain())
+  let eager_filter : Result[DataFrame, @types.DataError] = Ok(
+    df.with_columns([r]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_filter : Result[DataFrame, @types.DataError] = Ok(filtered.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager_filter is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_filter is Err(@types.DataError::InvalidOperation(_)))
+  let sliced = LazyFrame::LazyFrame(df).select([r]).head(1)
+  let eager_head : Result[DataFrame, @types.DataError] = Ok(
+    df.select([r]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_head : Result[DataFrame, @types.DataError] = Ok(sliced.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager_head is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_head is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "fence: a temporal shift inside the stage pins the filter above" {
+  // `ts + dur` shifts an instant by a span, checked against the
+  // microsecond domain — a refusal on values, the temporal family's
+  // counterpart of the decimal overflow, and one the structural
+  // row-locality walk cannot see (a `Col` names no dtype). The value
+  // fence's temporal risk set carries it: a filter that never reads the
+  // defined column must not prune the refusing row out from under the
+  // stage, and the slice pass shares the same gate.
+  let df = DataFrame::DataFrame([
+    @series.Series::from_strings("k", ["keep", "drop"]),
+    @series.Series::from_timestamp_options("ts", [
+      Some(0L),
+      Some(9223372036854775807L),
+    ]),
+    @series.Series::from_duration_options("dur", [Some(0L), Some(1000000L)]),
+  ])
+  let shifted = (@expr.col("ts") + @expr.col("dur")).with_alias("s")
+  let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
+  let plan = LazyFrame::LazyFrame(df).with_columns([shifted]).filter(predicate)
+  assert_eq(plan.explain(optimized=true), plan.explain())
+  let eager : Result[DataFrame, @types.DataError] = Ok(
+    df.with_columns([shifted]).filter(predicate),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(plan.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  let sliced = LazyFrame::LazyFrame(df).with_columns([shifted]).head(1)
+  let eager_head : Result[DataFrame, @types.DataError] = Ok(
+    df.with_columns([shifted]).head(1),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_head : Result[DataFrame, @types.DataError] = Ok(sliced.collect()) catch {
+    e => Err(e)
+  }
+  assert_true(eager_head is Err(@types.DataError::InvalidOperation(_)))
+  assert_true(lazy_head is Err(@types.DataError::InvalidOperation(_)))
 }
 
 ///|
@@ -2087,7 +2174,7 @@ test "split: a sequential rename swap keeps the join's attribution honest" {
     plan.explain(optimized=true),
     "JOIN Inner on [col(k)]\n" +
     "  FILTER (col(c) > 1)\n" +
-    "    RENAME [b -> _t, c -> b, _t -> c]\n" +
+    "    RENAME [\"b\" -> \"_t\", \"c\" -> \"b\", \"_t\" -> \"c\"]\n" +
     "      SCAN [1×3]\n" +
     "  SCAN [1×3]",
   )
@@ -2513,4 +2600,26 @@ test "deep join-split predicates don't overflow: rename_columns is iterative" {
     .join(LazyFrame::LazyFrame(r), opts)
     .filter(predicate)
   assert_eq(plan.collect(), l.join(r, opts).filter(predicate))
+}
+
+///|
+test "fence: a timestamp-pinned scan raises the temporal probe; unpinned sinks" {
+  // The temporal probe answers for names a file leaf hides: a plain text
+  // read infers `Int` / `Float` / `Bool` / `String` alone, so no `+` /
+  // `-` over its columns can refuse on values and a checked stage above
+  // it may sink its predicate; a `Timestamp` pin makes the refusal
+  // reachable, and the probe — read off the same options the builder
+  // captures — says so at build time, pinning the filter above the
+  // stage exactly as the in-memory temporal fence does.
+  let options = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("ts", @types.DataType::Timestamp)]),
+  )
+  let stage = [(@expr.col("ts") - @expr.col("ts")).with_alias("span")]
+  let predicate = @expr.col("qty").gt(@expr.lit_int(50))
+  let pinned = @io.scan_csv("sales.csv", options~)
+    .with_columns(stage)
+    .filter(predicate)
+  assert_eq(pinned.explain(optimized=true), pinned.explain())
+  let unpinned = @io.scan_csv("sales.csv").with_columns(stage).filter(predicate)
+  assert_true(unpinned.explain(optimized=true) != unpinned.explain())
 }

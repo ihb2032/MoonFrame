@@ -109,7 +109,13 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
     // sign observable (`1.0 / +0.0 = +inf` but `1.0 / -0.0 = -inf`); so does
     // `atan2` (`atan2(±0.0, -1.0) = ±π`). Every other member treats `-0.0`
     // and `+0.0` as equal and descends (`hypot` matches `abs` on a zero's
-    // sign). All members are row-local and group-cell combinators.
+    // sign). All members are row-local and group-cell combinators. The one
+    // value-dependent refusal in the family — a temporal `Add` / `Sub`
+    // whose instant leaves the microsecond domain — is *not* this walk's
+    // to carry: the walk is dtype-blind (a `Col` names no dtype), so the
+    // value fence's temporal risk set decides it
+    // (`expr_has_temporal_checked_op`), the same division of labour the
+    // decimal refusals take below.
     @ir.ExprNode::Binary(op, _, _) => {
       let combined = kids_and(kids)
       {
@@ -140,10 +146,12 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
     // a scope-independent fact — the `Dt*` members included, whose calendar
     // and clock math is total over every `Int64` count (the same
     // remainder-first conversion the ISO rendering composes); `Round` reads
-    // only its place count. The family's one value-dependent refusal is
-    // decimal `Neg` / `Abs` on an 18-digit magnitude, and that one is the
-    // decimal value-fence's to carry (`expr_has_decimal_checked_op` lists
-    // the pair), not this structural walk's.
+    // only its place count on the numeric dtypes. The family's
+    // value-dependent refusals are the decimal triple `Neg` / `Abs` /
+    // `Round` on an 18-digit magnitude (round's widening rescale is the
+    // same checked multiply), and those are the decimal value-fence's to
+    // carry (`expr_has_decimal_checked_op` lists the triple), not this
+    // structural walk's.
     @ir.ExprNode::Unary(op, _) => {
       let combined = kids_and(kids)
       {
@@ -437,28 +445,29 @@ fn preserves_row_count(exprs : Array[@expr.Expr]) -> Bool {
 ///|
 /// The `Select` crossing gate the two descending passes share — a selection
 /// a sinking predicate or window may cross is row-stable, row-preserving,
-/// and value-safe over the decimal fence. Stated once here because the
-/// predicate pass adds its own `reads_only_bare_columns` test on top and the
-/// slice pass takes the gate as is; two hand-spelled copies of the shared
-/// three would be the shape where one pass gains a gate the other misses.
+/// and value-safe over the value fence (decimal or temporal). Stated once
+/// here because the predicate pass adds its own `reads_only_bare_columns`
+/// test on top and the slice pass takes the gate as is; two hand-spelled
+/// copies of the shared three would be the shape where one pass gains a
+/// gate the other misses.
 fn select_stage_crossable(
   exprs : Array[@expr.Expr],
-  decimal_names : DecimalRisk,
+  value_risk : ValueRisk,
 ) -> Bool {
   all_row_stable(exprs) &&
   preserves_row_count(exprs) &&
-  !stage_value_raises(exprs, decimal_names)
+  !stage_value_raises(exprs, value_risk)
 }
 
 ///|
 /// The `WithColumns` crossing gate the two descending passes share — the
 /// stage appends or replaces columns and never renumbers rows, so row
-/// stability and the decimal fence are the whole test (each pass adds its
+/// stability and the value fence are the whole test (each pass adds its
 /// own column-ownership test on top: the predicate pass that the stage
 /// defines none of the predicate's columns, the slice pass nothing).
 fn withcolumns_stage_rowwise(
   exprs : Array[@expr.Expr],
-  decimal_names : DecimalRisk,
+  value_risk : ValueRisk,
 ) -> Bool {
-  all_row_stable(exprs) && !stage_value_raises(exprs, decimal_names)
+  all_row_stable(exprs) && !stage_value_raises(exprs, value_risk)
 }

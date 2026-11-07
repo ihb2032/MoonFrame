@@ -2,10 +2,12 @@
 // `optimizations~` option. Each field gates one pass or rule of the
 // pipeline (`optimize_with` reads the table through these), every one
 // defaulting to on, so the default `collect` runs the pipeline exactly as
-// it always has and a caller can turn a stage off to compare plans or pin
-// a behaviour. The join-side narrowing and pushthrough ride the
-// `projection_pushdown` flag — they are that pass's own Join arm, not a
-// stage of their own.
+// it always has and a caller can turn a stage off to pin a behaviour. The
+// switch lives on `collect` alone: `explain(optimized=true)` renders the
+// default pipeline's rewrite and takes no stage flags, so it cannot show
+// the plan a stage-off `collect` runs. The join-side narrowing and
+// pushthrough ride the `projection_pushdown` flag — they are that pass's
+// own Join arm, not a stage of their own.
 
 ///|
 /// Which optimizer stages a `collect` runs. Every field defaults to

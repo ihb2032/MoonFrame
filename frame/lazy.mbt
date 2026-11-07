@@ -611,8 +611,9 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 /// stages they provably commute with, so rows drop as early as possible,
 /// and a required-columns pass then drops scan columns nothing downstream
 /// reads (and, for a `scan_csv` source, never parses them); the rules
-/// then fold column-free expression subtrees to literals and merge
-/// adjacent `with_columns` stages that commute — unless the
+/// then run in one sweep — merging adjacent `with_columns` stages that
+/// commute, then folding column-free expression subtrees to literals —
+/// unless the
 /// plan is DAG-shaped (the same `LazyFrame` reaching both sides of a
 /// `join`), in which case it runs as built: a shared subtree makes the
 /// rewrite passes' node count explode, so they stand down rather than
@@ -630,8 +631,11 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 /// in a file where several columns each hold a parse error, the pushed-down
 /// read (which builds its predicate key columns first) can name a different
 /// one than the eager read would. Every
-/// other operator still produces its eager error. To see the rewritten plan
-/// this method actually runs, render it with `explain(optimized=true)`.
+/// other operator still produces its eager error. To see the rewritten
+/// plan this method runs under the *default* pipeline — every stage on —
+/// render it with `explain(optimized=true)`; a
+/// `collect(optimizations=…)` with stages turned off runs a plan that
+/// flag cannot show (`explain` takes no stage switches of its own).
 pub fn LazyFrame::collect(
   self : LazyFrame,
   optimizations~ : Optimizations = Optimizations::Optimizations(),
@@ -653,7 +657,10 @@ pub fn LazyFrame::collect(
 ///
 /// By default this is the plan **as built** — a faithful mirror of the
 /// chained verbs, which is the package's contract. Pass `optimized=true`
-/// to render the plan `collect` actually runs instead: a sunk `FILTER`
+/// to render the plan the default `collect` runs instead (every stage on:
+/// the flag takes no `optimizations` of its own, so a
+/// `collect(optimizations=…)` with stages off runs a plan it does not
+/// show): a sunk `FILTER`
 /// appears below the stages it crossed — or disappears into the leaf as a
 /// `WHERE` suffix, when the stage it reaches is a file source that can apply
 /// it while reading — and the projection pushdown shows

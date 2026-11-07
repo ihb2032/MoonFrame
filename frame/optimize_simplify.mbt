@@ -176,9 +176,7 @@ fn fold_node(node : @ir.ExprNode, kids : Array[Folded]) -> Folded {
 /// Rebuild one foldable node over new children, verbatim payloads. The
 /// excluded shapes never reach this (they are not descended into), and their
 /// arms keep the node unchanged as a defensive identity — a future variant
-// added to `ExprNode` fails both this match and `fold_descends`'s until it
-
-///|
+/// added to `ExprNode` fails both this match and `fold_descends`'s until it
 /// picks a side.
 fn rebuild_over(
   node : @ir.ExprNode,

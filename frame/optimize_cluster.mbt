@@ -2,12 +2,14 @@
 // into one — and the constant-folding rule over an expression tree. Both are
 // *local* rewrites: unlike the three push-down passes, which re-order whole
 // nodes and run once each in a fixed sequence, these reshape a node or its
-// expressions in place, so the optimizer iterates them to a fixed point
-// (every application strictly shrinks the plan — one stage fewer, one literal
-// subtree fewer — so the loop terminates). They run after the push-down
-// passes by design: the passes have already placed the nodes where
-// clustering can see adjacency, and folding after projection
-// pushdown means a folded-away column reference never widens a scan.
+// expressions in place, and the optimizer applies each exactly once, in one
+// sweep with no fixed-point loop — why a single application reaches the
+// joint fixed point (each rule is a fixed point of itself, and neither can
+// enable the other) is argued once beside the sweep that runs them
+// (`optimize_with`). They run after the push-down passes by design: the
+// passes have already placed the nodes where clustering can see adjacency,
+// and folding after projection pushdown means a folded-away column
+// reference never widens a scan.
 
 ///|
 /// The clustering rule: merge `Unary(Unary(inner, WithColumns(a)),

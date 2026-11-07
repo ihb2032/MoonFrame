@@ -5,7 +5,8 @@
 /// value-stack folds, the identity-dedup family (`seen_plan`,
 /// `contains_join`, `has_shared_subplan`) guards the DAG-shaped plans only a
 /// `join` can build, and `memo_result` / `pop_top` / `rejoin` work a fold's
-/// value stack. Their consumers are the executor, the two optimizer passes, and
+/// value stack. Their consumers are the executor, the optimizer (its pass
+/// and rule tables alike), and
 /// the renderer.
 
 ///|
@@ -75,10 +76,11 @@ fn rejoin(values : Array[LogicalPlan], options : JoinOptions) -> Unit {
 /// object, not its value. `LazyFrame::join` stores the other frame's plan by
 /// reference, so `lf.join(lf, …)` builds a DAG whose `Join` holds the same
 /// node object twice; identity is what tells a genuinely shared subplan from
-/// two equal-but-separate builds. Linear scan: reached only for a join-bearing
-/// plan (a join-free chain skips the dedup walks entirely),
-/// whose distinct-node count is small, so the callers' cost stays quadratic in
-/// that small count at worst.
+/// two equal-but-separate builds. Linear scan: reached for every
+/// join-bearing plan — a join-free chain skips the dedup walks entirely,
+/// but a large *tree-shaped* join plan pays it too, one linear scan per
+/// node, so the callers' cost is quadratic in the plan's node count, not
+/// a price only the small DAGs a shared subplan builds ever pay.
 fn seen_plan(seen : Array[LogicalPlan], node : LogicalPlan) -> Bool {
   for p in seen {
     if physical_equal(p, node) {
@@ -118,8 +120,10 @@ fn LogicalPlan::contains_join(self : LogicalPlan) -> Bool {
 /// a `Join`, so a join-free plan is answered `false` in O(nodes) without the
 /// identity walk. Otherwise the walk marks every node by identity and stops at
 /// the first repeat, so it never re-expands a shared subplan — it avoids the
-/// 2^depth blow-up of a naive walk, at a cost quadratic in the (small)
-/// distinct-node count from the identity `seen` scan.
+/// 2^depth blow-up of a naive walk, at a cost quadratic in the distinct-node
+/// count from the identity `seen` scan (a cost any join-bearing plan pays,
+/// tree-shaped ones included, not only the small shared-subplan DAGs this
+/// test exists for).
 fn LogicalPlan::has_shared_subplan(self : LogicalPlan) -> Bool {
   if !self.contains_join() {
     return false

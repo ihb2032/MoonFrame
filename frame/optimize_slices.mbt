@@ -15,9 +15,10 @@
 /// shared post-order — iterative, total, like every engine walk.
 fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
   let values : Array[LogicalPlan] = []
-  // The decimal risk of each rebuilt subtree, stepped alongside the
-  // rebuild exactly as `push_predicates` does — a sunk window moves rows,
-  // never names, so a window node's accumulator is its input's.
+  // The value risk (both dtype families) of each rebuilt subtree, stepped
+  // alongside the rebuild exactly as `push_predicates` does — a sunk window
+  // moves rows, never names, so a window node's accumulator is its
+  // input's.
   let risks : Array[PlanRisk] = []
   for node in self.post_order() {
     match node {
@@ -29,12 +30,7 @@ fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
         if op is Head(_) || op is Tail(_) || op is Slice(_, _) {
           let input = pop_top(values)
           let risk = pop_top(risks)
-          values.push(
-            input.place_slice(op, decimal_names={
-              names: risk.union,
-              any: risk.any,
-            }),
-          )
+          values.push(input.place_slice(op, value_risk=flat_risk(risk)))
           risks.push(risk)
         } else {
           values.push(Unary(pop_top(values), op))
@@ -74,30 +70,30 @@ fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
 fn LogicalPlan::place_slice(
   self : LogicalPlan,
   window : FrameOp,
-  decimal_names~ : DecimalRisk,
+  value_risk~ : ValueRisk,
 ) -> LogicalPlan {
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
-  // The decimal value-fence: a stage whose expressions combine decimal
+  // The value fence: a stage whose expressions combine decimal or temporal
   // cells refuses on values, and a sunk window prunes the rows the refusal
   // lives on — the same error-faithfulness the row-local gates keep. The
   // pass hands in the risk it already maintains for this subtree — this
   // entry has a single caller, so the risk is a required label, not an
   // optional with a re-walk fallback.
-  let decimal_names = decimal_names
+  let value_risk = value_risk
   let mut cur = self
   let mut window = window
   let mut descending = true
   while descending {
     match cur {
       Unary(inner, Select(exprs)) =>
-        if select_stage_crossable(exprs, decimal_names) {
+        if select_stage_crossable(exprs, value_risk) {
           crossed.push(ni => Unary(ni, Select(exprs)))
           cur = inner
         } else {
           descending = false
         }
       Unary(inner, WithColumns(exprs)) =>
-        if withcolumns_stage_rowwise(exprs, decimal_names) {
+        if withcolumns_stage_rowwise(exprs, value_risk) {
           crossed.push(ni => Unary(ni, WithColumns(exprs)))
           cur = inner
         } else {

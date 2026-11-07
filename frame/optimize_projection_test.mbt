@@ -453,7 +453,7 @@ test "scan_csv: a selection writes its columns into the scan, no inserted select
   assert_eq(plan.explain(), "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\"")
   assert_eq(
     plan.explain(optimized=true),
-    "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\" [region]",
+    "SELECT [col(region)]\n  SCAN_CSV \"sales.csv\" [\"region\"]",
   )
 }
 
@@ -467,7 +467,7 @@ test "scan_csv: the written projection is sorted for a deterministic explain" {
   assert_eq(
     plan.explain(optimized=true),
     "SELECT [(col(qty) + col(bonus)) as t]\n" +
-    "  SCAN_CSV \"sales.csv\" [bonus, qty]",
+    "  SCAN_CSV \"sales.csv\" [\"bonus\", \"qty\"]",
   )
 }
 
@@ -499,7 +499,7 @@ test "scan_csv: an aggregation narrows the scan to its keys and reads" {
   assert_eq(
     plan.explain(optimized=true),
     "AGGREGATE [col(qty).sum() as total] BY [col(region)]\n" +
-    "  SCAN_CSV \"sales.csv\" [qty, region]",
+    "  SCAN_CSV \"sales.csv\" [\"qty\", \"region\"]",
   )
 }
 
@@ -510,7 +510,7 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   let plan = @io.scan_ndjson("events.ndjson").select([@expr.col("region")])
   assert_eq(
     plan.explain(optimized=true),
-    "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [region]",
+    "SELECT [col(region)]\n  SCAN_NDJSON \"events.ndjson\" [\"region\"]",
   )
   // A filter is absorbed here too, leaving the projection at the consumer's
   // own columns.
@@ -520,7 +520,7 @@ test "scan_ndjson narrows in place like scan_csv, only the label differs" {
   assert_eq(
     with_filter.explain(optimized=true),
     "SELECT [col(region)]\n" +
-    "  SCAN_NDJSON \"events.ndjson\" [region] WHERE (col(qty) > 50)",
+    "  SCAN_NDJSON \"events.ndjson\" [\"region\"] WHERE (col(qty) > 50)",
   )
   // Bare at the root: no requirement, so no projection is written.
   assert_eq(
@@ -588,9 +588,10 @@ test "a required suffixed right name narrows the right side to its source" {
 ///|
 test "a file source side keeps its whole read (its names are unknowable)" {
   // A file source's header exists only at collect, so a requirement cannot
-  // be attributed to that side — it reads every column (no projection is
-  // written), the barrier treatment, while the left side narrows to key
-  // and selection.
+  // be attributed to that side — and the join's clash preservation needs
+  // both sides' names (a `DuplicateColumn` names columns on each), so the
+  // unknowable side bars the knowable one's narrowing too: both sides keep
+  // everything they have, the barrier treatment.
   let l = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
@@ -606,8 +607,7 @@ test "a file source side keeps its whole read (its names are unknowable)" {
     plan.explain(optimized=true),
     "SELECT [col(amount)]\n" +
     "  JOIN Inner on [col(id)]\n" +
-    "    SELECT [col(id), col(amount)]\n" +
-    "      SCAN [3×3]\n" +
+    "    SCAN [3×3]\n" +
     "    SCAN_CSV \"cities.csv\"",
   )
 }
@@ -646,9 +646,8 @@ test "a sided-key join splits its requirement through the paired keys" {
 test "a derived on-key and an unknowable left side keep their sides whole" {
   // A derived key (`on` over a computed expression) names no column of
   // its own, and a file source on the *left* has no knowable names — the
-  // left side keeps everything it has, while the right side still narrows
-  // to its key reads (a derived key's referenced columns) plus the
-  // selection, dropping its unrelated `note`.
+  // unknowable side bars the whole split, so the right side keeps its
+  // `note` beside its key reads and the selection.
   let r = DataFrame::DataFrame([
     @series.Series::from_ints("id", [1, 2, 3]),
     @series.Series::from_ints("amount", [10, 20, 30]),
@@ -663,8 +662,7 @@ test "a derived on-key and an unknowable left side keep their sides whole" {
     "SELECT [col(amount)]\n" +
     "  JOIN Inner on [(col(id) + 0)]\n" +
     "    SCAN_CSV \"orders.csv\"\n" +
-    "    SELECT [col(id), col(amount)]\n" +
-    "      SCAN [3×3]",
+    "    SCAN [3×3]",
   )
 }
 
@@ -747,6 +745,41 @@ test "a narrowed join keeps the suffix clash that fails the full join" {
     (Ok(inner_clash.collect()) catch { e => Err(e) })
     is Err(@types.DataError::DuplicateColumn(_)),
   )
+}
+
+///|
+test "a join side with unknowable names bars the other side's narrowing" {
+  // The clash needs both sides: the right `a` renames to `a_right` through
+  // the clash with the left `a`, and that spelling collides with the left
+  // file's own `a_right` — the full join raises `DuplicateColumn`. The
+  // left is a file source whose header the plan cannot see, so the split
+  // cannot know the clash's participants: narrowing the knowable right
+  // side to its key alone (what a `select(id)` consumer requires) would
+  // dissolve the clash and let the optimized plan collect where the eager
+  // join raised — so an unknowable side bars both sides' narrowing, and
+  // the failure survives the rewrite.
+  let path = "_build/lazy_optimize_join_unknown_clash.csv"
+  write_raw(path, "id,a,a_right\n1,10,100\n2,20,200\n")
+  let right = DataFrame::DataFrame([
+    @series.Series::from_ints("id", [1, 2]),
+    @series.Series::from_ints("a", [7, 8]),
+  ])
+  let opts = JoinOptions::on([@expr.col("id")])
+  let eager : Result[DataFrame, @types.DataError] = Ok(
+    @io.read_csv(path).join(right, opts),
+  ) catch {
+    e => Err(e)
+  }
+  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
+    @io.scan_csv(path)
+    .join(LazyFrame::LazyFrame(right), opts)
+    .select([@expr.col("id")])
+    .collect(),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(eager is Err(@types.DataError::DuplicateColumn(_)))
+  assert_true(lazy_ is Err(@types.DataError::DuplicateColumn(_)))
 }
 
 ///|

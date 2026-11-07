@@ -72,6 +72,42 @@ pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
 
+pub struct Dec128 {
+  // private fields
+}
+pub fn Dec128::abs(Self) -> Self
+pub fn Dec128::add(Self, Self) -> Self
+pub fn Dec128::adjusted_exponent(Self) -> Int32?
+pub fn Dec128::canonical(Self) -> Self
+pub fn Dec128::cmp_total(Self, Self) -> Int32
+pub fn Dec128::coefficient_digits(Self) -> Array[Int32]?
+pub fn Dec128::div(Self, Self) -> Self
+pub fn Dec128::equal(Self, Self) -> Bool
+pub fn Dec128::exponent(Self) -> Int32?
+pub fn Dec128::from_double(Double) -> Self
+pub fn Dec128::ge(Self, Self) -> Bool
+pub fn Dec128::gt(Self, Self) -> Bool
+pub fn Dec128::infinity(neg? : Bool) -> Self
+pub fn Dec128::is_finite(Self) -> Bool
+pub fn Dec128::is_infinite(Self) -> Bool
+pub fn Dec128::is_nan(Self) -> Bool
+pub fn Dec128::is_negative(Self) -> Bool
+pub fn Dec128::is_zero(Self) -> Bool
+pub fn Dec128::le(Self, Self) -> Bool
+pub fn Dec128::lt(Self, Self) -> Bool
+pub fn Dec128::mul(Self, Self) -> Self
+pub fn Dec128::nan() -> Self
+pub fn Dec128::neg(Self) -> Self
+pub fn Dec128::of_int64(Int64) -> Self
+pub fn Dec128::of_int64_scale(Int64, scale~ : Int32) -> Self
+pub fn Dec128::parse_opt(String) -> Self?
+pub fn Dec128::quantize(Self, places~ : Int32) -> Self
+pub fn Dec128::sub(Self, Self) -> Self
+pub fn Dec128::to_double(Self) -> Double
+pub fn Dec128::to_int64(Self) -> Int64?
+pub fn Dec128::to_string(Self) -> String
+pub fn Dec128::zero(neg? : Bool) -> Self
+
 #derive(Eq, @debug.Debug)
 pub struct Field {
   // private fields

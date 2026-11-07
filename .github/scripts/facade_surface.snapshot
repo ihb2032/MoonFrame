@@ -1174,6 +1174,38 @@ method DataType::not_equal(Self, Self) -> Bool <- types
 method DataType::output(Self, &Logger) -> Unit <- types
 method DataType::to_repr(Self) -> @debug.Repr <- types
 method DataType::to_string(Self) -> String <- types
+method Dec128::abs(Self) -> Self <- types
+method Dec128::add(Self, Self) -> Self <- types
+method Dec128::adjusted_exponent(Self) -> Int32? <- types
+method Dec128::canonical(Self) -> Self <- types
+method Dec128::cmp_total(Self, Self) -> Int32 <- types
+method Dec128::coefficient_digits(Self) -> Array[Int32]? <- types
+method Dec128::div(Self, Self) -> Self <- types
+method Dec128::equal(Self, Self) -> Bool <- types
+method Dec128::exponent(Self) -> Int32? <- types
+method Dec128::from_double(Double) -> Self <- types
+method Dec128::ge(Self, Self) -> Bool <- types
+method Dec128::gt(Self, Self) -> Bool <- types
+method Dec128::infinity(neg? : Bool) -> Self <- types
+method Dec128::is_finite(Self) -> Bool <- types
+method Dec128::is_infinite(Self) -> Bool <- types
+method Dec128::is_nan(Self) -> Bool <- types
+method Dec128::is_negative(Self) -> Bool <- types
+method Dec128::is_zero(Self) -> Bool <- types
+method Dec128::le(Self, Self) -> Bool <- types
+method Dec128::lt(Self, Self) -> Bool <- types
+method Dec128::mul(Self, Self) -> Self <- types
+method Dec128::nan() -> Self <- types
+method Dec128::neg(Self) -> Self <- types
+method Dec128::of_int64(Int64) -> Self <- types
+method Dec128::of_int64_scale(Int64, scale~ : Int32) -> Self <- types
+method Dec128::parse_opt(String) -> Self? <- types
+method Dec128::quantize(Self, places~ : Int32) -> Self <- types
+method Dec128::sub(Self, Self) -> Self <- types
+method Dec128::to_double(Self) -> Double <- types
+method Dec128::to_int64(Self) -> Int64? <- types
+method Dec128::to_string(Self) -> String <- types
+method Dec128::zero(neg? : Bool) -> Self <- types
 method Expr::abs(Self) -> Self <- expr
 method Expr::acos(Self) -> Self <- expr
 method Expr::acosh(Self) -> Self <- expr
@@ -2161,6 +2193,7 @@ type CsvWriteOptions <- io
 type DataError <- types
 type DataFrame <- frame
 type DataType <- types
+type Dec128 <- types
 type Expr <- expr
 type Field <- types
 type HtmlOptions <- frame

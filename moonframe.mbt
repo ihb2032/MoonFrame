@@ -95,6 +95,7 @@ pub using @types {
   type ParseErrorDetail,
   type DataType,
   type Scalar,
+  type Dec128,
   type Field,
   type Schema,
   type ClosedInterval,

@@ -468,13 +468,20 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
   // quoted and `escape_debug`-escaped exactly like a rendered `lit_str`
   // (`format_scalar`), so a pattern containing a `"` or a
   // control character stays on one unambiguous line.
-  fn write_str_call(name : String, args : Array[String]) -> Unit {
+  // `tail` carries the bare parts some methods append after their
+  // quoted arguments — a `literal=false` flag, a bare group index.
+  fn write_str_call(
+    name : String,
+    args : Array[String],
+    tail : String,
+  ) -> Unit {
     logger.write_string(".")
     logger.write_string(name)
     logger.write_string("(")
     logger.write_string(
       args.map(a => "\"\{@text.escape_debug(a)}\"").join(", "),
     )
+    logger.write_string(tail)
     logger.write_string(")")
   }
 
@@ -483,11 +490,11 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
     ToLowercase => logger.write_string(".str_to_lowercase()")
     StripChars => logger.write_string(".str_strip_chars()")
     LenChars => logger.write_string(".str_len_chars()")
-    Contains(p) => write_str_call("str_contains", [p])
-    StartsWith(p) => write_str_call("str_starts_with", [p])
-    EndsWith(p) => write_str_call("str_ends_with", [p])
-    Replace(a, b) => write_str_call("str_replace", [a, b])
-    ReplaceAll(a, b) => write_str_call("str_replace_all", [a, b])
+    Contains(p) => write_str_call("str_contains", [p], "")
+    StartsWith(p) => write_str_call("str_starts_with", [p], "")
+    EndsWith(p) => write_str_call("str_ends_with", [p], "")
+    Replace(a, b) => write_str_call("str_replace", [a, b], "")
+    ReplaceAll(a, b) => write_str_call("str_replace_all", [a, b], "")
     Reverse => logger.write_string(".str_reverse()")
     // The width renders bare, the fill as a `'x'` char literal (escaped like a
     // string so a control or quote character stays on one line).
@@ -499,18 +506,15 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
         ".str_pad_end(\{width}, '\{@text.escape_debug(fill.to_string())}')"
     // The regex forms render as the spelling that builds them: the same
     // method with `literal=false`.
-    ContainsRegex(p) =>
-      logger <+ ".str_contains(\"\{@text.escape_debug(p)}\", literal=false)"
+    ContainsRegex(p) => write_str_call("str_contains", [p], ", literal=false")
     ReplaceRegex(a, b) =>
-      logger <+
-        ".str_replace(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)"
+      write_str_call("str_replace", [a, b], ", literal=false")
     ReplaceAllRegex(a, b) =>
-      logger <+
-        ".str_replace_all(\"\{@text.escape_debug(a)}\", \"\{@text.escape_debug(b)}\", literal=false)"
+      write_str_call("str_replace_all", [a, b], ", literal=false")
     // The pattern renders quoted, the group index bare.
     Extract(pattern, group) =>
-      logger <+ ".str_extract(\"\{@text.escape_debug(pattern)}\", \{group})"
-    CountMatches(p) => write_str_call("str_count_matches", [p])
+      write_str_call("str_extract", [pattern], ", \{group}")
+    CountMatches(p) => write_str_call("str_count_matches", [p], "")
     // The offset renders bare; the length only when present.
     Slice(offset, length) =>
       match length {
@@ -520,10 +524,9 @@ fn write_str_suffix(logger : &Logger, op : @ir.StrOp) -> Unit {
     LenBytes => logger.write_string(".str_len_bytes()")
     // The custom strip renders its charset as a quoted argument, so it stays
     // distinct from the default `.str_strip_chars()`.
-    StripCharsCustom(chars) => write_str_call("str_strip_chars", [chars])
+    StripCharsCustom(chars) => write_str_call("str_strip_chars", [chars], "")
     // The separator renders quoted, the index bare.
-    SplitGet(sep, index) =>
-      logger <+ ".str_split_get(\"\{@text.escape_debug(sep)}\", \{index})"
+    SplitGet(sep, index) => write_str_call("str_split_get", [sep], ", \{index}")
     ZFill(width) => logger <+ ".str_zfill(\{width})"
   }
 }

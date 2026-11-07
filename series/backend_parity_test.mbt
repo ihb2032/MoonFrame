@@ -51,45 +51,44 @@ fn same_series(a : Series, b : Series) -> Bool {
 }
 
 ///|
-/// A `Scalar`-returning fallible op agrees when both sides return equal values
-/// or both raise the same `DataError` variant.
+/// A fallible op agrees when both sides return values the element
+/// equality accepts (NaN-aware for `Double`, logical for `Series`) or
+/// both raise the same `DataError` — one generic over the value type,
+/// the three concrete equalities arriving as the comparison.
+fn[T] same_result(
+  a : Result[T, @types.DataError],
+  b : Result[T, @types.DataError],
+  eq : (T, T) -> Bool,
+) -> Bool {
+  match (a, b) {
+    (Ok(x), Ok(y)) => eq(x, y)
+    (Err(e1), Err(e2)) => e1 == e2
+    _ => false
+  }
+}
+
+///|
 fn same_scalar_result(
   a : Result[@types.Scalar, @types.DataError],
   b : Result[@types.Scalar, @types.DataError],
 ) -> Bool {
-  match (a, b) {
-    (Ok(x), Ok(y)) => same_scalar(x, y)
-    (Err(e1), Err(e2)) => e1 == e2
-    _ => false
-  }
+  same_result(a, b, same_scalar)
 }
 
 ///|
-/// A `Double`-returning fallible op agrees when both return equal values
-/// (NaN-aware) or both raise the same error.
 fn same_double_result(
   a : Result[Double, @types.DataError],
   b : Result[Double, @types.DataError],
 ) -> Bool {
-  match (a, b) {
-    (Ok(x), Ok(y)) => same_double(x, y)
-    (Err(e1), Err(e2)) => e1 == e2
-    _ => false
-  }
+  same_result(a, b, same_double)
 }
 
 ///|
-/// A `Series`-returning fallible op agrees when both return logically-equal
-/// series or both raise the same error.
 fn same_series_result(
   a : Result[Series, @types.DataError],
   b : Result[Series, @types.DataError],
 ) -> Bool {
-  match (a, b) {
-    (Ok(x), Ok(y)) => same_series(x, y)
-    (Err(e1), Err(e2)) => e1 == e2
-    _ => false
-  }
+  same_result(a, b, same_series)
 }
 
 ///|

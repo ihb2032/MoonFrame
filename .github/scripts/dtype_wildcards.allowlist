@@ -38,6 +38,10 @@ series/reduce.mbt reduce_present closure-parameter lines inside the fold drivers
 series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (k =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt numeric_double_reader closure-parameter lines in the reader arms' bodies (i =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum the Bool order arm names its own comparator ((x, y) => …), a bare-binding line the scanner reads as a catch-all; the arm is exhaustive over Bool
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
+series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
 series/series.mbt typed_cells the catch-all decodes the cell or raises TypeMismatch — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_int the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_float the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
@@ -104,11 +108,6 @@ series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
-series/reduce.mbt reduce_arg_extremum closure-parameter lines inside the extremum drivers (k => / (x, y) =>), not match arms — the scanner is deliberately lexical
 series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (k =>), not match arms — the scanner is deliberately lexical
 series/series.mbt Series::has_nan only a Float column can hold a NaN, every other dtype answers false - the review point when a second floating dtype lands
 chart/chart.mbt chart_data_values the column is Duration-dtyped (checked above), so its cells are Duration or Null; the wildcard is the null

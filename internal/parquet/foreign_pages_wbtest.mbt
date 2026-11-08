@@ -6,6 +6,49 @@
 // Each file is hand-built thrift, the shape a foreign writer produces.
 
 ///|
+/// A one-column FLBA decimal foreign file over one PLAIN page: every
+/// cell's fixed-width payload spelled big-endian, the schema element
+/// naming the width, scale, and precision a foreign writer's decimal
+/// annotation carries.
+fn flba_decimal_file(
+  payloads : Array[Array[Byte]],
+  scale : Int32,
+  precision~ : Int32 = 38,
+  type_length~ : Int32 = 16,
+) -> Bytes {
+  let n = payloads.length()
+  let body : Array[Byte] = plain_defs(n)
+  for cell in payloads {
+    for b in cell {
+      body.push(b)
+    }
+  }
+  let header = v1_page_header(n, 0, body.length(), page_type=0)
+  let pages : Array[Byte] = []
+  for b in header {
+    pages.push(b)
+  }
+  for b in body {
+    pages.push(b)
+  }
+  let total = pages.length().to_int64()
+  let footer = one_column_footer(
+    7,
+    7,
+    1,
+    Some(5),
+    0,
+    n.to_int64(),
+    total,
+    created_by="MoonFrame-foreign-test",
+    type_length=Some(type_length),
+    scale=Some(scale),
+    precision=Some(precision),
+  )
+  file_over(footer, pages=Bytes::from_array(pages))
+}
+
+///|
 /// One page of a foreign file: its body bytes, the encoding its header
 /// names, and its shape (dictionary / V1 / V2).
 priv struct ForeignPage {
@@ -50,6 +93,9 @@ fn one_column_footer(
   offset~ : Int64 = 4L,
   name~ : String = "v",
   created_by~ : String = "MoonFrame-test",
+  type_length~ : Int32? = None,
+  scale~ : Int32? = None,
+  precision~ : Int32? = None,
 ) -> Bytes {
   let w = thrift_writer()
   w.i32_field(1, 1)
@@ -61,8 +107,20 @@ fn one_column_footer(
   w.struct_end()
   w.struct_field_begin_list_elem()
   w.i32_field(1, schema_physical)
+  match type_length {
+    Some(len) => w.i32_field(2, len)
+    None => ()
+  }
   w.i32_field(3, repetition)
   w.text_field(4, name)
+  match scale {
+    Some(s) => w.i32_field(7, s)
+    None => ()
+  }
+  match precision {
+    Some(p) => w.i32_field(8, p)
+    None => ()
+  }
   match converted {
     Some(c) => w.i32_field(6, c)
     None => ()
@@ -986,4 +1044,120 @@ test "page-body refusals name their column" {
     e => Err(e)
   }
   assert_true(raw_result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a foreign FIXED_LEN_BYTE_ARRAY decimal column reads its cells" {
+  // Three 16-byte cells — 64 (0.64 at scale 2), -1, and 0 — read back
+  // through the width the schema's type_length names.
+  let cell_64 : Array[Byte] = []
+  for _ in 0..<15 {
+    cell_64.push(b'\x00')
+  }
+  cell_64.push(b'\x40')
+  let cell_neg1 : Array[Byte] = []
+  for _ in 0..<16 {
+    cell_neg1.push(b'\xFF')
+  }
+  let cell_zero : Array[Byte] = []
+  for _ in 0..<16 {
+    cell_zero.push(b'\x00')
+  }
+  let file = flba_decimal_file([cell_64, cell_neg1, cell_zero], 2)
+  let read = read_parquet_columns(file, None)
+  assert_eq(read.length(), 1)
+  assert_eq(read[0].0, "v")
+  assert_eq(read[0].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0").unwrap()),
+  ])
+  // The narrower widths a foreign writer spells — 8 bytes for
+  // precision 18, 4 bytes for precision 9 — stride their own payloads.
+  let eight : Array[Byte] = []
+  for _ in 0..<7 {
+    eight.push(b'\x00')
+  }
+  eight.push(b'\x0A') // 10 at scale 1 = 1.0
+  let eight_file = flba_decimal_file([eight], 1, precision=18, type_length=8)
+  let eight_read = read_parquet_columns(eight_file, None)
+  assert_eq(eight_read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("1.0").unwrap()),
+  ])
+  // A payload shorter than the cells name refuses — the PLAIN bound
+  // holds per stride: a second cell half-spelled leaves the walk past
+  // the page's end.
+  let cell_short : Array[Byte] = []
+  for _ in 0..<8 {
+    cell_short.push(b'\x00')
+  }
+  let cut_file = flba_decimal_file([cell_64, cell_short], 2)
+  let cut_result = Ok(ignore(read_parquet_columns(cut_file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(cut_result is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a foreign dictionary FLBA decimal reads through its value set" {
+  // The dictionary page: two 16-byte values (64 → 0.64, -1). The data
+  // page: def levels for three present cells, then the index stream —
+  // width byte 1, bit-packed indices [0, 1, 0].
+  let val_64 : Array[Byte] = []
+  for _ in 0..<15 {
+    val_64.push(b'\x00')
+  }
+  val_64.push(b'\x40')
+  let val_neg1 : Array[Byte] = []
+  for _ in 0..<16 {
+    val_neg1.push(b'\xFF')
+  }
+  let dict_body : Array[Byte] = []
+  for b in val_64 {
+    dict_body.push(b)
+  }
+  for b in val_neg1 {
+    dict_body.push(b)
+  }
+  let data_body : Array[Byte] = plain_defs(3)
+  data_body.push((0x01).to_byte())
+  data_body.push((0x03).to_byte())
+  data_body.push((0x02).to_byte())
+  let pages : Array[Byte] = []
+  let dict_header = dict_page_header(0, 2, dict_body.length())
+  for b in dict_header {
+    pages.push(b)
+  }
+  for b in dict_body {
+    pages.push(b)
+  }
+  let data_header = v1_page_header(3, 2, data_body.length(), page_type=0)
+  for b in data_header {
+    pages.push(b)
+  }
+  for b in data_body {
+    pages.push(b)
+  }
+  let total = pages.length().to_int64()
+  let footer = one_column_footer(
+    7,
+    7,
+    1,
+    Some(5),
+    0,
+    3L,
+    total,
+    created_by="MoonFrame-foreign-test",
+    type_length=Some(16),
+    scale=Some(2),
+    precision=Some(38),
+  )
+  let file = file_over(footer, pages=Bytes::from_array(pages))
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+  ])
 }

@@ -16,6 +16,7 @@ priv enum Physical {
   Int64P
   DoubleP
   ByteArrayP
+  FlbaP
 }
 
 ///|
@@ -37,12 +38,21 @@ priv enum Converted {
 /// second time.
 priv struct DtypeMap {
   dtype : @types.DataType
-  physical : Physical
+  mut physical : Physical
   converted : Converted?
   // The DECIMAL annotation's scale. Read side: lifted straight off the
   // footer. Write side: the writer's adaptive pass overwrites the 0 the
   // table seeds — the one scale every cell of the column honours.
   mut decimal_scale : Int32
+  // The DECIMAL annotation's precision. Write side: the writer's
+  // adaptive pass sets 18 over INT64 or 38 over FIXED_LEN_BYTE_ARRAY —
+  // the two payloads' own ceilings. Read side: lifted off the footer.
+  mut decimal_precision : Int32
+  // The FIXED_LEN_BYTE_ARRAY payload's byte width (the schema element's
+  // type_length). Write side: always 16 for a decimal column. Read
+  // side: lifted off the footer and gated to the 4 / 8 / 16 spellings
+  // foreign writers emit; -1 elsewhere.
+  mut flba_width : Int32
 }
 
 ///|
@@ -62,6 +72,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Int64P,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Float =>
       Some(DtypeMap::{
@@ -69,6 +81,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: DoubleP,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Bool =>
       Some(DtypeMap::{
@@ -76,6 +90,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Boolean,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     String =>
       Some(DtypeMap::{
@@ -83,6 +99,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: ByteArrayP,
         converted: Some(Utf8C),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Date =>
       Some(DtypeMap::{
@@ -90,6 +108,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Int32P,
         converted: Some(DateC),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Timestamp =>
       Some(DtypeMap::{
@@ -97,6 +117,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Int64P,
         converted: Some(TimestampMicrosC),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Decimal =>
       Some(DtypeMap::{
@@ -104,6 +126,11 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Int64P,
         converted: Some(DecimalC),
         decimal_scale: 0,
+        // The seeds the writer's adaptive pass overwrites — INT64(18)
+        // when every lifted cell fits, FIXED_LEN_BYTE_ARRAY(38) when
+        // only the 16-byte payload holds them.
+        decimal_precision: 18,
+        flba_width: -1,
       })
     Duration =>
       Some(DtypeMap::{
@@ -111,6 +138,8 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         physical: Int64P,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     Null => None
   }
@@ -125,6 +154,7 @@ fn physical_tag(p : Physical) -> Int32 {
     Int64P => 2
     DoubleP => 5
     ByteArrayP => 6
+    FlbaP => 7
   }
 }
 
@@ -163,6 +193,7 @@ fn physical_from_tag(tag : Int32) -> Physical? {
     2 => Some(Int64P)
     5 => Some(DoubleP)
     6 => Some(ByteArrayP)
+    7 => Some(FlbaP)
     _ => None
   }
 }
@@ -183,6 +214,7 @@ fn map_from_schema(
   converted_value : Int32?,
   decimal_scale : Int32?,
   decimal_precision : Int32?,
+  type_length : Int32?,
 ) -> DtypeMap? {
   let physical = match physical_from_tag(physical_tag_value) {
     Some(p) => p
@@ -201,15 +233,31 @@ fn map_from_schema(
   }
   match (physical, converted) {
     (Int32P, None) =>
-      Some({ dtype: Int, physical: Int32P, converted: None, decimal_scale: -1, })
+      Some({
+        dtype: Int,
+        physical: Int32P,
+        converted: None,
+        decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
+      })
     (Int64P, None) =>
-      Some({ dtype: Int, physical: Int64P, converted: None, decimal_scale: -1, })
+      Some({
+        dtype: Int,
+        physical: Int64P,
+        converted: None,
+        decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
+      })
     (DoubleP, None) =>
       Some({
         dtype: Float,
         physical: DoubleP,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     (Boolean, None) =>
       Some({
@@ -217,6 +265,8 @@ fn map_from_schema(
         physical: Boolean,
         converted: None,
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     (ByteArrayP, Some(Utf8C)) =>
       Some({
@@ -224,6 +274,8 @@ fn map_from_schema(
         physical: ByteArrayP,
         converted: Some(Utf8C),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     (Int32P, Some(DateC)) =>
       Some({
@@ -231,6 +283,8 @@ fn map_from_schema(
         physical: Int32P,
         converted: Some(DateC),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     (Int64P, Some(TimestampMicrosC)) =>
       Some({
@@ -238,6 +292,8 @@ fn map_from_schema(
         physical: Int64P,
         converted: Some(TimestampMicrosC),
         decimal_scale: -1,
+        decimal_precision: -1,
+        flba_width: -1,
       })
     (Int64P, Some(DecimalC)) =>
       // A DECIMAL over INT64: the scale names the dtype, and the
@@ -256,19 +312,52 @@ fn map_from_schema(
               physical: Int64P,
               converted: Some(DecimalC),
               decimal_scale: scale,
+              decimal_precision: p,
+              flba_width: -1,
             })
           } else {
             None
           }
         _ => None
       }
+    (FlbaP, Some(DecimalC)) =>
+      // A DECIMAL over FIXED_LEN_BYTE_ARRAY — the wide payload foreign
+      // writers spell when the unscaled magnitudes leave INT64. The
+      // bytes are big-endian two's complement at the element's own
+      // type_length; the interchange's decimal ceiling is precision 38,
+      // the scale never past the precision, and the payload's own digit
+      // ceiling bounds the precision a width can honour (9 over 4
+      // bytes, 18 over 8, 38 over 16 — the widths the foreign writers
+      // emit). A FLBA column without the DECIMAL annotation carries no
+      // dtype MoonFrame spells and refuses as before.
+      match (decimal_scale, decimal_precision, type_length) {
+        (Some(scale), Some(p), Some(width)) => {
+          let width_ceiling = match width {
+            4 => 9
+            8 => 18
+            16 => 38
+            _ => -1
+          }
+          if width_ceiling >= 0 &&
+            scale >= 0 &&
+            scale <= p &&
+            p >= 1 &&
+            p <= 38 &&
+            p <= width_ceiling {
+            Some({
+              dtype: Decimal,
+              physical: FlbaP,
+              converted: Some(DecimalC),
+              decimal_scale: scale,
+              decimal_precision: p,
+              flba_width: width,
+            })
+          } else {
+            None
+          }
+        }
+        _ => None
+      }
     _ => None
   }
-}
-
-///|
-/// The `INT64`-decimal precision MoonFrame writes — the maximum digits
-/// an `Int64` unscaled magnitude at any envelope scale can carry.
-fn decimal_precision() -> Int32 {
-  18
 }

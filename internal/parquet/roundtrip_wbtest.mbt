@@ -452,3 +452,55 @@ test "every rider column's schema element carries its logicalType" {
   let read = read_parquet_columns(bytes, None)
   assert_eq(read.length(), 5)
 }
+
+///|
+test "wide decimals round-trip over the FIXED_LEN_BYTE_ARRAY payload" {
+  // Two columns past the INT64 interchange's window, one per gate: a
+  // scale past eighteen digits, and a magnitude past `Int64` at a
+  // scale that fits. Both ride the 16-byte payload the adaptive pass
+  // picks, and both come back value-exact — the 38-digit unscaled run
+  // holds one significant digit, well inside the dtype's 34.
+  let columns : Array[@series.Series] = [
+    @series.Series::from_decimals("deep", [
+      Some(@types.Dec128::parse_opt("1E-19").unwrap()),
+      Some(@types.Dec128::parse_opt("-2.5E-25").unwrap()),
+      Some(@types.Dec128::of_int64_scale(150L, scale=2)),
+      Some(@types.Dec128::parse_opt("7").unwrap()),
+      Some(@types.Dec128::zero()),
+      None,
+    ]),
+    @series.Series::from_decimals("wide", [
+      Some(@types.Dec128::parse_opt("1E+37").unwrap()),
+      Some(@types.Dec128::parse_opt("-9.99E+37").unwrap()),
+      // Twenty significant digits — an unscaled magnitude past 2^64,
+      // the accumulator's low half wrapping its carry through.
+      Some(@types.Dec128::parse_opt("99999999999999999999").unwrap()),
+      Some(@types.Dec128::parse_opt("42").unwrap()),
+      Some(@types.Dec128::zero()),
+      None,
+    ]),
+  ]
+  let bytes = write_parquet_bytes(columns, ["deep", "wide"], Uncompressed)
+  let read = read_parquet_columns(bytes, None)
+  assert_eq(read.length(), 2)
+  assert_eq(read[0].0, "deep")
+  assert_eq(read[0].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[0].1.to_scalars(), columns[0].to_scalars())
+  assert_eq(read[1].0, "wide")
+  assert_eq(read[1].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[1].1.to_scalars(), columns[1].to_scalars())
+  // The window's far edge rides too: thirty-eight fraction digits
+  // (scale 38, one significant) and an integer the same length.
+  let edge : Array[@series.Series] = [
+    @series.Series::from_decimals("e1", [
+      Some(@types.Dec128::parse_opt("1E-38").unwrap()),
+    ]),
+    @series.Series::from_decimals("e2", [
+      Some(@types.Dec128::parse_opt("-1E+37").unwrap()),
+    ]),
+  ]
+  let edge_bytes = write_parquet_bytes(edge, ["e1", "e2"], Snappy)
+  let edge_read = read_parquet_columns(edge_bytes, None)
+  assert_eq(edge_read[0].1.to_scalars(), edge[0].to_scalars())
+  assert_eq(edge_read[1].1.to_scalars(), edge[1].to_scalars())
+}

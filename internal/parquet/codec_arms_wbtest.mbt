@@ -219,35 +219,125 @@ test "the thrift skipper walks every wire type" {
 ///|
 test "the schema mapping refuses what MoonFrame cannot carry" {
   // FLOAT (4): would narrow a Double.
-  assert_true(map_from_schema(4, None, None, None) is None)
-  // INT96 (3) and FIXED_LEN_BYTE_ARRAY (7): dtypes MoonFrame does not
-  // spell.
-  assert_true(map_from_schema(3, None, None, None) is None)
-  assert_true(map_from_schema(7, Some(5), None, None) is None)
+  assert_true(map_from_schema(4, None, None, None, None) is None)
+  // INT96 (3): a physical type no MoonFrame dtype spells.
+  assert_true(map_from_schema(3, None, None, None, None) is None)
+  // A FIXED_LEN_BYTE_ARRAY without the DECIMAL annotation — the bare
+  // width names raw fixed bytes.
+  assert_true(map_from_schema(7, None, None, None, Some(16)) is None)
   // A DECIMAL without a scale, or with one past the precision's own
   // envelope — the format makes the precision required and, over the
   // INT64 payload, one to eighteen digits with the scale never past it.
-  assert_true(map_from_schema(2, Some(5), None, None) is None)
-  assert_true(map_from_schema(2, Some(5), Some(2), None) is None)
-  assert_true(map_from_schema(2, Some(5), Some(2), Some(0)) is None)
-  assert_true(map_from_schema(2, Some(5), Some(2), Some(19)) is None)
-  assert_true(map_from_schema(2, Some(5), Some(5), Some(4)) is None)
-  assert_true(map_from_schema(2, Some(5), Some(-1), Some(18)) is None)
+  assert_true(map_from_schema(2, Some(5), None, None, None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), None, None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(0), None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(19), None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(5), Some(4), None) is None)
+  assert_true(map_from_schema(2, Some(5), Some(-1), Some(18), None) is None)
   // A BYTE_ARRAY without UTF8 is raw binary, not a String.
-  assert_true(map_from_schema(6, None, None, None) is None)
+  assert_true(map_from_schema(6, None, None, None, None) is None)
   // A DATE must ride INT32; a TIMESTAMP_MICROS must ride INT64.
-  assert_true(map_from_schema(2, Some(6), None, None) is None)
-  assert_true(map_from_schema(1, Some(10), None, None) is None)
+  assert_true(map_from_schema(2, Some(6), None, None, None) is None)
+  assert_true(map_from_schema(1, Some(10), None, None, None) is None)
   // And the mapping the riders ride — a bare INT32 among them, the
   // signed shape a foreign int column carries.
-  assert_true(map_from_schema(1, None, None, None) is Some(_))
-  assert_true(map_from_schema(1, Some(6), None, None) is Some(_))
-  assert_true(map_from_schema(2, Some(10), None, None) is Some(_))
-  assert_true(map_from_schema(2, Some(5), Some(2), Some(18)) is Some(_))
-  assert_true(map_from_schema(2, Some(5), Some(18), Some(18)) is Some(_))
-  assert_eq(decimal_precision(), 18)
+  assert_true(map_from_schema(1, None, None, None, None) is Some(_))
+  assert_true(map_from_schema(1, Some(6), None, None, None) is Some(_))
+  assert_true(map_from_schema(2, Some(10), None, None, None) is Some(_))
+  assert_true(map_from_schema(2, Some(5), Some(2), Some(18), None) is Some(_))
+  assert_true(map_from_schema(2, Some(5), Some(18), Some(18), None) is Some(_))
+  // The FIXED_LEN_BYTE_ARRAY decimal rides only its three legal
+  // widths — 4, 8, and 16 bytes — and only a precision the width
+  // itself bounds (9, 18, and 38 digits), with the scale inside it.
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(9), Some(4)) is Some(_))
+  assert_true(
+    map_from_schema(7, Some(5), Some(2), Some(18), Some(8)) is Some(_),
+  )
+  assert_true(
+    map_from_schema(7, Some(5), Some(2), Some(38), Some(16)) is Some(_),
+  )
+  assert_true(map_from_schema(7, Some(5), Some(2), None, Some(16)) is None)
+  assert_true(map_from_schema(7, Some(5), None, Some(38), Some(16)) is None)
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(38), None) is None)
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(10), Some(4)) is None)
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(19), Some(8)) is None)
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(39), Some(16)) is None)
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(38), Some(12)) is None)
+  assert_true(map_from_schema(7, Some(5), Some(4), Some(2), Some(4)) is None)
   // The dtype table's own refusal: a Null column cannot ride.
   assert_true(dtype_map(@types.DataType::Null) is None)
+}
+
+///|
+test "the FLBA decimal payload pins against the format's own bytes" {
+  // The decoder, against literal payloads the format's spelling names:
+  // big-endian two's complement over the width, the value lifted at
+  // the annotation's scale. 64 at scale 2 is 0.64; all-ones is -1;
+  // 12345 at scale 3 over the 4-byte width is 12.345; -10 at scale 1
+  // over the 8-byte width is -1.
+  let sixteen = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x40"
+  assert_eq(
+    flba_decimal_scalar(sixteen, 0, 16, 2),
+    @types.Dec128::parse_opt("0.64").unwrap(),
+  )
+  let ones = b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+  assert_eq(
+    flba_decimal_scalar(ones, 0, 16, 0),
+    @types.Dec128::parse_opt("-1").unwrap(),
+  )
+  assert_eq(
+    flba_decimal_scalar(b"\x00\x00\x00\x00", 0, 4, 3),
+    @types.Dec128::parse_opt("0.000").unwrap(),
+  )
+  assert_eq(
+    flba_decimal_scalar(b"\x00\x00\x30\x39", 0, 4, 3),
+    @types.Dec128::parse_opt("12.345").unwrap(),
+  )
+  assert_eq(
+    flba_decimal_scalar(b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xF6", 0, 8, 1),
+    @types.Dec128::parse_opt("-1").unwrap(),
+  )
+  // -60 at scale 2 over the 4-byte width — the narrow negative that
+  // sign-extends across the pair before its complement.
+  assert_eq(
+    flba_decimal_scalar(b"\xFF\xFF\xFF\xC4", 0, 4, 2),
+    @types.Dec128::parse_opt("-0.6").unwrap(),
+  )
+  // The decoder strides: the second cell of a two-cell payload reads
+  // its own bytes.
+  assert_eq(
+    flba_decimal_scalar(b"\x00\x01\x00\x00\x00\x02\x00\x03", 4, 4, 0),
+    @types.Dec128::parse_opt("131075").unwrap(),
+  )
+  // The encoder, against the same literal spelling: 0.64 at scale 2
+  // writes the 64 payload; -1 writes all-ones; a zero cell writes
+  // all-zero — the negative side of zero complemented back to zero.
+  let buf : Array[Byte] = []
+  push_flba16_decimal(buf, @types.Dec128::parse_opt("0.64").unwrap(), 2)
+  assert_eq(buf.length(), 16)
+  assert_eq(buf[15], b'\x40')
+  for i in 0..<15 {
+    assert_eq(buf[i], b'\x00')
+  }
+  let neg : Array[Byte] = []
+  push_flba16_decimal(neg, @types.Dec128::parse_opt("-1").unwrap(), 0)
+  for i in 0..<16 {
+    assert_eq(neg[i], b'\xFF')
+  }
+  let zero : Array[Byte] = []
+  push_flba16_decimal(zero, @types.Dec128::parse_opt("-0.0").unwrap(), 2)
+  for i in 0..<16 {
+    assert_eq(zero[i], b'\x00')
+  }
+  // A lifted run the 38-digit window holds: 1e37 at scale 0 is one
+  // followed by thirty-seven zeros — thirty-eight digits, one
+  // significant — and the payload folds back to the same value.
+  let wide : Array[Byte] = []
+  push_flba16_decimal(wide, @types.Dec128::parse_opt("1E+37").unwrap(), 0)
+  assert_eq(
+    flba_decimal_scalar(Bytes::from_array(wide), 0, 16, 0),
+    @types.Dec128::parse_opt("1E+37").unwrap(),
+  )
 }
 
 // ── rle refusals ─────────────────────────────────────────────────────

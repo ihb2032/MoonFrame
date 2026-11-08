@@ -257,8 +257,9 @@ What has landed on `main`:
   `scan_parquet`) over a module-internal codec: thrift compact
   metadata, RLE definition levels, PLAIN and dictionary-decoded values,
   UNCOMPRESSED / SNAPPY / GZIP page bodies. The riders interchange
-  exactly (`DATE`, `TIMESTAMP_MICROS`, `DECIMAL` over `INT64` with its
-  scale); the one narrowing is a written `Duration`, which rides a bare
+  exactly (`DATE`, `TIMESTAMP_MICROS`, `DECIMAL` over `INT64` or, for
+  the past-`INT64` magnitudes, `FIXED_LEN_BYTE_ARRAY`); the one
+  narrowing is a written `Duration`, which rides a bare
   `INT64` and reads back `Int` (no standard converted type names a
   microsecond span). A `FLOAT` column refuses on read rather than
   silently narrowing a `Double`. A `Bool` column rides the spec's own
@@ -392,9 +393,18 @@ What has landed on `main`:
   exceptionals and out-of-range magnitudes refusing like the `Float`
   source), `Decimal` → `Float` the correctly-rounded conversion,
   `Decimal` → `String` the value rendering. The parquet interchange
-  keeps the `INT64` + `DECIMAL` annotation with the writer choosing one
-  adaptive scale every cell honours — a NaN / ±∞ cell or a value past
-  the 18-digit `INT64` interchange refuses the write.
+  chooses the payload per column at the one adaptive scale every cell
+  honours: still `INT64` + `DECIMAL` (precision 18) while every lifted
+  magnitude fits an `Int64`, and the format's wide decimal —
+  `FIXED_LEN_BYTE_ARRAY`(16) + `DECIMAL` (precision 38, big-endian
+  two's complement) — past that. A NaN / ±∞ cell always refuses (the
+  fixed-point interchange has no exceptional spelling), as does a
+  column past the 16-byte payload's own window (a scale past 38, or a
+  lifted magnitude past 38 digits). Reading takes the annotation at
+  the format's word: the three legal widths (4, 8, 16 bytes at
+  precisions 9, 18, 38) stride and decode exactly, and a foreign
+  payload carrying more than the dtype's 34 significant digits
+  rounds once into the engine.
 
 ## v0.8.0 → v0.8.1
 

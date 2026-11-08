@@ -47,7 +47,6 @@ types/scalar.mbt Scalar::as_int the catch-all routes every other variant to expe
 types/scalar.mbt Scalar::as_float the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_bool the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
 types/scalar.mbt Scalar::as_string the catch-all routes every other variant to expected_type's loud TypeMismatch raise — a new variant is refused, never silently coerced
-series/series.mbt Series::from_i64_options the wildcard passes the non-decimal riders through — Int and the date-likes carry no envelope to check, and a new rider decides its own spelling here at compile time
 types/error.mbt json_cell_expectation the catch-all derives the diagnostic wording from the variant itself ("a Duration"), so a new variant renders correctly with no behaviour to swallow — the signature half of the attribution rule caught this arm, whose bare-variant arms carry no enum spelling
 io/json_core.mbt frame_from_json_records the wildcard rejects a non-object JSON record with a located ParseError — the scrutinee is a Json value, not a dtype enum; the signature's dtypes parameter triggered the signature-half attribution
 internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
@@ -112,3 +111,18 @@ series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (
 series/series.mbt Series::has_nan only a Float column can hold a NaN, every other dtype answers false - the review point when a second floating dtype lands
 chart/chart.mbt chart_data_values the column is Duration-dtyped (checked above), so its cells are Duration or Null; the wildcard is the null
 chart/emit.mbt encoding_channel the position-value contract is number|"width"|"height" (the schema's PositionValueDef); the wildcard arm is the raise
+internal/column/builtin_cast.mbt BuiltinColumn::to_int the unreachable-buffer arm (the wire-type refusal the dispatch gate keeps from running — the fence a mislabeled buffer would answer) — arm 260
+internal/column/builtin_cast.mbt BuiltinColumn::to_int the unreachable-buffer arm (the wire-type refusal the dispatch gate keeps from running) — arm 285
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the unreachable-buffer arm (the identity gate keeps a same-dtype column from reaching here) — arm 382
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the Int lift's exhaustiveness arm — arm 384
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the F64 lift's exhaustiveness arm — arm 389
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the Bool refusal's exhaustiveness arm — arm 391
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the Utf8 parse refusal's exhaustiveness arm — arm 398
+internal/column/builtin_cast.mbt BuiltinColumn::to_decimal the Dec identity refusal arm — arm 411
+internal/kernel/numeric.mbt dec_cells the dtype gate admitted only Int and Decimal before the call, so the wildcard is the exhaustiveness fence for a buffer the dtype excludes
+internal/kernel/numeric.mbt dec_buffer_doubles the mixed gate admits a Decimal dtype whose buffer the match names — the wildcard is the fence for every other buffer that dtype cannot ride
+internal/kernel/numeric.mbt f64_buffer the mixed gate admits a Float dtype whose buffer the match names — the wildcard is the fence for every other buffer that dtype cannot ride
+internal/kernel/numeric.mbt decimal_unary the eval dispatch routes a Decimal dtype here whose Dec buffer the match names — the wildcard is the fence for a mislabeled buffer no public constructor builds
+internal/kernel/predicate.mbt try_fast_is_in the Bool member group's cross-dtype union — a member of any dtype other than Bool abandons the fast path, and Decimal joined the union with the reshape
+series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 623
+series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 627

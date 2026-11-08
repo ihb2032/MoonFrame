@@ -68,6 +68,9 @@ pub fn Series::try_column_to_numeric(self : Series) -> Series {
         | @column.ColumnData::F64(_)
         | @column.ColumnData::Bool(_)
         | @column.ColumnData::Utf8(_) => self
+        // The decimal buffer has no Numeric convergence — Decimal is
+        // not numeric — so the column stays as it is.
+        @column.ColumnData::Dec(_) => self
       }
   }
 }
@@ -189,7 +192,9 @@ pub fn Series::is_canonical(self : Series) -> Bool {
           // docstring above promises.
           @column.ColumnData::I64(_) if !self.dtype().is_numeric() => true
           @column.ColumnData::I64(_) | @column.ColumnData::F64(_) => false
-          @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_) => true
+          @column.ColumnData::Bool(_)
+          | @column.ColumnData::Utf8(_)
+          | @column.ColumnData::Dec(_) => true
         }
       }
   }

@@ -158,7 +158,8 @@ pub fn eval_positional(
         }
         @column.ColumnData::I64(_)
         | @column.ColumnData::Bool(_)
-        | @column.ColumnData::Utf8(_) =>
+        | @column.ColumnData::Utf8(_)
+        | @column.ColumnData::Dec(_) =>
           raise @types.DataError::TypeMismatch(
             @types.TypeMismatchDetail::Message(
               "cumulative \{label} requires a numeric operand, got \{dtype}",
@@ -383,6 +384,7 @@ fn value_comparator(operand : Series) -> (Int32, Int32) -> Int32 {
       (i, j) => if !a[i] && a[j] { -1 } else if a[i] && !a[j] { 1 } else { 0 }
     @column.ColumnData::Utf8(a) =>
       (i, j) => @text.compare_string_lex(a.get(i), a.get(j))
+    @column.ColumnData::Dec(a) => (i, j) => a[i].cmp_total(a[j])
   }
 }
 

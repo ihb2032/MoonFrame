@@ -119,7 +119,7 @@ type RichRow = (
   String?,
   Int64?,
   Int64?,
-  Int64?,
+  @types.Dec128?,
 )
 
 ///|
@@ -228,14 +228,25 @@ fn gen_ts_cell() -> @gen.Generator[Int64?] {
 /// the eager one does. The generated expressions reference `dec` directly
 /// (the predicate pool, the with_columns arithmetic, and the group
 /// aggregation below), so its dtype and its refusals are both exercised.
-fn gen_dec_cell() -> @gen.Generator[Int64?] {
+fn gen_dec_cell() -> @gen.Generator[@types.Dec128?] {
+  // The specials pool mirrors `gen_float_cell`'s: signed zeroes, NaN,
+  // both infinities, exact magnitudes — the exceptional shapes the IEEE
+  // dtype carries as values.
   @gen.frequency([
     (1, @gen.pure(None)),
     (
       3,
-      @gen.elements([-456L, -1L, 0L, 1L, 123L, 5000000000000000000L]).map(x => {
-        Some(x)
-      }),
+      @gen.elements([
+        @types.Dec128::of_int64_scale(-456L, scale=2),
+        @types.Dec128::of_int64_scale(-1L, scale=2),
+        @types.Dec128::zero(),
+        @types.Dec128::of_int64(1L),
+        @types.Dec128::of_int64(123L),
+        @types.Dec128::of_int64_scale(5000000000000000000L, scale=2),
+        @types.Dec128::nan(),
+        @types.Dec128::infinity(),
+        @types.Dec128::infinity(neg=true),
+      ]).map(x => Some(x)),
     ),
   ])
 }
@@ -274,31 +285,21 @@ fn rows_to_frame(rows : Array[RichRow]) -> DataFrame raise @types.DataError {
     @series.Series::from_string_options("s", rows.map(r => r.4)),
     @series.Series::from_date_options("dt", rows.map(r => r.5)),
     @series.Series::from_timestamp_options("ts", rows.map(r => r.6)),
-    @series.Series::from_decimal_options(2, "dec", rows.map(r => r.7)),
+    @series.Series::from_decimals("dec", rows.map(r => r.7)),
   ])
 }
 
 // ── Oracle (NaN-aware structural equivalence) ────────────────────────
 
 ///|
-/// NaN-aware structural equivalence of two frames — the oracle the differential
-/// fuzzer needs over a domain that includes NaN. Plain `DataFrame::==` derives
-/// `Eq` down to `Double`, where IEEE makes `NaN != NaN`, so a frame holding a
-/// NaN is unequal even to *itself*; that makes `==` useless as an
-/// optimizer-equivalence check on NaN-bearing data (it would flag a divergence
-/// for every NaN frame regardless of what the optimizer did). This comparator
-/// instead requires identical column names and order, identical per-column
-/// dtype, and cell-for-cell equality where two NaN cells count as equal
-/// (matching the package's `==` contract for every other value, signed zeros
-/// included). Storage backend is deliberately NOT compared: `ColumnStorage`'s
-/// `==` is backend-agnostic by design (a value's backend is an implementation
-/// detail of its content, not part of its identity), so a backend tag is not
-/// part of the value contract the optimizer must preserve — and a backend flip
-/// that *does* change a value is caught by the cell comparison below. Backend
-/// parity per se is guarded separately, by the series package's own tests.
-/// Returns `None` on equivalence, else a one-line reason. (An earlier
-/// `oc != oc.to_builtin()` "flip detector" here was inert: that `==` is exactly
-/// the backend-agnostic one, so it was always `false`.)
+/// NaN-aware structural equivalence of two frames — the oracle the
+/// differential fuzzer needs over a domain that includes NaN. Plain
+/// frame equality derives Eq down to Double, where IEEE makes NaN
+/// unequal to itself, so a frame holding a NaN is unequal even to
+/// itself.
+/// This comparator instead requires identical column names and order,
+/// identical per-column dtype, and cell-for-cell equality where two NaN
+/// cells count as equal (both Float and decimal NaNs).
 fn frames_equiv(
   opt : DataFrame,
   eag : DataFrame,
@@ -342,6 +343,12 @@ fn frames_equiv(
 fn scalars_equiv(a : @types.Scalar, b : @types.Scalar) -> Bool {
   match (a, b) {
     (@types.Scalar::Float(x), @types.Scalar::Float(y)) =>
+      if x.is_nan() || y.is_nan() {
+        x.is_nan() && y.is_nan()
+      } else {
+        x == y
+      }
+    (@types.Scalar::Decimal(x), @types.Scalar::Decimal(y)) =>
       if x.is_nan() || y.is_nan() {
         x.is_nan() && y.is_nan()
       } else {
@@ -915,7 +922,11 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
         // A decimal predicate: its evaluation is value-checked, so the
         // decimal fence keeps it above every stage — the same keep-set
         // either way, refusal included.
-        @expr.col("dec").gt(@expr.lit(@types.Scalar::Decimal(2, 0L))),
+        @expr.col("dec").gt(
+          @expr.lit(
+            @types.Scalar::Decimal(@types.Dec128::of_int64_scale(0L, scale=2)),
+          ),
+        ),
         // A column-free comparison folds to a literal under the optimizer
         // while eager evaluates it per row — both must land on the same
         // keep-set.
@@ -938,9 +949,10 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
           (@expr.lit_int(2) * @expr.lit_int(21) + @expr.lit_int(1)).with_alias(
             "folded_int",
           ),
-          (@expr.lit(@types.Scalar::Decimal(2, 105L)) + @expr.lit_int(1L)).with_alias(
-            "folded_dec",
-          ),
+          (@expr.lit(
+            @types.Scalar::Decimal(@types.Dec128::of_int64_scale(105L, scale=2)),
+          ) +
+          @expr.lit_int(1L)).with_alias("folded_dec"),
         ]),
       ),
     ),
@@ -1228,7 +1240,7 @@ fn write_projection_fuzz_fixtures(
       Some("west"),
       Some(19723L),
       Some(0L),
-      Some(1L),
+      Some(@types.Dec128::of_int64(1L)),
     ),
     (
       Some(1L),
@@ -1238,7 +1250,7 @@ fn write_projection_fuzz_fixtures(
       Some("east"),
       None,
       Some(-1L),
-      Some(-456L),
+      Some(@types.Dec128::of_int64_scale(-456L, scale=2)),
     ),
     (
       None,
@@ -1258,7 +1270,7 @@ fn write_projection_fuzz_fixtures(
       Some("north"),
       Some(19753L),
       Some(86_400_000_000L),
-      Some(0L),
+      Some(@types.Dec128::zero()),
     ),
   ])
   @io.write_csv(csv_path, df)

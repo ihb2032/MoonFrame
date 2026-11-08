@@ -133,18 +133,17 @@ pub fn Series::fill_null(
         }
         _ => raise fill_mismatch("Duration", self.dtype())
       }
-    // A Decimal value fills its own dtype only — the Date rule over the same
-    // buffer, with the scale carried by the dtype (the scalar's own scale
-    // must agree, or the fill would silently re-scale the column).
-    @types.Scalar::Decimal(scale, v) =>
+    // A Decimal value fills its own dtype only — the Date rule over the
+    // decimal's own buffer, the value carried whole (cohort and sign
+    // included).
+    @types.Scalar::Decimal(v) =>
       match self.storage.data() {
-        @column.ColumnData::I64(data) if self.dtype()
-          is @types.DataType::Decimal(s) &&
-          s == scale => {
+        @column.ColumnData::Dec(data) if self.dtype()
+          is @types.DataType::Decimal => {
           let buf = fill_buffer(data, valid, v)
-          Series::from_decimal_options(scale, self.name, buf.map(x => Some(x)))
+          Series::from_decimals(self.name, buf.map(x => Some(x)))
         }
-        _ => raise fill_mismatch("Decimal(\{scale})", self.dtype())
+        _ => raise fill_mismatch("Decimal", self.dtype())
       }
   }
   self.preserve_backend(filled)

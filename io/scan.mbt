@@ -58,7 +58,6 @@ pub fn scan_csv(
   // builder stays total like every other LazyFrame constructor.
   @frame.LazyFrame::file_scan(
     csv_scan_driver(path, options),
-    may_carry_decimal=pins_decimal(options.dtypes()),
     may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
@@ -93,7 +92,6 @@ pub fn scan_ndjson(
 ) -> @frame.LazyFrame {
   @frame.LazyFrame::file_scan(
     ndjson_scan_driver(path, options),
-    may_carry_decimal=pins_decimal(options.dtypes()),
     may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
@@ -131,7 +129,6 @@ pub fn scan_json(
 ) -> @frame.LazyFrame {
   @frame.LazyFrame::file_scan(
     json_scan_driver(path, options),
-    may_carry_decimal=pins_decimal(options.dtypes()),
     may_carry_temporal=pins_temporal(options.dtypes()),
   )
 }
@@ -160,25 +157,8 @@ pub fn scan_json(
 pub fn scan_parquet(path : String) -> @frame.LazyFrame {
   @frame.LazyFrame::file_scan(
     parquet_scan_driver(path),
-    may_carry_decimal=true,
     may_carry_temporal=true,
   )
-}
-
-///|
-/// Whether a read-options dtypes map pins some column to `Decimal` — the
-/// only way a text read produces a decimal column (its inference picks
-/// `Int` / `Float` / `Bool` / `String` alone; `Decimal` is a rider dtype a
-/// pin carries, never an inference verdict). The scan builders read it off
-/// the options they already capture, so the plan knows a file leaf may
-/// carry decimal columns without the driver carrying a schema seam.
-fn pins_decimal(dtypes : Map[String, @types.DataType]) -> Bool {
-  for _, dt in dtypes {
-    if dt is @types.DataType::Decimal(_) {
-      return true
-    }
-  }
-  false
 }
 
 ///|

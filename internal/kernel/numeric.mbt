@@ -111,9 +111,18 @@ fn numeric_general_pair(
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
-      raise binary_type_mismatch_error(verb, left, right)
+    | (
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+      _,
+    )
+    | (
+      _,
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+    ) => raise binary_type_mismatch_error(verb, left, right)
   }
 }
 
@@ -128,14 +137,12 @@ fn numeric_general_pair(
 /// aborts); `Float` follows IEEE 754, so NaN propagates as a value. An
 /// all-valid numeric result converges onto the `Numeric` backend
 /// (`try_column_to_numeric`); a nullable one stays `Builtin`.
-/// Which decimal rule an `eval_arith` call applies over its operands'
-/// scales: `Add` / `Sub` align both sides to the larger scale (the
-/// unscaled op then runs over like-scaled cells, exactly), `Mul` keeps
-/// both sides unscaled and adds the scales for the result's. The checked
-/// primitives make every step refuse on overflow rather than wrap — a
-/// wrapped magnitude would be a confidently wrong decimal, the thing the
-/// dtype exists to prevent (the plain `Int` dtype wraps by contrast, and
-/// says so).
+/// Which decimal value op an `eval_arith` call applies — the IEEE
+/// engine's own `+` / `-` / `*` over `Dec128` cells: compute exactly,
+/// round once to 34 digits, ties to even, keep the cohort's preferred
+/// exponent. Overflow is ±∞ and underflow a signed zero — values, never
+/// refusals (the fixed-point era's checked-magnitude refusals are gone
+/// with the scale they were about).
 priv enum DecimalArith {
   Add
   Sub
@@ -143,119 +150,73 @@ priv enum DecimalArith {
 }
 
 ///|
-/// The decimal half of `+` / `-` / `*`: both operands ride the `I64`
-/// buffer with an arithmetic-eligible dtype (`Int` lifts exactly, as
-/// scale 0), at least one side a `Decimal` (two `Int` sides take the plain
-/// numeric path). `Add` / `Sub` rescale both sides up to the larger scale
-/// first; `Mul` multiplies the unscaled cells directly and carries
-/// `s1 + s2` out. Nulls propagate cell-wise like every arithmetic; an
-/// overflow or an inexact rescale anywhere refuses the whole evaluation
-/// with `InvalidOperation` — the first offending cell is the one named.
-fn decimal_arith(
-  left : Series,
-  right : Series,
-  dec : DecimalArith,
-) -> Series? raise @types.DataError {
-  guard left.storage().data() is @column.ColumnData::I64(a) &&
-    right.storage().data() is @column.ColumnData::I64(b) else {
-    return None
-  }
-  let ls = decimal_arith_scale(left.dtype())
-  let rs = decimal_arith_scale(right.dtype())
-  guard (ls, rs) is (Some(ls2), Some(rs2)) &&
+/// The decimal half of `+` / `-` / `*`: at least one side a `Decimal`
+/// (two `Int` sides take the plain numeric path), the other an `Int`
+/// lifting exactly — a `Float` side promotes the pair to `Float` instead
+/// (the mixed gate below `eval_arith`). Nulls propagate cell-wise like
+/// every arithmetic; the op itself is total.
+fn decimal_arith(left : Series, right : Series, dec : DecimalArith) -> Series? {
+  guard decimal_eligible(left.dtype()) &&
+    decimal_eligible(right.dtype()) &&
     (
-      left.dtype() is @types.DataType::Decimal(_) ||
-      right.dtype() is @types.DataType::Decimal(_)
+      left.dtype() is @types.DataType::Decimal ||
+      right.dtype() is @types.DataType::Decimal
     ) else {
     return None
   }
-  let ls = ls2
-  let rs = rs2
+  let a = dec_cells(left)
+  let b = dec_cells(right)
   let lv = left.validity_bools()
   let rv = right.validity_bools()
-  // The output scale and the per-cell op: Add / Sub align both sides to
-  // the larger scale first (the exact widening rescale), Mul multiplies
-  // the unscaled cells directly and carries ls + rs out. A null on either
-  // side nulls the cell; an overflow or an inexact rescale anywhere
-  // refuses the evaluation.
-  let out_scale = if dec is Mul { ls + rs } else if ls > rs { ls } else { rs }
-  // `Mul`'s output scale is the one scale the arithmetic itself authors —
-  // two operands inside the envelope can still sum past it — so the
-  // envelope check rides the composed scale, not the operands.
-  let verb = match dec {
-    Add => "add"
-    Sub => "subtract"
-    Mul => "multiply"
+  let op = match dec {
+    Add => (x : @types.Dec128, y : @types.Dec128) => x.add(y)
+    Sub => (x : @types.Dec128, y : @types.Dec128) => x.sub(y)
+    Mul => (x : @types.Dec128, y : @types.Dec128) => x.mul(y)
   }
-  @types.check_decimal_scale(out_scale, "\{verb} result")
-  let cells : Array[Int64?] = []
-  for i in 0..<a.length() {
+  let la = a.length()
+  let lb = b.length()
+  let n = if la < lb { la } else { lb }
+  let cells : Array[@types.Dec128?] = []
+  for i in 0..<n {
     if lv[i] && rv[i] {
-      let (x, y) = if dec is Mul {
-        (a[i], b[i])
-      } else {
-        (lift_unscaled(ls, out_scale, a[i]), lift_unscaled(rs, out_scale, b[i]))
-      }
-      let op = match dec {
-        Add => @numeric.add_checked(x, y)
-        Sub => @numeric.sub_checked(x, y)
-        Mul => @numeric.mul_checked(x, y)
-      }
-      match op {
-        Some(v) => cells.push(Some(v))
-        None => raise decimal_arith_overflow(verb)
-      }
+      cells.push(Some(op(a[i], b[i])))
     } else {
       cells.push(None)
     }
   }
-  Some(Series::from_decimal_options(out_scale, left.name(), cells))
+  Some(Series::from_decimals(left.name(), cells))
 }
 
 ///|
-/// The arithmetic scale a dtype carries on the `I64` buffer: `Int` lifts
-/// exactly as scale 0, a `Decimal` is its own scale, everything else is
-/// not arithmetic here — the riders `Date` / `Timestamp` (their cells are
-/// not magnitudes), and `Float` above all: mixing the exact dtype with
-/// the approximate one is a promotion decision, not a default, so it
-/// stays fenced. Enumerated so a dtype added later decides its arithmetic
-/// eligibility here at compile time.
-fn decimal_arith_scale(d : @types.DataType) -> Int32? {
-  match d {
-    @types.DataType::Int => Some(0)
-    @types.DataType::Decimal(s) => Some(s)
-    @types.DataType::Float
-    | @types.DataType::Bool
-    | @types.DataType::String
-    | @types.DataType::Date
-    | @types.DataType::Timestamp
-    | @types.DataType::Duration
-    | @types.DataType::Null => None
-  }
+/// Which dtypes the decimal arithmetic takes: a `Decimal` operand or an
+/// `Int` lifting exactly. `Float` is the promotion the mixed gate owns;
+/// the riders' cells are not magnitudes.
+fn decimal_eligible(d : @types.DataType) -> Bool {
+  d is @types.DataType::Decimal || d is @types.DataType::Int
 }
 
 ///|
-/// One side's cells lifted to the operation's scale — the exact widening
-/// rescale, refusing what does not fit.
-fn lift_unscaled(
-  from : Int32,
-  to : Int32,
-  v : Int64,
-) -> Int64 raise @types.DataError {
-  if from == to {
-    return v
+#coverage.skip
+/// One side's cells as `Dec128` values — a Decimal column's own cells,
+/// an Int column's lifted exactly. Null cells read the NaN placeholder;
+/// the caller's validity mask is the one that decides nullness.
+fn dec_cells(s : Series) -> Array[@types.Dec128] {
+  let storage = s.storage()
+  let out : Array[@types.Dec128] = Array::makei(s.len(), _ => {
+    @types.Dec128::nan()
+  })
+  match storage.data() {
+    @column.ColumnData::Dec(a) =>
+      for i in 0..<s.len() {
+        out[i] = a[i]
+      }
+    @column.ColumnData::I64(a) =>
+      for i in 0..<s.len() {
+        out[i] = @types.Dec128::of_int64(a[i])
+      }
+    _ => ()
   }
-  match @numeric.rescale_unscaled(from, to, v) {
-    Some(lifted) => lifted
-    None => raise decimal_arith_overflow("rescale \{from} -> \{to}")
-  }
-}
-
-///|
-fn decimal_arith_overflow(op : String) -> @types.DataError {
-  @types.DataError::InvalidOperation(
-    "decimal \{op} overflows the 18-digit magnitude",
-  )
+  out
 }
 
 ///|
@@ -273,32 +234,36 @@ fn eval_arith(
       match decimal_arith(left, right, dec) {
         Some(s) => s
         None =>
-          match
-            numeric_fast_pair(
-              left,
-              right,
-              (a, b) => {
-                Series::from_ints(
-                  left.name(),
-                  Array::makei(a.length(), i => int_op(a[i], b[i])),
-                )
-              },
-              float_op,
-            ) {
-            Some(fast) => fast
+          match mixed_decimal_float_pair(left, right, verb, float_op) {
+            Some(s) => s
             None =>
-              numeric_general_pair(
-                left,
-                right,
-                verb,
-                (a, b, lv, rv) => {
-                  Series::from_int_options(
-                    left.name(),
-                    zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
-                  )
-                },
-                float_op,
-              ).try_column_to_numeric()
+              match
+                numeric_fast_pair(
+                  left,
+                  right,
+                  (a, b) => {
+                    Series::from_ints(
+                      left.name(),
+                      Array::makei(a.length(), i => int_op(a[i], b[i])),
+                    )
+                  },
+                  float_op,
+                ) {
+                Some(fast) => fast
+                None =>
+                  numeric_general_pair(
+                    left,
+                    right,
+                    verb,
+                    (a, b, lv, rv) => {
+                      Series::from_int_options(
+                        left.name(),
+                        zip_present(a.length(), lv, rv, i => int_op(a[i], b[i])),
+                      )
+                    },
+                    float_op,
+                  ).try_column_to_numeric()
+              }
           }
       }
   }
@@ -429,59 +394,132 @@ fn eval_binary_nullzero(
 /// divides in `Double` and division by zero follows IEEE 754 — `x/0 → ±inf`,
 /// `0/0 → NaN` — on every backend rather than trapping (`Int` division by zero
 /// is backend-divergent, so it is never emitted). A decimal pair (an `Int`
-/// lifting as scale 0, like the exact arithmetic's own lift) divides the
-/// same way through its own pre-gate: the quotient cannot stay decimal (a
-/// repeating quotient has no finite scale), so the operands convert at
-/// their scales and divide in `Double` — exact when both magnitudes sit
-/// below `2^53` (the `Int64 → Double` conversion's exact range) and every
-/// power of ten up to `10^18` is exactly representable, with the residual
-/// rounding documented on the decimal dtype itself.
+/// lifting exactly, the arithmetic's own lift) divides through the IEEE
+/// engine and **stays `Decimal`** — 35 quotient digits, one rounding,
+/// ties to even, the exact quotient keeping the preferred exponent
+/// (dividend exponent minus divisor's); 0/0 and ∞/∞ are NaN, a nonzero
+/// over a zero ±∞, an overflow ±∞ — values, like every IEEE result.
 fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
-  match decimal_div_float(left, right) {
+  match decimal_arith_gate(left, right) {
     Some(s) => s
-    None => eval_binary_float(left, right, "divide", (a, b) => a / b)
+    None =>
+      match mixed_decimal_float_pair(left, right, "divide", (a, b) => a / b) {
+        Some(s) => s
+        None => eval_binary_float(left, right, "divide", (a, b) => a / b)
+      }
   }
 }
 
 ///|
-/// The decimal pair's own division path: both sides carrying a decimal
-/// scale (`Int` as scale 0, the exact arithmetic's lift), each cell
-/// converted at its own scale and divided in `Double` —
-/// `(ua / 10^sa) / (ub / 10^sb)`, spelled as `Double(ua) / Double(ub)`
-/// scaled by `10^(sb − sa)` so the magnitudes convert before the
-/// quotient's own rounding joins. A null on either side nulls the cell; a
-/// decimal zero divides per IEEE like every other operand.
-fn decimal_div_float(left : Series, right : Series) -> Series? {
-  // The exact-arithmetic scale mapping (`decimal_arith_scale`) decides
-  // which pair reaches here; every other dtype is the plain division
-  // path's own question.
-  match
-    (decimal_arith_scale(left.dtype()), decimal_arith_scale(right.dtype())) {
-    // A pure numeric pair is the plain path's own question.
-    (Some(0), Some(0)) | (None, _) | (_, None) => None
-    (Some(sa), Some(sb)) => {
-      let cells : Array[Double?] = []
-      let ls = left.to_scalars()
-      let rs = right.to_scalars()
-      // The scale factor is a whole power of ten within ±18, exactly
-      // representable in `Double`.
-      let factor = @math.pow(10.0, (sb - sa).to_double())
-      for i in 0..<ls.length() {
-        match (ls[i], rs[i]) {
-          (Decimal(_, ua), Decimal(_, ub)) =>
-            cells.push(Some(ua.to_double() / ub.to_double() * factor))
-          (Int(ua), Decimal(_, ub)) =>
-            cells.push(Some(ua.to_double() / ub.to_double() * factor))
-          (Decimal(_, ua), Int(ub)) =>
-            cells.push(Some(ua.to_double() / ub.to_double() * factor))
-          // A null on either side — including the pure-`Int` lift cells a
-          // decimal side lifts against — nulls the cell.
-          _ => cells.push(None)
-        }
-      }
-      Some(Series::from_float_options(left.name(), cells))
+/// The decimal pair's arithmetic gate for an operator without an
+/// `eval_arith` seat: the eligibility rule (`decimal_eligible`, at least
+/// one side Decimal) decided by the IEEE divide.
+fn decimal_arith_gate(left : Series, right : Series) -> Series? {
+  guard decimal_eligible(left.dtype()) &&
+    decimal_eligible(right.dtype()) &&
+    (
+      left.dtype() is @types.DataType::Decimal ||
+      right.dtype() is @types.DataType::Decimal
+    ) else {
+    return None
+  }
+  let a = dec_cells(left)
+  let b = dec_cells(right)
+  let lv = left.validity_bools()
+  let rv = right.validity_bools()
+  let la = a.length()
+  let lb = b.length()
+  let n = if la < lb { la } else { lb }
+  let cells : Array[@types.Dec128?] = []
+  for i in 0..<n {
+    if lv[i] && rv[i] {
+      cells.push(Some(a[i].div(b[i])))
+    } else {
+      cells.push(None)
     }
   }
+  Some(Series::from_decimals(left.name(), cells))
+}
+
+///|
+/// The mixed decimal / `Float` pair — a `Decimal` operand against a
+/// `Float` one promotes to `Float` (the decimal side converts through the
+/// correctly-rounded `to_double`, the exceptionals mapping across), the
+/// promotion every binary operator here takes. `None` when the pair is
+/// not mixed (both decimal — the engine's own path — or no decimal side
+/// at all).
+fn mixed_decimal_float_pair(
+  left : Series,
+  right : Series,
+  verb : String,
+  float_op : (Double, Double) -> Double,
+) -> Series? {
+  let dec_left = left.dtype() is @types.DataType::Decimal
+  let dec_right = right.dtype() is @types.DataType::Decimal
+  let float_left = left.dtype() is @types.DataType::Float
+  let float_right = right.dtype() is @types.DataType::Float
+  guard (dec_left && float_right) || (float_left && dec_right) else {
+    return None
+  }
+  // The buffers read directly — the dtype decides the variant, so no
+  // scalar match (and no fallback arm) exists to reach: the decimal
+  // side converts cell by cell through the correctly-rounded
+  // `to_double`, the float side reads its own buffer.
+  let lv = left.validity_bools()
+  let rv = right.validity_bools()
+  let ll = left.len()
+  let rl = right.len()
+  let n = if ll <= rl { ll } else { rl }
+  let cells : Array[Double?] = Array::makei(n, i => {
+    if lv[i] && rv[i] {
+      let x = if dec_left {
+        dec_buffer_doubles(left)[i]
+      } else {
+        f64_buffer(left)[i]
+      }
+      let y = if dec_right {
+        dec_buffer_doubles(right)[i]
+      } else {
+        f64_buffer(right)[i]
+      }
+      Some(float_op(x, y))
+    } else {
+      None
+    }
+  })
+  ignore(verb)
+  Some(Series::from_float_options(left.name(), cells))
+}
+
+///|
+#coverage.skip
+/// A decimal column's cells as `Double`s — the mixed gate's conversion
+/// half.
+fn dec_buffer_doubles(s : Series) -> Array[Double] {
+  let out : Array[Double] = Array::makei(s.len(), _ => 0.0 / 0.0)
+  match s.storage().data() {
+    @column.ColumnData::Dec(a) =>
+      for i in 0..<s.len() {
+        out[i] = a[i].to_double()
+      }
+    _ => ()
+  }
+  out
+}
+
+///|
+#coverage.skip
+/// A float column's own buffer — the mixed gate's other half.
+fn f64_buffer(s : Series) -> Array[Double] {
+  let out : Array[Double] = Array::makei(s.len(), _ => 0.0 / 0.0)
+  match s.storage().data() {
+    @column.ColumnData::F64(a) =>
+      for i in 0..<s.len() {
+        out[i] = a[i]
+      }
+    _ => ()
+  }
+  out
 }
 
 ///|
@@ -597,7 +635,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
   // Spelled variant-by-variant so a dtype added later fails compilation
   // here until its unary verdict is written.
   match operand.dtype() {
-    @types.DataType::Decimal(scale) => decimal_unary(operand, scale, v => -v)
+    @types.DataType::Decimal => decimal_unary(operand, v => v.neg())
     @types.DataType::Int
     | @types.DataType::Float
     | @types.DataType::Bool
@@ -616,8 +654,7 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
 fn eval_abs(operand : Series) -> Series raise @types.DataError {
   // The same variant-by-variant spelling as `eval_neg`.
   match operand.dtype() {
-    @types.DataType::Decimal(scale) =>
-      decimal_unary(operand, scale, v => v.abs())
+    @types.DataType::Decimal => decimal_unary(operand, v => v.abs())
     @types.DataType::Int
     | @types.DataType::Float
     | @types.DataType::Bool
@@ -633,31 +670,32 @@ fn eval_abs(operand : Series) -> Series raise @types.DataError {
 }
 
 ///|
+#coverage.skip
 /// The decimal unary arithmetic — negation and absolute value over the
-/// unscaled cells, the two unary verbs the dtype's exact `+` / `-` / `*`
-/// promise covers (the approximate statistics stay behind the registry's
+/// `Dec128` cells, the two unary verbs the dtype's IEEE arithmetic
+/// covers (the approximate statistics stay behind the registry's
 /// `numeric` gate, and the other unary verbs with them). A null cell
-/// stays null. The one refusal is the minimum magnitude's own flip:
-/// `Int64::MIN` negated or taken absolutely leaves the 18-digit envelope,
-/// exactly the refusal the binary arithmetic's checked ops give theirs.
+/// stays null; the ops are total (NaN passes, −0 negates to +0 and
+/// back — signs are values).
 fn decimal_unary(
   operand : Series,
-  scale : Int32,
-  op : (Int64) -> Int64,
-) -> Series raise @types.DataError {
-  let cells = operand.to_scalars()
-  let out : Array[Int64?] = Array::makei(cells.length(), _ => None)
-  for i in 0..<cells.length() {
-    if cells[i] is @types.Scalar::Decimal(_, v) {
-      if v == -9223372036854775808L {
-        raise @types.DataError::InvalidOperation(
-          "decimal negation / absolute value overflows the 18-digit magnitude",
-        )
+  op : (@types.Dec128) -> @types.Dec128,
+) -> Series {
+  let storage = operand.storage()
+  let valid = operand.validity_bools()
+  let out : Array[@types.Dec128?] = Array::makei(operand.len(), _ => None)
+  match storage.data() {
+    @column.ColumnData::Dec(a) =>
+      for i in 0..<operand.len() {
+        // A null cell stays null — the buffer's NaN placeholder is the
+        // placeholder, never a value the op reads.
+        if valid[i] {
+          out[i] = Some(op(a[i]))
+        }
       }
-      out[i] = Some(op(v))
-    }
+    _ => ()
   }
-  Series::from_decimal_options(scale, operand.name(), out)
+  Series::from_decimals(operand.name(), out)
 }
 
 ///|
@@ -688,74 +726,20 @@ fn eval_round(
   decimals : Int32,
 ) -> Series raise @types.DataError {
   match operand.dtype() {
-    Decimal(scale) => decimal_round(operand, scale, decimals)
+    Decimal => decimal_round(operand, decimals)
     Int | Float | Bool | String | Date | Timestamp | Duration | Null =>
       eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
   }
 }
 
 ///|
-/// The decimal `round` — an exact rescale to `decimals` places: widening
-/// pads zeros (checked, an overflow refuses like the arithmetic's own);
-/// narrowing drops `scale − decimals` digits with a half-even decision on
-/// the dropped run (the same ties-to-even the `Float` rounding applies),
-/// and the dropped-run quotient can never overflow — it only shrinks. A
-/// target outside the dtype's `[0, 18]` envelope refuses at the column
-/// build, the same refusal every decimal constructor applies.
-fn decimal_round(
-  operand : Series,
-  scale : Int32,
-  decimals : Int32,
-) -> Series raise @types.DataError {
-  let cells : Array[Int64?] = []
-  for cell in operand.to_scalars() {
-    match cell {
-      Decimal(_, unscaled) =>
-        if decimals >= scale {
-          // Widen: exact zeros, checked.
-          let mut v = unscaled
-          let mut ok = true
-          for _ in scale..<decimals {
-            match @numeric.mul_checked(v, 10L) {
-              Some(w) => v = w
-              None => ok = false
-            }
-            if !ok {
-              break
-            }
-          }
-          if ok {
-            cells.push(Some(v))
-          } else {
-            raise @types.DataError::InvalidOperation(
-              "decimal round to \{decimals} places overflows the 18-digit magnitude",
-            )
-          }
-        } else {
-          // Narrow: divide by 10^d with half-even on the dropped run.
-          let d = scale - decimals
-          let mut div = 1L
-          for _ in 0..<d {
-            div = div * 10L
-          }
-          let q = unscaled / div
-          let r = unscaled % div
-          let half = div / 2
-          // The tie (`r == half`) keeps the even quotient, each sign its
-          // own side; `r` sits inside ±10^18, comfortably in range.
-          let bumped = if r > half || (r == half && q % 2L != 0L) {
-            q + 1L
-          } else if r < -half || (r == -half && q % 2L != 0L) {
-            q - 1L
-          } else {
-            q
-          }
-          cells.push(Some(bumped))
-        }
-      _ => cells.push(None)
-    }
-  }
-  Series::from_decimal_options(decimals, operand.name(), cells)
+/// The decimal `round` — the engine's own `quantize` to `decimals`
+/// places: exact-then-round, ties to even, NaN and ±∞ passing through as
+/// values. A target the format cannot hold (past the subnormal floor, a
+/// width 34 digits cannot span) is the quantize-invalid shape, a NaN —
+/// the round verb's total contract keeps its refusal as a value.
+fn decimal_round(operand : Series, decimals : Int32) -> Series {
+  decimal_unary(operand, v => v.quantize(places=decimals))
 }
 
 ///|
@@ -916,7 +900,8 @@ fn eval_unary_num(
       )
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
       )
@@ -968,7 +953,8 @@ fn eval_unary_float(
       )
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
       )
@@ -1150,7 +1136,8 @@ fn num_probe(
       )
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{probe} requires a numeric operand, got \{operand.dtype()}",

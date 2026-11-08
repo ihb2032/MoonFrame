@@ -599,14 +599,11 @@ test "cast to the column's own dtype is the identity for every dtype" {
   assert_eq(t.cast(@types.DataType::Timestamp), t)
   let du = Series::from_duration_options("x", [Some(123456), None])
   assert_eq(du.cast(@types.DataType::Duration), du)
-  let dec = Series::from_decimal_options(2, "x", [Some(1505), None])
-  assert_eq(dec.cast(@types.DataType::Decimal(2)), dec)
-  // The identity is exact-dtype: a different scale is a rescale, and the
-  // rescale is one of the conversions this library does not offer.
-  assert_true(
-    (Ok(ignore(dec.cast(@types.DataType::Decimal(3)))) catch { e => Err(e) })
-    is Err(@types.DataError::Unsupported(_)),
-  )
+  let dec = Series::from_decimals("x", [
+    Some(@types.Dec128::of_int64_scale(1505L, scale=2)),
+    None,
+  ])
+  assert_eq(dec.cast(@types.DataType::Decimal), dec)
 }
 
 // ── ordering verbs ────────────────────────────────────────────────────
@@ -819,22 +816,15 @@ test "sort places equal-NaN and signed-zero cells stably" {
 }
 
 ///|
-test "fill_null's Decimal mismatch message carries the scale and the dtype" {
-  let s = Series::from_decimal_options(2, "m", [Some(5L)])
-  let filled : Result[Series, @types.DataError] = Ok(
-    s.fill_null(@types.Scalar::Decimal(3, 0L)),
-  ) catch {
-    e => Err(e)
-  }
+test "fill_null's Decimal fill matches the one dtype" {
+  // One dtype, no scale to mismatch: a Decimal value fills a Decimal
+  // column, and any other scalar dtype refuses as ever.
+  let s = Series::from_decimals("m", [None, Some(@types.Dec128::of_int64(5L))])
+  let filled = s.fill_null(@types.Scalar::Decimal(@types.Dec128::zero()))
+  assert_true(filled.get(0) is @types.Scalar::Decimal(z) && z.is_zero())
   assert_true(
-    filled
-    is Err(
-      @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Message(
-          "fill_null type Decimal(3) does not match column type Decimal(2)"
-        )
-      )
-    ),
+    (Ok(ignore(s.fill_null(@types.Scalar::Int(0L)))) catch { e => Err(e) })
+    is Err(@types.DataError::TypeMismatch(_)),
   )
 }
 

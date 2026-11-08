@@ -173,15 +173,41 @@ fn try_fast_is_in(
         match (dtype, m) {
           (@types.DataType::Date, @types.Scalar::Date(v)) => Some(v)
           (@types.DataType::Timestamp, @types.Scalar::Timestamp(v)) => Some(v)
-          (@types.DataType::Decimal(scale), @types.Scalar::Decimal(s, v)) =>
-            if s == scale {
-              Some(v)
-            } else {
-              None
-            }
           (_, _) => None
         }
       })
+    }
+    // A Decimal column: the cells and the members both key on the
+    // canonical cohort spelling (the `key_cells` fold's own rule), so
+    // cohorts match (`1.0` against a set holding `1.00`), ±0 folds, and
+    // a NaN member is dropped — nothing equals a NaN — while a NaN cell
+    // answers false outright, the Float arm's stance.
+    @column.ColumnData::Dec(data) => {
+      let set : Map[String, Unit] = Map([])
+      for m in members {
+        match m {
+          @types.Scalar::Decimal(v) =>
+            if !v.is_nan() {
+              set[v.canonical().to_string()] = ()
+            }
+          @types.Scalar::Null => ()
+          _ => return None
+        }
+      }
+      Some(
+        Series::from_bool_options(
+          name,
+          Array::makei(operand.len(), i => {
+            if !valid[i] {
+              None
+            } else if data[i].is_nan() {
+              Some(false)
+            } else {
+              Some(set.contains(data[i].canonical().to_string()))
+            }
+          }),
+        ),
+      )
     }
   }
 }

@@ -179,16 +179,18 @@ What has landed on `main`:
   of the `Date` range) and `Timestamp` → `Date` (the microsecond count
   floored to whole days). Every other rider cast keeps its refusal.
 - The readers' `dtypes` override pins the rider dtypes: `Date` /
-  `Timestamp` / `Decimal(scale)` join `Int` / `Float` / `Bool` / `String`
+  `Timestamp` / `Decimal` join `Int` / `Float` / `Bool` / `String`
   as pinnable, parsing the writers' own text forms (ISO date, ISO
   timestamp with an optional trailing `Z` and an optional one-to-six-digit
-  fraction, plain fixed-point decimal under the pin's scale — a cell with
-  more fraction digits than the scale names is a mismatch, never a
-  truncation). Inference still never produces a rider: a written-back
+  fraction, the decimal value reader's every spelling — positional,
+  scientific, and the exceptional literals). Inference still never
+  produces a rider: a written-back
   rider column reads as `String` / `Float` unless pinned. On the JSON /
   NDJSON side a rider pin reads `String` values only — the riders' one
   carrier in a format with no native type for them; a JSON `Number` under
-  a `Decimal` pin is a mismatch, never a coercion.
+  a `Decimal` pin is a mismatch, never a coercion (a JSON *string*
+  under a `Decimal` pin parses the engine's value reader — the writer's
+  own spelling, positional and scientific alike).
 - `Expr::over(keys)` — the window wrapper: an aggregating inner
   (`.sum()`, `.mean()`, …) broadcasts its group's single cell over the
   group's rows, a group-length inner (`.rank()`, `.shift(n)`,
@@ -233,16 +235,16 @@ What has landed on `main`:
   reads instead of its own variant list). It renders as an ISO 8601
   days-and-time duration; the writers emit that text and no reader parses
   it (a `dtypes` pin refuses it).
-- Decimal `round` is exact: a rescale to the target places — widening
-  pads zeros (checked), narrowing drops digits with a half-even decision
-  on the dropped run, and the output carries `Decimal(target)`. The
-  approximate unary verbs (`floor` / `ceil`) stay fenced. A negative
-  target clamps to zero places, the `Float` rounding's own rule.
-- Decimal division goes through `Float`: `Decimal / Decimal` (an `Int`
-  lifting as scale 0, like the exact arithmetic's own lift) converts
-  each side at its own scale and divides in `Double` — the always-`Float`
-  rule's spelling for a quotient that cannot stay decimal, exact while
-  both magnitudes sit below `2^53`.
+- Decimal `round` is the engine's own quantize: half-even to the
+  target places, NaN and ±∞ passing through as values, an impossible
+  target a NaN cell. The approximate unary verbs (`floor` / `ceil`)
+  stay fenced. A negative target clamps to zero places, the `Float`
+  rounding's own rule.
+- Decimal division stays `Decimal`: `Decimal / Decimal` (an `Int`
+  lifting exactly) divides in the IEEE engine — 35 quotient digits, one
+  rounding, ties to even, the exact quotient keeping the preferred
+  exponent; 0/0 and ∞/∞ are NaN, a nonzero over a zero ±∞, an
+  overflow ±∞ — values, never refusals.
 - `describe` carries the linear-interpolated quartiles (`25%` / `50%` /
   `75%`, nulled for a non-numeric / empty / all-null column like the
   mean) — the summary's shape widens from 8 to 11 columns.
@@ -332,13 +334,6 @@ What has landed on `main`:
   every literal `<` to its `\u003c` escape (the U+2028 / U+2029 line
   separators likewise), so chart data cannot close the host `<script>`
   element early.
-- A `Decimal` cell at the negative extreme reads back: the pin's parser
-  accumulated the digits as a positive magnitude before negating, so
-  `Int64::MIN` — the one value whose magnitude exceeds `Int64::MAX` —
-  refused in every spelling the writer renders (`-9223372036854775808`
-  and its scaled forms), an error under the readers' `Raise` mode and a
-  silent null under `Null`. The digits now accumulate in the value's own
-  sign; every value outside the signed range still refuses.
 - A signed year zero refuses: `-0000-01-01` (and the timestamp spellings
   built on it) read as year 0, but the writer emits year 0 only as the
   unsigned `0000-01-01` — the form the parsers promise to accept — and
@@ -353,6 +348,53 @@ What has landed on `main`:
   the bare digits too, the spelling earlier writers emitted — while a
   `+` on a four-digit year and a signed year zero (`+0000-…`, like
   `-0000-…`) refuse as shapes no writer spells.
+- `Decimal` becomes an IEEE 754-2019 decimal128 floating-point dtype —
+  the fixed-point `Decimal(scale)` over an unscaled `Int64` retires.
+  **Source-breaking**: the variant loses its parameter
+  (`DataType::Decimal` — a `match` arm spelling `Decimal(scale)` or a
+  construction `Decimal(2)` fails to compile) and the scalar carries the
+  engine's `Dec128` value (`Scalar::Decimal(Dec128)` — the two-argument
+  spelling is gone). The engine (`Dec128`, re-exported on the facade
+  beside `DataType` / `Scalar`) is a sign, up to 34 significant digits,
+  a per-value quantum exponent in `[-6176, 6144]`, and the exceptional
+  shapes ±infinity / NaN / signed zero as **values**: every operation
+  computes exactly and rounds once (ties to even), an overflow is ±∞,
+  a lost magnitude a signed zero — the fixed-point era's
+  `InvalidOperation` refusal family (the envelope check, the checked
+  multiplies, the rescale lifts, the sum past 18 digits, the
+  negation / round overflows) is gone with the scale it was about.
+  Construct decimals with `Dec128::of_int64` /
+  `Dec128::of_int64_scale` / `Dec128::parse_opt` / the `nan` /
+  `infinity` / `zero` constructors; `Series::from_decimal_options(scale,
+  name, values)` becomes `Series::from_decimals(name, values)` over
+  `Dec128?` cells.
+- The decimal arithmetic semantics follow the engine: `+` / `-` / `*` /
+  `/` all stay `Decimal` (`Int` lifts exactly; a `Float` operand
+  promotes the pair to `Float` through the correctly-rounded
+  conversion — the fence the fixed-point era kept between the exact and
+  approximate dtypes is a promotion now). Exact results keep the
+  cohort's preferred exponent (`1.50 + 0` is `1.50`); `sum` propagates
+  NaN and folds +∞ with −∞ into NaN while an overflowing total is ±∞;
+  `min` / `max` skip NaN; sorting reads the total order (NaN past
+  everything, −0 and +0 equal — the `Float` stack's own shape);
+  comparisons, grouping, joins, and `n_unique` read numeric value
+  equality, cohorts comparing equal (`1.0` joins `1.00`).
+- The decimal value fence is deleted with the refusals it guarded: the
+  optimizer's decimal risk family, its wbtests, and the
+  `may_carry_decimal` probe the file sources carried are gone, so a
+  predicate over decimal arithmetic sinks exactly like one over `Int`
+  (the temporal family keeps its fence — the microsecond domain still
+  refuses on values). `check_decimal_scale` and
+  `parse_decimal_unscaled_opt` retire from the engine seams.
+- The casts cross both ways: `Int` → `Decimal` exactly, `Float` →
+  `Decimal` the correctly-rounded conversion, `String` → `Decimal` the
+  value reader, `Decimal` → `Int` truncating toward zero (the
+  exceptionals and out-of-range magnitudes refusing like the `Float`
+  source), `Decimal` → `Float` the correctly-rounded conversion,
+  `Decimal` → `String` the value rendering. The parquet interchange
+  keeps the `INT64` + `DECIMAL` annotation with the writer choosing one
+  adaptive scale every cell honours — a NaN / ±∞ cell or a value past
+  the 18-digit `INT64` interchange refuses the write.
 
 ## v0.8.0 → v0.8.1
 

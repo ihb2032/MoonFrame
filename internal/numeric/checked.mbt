@@ -63,23 +63,3 @@ pub fn mul_checked(a : Int64, b : Int64) -> Int64? {
     Some(r)
   }
 }
-
-///|
-/// Re-express an unscaled decimal magnitude at a larger scale — the exact
-/// shift `v * 10^(to - from)`, or `None` when it leaves the range. A
-/// smaller (precision-losing) or equal target is refused the same way:
-/// this lift exists to align two scales, and only the widening direction
-/// is exact.
-pub fn rescale_unscaled(from : Int32, to : Int32, v : Int64) -> Int64? {
-  if to <= from {
-    return None
-  }
-  let mut r = v
-  for _ in from..<to {
-    match mul_checked(r, 10L) {
-      Some(shifted) => r = shifted
-      None => return None
-    }
-  }
-  Some(r)
-}

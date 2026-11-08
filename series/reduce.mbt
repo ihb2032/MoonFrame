@@ -89,14 +89,7 @@ fn reduce_arith(
     // `Double`-valued statistic — keeps the numeric gate, so a summable but
     // non-numeric dtype raises here at factory time exactly as a
     // non-summable one does below.
-    @column.ColumnData::I64(a) if storage.dtype().is_summable() => {
-      if want_mean && !storage.dtype().is_numeric() {
-        raise @types.DataError::TypeMismatch(
-          @types.TypeMismatchDetail::Message(
-            "mean undefined for \{storage.dtype()}: the mean is approximate (a Double), so it stays fenced to numeric dtypes — sum is the exact form",
-          ),
-        )
-      }
+    @column.ColumnData::I64(a) if storage.dtype().is_summable() =>
       if want_mean {
         // The mean's output is `Double`, so the accumulator widens each cell
         // before adding (`fold_double_sum`) — the mean-safe form the shared
@@ -116,33 +109,34 @@ fn reduce_arith(
         // `sum` keeps the `Int` dtype, so it stays the exact `Int64` fold
         // (`fold_int64_sum`) — sums past 2^63 overflow, the documented price
         // of an integer sum.
-      } else if storage.dtype() is @types.DataType::Decimal(scale) {
-        // The decimal sum is the checked twin of the exact `Int64` fold
-        // over the unscaled cells, re-wrapped at the column's scale: a
-        // total past the `Int64` range refuses with `InvalidOperation` —
-        // the exact dtype's contract, where the `Int` arm's wraparound is
-        // a price only the wrapping dtype agreed to.
-        fn(
-          n : Int32,
-          at : (Int32) -> Int32,
-        ) -> @types.Scalar raise @types.DataError {
-          match
-            @numeric.fold_int64_sum_checked(n, k => a[at(k)], k => {
-              present(at(k))
-            }) {
-            Some(total) => @types.Scalar::Decimal(scale, total)
-            None =>
-              raise @types.DataError::InvalidOperation(
-                "decimal sum overflows the 18-digit magnitude",
-              )
-          }
-        }
       } else {
         fn(n : Int32, at : (Int32) -> Int32) {
           @types.Scalar::Int(
             @numeric.fold_int64_sum(n, k => a[at(k)], k => present(at(k))),
           )
         }
+      }
+    // The decimal buffer's own arm — `sum` folds the exact IEEE
+    // addition (a NaN cell propagates, +∞ with −∞ makes the NaN, an
+    // overflowing total is ±∞: a value, never a refusal), `mean` —
+    // approximate, `Double`-valued — refuses at factory time exactly
+    // as the I64 arm's summable-but-not-numeric riders do.
+    @column.ColumnData::Dec(a) => {
+      if want_mean {
+        raise @types.DataError::TypeMismatch(
+          @types.TypeMismatchDetail::Message(
+            "mean undefined for \{storage.dtype()}: the mean is approximate (a Double), so it stays fenced to numeric dtypes — sum is the exact form",
+          ),
+        )
+      }
+      fn(n : Int32, at : (Int32) -> Int32) {
+        let mut total = @types.Dec128::zero()
+        for k in 0..<n {
+          if present(at(k)) {
+            total = total.add(a[at(k)])
+          }
+        }
+        @types.Scalar::Decimal(total)
       }
     }
     @column.ColumnData::F64(a) =>
@@ -196,6 +190,21 @@ fn[T : Compare] cmp_better(want_min : Bool) -> (T, T) -> Bool {
 }
 
 ///|
+/// The decimal twin of `cmp_better`, over the total order — the trait's
+/// `Compare` is not Dec128's to carry, the closure is (and a NaN never
+/// reaches it: the skip closures close NaN out first).
+fn dec_better(want_min : Bool) -> (@types.Dec128, @types.Dec128) -> Bool {
+  (x, y) => {
+    let c = x.cmp_total(y)
+    if want_min {
+      c < 0
+    } else {
+      c > 0
+    }
+  }
+}
+
+///|
 /// `min` / `max` reducer over an index window (`want_min` picks which),
 /// keeping the source dtype. Total over every dtype — `Bool` orders
 /// `false < true`, `String` by `compare_string_lex` — returning the dtype's
@@ -223,6 +232,19 @@ fn reduce_extremum(
               Some(s) => s
               None => @types.Scalar::Int(b)
             }
+          None => @types.Scalar::Null
+        }
+      }
+    @column.ColumnData::Dec(a) =>
+      fn(n : Int32, at : (Int32) -> Int32) {
+        let get = k => a[at(k)]
+        // A NaN decimal is missing to an extremum, exactly as the Float
+        // arm's NaN — and the total order's −0/+0 bucket keeps the two
+        // zeroes interchangeable as a min.
+        let skip = k => !present(at(k)) || a[at(k)].is_nan()
+        let better = dec_better(want_min)
+        match @numeric.fold_extremum(n, get, skip, better) {
+          Some(b) => @types.Scalar::Decimal(b)
           None => @types.Scalar::Null
         }
       }
@@ -305,7 +327,8 @@ fn numeric_double_reader(
     @column.ColumnData::F64(a) => i => a[i]
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{op} undefined for \{storage.dtype()}",
@@ -573,6 +596,16 @@ fn reduce_arg_extremum(
           cmp_better(want_min),
         )
       }
+    @column.ColumnData::Dec(a) =>
+      fn(n : Int32, at : (Int32) -> Int32) {
+        arg_extremum_of(
+          n,
+          k => a[at(k)],
+          // A NaN decimal is missing, as in `reduce_extremum`.
+          k => !present(at(k)) || a[at(k)].is_nan(),
+          dec_better(want_min),
+        )
+      }
     @column.ColumnData::F64(a) =>
       fn(n : Int32, at : (Int32) -> Int32) {
         arg_extremum_of(
@@ -670,6 +703,7 @@ fn count_distinct(
     @column.ColumnData::F64(a) => i => float_key_cell(a[i])
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
+    @column.ColumnData::Dec(a) => i => dec_key_cell(a[i])
   }
   fn(n : Int32, at : (Int32) -> Int32) -> Int32 {
     let seen : Map[KeyCell, Unit] = Map([])

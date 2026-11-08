@@ -601,17 +601,26 @@ test "is_in: Timestamp and same-scale Decimal members take the fast path" {
     @types.Scalar::Bool(false),
   ])
   let dec = DataFrame::DataFrame([
-    Series::from_decimal_options(1, "d", [Some(15L), Some(25L)]),
+    Series::from_decimals("d", [
+      Some(@types.Dec128::of_int64_scale(15L, scale=1)),
+      Some(@types.Dec128::of_int64_scale(25L, scale=1)),
+    ]),
   ])
   let same = dec.select([
-    @expr.col("d").is_in([@types.Scalar::Decimal(1, 15L)]).with_alias("r"),
+    @expr.col("d")
+    .is_in([@types.Scalar::Decimal(@types.Dec128::of_int64_scale(15L, scale=1))])
+    .with_alias("r"),
   ])
   assert_eq(same.get_column("r").to_scalars(), [
     @types.Scalar::Bool(true),
     @types.Scalar::Bool(false),
   ])
   let cross = dec.select([
-    @expr.col("d").is_in([@types.Scalar::Decimal(2, 150L)]).with_alias("r"),
+    @expr.col("d")
+    .is_in([
+      @types.Scalar::Decimal(@types.Dec128::of_int64_scale(150L, scale=2)),
+    ])
+    .with_alias("r"),
   ])
   assert_eq(cross.get_column("r").to_scalars(), [
     @types.Scalar::Bool(true),

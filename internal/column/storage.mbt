@@ -105,6 +105,10 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
       // a `Utf8Array` is not an `ArrayView`, so the cell verdict arrives as
       // a closure instead.
       storage_cells_equal(a.len(), self, other, i => a.cell_eq(i, b, i))
+    (ColumnData::Dec(a), ColumnData::Dec(b)) =>
+      // Value equality — the Dec128 Eq's own: cohorts equal (1.0 with
+      // 1.00), ±0 equal, NaN unequal to itself as `Double` is.
+      storage_cells_equal(a.length(), self, other, i => a[i] == b[i])
     // A mixed pair never reaches the value comparison: the dtype identity
     // check above already returned `false` (a column's dtype decides its
     // `ColumnData` variant, so same dtype implies same variant). The arm

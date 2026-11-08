@@ -57,7 +57,8 @@ pub fn eval_ternary(
     @column.ColumnData::Bool(a) => a
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "when condition must be Bool, got \{c2.dtype()}",
@@ -144,8 +145,18 @@ pub fn eval_ternary(
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
+    | (
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+      _,
+    )
+    | (
+      _,
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+    ) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
@@ -294,7 +305,8 @@ fn try_clip_buffers(
       @column.ColumnData::I64(_)
       | @column.ColumnData::F64(_)
       | @column.ColumnData::Bool(_)
-      | @column.ColumnData::Utf8(_) => None
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_) => None
     }
   }
   fn f64_bound(b : Series) -> ClipBound[Double]? {
@@ -305,7 +317,8 @@ fn try_clip_buffers(
       @column.ColumnData::I64(_)
       | @column.ColumnData::F64(_)
       | @column.ColumnData::Bool(_)
-      | @column.ColumnData::Utf8(_) => None
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_) => None
     }
   }
   match operand.storage().data() {
@@ -347,6 +360,7 @@ fn try_clip_buffers(
     // they did before this pass existed.
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) => None
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) => None
   }
 }

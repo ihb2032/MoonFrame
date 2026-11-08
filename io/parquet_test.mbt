@@ -10,7 +10,11 @@ fn parquet_frame() -> @frame.DataFrame raise @types.DataError {
     @series.Series::from_int_options("i", [Some(1), None, Some(3)]),
     @series.Series::from_string_options("s", [Some("a"), Some(""), None]),
     @series.Series::from_date_options("d", [Some(0L), Some(-1L), None]),
-    @series.Series::from_decimal_options(2, "x", [Some(150L), None, Some(-5L)]),
+    @series.Series::from_decimals("x", [
+      Some(@types.Dec128::of_int64_scale(150L, scale=2)),
+      None,
+      Some(@types.Dec128::of_int64_scale(-5L, scale=2)),
+    ]),
   ])
 }
 

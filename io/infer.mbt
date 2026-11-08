@@ -34,7 +34,7 @@ priv enum InferredDtype {
   InferString
   RiderDate
   RiderTimestamp
-  RiderDecimal(Int32)
+  RiderDecimal
 }
 
 ///|
@@ -72,13 +72,10 @@ fn inferred_from_override(
     String => InferString
     Date => RiderDate
     Timestamp => RiderTimestamp
-    Decimal(scale) => {
-      @types.check_decimal_scale(scale, "column \"\{column}\"")
-      RiderDecimal(scale)
-    }
+    Decimal => RiderDecimal
     Null | Duration =>
       raise @types.DataError::InvalidOperation(
-        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser (Duration writes text no reader parses)",
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses)",
       )
   }
 }
@@ -417,10 +414,9 @@ fn[Cell] build_inferred_column(
         on_parse_error~,
         build=@series.Series::from_timestamp_options,
       )
-    RiderDecimal(scale) =>
+    RiderDecimal =>
       build_decimal_pin_column(
         name,
-        scale,
         n,
         cell~,
         is_null~,
@@ -443,7 +439,6 @@ fn[Cell] build_inferred_column(
 /// `on_parse_error` like every other locked-in mismatch.
 fn[Cell] build_decimal_pin_column(
   name : String,
-  scale : Int32,
   n : Int32,
   cell~ : (Int32) -> Cell,
   is_null~ : (Cell) -> Bool,
@@ -451,15 +446,15 @@ fn[Cell] build_decimal_pin_column(
   locate~ : (@types.DataType, Int32, Cell) -> @types.DataError,
   on_parse_error~ : OnParseError,
 ) -> @series.Series raise @types.DataError {
-  let expected = @types.DataType::Decimal(scale)
-  let values : Array[Int64?] = Array::makei(n, i => {
+  let expected = @types.DataType::Decimal
+  let values : Array[@types.Dec128?] = Array::makei(n, i => {
     let c = cell(i)
     if is_null(c) {
       None
     } else {
       match rider_text(c) {
         Some(text) =>
-          match @types.parse_decimal_unscaled_opt(text, scale) {
+          match @types.Dec128::parse_opt(text) {
             Some(v) => Some(v)
             None =>
               match on_parse_error {
@@ -475,5 +470,5 @@ fn[Cell] build_decimal_pin_column(
       }
     }
   })
-  @series.Series::from_decimal_options(scale, name, values)
+  @series.Series::from_decimals(name, values)
 }

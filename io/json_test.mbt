@@ -918,20 +918,23 @@ test "parse_json_str: the rider pins read JSON strings, and only strings" {
     dtypes=Map([
       ("d", @types.DataType::Date),
       ("t", @types.DataType::Timestamp),
-      ("x", @types.DataType::Decimal(2)),
+      ("x", @types.DataType::Decimal),
     ]),
   )
   let df = @io.parse_json_str(content, options=opts)
   assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
   assert_eq(df.get_column("t").dtype(), @types.DataType::Timestamp)
-  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal)
   assert_eq(df.item(0, "d"), @types.Scalar::Date(19724L))
   assert_eq(df.item(0, "t"), @types.Scalar::Timestamp(0L))
-  assert_eq(df.item(0, "x"), @types.Scalar::Decimal(2, 150L))
+  assert_eq(
+    df.item(0, "x"),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(150L, scale=2)),
+  )
   // A JSON number under a rider pin is the located refusal, the riders'
   // counterpart of "a JSON string never coerces into a pinned Int".
   let number = @io.JsonReadOptions::JsonReadOptions(
-    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+    dtypes=Map([("x", @types.DataType::Decimal)]),
   )
   let result = Ok(@io.parse_json_str("[{\"x\": 1.5}]", options=number)) catch {
     e => Err(e)
@@ -952,11 +955,11 @@ test "parse_json_str: the rider pins read JSON strings, and only strings" {
   )
   // The resilient policy nulls the off-form cell and keeps the pin.
   let lenient = @io.JsonReadOptions::JsonReadOptions(
-    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+    dtypes=Map([("x", @types.DataType::Decimal)]),
     on_parse_error=Null,
   )
   let nulled = @io.parse_json_str("[{\"x\": 1.5}]", options=lenient)
-  assert_eq(nulled.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_eq(nulled.get_column("x").dtype(), @types.DataType::Decimal)
   assert_true(nulled.item(0, "x") is @types.Scalar::Null)
   // Every rider refuses a non-string the same way — a Number under the
   // temporal pins too, with the pin's own dtype in the located error.
@@ -979,14 +982,17 @@ test "parse_json_str: the rider pins read JSON strings, and only strings" {
   }
   // A null cell stays null under a decimal pin.
   let with_null = @io.JsonReadOptions::JsonReadOptions(
-    dtypes=Map([("x", @types.DataType::Decimal(2))]),
+    dtypes=Map([("x", @types.DataType::Decimal)]),
   )
   let nulled_row = @io.parse_json_str(
     "[{\"x\": null}, {\"x\": \"1.5\"}]",
     options=with_null,
   )
   assert_true(nulled_row.item(0, "x") is @types.Scalar::Null)
-  assert_eq(nulled_row.item(1, "x"), @types.Scalar::Decimal(2, 150L))
+  assert_eq(
+    nulled_row.item(1, "x"),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(150L, scale=2)),
+  )
 }
 
 ///|

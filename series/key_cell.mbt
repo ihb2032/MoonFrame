@@ -39,6 +39,7 @@ enum KeyCell {
   KNaN
   KBool(Bool)
   KStr(String)
+  KDec(String)
 }
 
 ///|
@@ -50,6 +51,21 @@ pub extend KeyCell with Eq::{equal, not_equal}
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub extend KeyCell with Hash::{hash, hash_combine}
+
+///|
+/// The decimal key cell: NaN one bucket, every finite value its
+/// canonical cohort member's spelling (trailing zeros stripped, so
+/// `1.0` and `1.00` are one key — numeric value equality; the string
+/// carries it so the hash and the equality agree by construction),
+/// the zeroes folded through the canonical zero. The decimal twin of
+/// `float_key_cell` below.
+fn dec_key_cell(v : @types.Dec128) -> KeyCell {
+  if v.is_nan() {
+    KNaN
+  } else {
+    KDec(v.canonical().to_string())
+  }
+}
 
 ///|
 /// Normalise a `Float` key value to its `KeyCell`: `NaN` collapses to `KNaN`
@@ -78,15 +94,16 @@ fn float_key_cell(v : Double) -> KeyCell {
 /// here, sharing `count_distinct`'s reader arms so "one key cell" has one
 /// spelling per buffer across every consumer.
 ///
-/// Two folds carry premises other code argues from, stated where the fold
-/// happens: `NaN` folds to one cell *without* its payload, sound for
-/// consumers only because no operator can observe a NaN's payload bits
-/// (the predicate pass's aggregate crossing leans on this when it argues
-/// a folded group shares one verdict); and a `Decimal` cell keys on the
-/// unscaled magnitude *dropping its scale*, injective only because a
-/// column's scale is uniform — the dtype carries it. A consumer that
-/// could mix scales in one column or read a NaN's payload must not key
-/// through here unchanged.
+/// Two folds carry premises other code argues from, stated where the
+/// fold happens: `NaN` folds to one cell *without* its payload, sound
+/// for consumers only because no operator can observe a NaN's payload
+/// bits (the predicate pass's aggregate crossing leans on this when it
+/// argues a folded group shares one verdict); and a `Decimal` cell keys
+/// on its *canonical* cohort member — trailing zeros stripped — so
+/// value-equal decimals (`1.0`, `1.00`) are one key, while a NaN decimal
+/// keys as the one `KNaN` bucket (the Float NaN's own stance) and ±0
+/// folds through the canonical zero. A consumer that could read a NaN's
+/// payload must not key through here unchanged.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::key_cells(self : Series) -> Array[KeyCell] {
@@ -98,6 +115,7 @@ pub fn Series::key_cells(self : Series) -> Array[KeyCell] {
     @column.ColumnData::F64(a) => i => float_key_cell(a[i])
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
+    @column.ColumnData::Dec(a) => i => dec_key_cell(a[i])
   }
   Array::makei(n, i => if present(i) { key_of(i) } else { KNull })
 }
@@ -117,7 +135,7 @@ fn key_cell(sc : @types.Scalar) -> KeyCell {
     @types.Scalar::String(v) => KStr(v)
     @types.Scalar::Date(v) => KInt(v)
     @types.Scalar::Timestamp(v) => KInt(v)
-    @types.Scalar::Decimal(_, v) => KInt(v)
+    @types.Scalar::Decimal(v) => dec_key_cell(v)
     @types.Scalar::Duration(v) => KInt(v)
     @types.Scalar::Null => KNull
   }

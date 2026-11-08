@@ -19,6 +19,7 @@ pub struct BuiltinColumn {
 }
 pub fn BuiltinColumn::from_bool_options(Array[Bool?]) -> Self
 pub fn BuiltinColumn::from_bools(Array[Bool]) -> Self
+pub fn BuiltinColumn::from_dec_options(Array[@types.Dec128?]) -> Self
 pub fn BuiltinColumn::from_float_options(Array[Double?]) -> Self
 pub fn BuiltinColumn::from_floats(Array[Double]) -> Self
 pub fn BuiltinColumn::from_i64_options(@types.DataType, Array[Int64?]) -> Self
@@ -35,6 +36,7 @@ pub(all) enum ColumnData {
   F64(ArrayView[Double])
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
+  Dec(ArrayView[@types.Dec128])
 }
 pub fn ColumnData::to_repr(Self) -> @debug.Repr
 

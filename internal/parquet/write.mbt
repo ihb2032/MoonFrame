@@ -40,6 +40,36 @@ pub fn write_parquet_bytes(
   for i in 0..<ncols {
     maps.push(map_or_refuse(columns[i].dtype(), names[i]))
   }
+  // The decimal columns' adaptive scale: the one scale every cell
+  // honours — the most fraction digits any cell carries — named in the
+  // annotation and exact per cell. A NaN or ±∞ cell refuses the write
+  // (the fixed-point interchange has no exceptional representation), as
+  // does a cell past the 18-digit INT64 interchange: the value's
+  // unscaled magnitude at the chosen scale must fit an `Int64`.
+  for i in 0..<ncols {
+    if maps[i].converted is Some(DecimalC) {
+      let mut scale = 0
+      for cell in columns[i].to_scalars() {
+        if cell is @types.Scalar::Decimal(v) {
+          if v.is_nan() || v.is_infinite() {
+            raise @types.DataError::InvalidOperation(
+              "cannot write column \"\{names[i]}\": a NaN or infinite decimal cell has no fixed-point interchange spelling",
+            )
+          }
+          let e = v.canonical().exponent().unwrap_or(0)
+          if -e > scale {
+            scale = -e
+          }
+        }
+      }
+      if scale > 18 {
+        raise @types.DataError::InvalidOperation(
+          "cannot write column \"\{names[i]}\": its cells carry \{scale} fraction digits, past the INT64 decimal interchange's 18",
+        )
+      }
+      maps[i].decimal_scale = scale
+    }
+  }
   let nrows : Int64 = if ncols == 0 {
     0L
   } else {
@@ -224,7 +254,23 @@ fn encode_plain_value(
     }
     (Int64P, Timestamp(micros)) => push_le_i64(buf, micros)
     (Int64P, Duration(micros)) => push_le_i64(buf, micros)
-    (Int64P, Decimal(_, unscaled)) => push_le_i64(buf, unscaled)
+    (Int64P, Decimal(v)) => {
+      // The cell lifted to the column's adaptive scale — exact by the
+      // write-side gate (the scale is the most fraction digits any cell
+      // carries), the magnitude inside Int64 by the same gate. The lift
+      // multiplies by 10^scale (the *unscaled* magnitude the annotation
+      // names), spelled as the value 1 × 10^-(-scale).
+      let lifted = v.mul(
+        @types.Dec128::of_int64_scale(1L, scale=-map.decimal_scale),
+      )
+      match lifted.to_int64() {
+        Some(u) => push_le_i64(buf, u)
+        None =>
+          raise @types.DataError::InvalidOperation(
+            "cannot write a decimal cell past the INT64 interchange",
+          )
+      }
+    }
     _ =>
       raise @types.DataError::InvalidOperation(
         "parquet encoder met a \{scalar.dtype()} cell under a \{map.dtype} column",

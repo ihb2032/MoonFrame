@@ -15,9 +15,9 @@ test "physical: the concrete dtypes map to their buffers; Null has none" {
   assert_true(DataType::Date.physical() is Some(PhysicalType::I64))
   // ...and Timestamp rides it too, the second I64 rider.
   assert_true(DataType::Timestamp.physical() is Some(PhysicalType::I64))
-  // ...and Decimal is the third: its scale lives in the dtype, its
-  // magnitude in the buffer.
-  assert_true(DataType::Decimal(2).physical() is Some(PhysicalType::I64))
+  // ...and Decimal rides its own Dec128 buffer — the one dtype the
+  // frozen set grew for.
+  assert_true(DataType::Decimal.physical() is Some(PhysicalType::Dec))
 }
 
 ///|
@@ -29,9 +29,7 @@ test "display names are the registered spellings" {
   assert_eq(DataType::String.to_string(), "String")
   assert_eq(DataType::Date.to_string(), "Date")
   assert_eq(DataType::Timestamp.to_string(), "Timestamp")
-  // The one parameterised spelling — it reaches TypeMismatch and
-  // ParseError messages, so its interpolation is pinned here.
-  assert_eq(DataType::Decimal(2).to_string(), "Decimal(2)")
+  assert_eq(DataType::Decimal.to_string(), "Decimal")
   assert_eq(DataType::Null.to_string(), "Null")
 }
 
@@ -45,18 +43,18 @@ test "numericity: Int and Float only, however the buffers align" {
   assert_false(DataType::Date.is_numeric())
   // Timestamp is microseconds on I64 — not a number either.
   assert_false(DataType::Timestamp.is_numeric())
-  // Decimal's arithmetic is its own checked lane (scale alignment), not
-  // the generic numeric one.
-  assert_false(DataType::Decimal(2).is_numeric())
+  // Decimal's arithmetic is the IEEE value lane, not the generic
+  // numeric one.
+  assert_false(DataType::Decimal.is_numeric())
   assert_false(DataType::Null.is_numeric())
 }
 
 ///|
 test "summability: Decimal sums, the other riders do not" {
-  // A decimal column's sum is a decimal of the same scale (the checked
-  // fold); a date / timestamp column has no meaningful sum. Read through
-  // the accessor the whole-frame stats gate uses.
-  assert_true(DataType::Decimal(2).is_summable())
+  // A decimal column's sum is the IEEE fold; a date / timestamp
+  // column has no meaningful sum. Read through the accessor the
+  // whole-frame stats gate uses.
+  assert_true(DataType::Decimal.is_summable())
   assert_false(DataType::Date.is_summable())
   assert_false(DataType::Timestamp.is_summable())
 }

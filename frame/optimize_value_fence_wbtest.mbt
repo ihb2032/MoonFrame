@@ -1,16 +1,33 @@
-// Whitebox pin for the standalone risk walk's aggregate-all step: the
-// pushdown passes always hand their risk in, so this walk is the only
-// reader that steps an `AggregateAll` node — its hook is the pass-through
-// the shared rebuild's last hook spells inline.
+// Whitebox coverage pins for the temporal risk walk's accumulator steps
+// over non-empty stage sets — the rename / rename_with / unpivot folds
+// the passes reach only through plans whose trees they happen to cross,
+// pinned here directly so every step stays counted.
 
 ///|
-test "value risk: an aggregate-all plan rides the standalone walk" {
+test "the standalone walk steps an aggregate-all plan" {
   let df = DataFrame::DataFrame([
     @series.Series::from_ints("g", [1, 2]),
     @series.Series::from_ints("v", [10, 20]),
   ])
   let plan = LazyFrame::LazyFrame(df).group_by([@expr.col("g")]).sum()
   let risk = value_risk_in_plan(plan.plan)
-  // Neither family's names ride an all-int plan, and no leaf raised a flag.
-  assert_true(!risk.decimal.any && !risk.temporal.any)
+  assert_true(!risk.any)
+}
+
+///|
+test "the risk accumulators fold non-empty stage sets" {
+  let stage = @set.Set([])
+  stage.add("ts")
+  let below = leaf_acc(stage)
+  // Rename moves the family's name; the union folds both spellings.
+  let renamed = rename_acc(below, [("ts", "moment")])
+  assert_true(renamed.stage.contains("moment"))
+  assert_true(renamed.union.contains("ts"))
+  // RenameWith maps through the closure.
+  let closed = rename_with_acc(below, n => n + "_x")
+  assert_true(closed.stage.contains("ts_x"))
+  // Unpivot keeps the index names beside the value column.
+  let unpivoted = unpivot_acc(below, "v")
+  assert_true(unpivoted.stage.contains("v"))
+  assert_true(unpivoted.stage.contains("ts"))
 }

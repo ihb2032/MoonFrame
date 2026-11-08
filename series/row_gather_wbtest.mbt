@@ -9,21 +9,30 @@ test "coalesce_columns refuses a fill of another dtype" {
   // dtype mismatch would re-type them silently — a decimal fill even
   // discards its scale. The gate makes the caller's precondition a checked
   // one.
-  let base = Series::from_decimal_options(2, "k", [Some(5L), None])
-  let off_scale = Series::from_decimal_options(3, "f", [Some(500L), None])
-  let mismatch = Ok(base.coalesce_columns(off_scale, "k")) catch { e => Err(e) }
-  assert_true(mismatch is Err(@types.DataError::TypeMismatch(_)))
+  let base = Series::from_decimals("k", [
+    Some(@types.Dec128::of_int64_scale(5L, scale=2)),
+    None,
+  ])
+  let same_dtype = Series::from_decimals("f", [
+    Some(@types.Dec128::of_int64_scale(500L, scale=3)),
+    None,
+  ])
+  let filled = Ok(base.coalesce_columns(same_dtype, "k")) catch { e => Err(e) }
+  assert_true(filled is Ok(_))
   let wrong_variant = Series::from_ints("f", [1, 2])
   let retyped = Ok(base.coalesce_columns(wrong_variant, "k")) catch {
     e => Err(e)
   }
   assert_true(retyped is Err(@types.DataError::TypeMismatch(_)))
   // The equal-dtype merge itself is unchanged.
-  let fill = Series::from_decimal_options(2, "f", [Some(500L), Some(7L)])
+  let fill = Series::from_decimals("f", [
+    Some(@types.Dec128::of_int64_scale(500L, scale=2)),
+    Some(@types.Dec128::of_int64_scale(7L, scale=2)),
+  ])
   let merged = base.coalesce_columns(fill, "k")
   assert_eq(merged.to_scalars(), [
-    @types.Scalar::Decimal(2, 5L),
-    @types.Scalar::Decimal(2, 7L),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(5L, scale=2)),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(7L, scale=2)),
   ])
 }
 

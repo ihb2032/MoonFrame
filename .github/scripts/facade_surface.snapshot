@@ -1031,14 +1031,17 @@ fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataErr
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 impl @debug.Debug for Expr <- expr
+impl @shrink.Shrink for Dec128 <- types
 impl Add for Expr <- expr
 impl BitAnd for Expr <- expr
 impl BitOr for Expr <- expr
 impl Div for Expr <- expr
+impl Eq for Dec128 <- types
 impl Mul for Expr <- expr
 impl Neg for Expr <- expr
 impl Show for DataError <- types
 impl Show for DataType <- types
+impl Show for Dec128 <- types
 impl Show for Expr <- expr
 impl Show for Field <- types
 impl Show for Scalar <- types
@@ -1197,14 +1200,19 @@ method Dec128::lt(Self, Self) -> Bool <- types
 method Dec128::mul(Self, Self) -> Self <- types
 method Dec128::nan() -> Self <- types
 method Dec128::neg(Self) -> Self <- types
+method Dec128::not_equal(Self, Self) -> Bool <- types
 method Dec128::of_int64(Int64) -> Self <- types
 method Dec128::of_int64_scale(Int64, scale~ : Int32) -> Self <- types
+method Dec128::output(Self, &Logger) -> Unit <- types
 method Dec128::parse_opt(String) -> Self? <- types
 method Dec128::quantize(Self, places~ : Int32) -> Self <- types
+method Dec128::shrink(Self) -> Iter[Self] <- types
 method Dec128::sub(Self, Self) -> Self <- types
 method Dec128::to_double(Self) -> Double <- types
 method Dec128::to_int64(Self) -> Int64? <- types
+method Dec128::to_repr(Self) -> @debug.Repr <- types
 method Dec128::to_string(Self) -> String <- types
+method Dec128::trunc(Self) -> Self <- types
 method Dec128::zero(neg? : Bool) -> Self <- types
 method Expr::abs(Self) -> Self <- expr
 method Expr::acos(Self) -> Self <- expr

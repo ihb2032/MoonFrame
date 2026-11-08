@@ -97,8 +97,8 @@ fn eval_over(
   // `Float` group promotes to `Float` (the arithmetic engine's rule)
   // rather than raising a misleading `TypeMismatch`, and the tolerant
   // projection (`scalars_to_series`) nulls a minority cell it cannot
-  // express — a mixed-scale `Decimal` stitch lands the off-scale minority
-  // as null, like `map`'s own mixed-scale result does.
+  // express — a `Decimal` cell beside cells of another dtype lands as
+  // null, like `map`'s own mixed result does.
   let cells = @kernel.promote_mixed_int_float(cells)
   let witness = match @kernel.infer_cells_dtype(cells) {
     Some(p) => p

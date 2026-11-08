@@ -1107,7 +1107,13 @@ fn scalar_of_physical(
 ) -> @types.Scalar {
   match map.dtype {
     Timestamp => @types.Scalar::Timestamp(int_value)
-    Decimal(scale) => @types.Scalar::Decimal(scale, int_value)
+    // The unscaled magnitude lifts into the Dec128 value exactly at the
+    // annotation's scale — a 19-digit Int64 at most, far inside the
+    // format's 34.
+    Decimal =>
+      @types.Scalar::Decimal(
+        @types.Dec128::of_int64_scale(int_value, scale=map.decimal_scale),
+      )
     Date => @types.Scalar::Date(int_value)
     Float => @types.Scalar::Float(float_value)
     // `Bool` and `String` decode through their own physical arms (the

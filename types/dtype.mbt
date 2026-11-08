@@ -36,23 +36,29 @@ pub(all) enum DataType {
   /// fraction always six digits so the rendering round-trips); readers never
   /// infer it.
   Timestamp
-  /// A fixed-point decimal, parameterised by its `scale` — the number of
-  /// decimal digits after the point. A cell carries its *unscaled* magnitude
-  /// as an `Int64` (the value is `unscaled × 10⁻ˢᶜᶜᵃˡᵉ`), so the usable
-  /// precision is `18 - scale` integer digits: `Decimal(2)` over `12345` is
-  /// `123.45`. An `I64` physical buffer with decimal semantics, like `Date` /
-  /// `Timestamp` riders. Comparison, ordering, grouping, `sum` / `min` /
-  /// `max` / `count` are exact over the unscaled cells; `+` / `-` / `*` are
-  /// exact across scales (both sides lift to the larger scale, `Int` lifts
-  /// as scale 0, `*` adds the scales) and refuse — `InvalidOperation`,
-  /// never a wrap — when a magnitude leaves the range; `+` / `-` / `*` with
-  /// a `Float` stay fenced (`TypeMismatch`); division goes through `Float`
-  /// — every operand mix converts (`Int` as scale 0, a `Float` side too) and
-  /// divides in `Double`, no exact result-scale rule existing;
-  /// the `Int` lift is arithmetic-only — a `Decimal` compared against an
-  /// `Int` is a `TypeMismatch`, so a compared bound is written as a
-  /// decimal literal; readers never infer it.
-  Decimal(Int32)
+  /// An IEEE 754-2019 decimal128 floating-point number — the `Dec128`
+  /// value layer's semantics in a column: up to 34 significant digits,
+  /// a per-value quantum exponent in `[-6176, 6144]`, and the
+  /// exceptional shapes ±infinity, `NaN`, and signed zero as *values*
+  /// (ordered by the total order the `Float` stack already uses — NaN
+  /// past everything, −0 and +0 equal — never routed through the
+  /// missing-placement rule). Arithmetic computes exactly and rounds
+  /// once, ties to even; `+` / `-` / `*` / `/` stay `Decimal` (`Int`
+  /// lifts exactly, a `Float` operand promotes the pair to `Float`);
+  /// a magnitude past `10^6144` is ±∞, one below the subnormal floor a
+  /// signed zero — an overflow is a value, never a refusal. Exact
+  /// results keep the cohort's preferred exponent (the addends' finer
+  /// one, the operand exponents' sum for `*`, their difference for
+  /// `/`), so `1.50 + 0` is `1.50`. `sum` propagates NaN and folds
+  /// +∞ with −∞ into NaN; `min` / `max` skip NaN as missing. Not
+  /// numeric (mean / median / quantile / rolling refuse); comparison,
+  /// ordering, grouping, joins read numeric value equality (cohorts
+  /// compare equal — `1.0` joins `1.00`). The parquet interchange
+  /// rides the `DECIMAL` annotation: a column every cell of which
+  /// fits 18 digits rides `INT64` as before, wider ones
+  /// `FIXED_LEN_BYTE_ARRAY(16)` at precision 38; a NaN or ±∞ cell
+  /// refuses the write. Readers never infer it.
+  Decimal
   /// A span of time, stored as whole microseconds (negative for a span
   /// running backwards) — an `I64` physical buffer with duration
   /// semantics, `Timestamp`'s unit without its epoch. The temporal
@@ -65,29 +71,6 @@ pub(all) enum DataType {
   /// `String`, and a `dtypes` pin refuses it.
   Duration
   Null
-}
-
-///|
-/// The decimal envelope's one enforcement point: a `Decimal` dtype's scale
-/// stays in `[0, 18]` — eighteen fraction digits is the most an `Int64`
-/// unscaled magnitude leaves room for, the bound the `Decimal` variant's
-/// docstring states. Every constructor that authors a decimal dtype (the
-/// series builder, the scalar projection, the arithmetic's output scale)
-/// raises here, so no column the library builds carries a scale the
-/// rendering and the rescale would only meet downstream. A hand-built
-/// `Scalar::Decimal` can still name any scale — `Scalar` is `pub(all)` —
-/// which is why the rendering stays total over every input it is handed.
-#doc(hidden)
-#internal(engine, "MoonFrame execution engine API")
-pub fn check_decimal_scale(
-  scale : Int32,
-  origin : String,
-) -> Unit raise DataError {
-  if scale < 0 || scale > 18 {
-    raise DataError::InvalidOperation(
-      "decimal \{origin} carries scale \{scale}, outside the envelope [0, 18]",
-    )
-  }
 }
 
 ///|

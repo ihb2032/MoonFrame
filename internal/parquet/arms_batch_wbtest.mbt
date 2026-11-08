@@ -33,6 +33,8 @@ test "the series builder refuses a Null-mapped column" {
     physical: Int64P,
     converted: None,
     decimal_scale: -1,
+    decimal_precision: -1,
+    flba_width: -1,
   }
   let result = Ok(ignore(build_series("n", null_map, []))) catch { e => Err(e) }
   assert_true(result is Err(@types.DataError::ParseError(_)))

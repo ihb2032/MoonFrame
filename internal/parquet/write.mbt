@@ -43,9 +43,14 @@ pub fn write_parquet_bytes(
   // The decimal columns' adaptive scale: the one scale every cell
   // honours — the most fraction digits any cell carries — named in the
   // annotation and exact per cell. A NaN or ±∞ cell refuses the write
-  // (the fixed-point interchange has no exceptional representation), as
-  // does a cell past the 18-digit INT64 interchange: the value's
-  // unscaled magnitude at the chosen scale must fit an `Int64`.
+  // (the fixed-point interchange has no exceptional representation).
+  // The payload then follows the magnitudes: every lifted cell inside
+  // `Int64` rides the 18-digit INT64 interchange as before; a column
+  // only the 16-byte FIXED_LEN_BYTE_ARRAY payload holds (a scale past
+  // 18, or a magnitude past `Int64` at a scale that fits) rides
+  // precision 38 over 16 bytes — and a column past even that window
+  // (a scale past 38, or a magnitude past the 38 digits the 16-byte
+  // payload spells) refuses naming the window it leaves.
   for i in 0..<ncols {
     if maps[i].converted is Some(DecimalC) {
       let mut scale = 0
@@ -62,12 +67,43 @@ pub fn write_parquet_bytes(
           }
         }
       }
-      if scale > 18 {
+      // The lifted digits each cell spells at the chosen scale — the
+      // payload decision's own facts, read off the canonical
+      // coefficient and exponent once per cell.
+      let mut int64_window = scale <= 18
+      let mut flba_window = scale <= 38
+      for cell in columns[i].to_scalars() {
+        if cell is @types.Scalar::Decimal(v) {
+          if v.is_zero() {
+            continue
+          }
+          let canon = v.canonical()
+          let e = canon.exponent().unwrap_or(0)
+          let digits = canon.coefficient_digits().unwrap_or([]).length()
+          // The lifted magnitude's digit count: the coefficient's own
+          // digits plus the zeros the scale-to-exponent shift appends.
+          let lifted = digits + scale + e
+          if lifted > 18 {
+            int64_window = false
+          }
+          if lifted > 38 {
+            flba_window = false
+          }
+        }
+      }
+      if int64_window {
+        maps[i].decimal_scale = scale
+        maps[i].decimal_precision = 18
+      } else if flba_window {
+        maps[i].decimal_scale = scale
+        maps[i].decimal_precision = 38
+        maps[i].physical = FlbaP
+        maps[i].flba_width = 16
+      } else {
         raise @types.DataError::InvalidOperation(
-          "cannot write column \"\{names[i]}\": its cells carry \{scale} fraction digits, past the INT64 decimal interchange's 18",
+          "cannot write column \"\{names[i]}\": its cells leave the decimal interchange's 38-digit window",
         )
       }
-      maps[i].decimal_scale = scale
     }
   }
   let nrows : Int64 = if ncols == 0 {
@@ -271,6 +307,11 @@ fn encode_plain_value(
           )
       }
     }
+    (FlbaP, Decimal(v)) =>
+      // The same lift, spelled over the 16-byte payload: the unscaled
+      // magnitude as big-endian two's complement, the width the
+      // write-side gate chose and the footer's type_length names.
+      push_flba16_decimal(buf, v, map.decimal_scale)
     _ =>
       raise @types.DataError::InvalidOperation(
         "parquet encoder met a \{scalar.dtype()} cell under a \{map.dtype} column",
@@ -310,18 +351,28 @@ fn write_footer(
   for i in 0..<maps.length() {
     w.struct_field_begin_list_elem()
     w.i32_field(1, physical_tag(maps[i].physical))
+    if maps[i].physical is FlbaP {
+      // The FIXED_LEN_BYTE_ARRAY element's own field: the payload width
+      // the decoder strides by.
+      w.i32_field(2, maps[i].flba_width)
+    }
     w.i32_field(3, 1) // OPTIONAL repetition
     w.text_field(4, names[i])
     match maps[i].converted {
       Some(c) => {
         w.i32_field(6, converted_tag(c))
         if c is DecimalC {
-          // The scale the row carried from the dtype; the precision the
-          // INT64 payload bounds.
+          // The scale and the precision the adaptive pass chose — 18
+          // over the INT64 payload, 38 over the 16-byte one.
           w.i32_field(7, maps[i].decimal_scale)
-          w.i32_field(8, decimal_precision())
+          w.i32_field(8, maps[i].decimal_precision)
         }
-        write_logical_type(w, c, maps[i].decimal_scale)
+        write_logical_type(
+          w,
+          c,
+          maps[i].decimal_scale,
+          maps[i].decimal_precision,
+        )
       }
       None => ()
     }
@@ -384,7 +435,12 @@ fn write_footer(
 /// carries scale (1) then precision (2), TIMESTAMP (8) carries the
 /// isAdjustedToUTC bool (1) — a MoonFrame timestamp is an epoch count,
 /// so UTC-adjusted — and the MICROS (2) unit inside its TimeUnit union.
-fn write_logical_type(w : ThriftWriter, c : Converted, scale : Int32) -> Unit {
+fn write_logical_type(
+  w : ThriftWriter,
+  c : Converted,
+  scale : Int32,
+  precision : Int32,
+) -> Unit {
   w.struct_field_begin(10)
   match c {
     Utf8C => w.empty_struct_field(1)
@@ -392,7 +448,7 @@ fn write_logical_type(w : ThriftWriter, c : Converted, scale : Int32) -> Unit {
     DecimalC => {
       w.struct_field_begin(5)
       w.i32_field(1, scale)
-      w.i32_field(2, decimal_precision())
+      w.i32_field(2, precision)
       w.struct_end()
     }
     TimestampMicrosC => {
@@ -437,6 +493,112 @@ fn ThriftWriter::text_list_elem(self : ThriftWriter, v : String) -> Unit {
   self.write_varint(encoded.length().to_uint64())
   for b in encoded {
     self.buf.push(b)
+  }
+}
+
+///|
+/// The ×10-and-add-digit step the 16-byte decimal accumulator folds
+/// by. The low half's add-digit carry is arithmetically unreachable
+/// over the decimal input domain, though the fold keeps the guard
+/// anyway: 2^64 ends in 6, so any k·2^64 ends in an even digit, and
+/// 10L ends in 0 — the low half after the ×10 step (10L − k·2^64)
+/// therefore always ends in an even digit, while the carry needs it
+/// within nine of the wrap (a final digit 1 through 9, all odd).
+/// `#coverage.skip` rides the whole helper for that one arm, the same
+/// trade the BOOLEAN dictionary capacity makes for its memory-bound
+/// arm.
+#coverage.skip
+fn times10_plus(
+  acc_hi : UInt64,
+  acc_lo : UInt64,
+  d : UInt64,
+) -> (UInt64, UInt64) {
+  let lo_prod = mul_u64(10UL, acc_lo)
+  let hi_prod = mul_u64(10UL, acc_hi)
+  let new_hi = hi_prod.0 + lo_prod.1
+  let new_lo = lo_prod.0 + d
+  if new_lo < lo_prod.0 {
+    (new_hi + 1UL, new_lo)
+  } else {
+    (new_hi, new_lo)
+  }
+}
+
+///|
+/// One decimal cell's 16-byte FIXED_LEN_BYTE_ARRAY spelling: the value
+/// lifted to the column's adaptive scale, then written as big-endian
+/// two's complement — the interchange's own PLAIN form for the wide
+/// decimal payload. The lifted magnitude's decimal digits accumulate
+/// into a 128-bit (hi, lo) pair two UInt64s carry (38 digits sit far
+/// inside), the negative side taking the two's complement, and the
+/// pair writes out big-endian: hi's eight bytes, then lo's.
+fn push_flba16_decimal(
+  buf : Array[Byte],
+  v : @types.Dec128,
+  scale : Int32,
+) -> Unit {
+  let lifted = v.mul(@types.Dec128::of_int64_scale(1L, scale=-scale))
+  let neg = lifted.is_negative()
+  let canon = lifted.abs().canonical()
+  let e = canon.exponent().unwrap_or(0)
+  let digits = canon.coefficient_digits().unwrap_or([])
+  // (hi, lo) × 10 + d over the 128-bit pair, once per decimal digit
+  // and once per trailing zero the shift appends — the write-side gate
+  // bounds the whole run at 38 digits, so no bit ever drops past 128.
+  let mut hi = 0UL
+  let mut lo = 0UL
+  for d in digits {
+    let acc = times10_plus(hi, lo, d.to_uint64())
+    hi = acc.0
+    lo = acc.1
+  }
+  for _ in 0..<e {
+    let acc = times10_plus(hi, lo, 0UL)
+    hi = acc.0
+    lo = acc.1
+  }
+  if neg {
+    // Two's complement over 128 bits: each half's flip is the all-ones
+    // mask minus the half (no bitwise-NOT operator rides the pair),
+    // then one adds through the low half with its carry.
+    hi = 0xFFFF_FFFF_FFFF_FFFFUL - hi
+    lo = 0xFFFF_FFFF_FFFF_FFFFUL - lo
+    lo = lo + 1UL
+    if lo == 0UL {
+      hi = hi + 1UL
+    }
+  }
+  push_be_u64(buf, hi)
+  push_be_u64(buf, lo)
+}
+
+///|
+/// The low and high halves of a UInt64 product (little pair: low,
+/// high) — the multiply the 128-bit decimal accumulator rides.
+fn mul_u64(a : UInt64, b : UInt64) -> (UInt64, UInt64) {
+  let a_lo = a & 0xFFFF_FFFFUL
+  let a_hi = a >> 32
+  let b_lo = b & 0xFFFF_FFFFUL
+  let b_hi = b >> 32
+  let ll = a_lo * b_lo
+  let lh = a_lo * b_hi
+  let hl = a_hi * b_lo
+  let hh = a_hi * b_hi
+  // lo = ll + (lh << 32) + (hl << 32), assembled with carries.
+  let mid1 = ll + (lh << 32)
+  let carry1 = if mid1 < ll { 1UL } else { 0UL }
+  let mid2 = mid1 + (hl << 32)
+  let carry2 = if mid2 < mid1 { 1UL } else { 0UL }
+  let lo = mid2
+  let hi = hh + (lh >> 32) + (hl >> 32) + carry1 + carry2
+  (lo, hi)
+}
+
+///|
+/// One UInt64 as eight big-endian bytes — the FLBA payload's halves.
+fn push_be_u64(buf : Array[Byte], v : UInt64) -> Unit {
+  for shift in [56, 48, 40, 32, 24, 16, 8, 0] {
+    buf.push(((v >> shift) & 0xFFUL).to_byte())
   }
 }
 

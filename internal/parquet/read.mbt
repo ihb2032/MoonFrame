@@ -146,6 +146,7 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
             schema[i].converted,
             schema[i].decimal_scale,
             schema[i].decimal_precision,
+            schema[i].type_length,
           ) {
           Some(map) => Some((map, schema[i].repetition == 0))
           None => None
@@ -197,13 +198,15 @@ priv struct SchemaElem {
   converted : Int32?
   decimal_scale : Int32?
   decimal_precision : Int32?
+  type_length : Int32?
 }
 
 ///|
 /// Read the schema list itself: the size byte / varint, then each
-/// element struct's fields — the physical type (1), the repetition type
-/// (3), the name (4), the child count (5), the converted annotation (6),
-/// the decimal scale (7), and the decimal precision (8).
+/// element struct's fields — the physical type (1), the FIXED_LEN_BYTE_ARRAY
+/// element's type length (2), the repetition type (3), the name (4), the
+/// child count (5), the converted annotation (6), the decimal scale (7),
+/// and the decimal precision (8).
 fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
   let count = match list_header(r, 12) {
     Some(c) => c
@@ -217,12 +220,21 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
     let mut converted : Int32? = None
     let mut scale : Int32? = None
     let mut precision : Int32? = None
+    let mut type_length : Int32? = None
     let walked = walk_fields(r, (id, wire) => {
       match id {
         1 =>
           match r.zigzag_i32() {
             Some(v) => {
               physical = v
+              true
+            }
+            None => false
+          }
+        2 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              type_length = Some(v)
               true
             }
             None => false
@@ -289,6 +301,7 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
       converted,
       decimal_scale: scale,
       decimal_precision: precision,
+      type_length,
     })
   }
   true
@@ -1017,6 +1030,9 @@ fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
     Boolean => boolean_dictionary_cap(bytes)
     Int32P => bytes.length() / 4
     Int64P | DoubleP => bytes.length() / 8
+    // One fixed-width cell per stride — the width the schema's own
+    // type_length named and the map carried.
+    FlbaP => bytes.length() / map.flba_width
     ByteArrayP => {
       let mut n = 0
       let mut at = 0
@@ -1031,6 +1047,88 @@ fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
       n
     }
   }
+}
+
+///|
+/// One FIXED_LEN_BYTE_ARRAY decimal cell: `width` bytes of big-endian
+/// two's complement, the value they spell lifted at the annotation's
+/// scale. The bytes fold into a 128-bit (hi, lo) pair (the widest legal
+/// payload is 16 bytes), the negative side negates over the pair
+/// (wrapping arithmetic), and the magnitude's decimal digits come off
+/// as the remainders of dividing the pair by ten until it empties —
+/// the digit string plus its scale exponent then parses back exactly,
+/// whatever the width.
+fn flba_decimal_scalar(
+  bytes : Bytes,
+  at : Int32,
+  width : Int32,
+  scale : Int32,
+) -> @types.Dec128 {
+  // The sign rides the payload's own top bit — the first byte's, at
+  // any width (the 128-bit pair's top bit names it only when the
+  // width is the full sixteen).
+  let neg = (bytes[at] & b'\x80') != b'\x00'
+  let mut hi = 0UL
+  let mut lo = 0UL
+  for i in 0..<width {
+    let b = bytes[at + i].to_uint64()
+    hi = (hi << 8) | (lo >> 56)
+    lo = (lo << 8) | b
+  }
+  if neg {
+    // Sign-extend the payload across the pair first — two's
+    // complement runs over the width's own bits, and a narrow payload
+    // negated over the full 128 would leave the pair far above the
+    // value it spells.
+    let mut top = 15
+    while top >= width {
+      if top >= 8 {
+        hi = hi | (0xFFUL << ((top - 8) * 8))
+      } else {
+        lo = lo | (0xFFUL << (top * 8))
+      }
+      top = top - 1
+    }
+    // Two's complement: zero minus the pair, the borrow named by the
+    // low half's wrap.
+    let flipped_lo = 0UL - lo
+    let borrow = if flipped_lo != 0UL { 1UL } else { 0UL }
+    hi = 0UL - hi - borrow
+    lo = flipped_lo
+  }
+  // Long division by ten over four little-endian 32-bit limbs — the
+  // remainder of each pass one digit, least significant first.
+  let limbs : FixedArray[UInt64] = [
+    lo & 0xFFFF_FFFFUL,
+    lo >> 32,
+    hi & 0xFFFF_FFFFUL,
+    hi >> 32,
+  ]
+  let digits : Array[Char] = []
+  let mut more = true
+  while more {
+    more = false
+    let mut rem = 0UL
+    for k = 3; k >= 0; k = k - 1 {
+      let cur = (rem << 32) | limbs[k]
+      limbs[k] = cur / 10UL
+      rem = cur % 10UL
+      if limbs[k] != 0UL {
+        more = true
+      }
+    }
+    digits.push((48 + rem.to_int()).unsafe_to_char())
+  }
+  // The digit run at most 39 long, so plain concatenation from the
+  // most significant end is plenty.
+  let mut text = if neg { "-" } else { "" }
+  for i = digits.length() - 1; i >= 0; i = i - 1 {
+    text = "\{text}\{digits[i]}"
+  }
+  if scale > 0 {
+    text = "\{text}E-\{scale}"
+  }
+  @types.Dec128::parse_opt(text).unwrap_or(@types.Dec128::zero())
 }
 
 ///|
@@ -1080,6 +1178,15 @@ fn decode_plain_values(
         let bit = bool_bit(bytes, at)
         at = at + 1
         out.push(@types.Scalar::Bool(bit))
+      }
+      FlbaP => {
+        let width = map.flba_width
+        if at + width > bytes.length() {
+          raise bad("column \"\{name}\" PLAIN values end early")
+        }
+        let v = flba_decimal_scalar(bytes, at, width, map.decimal_scale)
+        at = at + width
+        out.push(@types.Scalar::Decimal(v))
       }
       ByteArrayP =>
         match le_bytes_prefix(bytes, at) {

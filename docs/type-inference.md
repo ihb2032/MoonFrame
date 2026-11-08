@@ -72,12 +72,11 @@ inference's place:
   `0`-padded `zip` column stays `String`, never `Int`).
 - Every dtype with a read parser can be pinned: `Int` / `Float` / `Bool` /
   `String` parse from cell text, and the rider dtypes `Date` / `Timestamp` /
-  `Decimal(scale)` parse the writers' own text forms (ISO `YYYY-MM-DD`, ISO
+  `Decimal` parse the writers' own text forms (ISO `YYYY-MM-DD`, ISO
   `YYYY-MM-DDTHH:MM:SS.ffffff` with an optional trailing `Z` and an
-  optional shorter fraction, and plain fixed-point digits). A `Decimal` pin
-  carries its scale — `"1.5"` under `Decimal(2)` reads `1.50`, and a cell
-  with more fraction digits than the scale names is a mismatch, not a
-  truncation. Pinning `Null` — the one dtype with no read parser — fails
+  optional shorter fraction, and the decimal value reader's forms —
+  positional and scientific alike). A `Decimal` pin reads any decimal
+  spelling the engine's reader accepts. Pinning `Null` — the one dtype with no read parser — fails
   the read with `InvalidOperation` at read time, loudly rather than as a
   silent no-op.
 - A pin naming a column the input does not carry is refused with

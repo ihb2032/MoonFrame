@@ -83,12 +83,6 @@ pub fn Series::empty_of(
   name : String,
   dtype : @types.DataType,
 ) -> Series raise @types.DataError {
-  // The envelope check rides the empty column too: a zero-row frame is
-  // still a column the library authored, and its dtype would otherwise
-  // be the one decimal a later verb could lift a scalar out of.
-  if dtype is @types.DataType::Decimal(scale) {
-    @types.check_decimal_scale(scale, "column \{name}")
-  }
   let storage = match dtype.physical() {
     // The I64 riders share one buffer, so the dtype-carrying constructor
     // serves both `Int` and its riders (`Date`) — no per-dtype branch.
@@ -97,6 +91,8 @@ pub fn Series::empty_of(
     Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
     Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
     Some(@types.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
+    Some(@types.PhysicalType::Dec) =>
+      @column.BuiltinColumn::from_dec_options([])
     None =>
       raise @types.DataError::Unsupported(
         "cannot build an empty column of dtype Null: \{name}",
@@ -139,21 +135,14 @@ pub fn Series::from_int_options(
 /// The dtype-carrying rebuild keeps a `Date` column a `Date` (an `Int`
 /// rebuild would silently retype every cell), so a kernel arm that rebuilds
 /// same-physical columns without knowing which rider it holds goes through
-/// here, not `from_int_options`. A decimal dtype meets the envelope check
-/// here too, so the "every constructor that authors a decimal dtype raises"
-/// claim (`check_decimal_scale`) needs no seam exception.
+/// here, not `from_int_options`.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::from_i64_options(
   name : String,
   dtype : @types.DataType,
   values : Array[Int64?],
-) -> Series raise @types.DataError {
-  match dtype {
-    @types.DataType::Decimal(scale) =>
-      @types.check_decimal_scale(scale, "column \{name}")
-    _ => ()
-  }
+) -> Series {
   Series::from_builtin(
     name,
     @column.BuiltinColumn::from_i64_options(dtype, values),
@@ -339,18 +328,8 @@ pub fn Series::from_scalars(
           }
         }),
       )
-    @types.DataType::Decimal(scale) =>
-      Series::from_decimal_options(
-        scale,
-        name,
-        typed_cells(cells, target, name, cell => {
-          if cell is @types.Scalar::Decimal(s, v) && s == scale {
-            Some(v)
-          } else {
-            None
-          }
-        }),
-      )
+    @types.DataType::Decimal =>
+      Series::from_decimals(name, typed_cells(cells, target, name, dec_cell))
     @types.DataType::Duration =>
       Series::from_duration_options(
         name,
@@ -453,27 +432,17 @@ pub fn Series::from_duration_options(
 }
 
 ///|
-/// Build a `Decimal(scale)` series from optional raw unscaled magnitudes
-/// (the value is `unscaled x 10^-scale`), `None` entries nulls. The decimal
-/// face of the shared `I64` buffer constructor: the cells are the same
-/// `Int64` buffer an int column carries, with decimal semantics on read —
-/// the registry's per-dtype lift turns a cell back into a
-/// `Scalar::Decimal(scale, v)`.
+/// Build a `Decimal` series from optional `Dec128` cells, `None` entries
+/// nulls — the decimal dtype's own buffer, every cell the IEEE value it
+/// is (a 34-digit coefficient with its own exponent, the exceptional
+/// shapes included).
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
-pub fn Series::from_decimal_options(
-  scale : Int32,
+pub fn Series::from_decimals(
   name : String,
-  values : Array[Int64?],
-) -> Series raise @types.DataError {
-  @types.check_decimal_scale(scale, "column \{name}")
-  Series::from_builtin(
-    name,
-    @column.BuiltinColumn::from_i64_options(
-      @types.DataType::Decimal(scale),
-      values,
-    ),
-  )
+  values : Array[@types.Dec128?],
+) -> Series {
+  Series::from_builtin(name, @column.BuiltinColumn::from_dec_options(values))
 }
 
 // ── Inspection ────────────────────────────────────────────────────────
@@ -623,6 +592,20 @@ pub fn Series::iter(self : Series) -> Iter[@types.Scalar] {
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::storage(self : Series) -> @column.ColumnStorage {
   self.storage
+}
+
+///|
+#coverage.skip
+/// The decimal projection's cell screen: `Some` for a decimal cell,
+/// `None` for anything else. The `_ => None` arm exists for
+/// exhaustiveness — `typed_cells` refuses an off-dtype cell before
+/// this ever sees one, so the arm cannot run.
+fn dec_cell(cell : @types.Scalar) -> @types.Dec128? {
+  if cell is @types.Scalar::Decimal(v) {
+    Some(v)
+  } else {
+    None
+  }
 }
 
 ///|

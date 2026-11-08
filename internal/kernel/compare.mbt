@@ -225,88 +225,37 @@ fn eval_compare(
         verb~,
       )
     }
-    // Two decimals of different scales compare exactly: both sides lift
-    // to the larger scale first (the same widening rescale the arithmetic
-    // aligns with), then the raw magnitudes order. This arm is compare's
-    // own — the generic `comparable_with` gate stays closed for the pair.
-    // The equality *consumers* do not follow this arm's exactness: join
-    // keys and group cells key on the raw unscaled magnitudes, so a
-    // cross-scale key pair never reaches a comparison at all — join's dtype
-    // gate refuses the pair outright (its message says to cast first),
-    // which is why this arm costs them nothing.
-    (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if decimal_cross_scale(
-        left.dtype(),
-        right.dtype(),
-      )
-      is Some(target) &&
-      left.dtype() is @types.DataType::Decimal(lsc) &&
-      right.dtype() is @types.DataType::Decimal(rsc) => {
-      let both_present = (i : Int32) => lv[i] && rv[i]
-      let ra = rescale_all(a, lsc, target, both_present)
-      let rb = rescale_all(b, rsc, target, both_present)
+    // Two decimal columns compare by value over the IEEE total order
+    // (`lt`-shaped: NaN unordered, so both the less-than and the equal
+    // predicates answer false against a NaN side — the Double arm's own
+    // shape), cohorts comparing equal (`1.0` against `1.00`). The
+    // mixed Float pair stays behind the `comparable_with` gate as ever.
+    (@column.ColumnData::Dec(a), @column.ColumnData::Dec(b)) =>
       compare_cells(
         a.length(),
         left_valid=lv,
         right_valid=rv,
-        get_left=i => ra[i],
-        get_right=i => rb[i],
-        less_than=(x, y) => x < y,
-        equal=(x, y) => x == y,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => x.lt(y),
+        equal=(x : @types.Dec128, y : @types.Dec128) => x.equal(y),
         verb~,
       )
-    }
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _)
-    | (_, @column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_)) =>
-      raise binary_type_mismatch_error("compare", left, right)
+    | (
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+      _,
+    )
+    | (
+      _,
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+    ) => raise binary_type_mismatch_error("compare", left, right)
   }
   Series::from_bool_options(left.name(), cells)
-}
-
-///|
-/// The alignment scale when both dtypes are decimals of different scales —
-/// `None` for any other pairing (same-scale decimals included: they
-/// compare through the generic same-dtype arm).
-fn decimal_cross_scale(l : @types.DataType, r : @types.DataType) -> Int32? {
-  if l is @types.DataType::Decimal(ls) &&
-    r is @types.DataType::Decimal(rs) &&
-    ls != rs {
-    Some(if ls > rs { ls } else { rs })
-  } else {
-    None
-  }
-}
-
-///|
-/// Lift a whole buffer to `target` — the widening rescale per cell, with
-/// the first overflow refusing the comparison exactly as arithmetic does.
-/// `present` is the joint validity (`lv[i] && rv[i]`, the same per-cell gate
-/// `decimal_arith` applies): a row either side nulls compares to null
-/// without its cells ever lifting, so a large present value beside a null
-/// cannot refuse the comparison that arithmetic tolerates — an absent slot
-/// keeps the all-zeros placeholder the null normalisation writes.
-fn rescale_all(
-  buf : ArrayView[Int64],
-  scale : Int32,
-  target : Int32,
-  present : (Int32) -> Bool,
-) -> Array[Int64] raise @types.DataError {
-  Array::makei(buf.length(), i => {
-    if !present(i) {
-      return 0L
-    }
-    let mut r = buf[i]
-    for _ in scale..<target {
-      match @numeric.mul_checked(r, 10L) {
-        Some(shifted) => r = shifted
-        None =>
-          raise @types.DataError::InvalidOperation(
-            "decimal compare rescale overflows the 18-digit magnitude",
-          )
-      }
-    }
-    r
-  })
 }

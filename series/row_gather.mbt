@@ -38,7 +38,8 @@ pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? {
     @column.ColumnData::Bool(cells) => cells
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
-    | @column.ColumnData::Utf8(_) => return None
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) => return None
   }
   let valid = self.validity_bools()
   let kept : Array[Int32] = []
@@ -104,11 +105,11 @@ pub fn Series::coalesce_columns(
           // spellings.
           @types.Scalar::Date(v) => Some(v)
           @types.Scalar::Timestamp(v) => Some(v)
-          @types.Scalar::Decimal(_, v) => Some(v)
           @types.Scalar::Duration(v) => Some(v)
           @types.Scalar::Float(_)
           | @types.Scalar::Bool(_)
           | @types.Scalar::String(_)
+          | @types.Scalar::Decimal(_)
           | @types.Scalar::Null => None
         }
       }
@@ -124,7 +125,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
-          | @types.Scalar::Decimal(_, _)
+          | @types.Scalar::Decimal(_)
           | @types.Scalar::Duration(_)
           | @types.Scalar::Null => None
         }
@@ -141,7 +142,7 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::String(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
-          | @types.Scalar::Decimal(_, _)
+          | @types.Scalar::Decimal(_)
           | @types.Scalar::Duration(_)
           | @types.Scalar::Null => None
         }
@@ -158,7 +159,24 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Bool(_)
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
-          | @types.Scalar::Decimal(_, _)
+          | @types.Scalar::Decimal(_)
+          | @types.Scalar::Duration(_)
+          | @types.Scalar::Null => None
+        }
+      }
+    },
+    (a, i) => {
+      if base_valid[i] {
+        Some(a[i])
+      } else {
+        match fills[i] {
+          @types.Scalar::Decimal(v) => Some(v)
+          @types.Scalar::Int(_)
+          | @types.Scalar::Float(_)
+          | @types.Scalar::Bool(_)
+          | @types.Scalar::String(_)
+          | @types.Scalar::Date(_)
+          | @types.Scalar::Timestamp(_)
           | @types.Scalar::Duration(_)
           | @types.Scalar::Null => None
         }
@@ -224,6 +242,7 @@ fn Series::rebuild_options(
   float_cell : (ArrayView[Double], Int32) -> Double?,
   bool_cell : (ArrayView[Bool], Int32) -> Bool?,
   string_cell : (@buffer.Utf8Array, Int32) -> String?,
+  dec_cell : (ArrayView[@types.Dec128], Int32) -> @types.Dec128?,
 ) -> Series raise @types.DataError {
   let rebuilt = match self.storage.data() {
     // The I64 arm rebuilds through the *dtype*, not the variant: the
@@ -244,6 +263,8 @@ fn Series::rebuild_options(
       Series::from_bool_options(name, Array::makei(n, k => bool_cell(a, k)))
     @column.ColumnData::Utf8(a) =>
       Series::from_string_options(name, Array::makei(n, k => string_cell(a, k)))
+    @column.ColumnData::Dec(a) =>
+      Series::from_decimals(name, Array::makei(n, k => dec_cell(a, k)))
   }
   rebuilt.try_column_to_numeric()
 }
@@ -334,6 +355,7 @@ fn Series::rebuild_by_row(
     (a, k) => row_at(k).map(j => a[j]),
     (a, k) => row_at(k).map(j => a[j]),
     (a, k) => row_at(k).map(j => a.get(j)),
+    (a, k) => row_at(k).map(j => a[j]),
   )
 }
 
@@ -396,7 +418,12 @@ pub fn Series::gather_series_opt(
     (@column.ColumnData::F64(a), Some(rows)) =>
       Series::from_floats(out_name, rows.map(j => a[j]))
     (@column.ColumnData::I64(_) | @column.ColumnData::F64(_), None)
-    | (@column.ColumnData::Bool(_) | @column.ColumnData::Utf8(_), _) => {
+    | (
+      @column.ColumnData::Bool(_)
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
+      _,
+    ) => {
       let validity = self.storage.validity()
       // Output cell `k` reads source row `idx[k]` when it is `Some` (and the
       // cell there is valid), else a null. Read each matched row's validity by

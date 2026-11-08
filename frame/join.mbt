@@ -558,20 +558,10 @@ fn DataFrame::resolve_join_keys(
       // match through the `KeyCell` hash map, whose `KInt` / `KFloat`
       // spellings never equate, so a pair the comparison kernel would
       // equate (any two numerics — see `comparable_with`) still matches
-      // nothing. Cross-scale decimals are that same rule at a finer grain:
-      // the key cell folds to the unscaled magnitude — injective only
-      // within one scale — so the cast to a common scale has to happen
-      // before the join.
-      let cross_scale = lcol.dtype() is @types.DataType::Decimal(_) &&
-        rcol.dtype() is @types.DataType::Decimal(_)
-      let remedy = if cross_scale {
-        "; decimals of different scales compare equal but join keys hash on the unscaled magnitude — cast both sides to one scale first"
-      } else {
-        "; join keys hash by their own dtype, so cells of two dtypes never match even at equal values — cast both sides to one dtype first"
-      }
+      // nothing.
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
-          "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right\{remedy}",
+          "\{where_} has dtype \{lcol.dtype()} on the left but \{rcol.dtype()} on the right; join keys hash by their own dtype, so cells of two dtypes never match even at equal values — cast both sides to one dtype first",
         ),
       )
     }

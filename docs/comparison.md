@@ -201,9 +201,10 @@ here today:
   granularity of Polars' `Datetime("us")`, without time zones or calendar
   arithmetic), `Duration` (a microsecond span, produced and consumed by
   the temporal arithmetic: `Timestamp − Timestamp`, `instant ± Duration`),
-  and `Decimal(scale)` (a fixed-point decimal exact across
-  `+` / `-` / `*` and `sum`, with `round` an exact rescale, division
-  through `Float`, and `Float` mixing fenced). Still missing:
+  and `Decimal` (an IEEE 754 decimal128 floating-point decimal:
+  `+` / `-` / `*` / `/` and `sum` over the engine's exact-then-round
+  arithmetic, `round` the quantize, a `Float` operand promoting to
+  `Float`). Still missing:
   `List` / `Struct` / `Categorical` — the deferral the others hang off:
   the list-returning `str.split` and the nested-typed expressions all
   need a dtype before they can exist.
@@ -236,7 +237,7 @@ here today:
 - **Reader dtype override** — `CsvReadOptions` / `JsonReadOptions` take a
   `dtypes=` map pinning named columns ahead of inference (Polars'
   `schema_overrides`): `Int` / `Float` / `Bool` / `String` parse from
-  cell text, and the rider dtypes `Date` / `Timestamp` / `Decimal(scale)`
+  cell text, and the rider dtypes `Date` / `Timestamp` / `Decimal`
   parse the writers' own text forms (so a written-back rider column
   round-trips losslessly when pinned; `Duration` has no parser and
   refuses). Inference itself never produces a rider. Columns not

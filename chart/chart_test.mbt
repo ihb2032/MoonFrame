@@ -837,7 +837,9 @@ test "format_vega_lite: a Timestamp axis is temporal, a Decimal measure quantita
   assert_eq(channel_key(ts_spec, "y", "type"), "quantitative")
   let dec_df = @frame.DataFrame::DataFrame([
     @series.Series::from_strings("cat", ["x"]),
-    @series.Series::from_decimal_options(2, "val", [Some(150L)]),
+    @series.Series::from_decimals("val", [
+      Some(@types.Dec128::of_int64_scale(150L, scale=2)),
+    ]),
   ])
   let dec_spec = @chart.format_vega_lite(
     dec_df,

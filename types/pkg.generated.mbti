@@ -3,6 +3,7 @@ package "ihb2032/MoonFrame/types"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck/shrink",
 }
 
 // Values
@@ -59,7 +60,7 @@ pub(all) enum DataType {
   String
   Date
   Timestamp
-  Decimal(Int32)
+  Decimal
   Duration
   Null
 }
@@ -72,6 +73,7 @@ pub fn DataType::to_repr(Self) -> @debug.Repr
 pub fn DataType::to_string(Self) -> String
 pub impl Show for DataType
 
+#derive(@debug.Debug)
 pub struct Dec128 {
   // private fields
 }
@@ -98,15 +100,23 @@ pub fn Dec128::lt(Self, Self) -> Bool
 pub fn Dec128::mul(Self, Self) -> Self
 pub fn Dec128::nan() -> Self
 pub fn Dec128::neg(Self) -> Self
+pub fn Dec128::not_equal(Self, Self) -> Bool
 pub fn Dec128::of_int64(Int64) -> Self
 pub fn Dec128::of_int64_scale(Int64, scale~ : Int32) -> Self
+pub fn Dec128::output(Self, &Logger) -> Unit
 pub fn Dec128::parse_opt(String) -> Self?
 pub fn Dec128::quantize(Self, places~ : Int32) -> Self
+pub fn Dec128::shrink(Self) -> Iter[Self]
 pub fn Dec128::sub(Self, Self) -> Self
 pub fn Dec128::to_double(Self) -> Double
 pub fn Dec128::to_int64(Self) -> Int64?
+pub fn Dec128::to_repr(Self) -> @debug.Repr
 pub fn Dec128::to_string(Self) -> String
+pub fn Dec128::trunc(Self) -> Self
 pub fn Dec128::zero(neg? : Bool) -> Self
+pub impl Eq for Dec128
+pub impl Show for Dec128
+pub impl @shrink.Shrink for Dec128
 
 #derive(Eq, @debug.Debug)
 pub struct Field {
@@ -154,7 +164,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
-  Decimal(Int32, Int64)
+  Decimal(Dec128)
   Duration(Int64)
   Null
 }

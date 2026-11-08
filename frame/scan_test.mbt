@@ -367,59 +367,59 @@ fn write_decimal_pin_fixture(
 ) -> @io.CsvReadOptions raise @types.DataError {
   write_raw(path, "k,d\nkeep,1\ndrop,9000000000000000000\n")
   @io.CsvReadOptions::CsvReadOptions(
-    dtypes=Map([("d", @types.DataType::Decimal(0))]),
+    dtypes=Map([("d", @types.DataType::Decimal)]),
   )
 }
 
 ///|
-test "a decimal-pinned CSV scan fences the stage a sunk predicate would prune" {
-  // Eager raises: `d + d` is evaluated on every row, and the second row's
-  // product leaves the envelope. Optimized without the fence, the predicate
-  // sinks below the `with_columns` stage, the refusing row is pruned before
-  // the stage ever reads it, and the plan *collects* — the error-faithfulness
-  // breach the file-source arm closes: the stage's expressions carry a
-  // decimal-checked operation, so it stays a floor.
-  let path = "_build/lazy_scan_csv_decimal_fence.csv"
+test "a decimal-pinned CSV scan lets a predicate sink with value parity" {
+  // The IEEE decimal refuses on no value — `d + d` past 34 digits is a
+  // rounded value, ±∞ at the extreme — so there is no error for a sunk
+  // predicate to swallow: both chains collect, and the optimizer's
+  // answer matches the eager one cell for cell.
+  let path = "_build/lazy_scan_csv_decimal_sink.csv"
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[DataFrame, @types.DataError] = Ok(
-    @io.read_csv(path, options=opts).with_columns(derived).filter(predicate),
-  ) catch {
-    e => Err(e)
-  }
-  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
-    @io.scan_csv(path, options=opts)
+  let eager = @io.read_csv(path, options=opts)
     .with_columns(derived)
     .filter(predicate)
-    .collect(),
-  ) catch {
-    e => Err(e)
-  }
-  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
-  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  let lazy_ = @io.scan_csv(path, options=opts)
+    .with_columns(derived)
+    .filter(predicate)
+    .collect()
+  assert_eq(lazy_.nrows(), eager.nrows())
+  assert_eq(
+    lazy_.get_column("d").to_scalars(),
+    eager.get_column("d").to_scalars(),
+  )
+  assert_eq(
+    lazy_.get_column("s").to_scalars(),
+    eager.get_column("s").to_scalars(),
+  )
 }
 
 ///|
-test "a decimal-pinned CSV scan fences the stage a sunk window would prune" {
-  // The slice pass shares the fence: `head` may not sink below a stage whose
-  // expressions refuse on decimal values, or the refusing row is pruned
-  // before the stage ever reads it — the same breach through the other pass.
-  let path = "_build/lazy_scan_csv_decimal_fence_slice.csv"
+test "a decimal-pinned CSV scan lets a window sink with value parity" {
+  // The slice pass sinks freely over the IEEE decimal — the sum is a
+  // value — and the optimized window matches the eager one row for row.
+  let path = "_build/lazy_scan_csv_decimal_sink_slice.csv"
   let opts = write_decimal_pin_fixture(path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
-  let eager : Result[DataFrame, @types.DataError] = Ok(
-    @io.read_csv(path, options=opts).with_columns(derived).head(1),
-  ) catch {
-    e => Err(e)
-  }
-  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
-    @io.scan_csv(path, options=opts).with_columns(derived).head(1).collect(),
-  ) catch {
-    e => Err(e)
-  }
-  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
-  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  let eager = @io.read_csv(path, options=opts).with_columns(derived).head(1)
+  let lazy_ = @io.scan_csv(path, options=opts)
+    .with_columns(derived)
+    .head(1)
+    .collect()
+  assert_eq(lazy_.nrows(), eager.nrows())
+  assert_eq(
+    lazy_.get_column("d").to_scalars(),
+    eager.get_column("d").to_scalars(),
+  )
+  assert_eq(
+    lazy_.get_column("s").to_scalars(),
+    eager.get_column("s").to_scalars(),
+  )
 }
 
 ///|
@@ -893,36 +893,32 @@ test "scan_parquet keeps the eager error for a name the file lacks" {
 }
 
 ///|
-test "a parquet footer's decimal column fences the stage a sunk predicate would prune" {
+test "a parquet footer's decimal column collects with value parity" {
   // The footer's schema — readable only at collect — can name decimal
-  // columns (the writer round-trips them), so the parquet leaf takes the
-  // conservative arm of the decimal value-fence: the same refusal the CSV
-  // pin carries, through a source whose decimal columns no plan-time fact
-  // can rule out. Eager raises on the second row; the collected plan must
-  // raise the same refusal rather than sink the predicate below the stage.
+  // columns (the writer round-trips them), and the IEEE decimal refuses
+  // on no value: both chains collect, and the optimizer's answer
+  // matches the eager one cell for cell — the parity the sink keeps.
   let df = DataFrame::DataFrame([
     @series.Series::from_strings("k", ["keep", "drop"]),
-    @series.Series::from_decimal_options(0, "d", [
-      Some(1L),
-      Some(9000000000000000000L),
+    @series.Series::from_decimals("d", [
+      Some(@types.Dec128::of_int64(1L)),
+      Some(@types.Dec128::of_int64(9000000000000000000L)),
     ]),
   ])
-  let path = "_build/lazy_scan_parquet_decimal_fence.parquet"
+  let path = "_build/lazy_scan_parquet_decimal_sink.parquet"
   @io.write_parquet(df, path)
   let derived = [(@expr.col("d") + @expr.col("d")).with_alias("s")]
   let predicate = @expr.col("k").eq(@expr.lit_str("keep"))
-  let eager : Result[DataFrame, @types.DataError] = Ok(
-    @io.read_parquet(path).with_columns(derived).filter(predicate),
-  ) catch {
-    e => Err(e)
-  }
-  let lazy_ : Result[DataFrame, @types.DataError] = Ok(
-    @io.scan_parquet(path).with_columns(derived).filter(predicate).collect(),
-  ) catch {
-    e => Err(e)
-  }
-  assert_true(eager is Err(@types.DataError::InvalidOperation(_)))
-  assert_true(lazy_ is Err(@types.DataError::InvalidOperation(_)))
+  let eager = @io.read_parquet(path).with_columns(derived).filter(predicate)
+  let lazy_ = @io.scan_parquet(path)
+    .with_columns(derived)
+    .filter(predicate)
+    .collect()
+  assert_eq(lazy_.nrows(), eager.nrows())
+  assert_eq(
+    lazy_.get_column("s").to_scalars(),
+    eager.get_column("s").to_scalars(),
+  )
 }
 
 ///|

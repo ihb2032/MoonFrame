@@ -66,6 +66,7 @@ const DEC_DIGIT_LIMIT : Int32 = 70
 /// `kind` names the exceptional shapes (0 finite, 1 infinity, 2 NaN),
 /// `limbs` is the little-endian base-10^9 coefficient, and `exp` the
 /// quantum exponent (the value is ±(Σ limbs[i]·BASE^i)·10^exp).
+#derive(Debug)
 pub struct Dec128 {
   priv neg : Bool
   priv kind : Int32 // 0 finite, 1 infinity, 2 NaN
@@ -662,10 +663,46 @@ pub fn Dec128::cmp_total(self : Dec128, other : Dec128) -> Int32 {
 }
 
 ///|
+pub extend Dec128 with @shrink.Shrink::{shrink}
+
+///|
+/// The quickcheck shrink: the exceptional values are atoms (their
+/// shapes have no smaller spelling), a finite value shrinks to its
+/// integer part then to the signed zero — the chain the differential
+/// fuzzers walk down, on the lazy iterator constructor the core's own
+/// integer shrinks use — no array is built to name two candidates.
+pub impl @shrink.Shrink for Dec128 with fn shrink(self : Dec128) -> Iter[Dec128] {
+  guard self.kind == DEC_KIND_FINITE else { return Iter::empty() }
+  let trunc = self.trunc()
+  let zero = Dec128::zero(neg=self.neg)
+  let mut stage = if trunc.equal(self) || trunc.is_zero() { 0 } else { 1 }
+  Iter::new(() => {
+    if stage == 0 {
+      if self.equal(zero) {
+        return None
+      }
+      stage = 2
+      return Some(zero)
+    }
+    if stage == 1 {
+      stage = 0
+      return Some(trunc)
+    }
+    return None
+  })
+}
+
+///|
+pub extend Dec128 with Eq::{equal, not_equal}
+
+///|
+pub extend Dec128 with Debug::{to_repr}
+
+///|
 /// Value equality — the cohort's whole set is one value (1.0 equals
 /// 1.00), ±0 equals ∓0, and NaN equals nothing, itself included (the
 /// Double Eq precedent; a hash carrier must canonicalize first).
-pub fn Dec128::equal(self : Dec128, other : Dec128) -> Bool {
+pub impl Eq for Dec128 with fn equal(self : Dec128, other : Dec128) -> Bool {
   if self.kind == DEC_KIND_NAN || other.kind == DEC_KIND_NAN {
     return false
   }
@@ -713,6 +750,21 @@ pub fn Dec128::gt(self : Dec128, other : Dec128) -> Bool {
 /// IEEE greater-or-equal — `false` whenever either side is NaN.
 pub fn Dec128::ge(self : Dec128, other : Dec128) -> Bool {
   other.le(self)
+}
+
+///|
+/// Truncate toward zero — the integer part with the fraction dropped,
+/// the magnitude's own digits kept (no rounding); NaN and ±∞ pass
+/// through, and a value in (−1, 0) keeps its sign on the zero (IEEE
+/// trunc's own −0). The `Float → Int` cast reads this before its range
+/// check, the decimal twin of the double's truncating conversion.
+pub fn Dec128::trunc(self : Dec128) -> Dec128 {
+  if self.kind != DEC_KIND_FINITE || self.exp >= 0 {
+    return self
+  }
+  let fa = dec_load(self)
+  let _ = dec_drop_digits(fa, -self.exp)
+  dec_of_parts(self.neg, DEC_KIND_FINITE, fa, 0)
 }
 
 ///|
@@ -1186,6 +1238,12 @@ pub fn Dec128::to_int64(self : Dec128) -> Int64? {
 ///|
 /// The workspace's limbs as a signed Int64 — `None` past the range.
 fn dec_work_to_int64(neg : Bool, fa : FixedArray[Int64]) -> Int64? {
+  // A magnitude past 19 digits cannot fit either Int64 limit, and the
+  // UInt64 accumulator below would wrap on it — refuse before
+  // accumulating, never reading a wrapped value as the answer.
+  if dec_sig_digits(fa) > 19 {
+    return None
+  }
   let mut mag = 0UL
   for i = DEC_WORK_LIMBS - 1; i >= 0; i = i - 1 {
     mag = mag * DEC_BASE.reinterpret_as_uint64() + fa[i].reinterpret_as_uint64()
@@ -1224,7 +1282,7 @@ pub fn Dec128::to_double(self : Dec128) -> Double {
   if self.kind == DEC_KIND_INF {
     return if self.neg { @double.neg_infinity } else { @double.infinity }
   }
-  dec_parse_double_or_nan(self.to_string())
+  dec_parse_double_or_nan(self.to_string_value())
 }
 
 // ── parse and render ─────────────────────────────────────────────────
@@ -1360,13 +1418,23 @@ pub fn Dec128::parse_opt(s : String) -> Dec128? {
 }
 
 ///|
+pub extend Dec128 with Show::{to_string, output}
+
+///|
+/// `Show` renders the value form (`1.50`, `NaN`, `-inf`) — the same
+/// spelling every cell form shares.
+pub impl Show for Dec128 with fn output(self : Dec128, logger) -> Unit {
+  logger.write_string(self.to_string_value())
+}
+
+///|
 /// The value's own spelling — the exact stored value, cohort kept:
 /// positional when the leading digit sits from 10^-6 to 10^40,
 /// scientific beyond (the digit string, a point after the first digit,
 /// `E` and the adjusted exponent); the zeroes signed, the exceptionals
 /// `inf` / `-inf` / `NaN`. `parse_opt` reads every spelling back
 /// exactly.
-pub fn Dec128::to_string(self : Dec128) -> String {
+fn Dec128::to_string_value(self : Dec128) -> String {
   if self.kind == DEC_KIND_NAN {
     return "NaN"
   }

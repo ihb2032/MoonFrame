@@ -90,7 +90,6 @@ priv struct FileScan {
   // reads off the options it already captures; a parquet footer can name
   // either family without the builder reading it, so that source carries
   // the conservative `true` for both.
-  may_carry_decimal : Bool
   may_carry_temporal : Bool
 }
 

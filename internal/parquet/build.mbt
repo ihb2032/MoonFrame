@@ -70,15 +70,15 @@ fn build_series(
       }
       @series.Series::from_timestamp_options(name, cells)
     }
-    Decimal(scale) => {
-      let cells : Array[Int64?] = []
+    Decimal => {
+      let cells : Array[@types.Dec128?] = []
       for v in values {
         match v {
-          Some(Decimal(_, x)) => cells.push(Some(x))
+          Some(Decimal(x)) => cells.push(Some(x))
           _ => cells.push(None)
         }
       }
-      @series.Series::from_decimal_options(scale, name, cells)
+      @series.Series::from_decimals(name, cells)
     }
     // `Null` has no buffer to decode into and `Duration` never rides the
     // read mapping (a written Duration reads back through its bare INT64

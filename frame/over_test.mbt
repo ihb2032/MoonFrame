@@ -370,11 +370,10 @@ test "a dtype-changing map closure stitches cross-group dtypes by promotion" {
 }
 
 ///|
-test "a mixed-scale decimal stitch nulls the off-scale minority" {
-  // The same tolerance `map` itself keeps (a closure answering two decimal
-  // scales nulls the minority): the scale-2 group fixes the column, the
-  // scale-3 cells land null rather than being re-read through the wrong
-  // scale.
+test "a mixed-dtype decimal stitch keeps every cell whole" {
+  // The IEEE decimal has no scale to mix: both groups' cells are values
+  // of the one dtype, so the stitch keeps each whole (the scale-3 group
+  // no longer nulls — there is no wrong scale to re-read through).
   let df = DataFrame::DataFrame([
     Series::from_strings("g", ["a", "a", "b", "b"]),
     Series::from_ints("x", [1, 2, 3, 4]),
@@ -383,19 +382,35 @@ test "a mixed-scale decimal stitch nulls the off-scale minority" {
     @expr.col("x")
     .map_elements(label="m", (c : @types.Scalar) => {
       if c.as_int() <= 2L {
-        @types.Scalar::Decimal(2, c.as_int() * 100L)
+        @types.Scalar::Decimal(
+          @types.Dec128::of_int64_scale(c.as_int() * 100L, scale=2),
+        )
       } else {
-        @types.Scalar::Decimal(3, c.as_int() * 1000L)
+        @types.Scalar::Decimal(
+          @types.Dec128::of_int64_scale(c.as_int() * 1000L, scale=3),
+        )
       }
     })
     .over([@expr.col("g")])
     .with_alias("m"),
   ])
-  assert_eq(out.get_column("m").dtype(), @types.DataType::Decimal(2))
-  assert_true(out.item(0, "m") is @types.Scalar::Decimal(2, 100L))
-  assert_true(out.item(1, "m") is @types.Scalar::Decimal(2, 200L))
-  assert_true(out.item(2, "m") is @types.Scalar::Null)
-  assert_true(out.item(3, "m") is @types.Scalar::Null)
+  assert_eq(out.get_column("m").dtype(), @types.DataType::Decimal)
+  assert_true(
+    out.item(0, "m") is @types.Scalar::Decimal(d) &&
+    d.equal(@types.Dec128::of_int64_scale(100L, scale=2)),
+  )
+  assert_true(
+    out.item(1, "m") is @types.Scalar::Decimal(d) &&
+    d.equal(@types.Dec128::of_int64_scale(200L, scale=2)),
+  )
+  assert_true(
+    out.item(2, "m") is @types.Scalar::Decimal(d) &&
+    d.equal(@types.Dec128::of_int64_scale(3000L, scale=3)),
+  )
+  assert_true(
+    out.item(3, "m") is @types.Scalar::Decimal(d) &&
+    d.equal(@types.Dec128::of_int64_scale(4000L, scale=3)),
+  )
 }
 
 ///|

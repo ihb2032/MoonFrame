@@ -52,7 +52,8 @@ pub fn eval_str(
     @column.ColumnData::Utf8(a) => a.to_strings()
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
-    | @column.ColumnData::Bool(_) =>
+    | @column.ColumnData::Bool(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "string operation requires a String operand, got \{operand.dtype()}",

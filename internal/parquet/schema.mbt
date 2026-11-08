@@ -39,17 +39,21 @@ priv struct DtypeMap {
   dtype : @types.DataType
   physical : Physical
   converted : Converted?
-  decimal_scale : Int32
+  // The DECIMAL annotation's scale. Read side: lifted straight off the
+  // footer. Write side: the writer's adaptive pass overwrites the 0 the
+  // table seeds — the one scale every cell of the column honours.
+  mut decimal_scale : Int32
 }
 
 ///|
 /// The mapping table, one row per writable dtype. `String` rides
 /// `BYTE_ARRAY` + `UTF8`; `Date` `INT32` + `DATE`; `Timestamp` `INT64` +
-/// `TIMESTAMP_MICROS`; `Decimal(scale)` `INT64` + `DECIMAL` (the unscaled
-/// magnitude in the payload, the scale and a precision the 18-digit
-/// envelope bounds in the annotation); `Duration` rides bare `INT64`
-/// (no standard converted type names a microsecond span; the round trip
-// keeps the raw count).
+/// `TIMESTAMP_MICROS`; `Decimal` `INT64` + `DECIMAL` — each cell lifted
+/// to the column's one adaptive scale exactly (the writer computes it
+/// from the cells and names it in the annotation; a NaN / ±∞ cell or a
+/// value the 18-digit INT64 interchange cannot hold refuses the write);
+/// `Duration` rides bare `INT64` (no standard converted type names a
+/// microsecond span; the round trip keeps the raw count).
 fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
   match dtype {
     Int =>
@@ -94,12 +98,12 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         converted: Some(TimestampMicrosC),
         decimal_scale: -1,
       })
-    Decimal(scale) =>
+    Decimal =>
       Some(DtypeMap::{
-        dtype: Decimal(scale),
+        dtype,
         physical: Int64P,
         converted: Some(DecimalC),
-        decimal_scale: scale,
+        decimal_scale: 0,
       })
     Duration =>
       Some(DtypeMap::{
@@ -248,7 +252,7 @@ fn map_from_schema(
         (Some(scale), Some(p)) =>
           if scale >= 0 && scale <= p && p >= 1 && p <= 18 {
             Some({
-              dtype: Decimal(scale),
+              dtype: Decimal,
               physical: Int64P,
               converted: Some(DecimalC),
               decimal_scale: scale,

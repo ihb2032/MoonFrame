@@ -55,14 +55,16 @@ fn eval_logic(
     (
       @column.ColumnData::I64(_)
       | @column.ColumnData::F64(_)
-      | @column.ColumnData::Utf8(_),
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
       _,
     )
     | (
       _,
       @column.ColumnData::I64(_)
       | @column.ColumnData::F64(_)
-      | @column.ColumnData::Utf8(_),
+      | @column.ColumnData::Utf8(_)
+      | @column.ColumnData::Dec(_),
     ) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
@@ -111,7 +113,8 @@ fn eval_not(operand : Series) -> Series raise @types.DataError {
       )
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "logical 'not' requires a Bool operand, got \{operand.dtype()}",

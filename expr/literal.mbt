@@ -42,7 +42,7 @@ pub fn format_scalar(value : @types.Scalar) -> String {
     Date(_) => value.to_string()
     Timestamp(_) => value.to_string()
     Duration(_) => value.to_string()
-    Decimal(_, _) => value.to_string()
+    Decimal(_) => value.to_string()
     Null => "null"
   }
 }

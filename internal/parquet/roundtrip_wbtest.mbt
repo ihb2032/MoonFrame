@@ -56,11 +56,11 @@ fn sample_columns() -> Array[@series.Series] raise @types.DataError {
       None,
       Some(1_704_121_460_123_456L),
     ]),
-    @series.Series::from_decimal_options(2, "x", [
-      Some(150L),
+    @series.Series::from_decimals("x", [
+      Some(@types.Dec128::of_int64_scale(150L, scale=2)),
       None,
-      Some(-5L),
-      Some(9_223_372_036_854_775_807L),
+      Some(@types.Dec128::of_int64_scale(-5L, scale=2)),
+      Some(@types.Dec128::of_int64_scale(9_223_372_036_854_775_807L, scale=2)),
     ]),
   ]
 }
@@ -431,7 +431,9 @@ test "every rider column's schema element carries its logicalType" {
     @series.Series::from_strings("s", ["a"]),
     @series.Series::from_date_options("d", [Some(0L)]),
     @series.Series::from_timestamp_options("t", [Some(0L)]),
-    @series.Series::from_decimal_options(3, "x", [Some(123L)]),
+    @series.Series::from_decimals("x", [
+      Some(@types.Dec128::of_int64_scale(123L, scale=3)),
+    ]),
   ]
   let bytes = write_parquet_bytes(
     columns,

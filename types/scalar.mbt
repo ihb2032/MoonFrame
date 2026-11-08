@@ -20,7 +20,7 @@ pub(all) enum Scalar {
   String(String)
   Date(Int64)
   Timestamp(Int64)
-  Decimal(Int32, Int64)
+  Decimal(Dec128)
   Duration(Int64)
   Null
 }
@@ -44,7 +44,7 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     String(_) => DataType::String
     Date(_) => DataType::Date
     Timestamp(_) => DataType::Timestamp
-    Decimal(scale, _) => DataType::Decimal(scale)
+    Decimal(_) => DataType::Decimal
     Duration(_) => DataType::Duration
     Null => DataType::Null
   }
@@ -68,7 +68,7 @@ pub fn Scalar::to_string(self : Scalar) -> String {
     String(v) => v
     Date(v) => date_days_to_iso(v)
     Timestamp(v) => timestamp_micros_to_iso(v)
-    Decimal(scale, v) => decimal_unscaled_to_string(scale, v)
+    Decimal(v) => v.to_string()
     Duration(v) => duration_micros_to_iso(v)
     Null => ""
   }
@@ -135,8 +135,7 @@ pub impl Show for Scalar with fn output(self, logger) {
     String(v) => logger <+ "String(\"\{@text.escape_debug(v)}\")"
     Date(v) => logger <+ "Date(\{date_days_to_iso(v)})"
     Timestamp(v) => logger <+ "Timestamp(\{timestamp_micros_to_iso(v)})"
-    Decimal(scale, v) =>
-      logger <+ "Decimal(\{scale}, \{decimal_unscaled_to_string(scale, v)})"
+    Decimal(v) => logger <+ "Decimal(\{v.to_string()})"
     Duration(v) => logger <+ "Duration(\{duration_micros_to_iso(v)})"
     Null => logger.write_string("Null")
   }
@@ -262,45 +261,6 @@ fn duration_micros_to_iso(micros : Int64) -> String {
   let hour_text = if hour == 0L { "" } else { "\{hour}H" }
   let minute_text = if minute == 0L { "" } else { "\{minute}M" }
   "\{sign}P\{days_text}T\{hour_text}\{minute_text}\{second}.\{pad_zero(frac, 6)}S"
-}
-
-///|
-/// The plain decimal rendering of an unscaled magnitude under a scale — the
-/// one rendering a `Scalar::Decimal` has (value form, `Show` form, CSV /
-/// JSON cell form all share it): the integer part, a point, and the fraction
-/// zero-padded to exactly `scale` digits, so the rendering round-trips. A
-/// zero scale renders with no point (`Decimal(0)` is an integer spelling);
-/// a negative magnitude keeps one sign, its fraction digits from the
-/// magnitude (`-5` under scale 2 renders `-0.05`). The magnitude's digits
-/// come straight from `Int64::to_string` — `MIN` included, its digits after
-/// the sign are the true magnitude — and the point is placed by counting
-/// digits, never by arithmetic on the magnitude: no negation to wrap, no
-/// power of ten to overflow, no division to trap. A scale outside the
-/// enforced envelope `[0, 18]` can only arrive in a hand-built `pub(all)`
-/// scalar; it renders as a named non-value rather than a number.
-fn decimal_unscaled_to_string(scale : Int32, unscaled : Int64) -> String {
-  if scale < 0 || scale > 18 {
-    return "<decimal scale \{scale} outside the envelope [0, 18], unscaled \{unscaled}>"
-  }
-  if scale == 0 {
-    return unscaled.to_string()
-  }
-  let raw = unscaled.to_string()
-  let (sign, digits) = if unscaled < 0 {
-    ("-", raw[1:].to_owned())
-  } else {
-    ("", raw)
-  }
-  if digits.length() <= scale {
-    let mut frac = ""
-    for _ in 0..<(scale - digits.length()) {
-      frac = frac + "0"
-    }
-    "\{sign}0.\{frac}\{digits}"
-  } else {
-    let split = digits.length() - scale
-    "\{sign}\{digits[:split].to_owned()}.\{digits[split:].to_owned()}"
-  }
 }
 
 ///|

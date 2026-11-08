@@ -101,8 +101,7 @@ pub fn infer_cells_dtype(cells : Array[@types.Scalar]) -> @types.DataType? {
       @types.Scalar::Date(_) => return Some(@types.DataType::Date)
       @types.Scalar::Timestamp(_) => return Some(@types.DataType::Timestamp)
       @types.Scalar::Duration(_) => return Some(@types.DataType::Duration)
-      @types.Scalar::Decimal(scale, _) =>
-        return Some(@types.DataType::Decimal(scale))
+      @types.Scalar::Decimal(_) => return Some(@types.DataType::Decimal)
       @types.Scalar::Null => ()
     }
   }
@@ -126,7 +125,7 @@ fn map_mixes_int_and_float(cells : Array[@types.Scalar]) -> Bool {
       | @types.Scalar::Date(_)
       | @types.Scalar::Timestamp(_)
       | @types.Scalar::Duration(_)
-      | @types.Scalar::Decimal(_, _)
+      | @types.Scalar::Decimal(_)
       | @types.Scalar::Null => ()
     }
   }
@@ -156,7 +155,7 @@ pub fn promote_mixed_int_float(
       | @types.Scalar::Date(_)
       | @types.Scalar::Timestamp(_)
       | @types.Scalar::Duration(_)
-      | @types.Scalar::Decimal(_, _)
+      | @types.Scalar::Decimal(_)
       | @types.Scalar::Null => c
     }
   })

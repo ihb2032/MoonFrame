@@ -10,7 +10,10 @@ test "key_cell normalises each Scalar variant" {
   assert_true(key_cell(@types.Scalar::String("x")) == KStr("x"))
   assert_true(key_cell(@types.Scalar::Date(11016L)) == KInt(11016L))
   assert_true(key_cell(@types.Scalar::Timestamp(1L)) == KInt(1L))
-  assert_true(key_cell(@types.Scalar::Decimal(2, 25L)) == KInt(25L))
+  let dec_key = key_cell(
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(25L, scale=2)),
+  )
+  assert_true(dec_key == KDec("0.25"))
   assert_true(key_cell(@types.Scalar::Null) == KNull)
 }
 

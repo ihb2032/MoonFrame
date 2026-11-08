@@ -17,18 +17,11 @@
 #internal(engine, "MoonFrame execution engine API")
 pub fn LazyFrame::file_scan(
   driver : @scan.ScanDriver,
-  may_carry_decimal~ : Bool,
   may_carry_temporal~ : Bool,
 ) -> LazyFrame {
   {
     plan: Scan(
-      File({
-        driver,
-        projection: None,
-        predicate: None,
-        may_carry_decimal,
-        may_carry_temporal,
-      }),
+      File({ driver, projection: None, predicate: None, may_carry_temporal, }),
     ),
   }
 }

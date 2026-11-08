@@ -23,8 +23,11 @@ impl Eq for ColumnData with fn equal(self, other) {
     (F64(a), F64(b)) => a == b
     (Bool(a), Bool(b)) => a == b
     (Utf8(a), Utf8(b)) => a.to_strings() == b.to_strings()
+    // Value equality, the Dec128 Eq's own (cohorts equal, NaN unequal).
+    (Dec(a), Dec(b)) => a == b
     // A different dtype is a different column, whatever the cells hold.
-    (I64(_), _) | (F64(_), _) | (Bool(_), _) | (Utf8(_), _) => false
+    (I64(_), _) | (F64(_), _) | (Bool(_), _) | (Utf8(_), _) | (Dec(_), _) =>
+      false
   }
 }
 

@@ -24,24 +24,28 @@
 /// for `1` / `0` / text is a semantic decision no consumer has asked for
 /// yet.
 ///
+/// `Decimal` crosses both ways: from `Int` exactly, from `Float` through
+/// the correctly-rounded conversion, from `String` through the value
+/// parser (the readers' own — scientific spellings and the exceptional
+/// literals read back); toward `Int` it truncates toward zero and
+/// refuses NaN / ±∞ / out-of-range like the `Float` source does, toward
+/// `Float` it is the correctly-rounded conversion, and toward `String`
+/// the value rendering.
+///
 /// Every other *source* is refused by the registry's own
 /// identity/representation split, not by a hand-kept list: a dtype that
-/// rides the `I64` buffer without being numeric (`Decimal` today, and the
-/// temporal pair outside their own conversion above) is refused outright —
-/// reusing the buffer under another dtype or rendering its raw counts
-/// would be a silent misinterpretation, and a real conversion (ISO parse,
-/// rescale) is a semantic decision that lands with the first consumer
-/// that needs one. The registry promise holds: a new I64 rider is refused
-/// here without a new arm to forget.
+/// rides the `I64` buffer without being numeric (the temporal pair
+/// outside their own conversion above) is refused outright — reusing the
+/// buffer under another dtype or rendering its raw counts would be a
+/// silent misinterpretation. The registry promise holds: a new I64 rider
+/// is refused here without a new arm to forget.
 ///
-/// A cast onto the column's own dtype short-circuits to the identity before
-/// any arm runs — the column itself is returned, not a rebuild (a column is
-/// immutable, so sharing it is safe) — which is what makes `Bool`, `Date`,
-/// `Timestamp`, `Decimal`, and `Duration` cast to *themselves* succeed: they
-/// have no cross-dtype arm, and without the short-circuit their only path
-/// was the refusal below. `Decimal`'s identity is exact-dtype: the scale is
-/// part of the dtype, so `Decimal(2) → Decimal(3)` is a rescale (refused),
-/// not an identity.
+/// A cast onto the column's own dtype short-circuits to the identity
+/// before any arm runs — the column itself is returned, not a rebuild (a
+/// column is immutable, so sharing it is safe) — which is what makes
+/// `Bool`, `Date`, `Timestamp`, and `Duration` cast to *themselves*
+/// succeed: they have no cross-dtype arm, and without the short-circuit
+/// their only path was the refusal below.
 fn BuiltinColumn::cast(
   self : BuiltinColumn,
   target : @types.DataType,
@@ -63,10 +67,10 @@ fn BuiltinColumn::cast(
     Int => self.to_int()
     Float => self.to_float()
     String => self.to_string_column()
+    Decimal => self.to_decimal()
     Bool => raise @types.DataError::Unsupported("cast to Bool")
     Date => raise @types.DataError::Unsupported("cast to Date")
     Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
-    Decimal(_) => raise @types.DataError::Unsupported("cast to Decimal")
     Duration => raise @types.DataError::Unsupported("cast to Duration")
     Null => raise @types.DataError::Unsupported("cast to Null")
   }
@@ -104,7 +108,7 @@ fn BuiltinColumn::cast_date_to_timestamp(
     // buffer is always `I64` — the other buffers are unreachable arms the
     // storage invariants rule out; they answer the same refusal the caller
     // of `cast` on a mismatched construction would see.
-    F64(_) | Bool(_) | Utf8(_) =>
+    F64(_) | Bool(_) | Utf8(_) | Dec(_) =>
       raise @types.DataError::Unsupported("cast from Date")
   }
 }
@@ -126,7 +130,7 @@ fn BuiltinColumn::cast_timestamp_to_date(
         b => I64(b),
       )
     // The unreachable-buffer arm, as above.
-    F64(_) | Bool(_) | Utf8(_) =>
+    F64(_) | Bool(_) | Utf8(_) | Dec(_) =>
       raise @types.DataError::Unsupported("cast from Timestamp")
   }
 }
@@ -250,6 +254,36 @@ fn BuiltinColumn::to_int(
         0,
         b => I64(b),
       )
+    Dec(a) =>
+      self.cast_cells(
+        @types.DataType::Int,
+        i => {
+          // Truncate toward zero (the `Float` source's own conversion),
+          // then the same exceptional and range refusals it raises.
+          let v = a[i].trunc()
+          if v.is_nan() {
+            raise @types.DataError::ParseError(
+              @types.ParseErrorDetail::Message("cannot cast NaN to Int"),
+            )
+          }
+          if v.is_infinite() {
+            raise @types.DataError::ParseError(
+              @types.ParseErrorDetail::Message("cannot cast Infinity to Int"),
+            )
+          }
+          match v.to_int64() {
+            Some(n) => n
+            None =>
+              raise @types.DataError::ParseError(
+                @types.ParseErrorDetail::Message(
+                  "Decimal value out of Int range: \{a[i]}",
+                ),
+              )
+          }
+        },
+        0,
+        b => I64(b),
+      )
   }
 }
 
@@ -313,6 +347,69 @@ fn BuiltinColumn::to_float(
         0.0,
         b => F64(b),
       )
+    Dec(a) =>
+      self.cast_cells(@types.DataType::Float, i => a[i].to_double(), 0.0, b => {
+        F64(b)
+      })
+  }
+}
+
+///|
+/// Convert to `Decimal` — the file-private implementation behind
+/// `cast(Decimal)`. Validity is preserved verbatim. Supported sources:
+/// - `Int`: lifted exactly.
+/// - `Float`: the correctly-rounded conversion (`Dec128::from_double`),
+///   the exceptional doubles mapping to the exceptional decimals.
+/// - `String`: the value parser the readers share (`Dec128::parse_opt`)
+///   — positional and scientific spellings, the exceptional literals; a
+///   genuine non-number on a valid slot is a `ParseError`.
+///
+/// A `Decimal` source never reaches here (the cast entry's identity gate
+/// returns it before dispatch), so the `Dec` arm below is unreachable
+/// through `cast` — it answers the entry's refusal, `to_int`'s `I64`
+/// arm's twin. `Bool` refuses: which of `0` / `1` a boolean decimal is
+/// would be a semantic guess (the `cast to Bool` refusal's own stance).
+fn BuiltinColumn::to_decimal(
+  self : BuiltinColumn,
+) -> BuiltinColumn raise @types.DataError {
+  // A same-dtype column never reaches here (cast's identity gate
+  // returns it first), so the Dec buffer is a mislabeled shape the
+  // screen below refuses by its data.
+  match self.data {
+    I64(a) =>
+      self.cast_cells(
+        @types.DataType::Decimal,
+        i => @types.Dec128::of_int64(a[i]),
+        @types.Dec128::nan(),
+        b => Dec(b),
+      )
+    F64(a) =>
+      self.cast_cells(
+        @types.DataType::Decimal,
+        i => @types.Dec128::from_double(a[i]),
+        @types.Dec128::nan(),
+        b => Dec(b),
+      )
+    Bool(_) | Dec(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
+    Utf8(a) =>
+      self.cast_cells(
+        @types.DataType::Decimal,
+        i => {
+          let s = a.get(i)
+          match @types.Dec128::parse_opt(s) {
+            Some(v) => v
+            None =>
+              raise @types.DataError::ParseError(
+                @types.ParseErrorDetail::Message(
+                  "cannot parse Decimal from \"\{s}\"",
+                ),
+              )
+          }
+        },
+        @types.Dec128::nan(),
+        b => Dec(b),
+      )
   }
 }
 
@@ -354,5 +451,11 @@ fn BuiltinColumn::to_string_column(
           Utf8(@buffer.Utf8Array::from_strings(b))
         },
       )
+    Dec(a) =>
+      self.cast_cells(@types.DataType::String, i => a[i].to_string(), "", fn(
+        b : Array[String],
+      ) raise @types.DataError {
+        Utf8(@buffer.Utf8Array::from_strings(b))
+      })
   }
 }

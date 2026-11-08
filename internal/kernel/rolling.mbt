@@ -192,7 +192,8 @@ fn eval_rolling(
     }
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) =>
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::Dec(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "rolling \{roll_stat_label(stat)} requires a numeric operand, got \{dtype}",

@@ -976,34 +976,40 @@ test "parse_csv_str: the rider dtypes pin through their read parsers" {
     dtypes=Map([
       ("d", @types.DataType::Date),
       ("t", @types.DataType::Timestamp),
-      ("x", @types.DataType::Decimal(2)),
+      ("x", @types.DataType::Decimal),
     ]),
   )
   let df = @io.parse_csv_str(content, options=opts)
   assert_eq(df.get_column("d").dtype(), @types.DataType::Date)
   assert_eq(df.get_column("t").dtype(), @types.DataType::Timestamp)
-  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal(2))
+  assert_eq(df.get_column("x").dtype(), @types.DataType::Decimal)
   assert_eq(df.item(0, "d"), @types.Scalar::Date(19724L))
   assert_eq(df.item(1, "d"), @types.Scalar::Date(11016L))
   // The trailing `Z` is the one admitted variant of the writer's form.
   assert_eq(df.item(0, "t"), @types.Scalar::Timestamp(0L))
   assert_eq(df.item(1, "t"), @types.Scalar::Timestamp(-1L))
   // `"1.5"` pads to the pin's scale; `-0.05` reads its exact magnitude.
-  assert_eq(df.item(0, "x"), @types.Scalar::Decimal(2, 150L))
-  assert_eq(df.item(1, "x"), @types.Scalar::Decimal(2, -5L))
+  assert_eq(
+    df.item(0, "x"),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(150L, scale=2)),
+  )
+  assert_eq(
+    df.item(1, "x"),
+    @types.Scalar::Decimal(@types.Dec128::of_int64_scale(-5L, scale=2)),
+  )
 }
 
 ///|
 test "parse_csv_str: a rider pin's bad cell follows on_parse_error" {
   let content =
     #|d,t,x
-    #|2024-13-01,2024-01-01 00:00:00.000000,1.555
+    #|2024-13-01,2024-01-01 00:00:00.000000,not-a-number
     #|
   for
     pair in [
       (@types.DataType::Date, "d"),
       (@types.DataType::Timestamp, "t"),
-      (@types.DataType::Decimal(2), "x"),
+      (@types.DataType::Decimal, "x"),
     ] {
     let (dt, name) = pair
     let opts = @io.CsvReadOptions::CsvReadOptions(dtypes=Map([(name, dt)]))
@@ -1038,7 +1044,7 @@ test "parse_csv_str: a rider pin's bad cell follows on_parse_error" {
 }
 
 ///|
-test "parse_csv_str: a Null pin and an off-envelope scale are refused" {
+test "parse_csv_str: a Null pin is refused; a Decimal pin reads the engine parser's forms" {
   let content =
     #|n,x
     #|2,1.5
@@ -1054,23 +1060,21 @@ test "parse_csv_str: a Null pin and an off-envelope scale are refused" {
   match result {
     Err(@types.DataError::InvalidOperation(m)) =>
       assert_eq(
-        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal(scale) have a read parser (Duration writes text no reader parses)",
+        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses)",
       )
     _ => fail("expected InvalidOperation for the Null pin")
   }
-  let bad_scale = @io.CsvReadOptions::CsvReadOptions(
-    dtypes=Map([("x", @types.DataType::Decimal(25))]),
+  // The pin's scale envelope is gone with the scale: a Decimal pin
+  // reads any decimal spelling the engine's parser accepts, so the
+  // "1.5" cell lands as the value 1.5 (its own quantum exponent).
+  let pin = @io.CsvReadOptions::CsvReadOptions(
+    dtypes=Map([("x", @types.DataType::Decimal)]),
   )
-  let scale_result = Ok(@io.parse_csv_str(content, options=bad_scale)) catch {
-    e => Err(e)
-  }
-  match scale_result {
-    Err(@types.DataError::InvalidOperation(m)) =>
-      assert_eq(
-        m, "decimal column \"x\" carries scale 25, outside the envelope [0, 18]",
-      )
-    _ => fail("expected InvalidOperation for the off-envelope scale")
-  }
+  let pinned = @io.parse_csv_str(content, options=pin)
+  assert_true(
+    pinned.item(0, "x") is @types.Scalar::Decimal(v) &&
+    v.equal(@types.Dec128::parse_opt("1.5").unwrap()),
+  )
 }
 
 ///|

@@ -13,8 +13,10 @@
 fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], @buffer.Bitmap) {
   match col.data() {
     ColumnData::I64(a) => (a, col.validity())
-    ColumnData::F64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
-      ([], col.validity())
+    ColumnData::F64(_)
+    | ColumnData::Bool(_)
+    | ColumnData::Utf8(_)
+    | ColumnData::Dec(_) => ([], col.validity())
   }
 }
 
@@ -23,8 +25,10 @@ fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], @buffer.Bitmap) {
 fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
   match col.data() {
     ColumnData::F64(a) => (a, col.validity())
-    ColumnData::I64(_) | ColumnData::Bool(_) | ColumnData::Utf8(_) =>
-      ([], col.validity())
+    ColumnData::I64(_)
+    | ColumnData::Bool(_)
+    | ColumnData::Utf8(_)
+    | ColumnData::Dec(_) => ([], col.validity())
   }
 }
 
@@ -33,8 +37,10 @@ fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
 fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
   match col.data() {
     ColumnData::Bool(a) => (a, col.validity())
-    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Utf8(_) =>
-      ([], col.validity())
+    ColumnData::I64(_)
+    | ColumnData::F64(_)
+    | ColumnData::Utf8(_)
+    | ColumnData::Dec(_) => ([], col.validity())
   }
 }
 
@@ -43,8 +49,22 @@ fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
 fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
   match col.data() {
     ColumnData::Utf8(a) => (a.to_strings(), col.validity())
-    ColumnData::I64(_) | ColumnData::F64(_) | ColumnData::Bool(_) =>
-      ([], col.validity())
+    ColumnData::I64(_)
+    | ColumnData::F64(_)
+    | ColumnData::Bool(_)
+    | ColumnData::Dec(_) => ([], col.validity())
+  }
+}
+
+///|
+/// The `Decimal` buffer and validity mask, mirroring `int_cells`.
+fn dec_cells(col : BuiltinColumn) -> (ArrayView[@types.Dec128], @buffer.Bitmap) {
+  match col.data() {
+    ColumnData::Dec(a) => (a, col.validity())
+    ColumnData::I64(_)
+    | ColumnData::F64(_)
+    | ColumnData::Bool(_)
+    | ColumnData::Utf8(_) => ([], col.validity())
   }
 }
 
@@ -61,6 +81,21 @@ fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
 /// production function it had no caller, which made it a `pub` the packages
 /// above could reach for no reason any of them needed. The `data` match is
 /// wildcard-free, so a future dtype has to supply its placeholder here.
+
+///|
+test "a null decimal slot holds the NaN placeholder" {
+  let col = BuiltinColumn::from_dec_options([
+    None,
+    Some(@types.Dec128::of_int64(7L)),
+  ])
+  let (cells, _) = dec_cells(col)
+  assert_true(cells[0].is_nan())
+  assert_true(
+    cells[1].equal(@types.Dec128::of_int64(7L)) && placeholders_normalized(col),
+  )
+}
+
+///|
 fn placeholders_normalized(col : BuiltinColumn) -> Bool {
   let valid = col.validity.to_bools()
   match col.data {
@@ -68,6 +103,18 @@ fn placeholders_normalized(col : BuiltinColumn) -> Bool {
     ColumnData::F64(a) => null_slots_hold(a, valid, 0.0)
     ColumnData::Bool(a) => null_slots_hold(a, valid, false)
     ColumnData::Utf8(a) => null_slots_hold(a.to_strings(), valid, "")
+    // A null decimal slot holds the NaN placeholder — never read as a
+    // value, the validity bitmap owns nullness. NaN equals nothing, so
+    // the witness reads `is_nan` rather than `==`.
+    ColumnData::Dec(a) => {
+      let mut ok = true
+      for i in 0..<valid.length() {
+        if !valid[i] && !a[i].is_nan() {
+          ok = false
+        }
+      }
+      ok
+    }
   }
 }
 

@@ -274,12 +274,11 @@ pub fn DataFrame::from_rows(
             }
           }),
         )
-      @types.DataType::Decimal(scale) =>
-        Series::from_decimal_options(
-          scale,
+      @types.DataType::Decimal =>
+        Series::from_decimals(
           field.name(),
           typed_column_cells(rows, i, field, cell => {
-            if cell is @types.Scalar::Decimal(s, v) && s == scale {
+            if cell is @types.Scalar::Decimal(v) {
               Some(v)
             } else {
               None

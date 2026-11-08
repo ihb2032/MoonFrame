@@ -58,6 +58,13 @@ pub fn Series::build_sort_key(
         descending,
         nulls_last,
       )
+    @column.ColumnData::Dec(a) =>
+      SortKey::Dec(
+        a,
+        Array::makei(a.length(), i => !valid[i]),
+        descending,
+        nulls_last,
+      )
   }
 }
 
@@ -80,6 +87,7 @@ pub enum SortKey {
   Float(ArrayView[Double], Array[Bool], Bool, Bool)
   Bool(ArrayView[Bool], Array[Bool], Bool, Bool)
   String(ArrayView[String], Array[Bool], Bool, Bool)
+  Dec(ArrayView[@types.Dec128], Array[Bool], Bool, Bool)
 }
 
 ///|
@@ -118,6 +126,15 @@ pub fn SortKey::compare_one_key(self : SortKey, i : Int32, j : Int32) -> Int32 {
         // never re-routed through the missing-placement rule. The
         // `descending` flip is `compare_with_missing`'s, as for every arm.
         @numeric.cmp_double_total(data[i], data[j])
+      })
+    }
+    Dec(data, missing, descending, nulls_last) => {
+      let mi = missing[i]
+      let mj = missing[j]
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
+        // The decimal total order — the Float arm's own shape: NaN past
+        // everything (one bucket), −0 and +0 equal, magnitudes ascending.
+        data[i].cmp_total(data[j])
       })
     }
     Bool(data, missing, descending, nulls_last) => {

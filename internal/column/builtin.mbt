@@ -50,6 +50,7 @@ pub(all) enum ColumnData {
   F64(ArrayView[Double])
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
+  Dec(ArrayView[@types.Dec128])
 }
 
 ///|
@@ -184,6 +185,22 @@ pub fn BuiltinColumn::from_i64_options(
 }
 
 ///|
+/// Build a `Decimal` column from optional `Dec128` cells — the decimal
+/// dtype's own physical buffer, `None` entries nulls with the NaN
+/// placeholder (a null cell never reads its payload back: the validity
+/// bitmap owns null-ness, the payload's shape is the reader's
+/// business alone).
+pub fn BuiltinColumn::from_dec_options(
+  values : Array[@types.Dec128?],
+) -> BuiltinColumn {
+  {
+    dtype: @types.DataType::Decimal,
+    data: Dec(values.map(v => v.unwrap_or(@types.Dec128::nan()))),
+    validity: @buffer.Bitmap::from_options(values),
+  }
+}
+
+///|
 /// Project already-computed result cells onto a column of `probe`'s dtype —
 /// the bulk write side of the identity/representation meet whose read side is
 /// `scalar_of`: each cell is "matching variant → `Some`, anything else
@@ -258,30 +275,15 @@ pub fn BuiltinColumn::from_scalars(
           }
         }),
       )
-    @types.DataType::Decimal(scale) => {
-      // The projection authors the dtype from `probe`, so the envelope
-      // check rides here. A cell whose own scale differs from the column's
-      // lands as null — the same tolerance a mixed-variant projection gives
-      // its off-type minority — rather than its unscaled bits being re-read
-      // through a scale they were never written for: the probe route is the
-      // one place arbitrary scalars arrive (`map_elements` closures), and
-      // `Series::from_scalars` rejects the same input outright.
-      @types.check_decimal_scale(scale, "column \{name}")
-      BuiltinColumn::from_i64_options(
-        probe,
+    @types.DataType::Decimal =>
+      BuiltinColumn::from_dec_options(
         cells.map(c => {
           match c {
-            @types.Scalar::Decimal(s, v) =>
-              if s == scale {
-                Some(v)
-              } else {
-                None
-              }
+            @types.Scalar::Decimal(v) => Some(v)
             _ => None
           }
         }),
       )
-    }
     @types.DataType::Duration =>
       BuiltinColumn::from_i64_options(
         probe,
@@ -337,6 +339,7 @@ fn BuiltinColumn::len(self : BuiltinColumn) -> Int32 {
     F64(a) => a.length()
     Bool(a) => a.length()
     Utf8(a) => a.len()
+    Dec(a) => a.length()
   }
 }
 
@@ -399,6 +402,7 @@ pub fn scalar_of(
     F64(a) => @types.Scalar::Float(a[index])
     Bool(a) => @types.Scalar::Bool(a[index])
     Utf8(a) => @types.Scalar::String(a.get(index))
+    Dec(a) => @types.Scalar::Decimal(a[index])
   }
 }
 
@@ -421,6 +425,7 @@ fn BuiltinColumn::slice_unchecked(
     F64(a) => F64(Array::makei(n, i => a[start + i]))
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
     Utf8(a) => Utf8(a.slice_view(start, n))
+    Dec(a) => Dec(Array::makei(n, i => a[start + i]))
   }
   {
     dtype: self.dtype,
@@ -444,6 +449,7 @@ fn BuiltinColumn::take(
     F64(a) => F64(indices.map(i => a[i]))
     Bool(a) => Bool(indices.map(i => a[i]))
     Utf8(a) => Utf8(a.take_view(indices))
+    Dec(a) => Dec(indices.map(i => a[i]))
   }
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds

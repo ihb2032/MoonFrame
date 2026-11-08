@@ -25,6 +25,7 @@ fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
     ColumnData::F64(a) => ("Float", Array::makei(a.length(), i => !valid[i]))
     ColumnData::Bool(a) => ("Bool", Array::makei(a.length(), i => !valid[i]))
     ColumnData::Utf8(a) => ("String", Array::makei(a.len(), i => !valid[i]))
+    ColumnData::Dec(a) => ("Decimal", Array::makei(a.length(), i => !valid[i]))
   }
 }
 
@@ -358,19 +359,22 @@ test "ColumnStorage equality settles the dtype before the buffer" {
     BuiltinColumn::from_i64_options(@types.DataType::Timestamp, [Some(5L)]),
   )
   assert_not_eq(ts, date)
-  let dec2 = ColumnStorage::Builtin(
-    BuiltinColumn::from_i64_options(@types.DataType::Decimal(2), [Some(5L)]),
+  // A Decimal column has no scale parameter to differ — the dtype gate
+  // is the buffer tag itself (a Decimal payload under the Int dtype is
+  // the mislabeled pair, refused the way Date-under-Int is above).
+  let dec = ColumnStorage::Builtin(
+    BuiltinColumn::from_dec_options([Some(@types.Dec128::of_int64(5L))]),
   )
-  let dec4 = ColumnStorage::Builtin(
-    BuiltinColumn::from_i64_options(@types.DataType::Decimal(4), [Some(5L)]),
+  let dec_same = ColumnStorage::Builtin(
+    BuiltinColumn::from_dec_options([Some(@types.Dec128::of_int64(5L))]),
   )
-  assert_not_eq(dec2, dec4)
+  assert_eq(dec, dec_same)
   // The same dtype still compares by content — the identity gate changed
   // nothing about the value comparison behind it.
   assert_eq(
-    dec2,
+    dec_same,
     ColumnStorage::Builtin(
-      BuiltinColumn::from_i64_options(@types.DataType::Decimal(2), [Some(5L)]),
+      BuiltinColumn::from_dec_options([Some(@types.Dec128::of_int64(5L))]),
     ),
   )
   // A Numeric Int column and a Builtin Date column share neither dtype nor

@@ -39,6 +39,7 @@ pub(all) enum PhysicalType {
   F64
   Bool
   Utf8
+  Dec
 }
 
 ///|
@@ -125,10 +126,10 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
         summable: false,
         orderable: true,
       }
-    Decimal(scale) =>
+    Decimal =>
       {
-        display: "Decimal(\{scale})",
-        physical: Some(I64),
+        display: "Decimal",
+        physical: Some(Dec),
         numeric: false,
         summable: true,
         orderable: true,
@@ -191,8 +192,8 @@ pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
   match self {
     Date => Some(Scalar::Date(v))
     Timestamp => Some(Scalar::Timestamp(v))
-    Decimal(scale) => Some(Scalar::Decimal(scale, v))
     Duration => Some(Scalar::Duration(v))
+    Decimal => None // the Dec128 buffer is no I64 rider
     Int => None
     Float => None
     Bool => None

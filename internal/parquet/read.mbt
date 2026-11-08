@@ -15,7 +15,7 @@
 /// million of them, and every cell past here sizes boxed values the
 /// decode would build — past the budget the column refuses loudly
 /// instead of letting the expansion run the process out of memory.
-let parquet_cell_budget : Int64 = 1L << 27
+const PARQUET_CELL_BUDGET : Int64 = 1L << 27
 
 ///|
 /// One column's footer facts, before the schema pairing. The physical
@@ -531,19 +531,19 @@ fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
 /// few bytes can name gigabytes of payload; past this cap the page
 /// refuses instead of letting the inflation run the process out of
 /// memory.
-let gzip_page_max_output : Int32 = 0x4000_0000
+const GZIP_PAGE_MAX_OUTPUT : Int32 = 0x4000_0000
 
 ///|
 /// Decompress one GZIP page body under the page cap — the cap rides the
 /// inflater itself, never a declared size the stream could misname, so
 /// only the bytes actually produced count against it.
 fn gzip_page_body(bytes : Bytes) -> Bytes raise @types.DataError {
-  gzip_page_body_capped(bytes, gzip_page_max_output)
+  gzip_page_body_capped(bytes, GZIP_PAGE_MAX_OUTPUT)
 }
 
 ///|
 /// `gzip_page_body` with the cap as a parameter — production reads pass
-/// `gzip_page_max_output`; the whitebox tests pass a small one, because
+/// `GZIP_PAGE_MAX_OUTPUT`; the whitebox tests pass a small one, because
 /// inflating a real gigabyte past the production cap is exactly the
 /// cost the guard exists to spare.
 fn gzip_page_body_capped(
@@ -589,9 +589,9 @@ fn decode_column(
   // a small file legally claiming an expansion-sized count, and every
   // cell the count names becomes a boxed value below — so a count past
   // the budget refuses here, before any allocation it would size.
-  if total > parquet_cell_budget {
+  if total > PARQUET_CELL_BUDGET {
     raise @types.DataError::InvalidOperation(
-      "column \"\{chunk.name}\" declares \{total} values, past the \{parquet_cell_budget}-cell budget a single column read accepts",
+      "column \"\{chunk.name}\" declares \{total} values, past the \{PARQUET_CELL_BUDGET}-cell budget a single column read accepts",
     )
   }
   // The present values, decoded per physical type; the dictionary
@@ -1003,8 +1003,8 @@ fn count_present(defs : Array[Int32]) -> Int32 {
 #coverage.skip
 fn boolean_dictionary_cap(bytes : Bytes) -> Int32 {
   let cap = bytes.length().to_int64() * 8L
-  if cap > parquet_cell_budget {
-    parquet_cell_budget.to_int()
+  if cap > PARQUET_CELL_BUDGET {
+    PARQUET_CELL_BUDGET.to_int()
   } else {
     cap.to_int()
   }

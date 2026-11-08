@@ -5,7 +5,7 @@
 // Vega-Lite output) are byte-identical on every backend.
 
 ///|
-let sample_csv : String =
+const SAMPLE_CSV : String =
   #|region,product,revenue,quantity
   #|west,widget,100,10
   #|east,gadget,50,5
@@ -16,7 +16,7 @@ let sample_csv : String =
 
 ///|
 test "revenue_by_region: sums per region and orders by revenue desc" {
-  let df = @io.parse_csv_str(sample_csv)
+  let df = @io.parse_csv_str(SAMPLE_CSV)
   let summary = revenue_by_region(df)
   // One row per region; columns are the group key then the two aliased
   // sums, in spec order.
@@ -39,7 +39,7 @@ test "revenue_by_region: sums per region and orders by revenue desc" {
 
 ///|
 test "revenue_table: renders the summary as a captioned HTML table" {
-  let df = @io.parse_csv_str(sample_csv)
+  let df = @io.parse_csv_str(SAMPLE_CSV)
   let html = revenue_table(revenue_by_region(df))
   inspect(
     html,
@@ -62,7 +62,7 @@ test "revenue_table: renders the summary as a captioned HTML table" {
 
 ///|
 test "revenue_chart: emits a Vega-Lite v6 bar spec" {
-  let df = @io.parse_csv_str(sample_csv)
+  let df = @io.parse_csv_str(SAMPLE_CSV)
   let chart = revenue_chart(revenue_by_region(df))
   inspect(
     chart,

@@ -28,11 +28,11 @@ test "the finisher's range corners" {
   let z_hi = dec_work()
   let (v_hi, _) = dec_finish(false, z_hi, 2_000_000_000, false)
   assert_true(v_hi.is_zero())
-  assert_eq(v_hi.exponent().unwrap(), dec_emax)
+  assert_eq(v_hi.exponent().unwrap(), DEC_EMAX)
   let z_lo = dec_work()
   let (v_lo, _) = dec_finish(false, z_lo, -2_000_000_000, false)
   assert_true(v_lo.is_zero())
-  assert_eq(v_lo.exponent().unwrap(), dec_etiny)
+  assert_eq(v_lo.exponent().unwrap(), DEC_ETINY)
   // The all-nines round-up at the subnormal floor lands on 10^34 —
   // one exponent coarser, the format's smallest normal boundary: 35
   // nines at Etiny−1 (a value just under 1E-6142) rounds up through
@@ -43,16 +43,16 @@ test "the finisher's range corners" {
   nines[2] = 999999999L
   nines[1] = 999999999L
   nines[0] = 999999999L
-  let (v_sub, _) = dec_finish(false, nines, dec_etiny - 1, false)
+  let (v_sub, _) = dec_finish(false, nines, DEC_ETINY - 1, false)
   assert_true(v_sub.equal(Dec128::parse_opt("1E-6142").unwrap()))
-  assert_eq(v_sub.exponent().unwrap(), dec_etiny + 1)
+  assert_eq(v_sub.exponent().unwrap(), DEC_ETINY + 1)
 }
 
 ///|
 test "the long divider's overshoot correction fires" {
   // A remainder window whose top estimate overstates the quotient —
   // q·divisor past the remainder — so the correction walks it back.
-  let rem = FixedArray::makei(dec_work_limbs + 1, _ => 0L)
+  let rem = FixedArray::makei(DEC_WORK_LIMBS + 1, _ => 0L)
   let divisor = dec_work()
   divisor[0] = 999999999L
   divisor[1] = 999999999L

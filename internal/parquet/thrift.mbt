@@ -194,15 +194,15 @@ fn ThriftReader::field_header(
 /// opening another struct) would walk one skip frame per byte until the
 /// stack dies. Past the bound the skip refuses, and every caller
 /// reports that refusal as a located parse error.
-let max_skip_depth : Int32 = 64
+const MAX_SKIP_DEPTH : Int32 = 64
 
 ///|
 /// Skip one value of the given wire type — the unknown-field rule. The
 /// nesting a skip walks (a list over its elements, a struct over its
-/// fields) is bounded: a value past `max_skip_depth` levels refuses
+/// fields) is bounded: a value past `MAX_SKIP_DEPTH` levels refuses
 /// rather than recursing on a hostile footer's depth.
 fn ThriftReader::skip(self : ThriftReader, wire : WireType) -> Bool {
-  if self.depth >= max_skip_depth {
+  if self.depth >= MAX_SKIP_DEPTH {
     return false
   }
   self.depth = self.depth + 1

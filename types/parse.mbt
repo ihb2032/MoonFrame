@@ -10,7 +10,7 @@
 // The calendar half is the shared pair `days_from_civil` /
 // `date_days_to_civil`, whose round trip is the parser's own validity
 // check. A `Decimal` cell parses through the engine's own value reader
-// (`Dec128::parse_opt`), not this file.
+// (`Dec128::parse_opt`).
 
 ///|
 /// `Some(days)` when `s` is the ISO date form `YYYY-MM-DD` the `Date`

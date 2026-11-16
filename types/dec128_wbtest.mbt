@@ -19,6 +19,8 @@ test "the workspace helpers refuse degenerate shifts" {
 test "exponent arithmetic saturates instead of wrapping" {
   assert_eq(dec_add_i32(2_147_483_647, 1), 2_147_483_647)
   assert_eq(dec_add_i32(-2_147_483_648, -1), -2_147_483_648)
+  assert_eq(dec_sub_i32(2_147_483_647, -1), 2_147_483_647)
+  assert_eq(dec_sub_i32(-2_147_483_648, 1), -2_147_483_648)
 }
 
 ///|

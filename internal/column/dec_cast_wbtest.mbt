@@ -76,6 +76,6 @@ test "the decimal casts cross every buffer, refusals included" {
   assert_eq(dec.cast(@types.DataType::Float).get(0), @types.Scalar::Float(1.0))
   assert_eq(
     dec.cast(@types.DataType::String).get(0),
-    @types.Scalar::String("1.0"),
+    @types.Scalar::String("1"),
   )
 }

@@ -33,16 +33,16 @@ test "constructors and predicates name the exceptional shapes" {
 
 ///|
 test "of_int64 and of_int64_scale carry exact integers" {
-  assert_eq(@types.Dec128::of_int64(0L).to_string(), "0.0")
-  assert_eq(@types.Dec128::of_int64(42L).to_string(), "42.0")
-  assert_eq(@types.Dec128::of_int64(-42L).to_string(), "-42.0")
+  assert_eq(@types.Dec128::of_int64(0L).to_string(), "0")
+  assert_eq(@types.Dec128::of_int64(42L).to_string(), "42")
+  assert_eq(@types.Dec128::of_int64(-42L).to_string(), "-42")
   assert_eq(
     @types.Dec128::of_int64(-9_223_372_036_854_775_808L).to_string(),
-    "-9223372036854775808.0",
+    "-9223372036854775808",
   )
   assert_eq(
     @types.Dec128::of_int64(9_223_372_036_854_775_807L).to_string(),
-    "9223372036854775807.0",
+    "9223372036854775807",
   )
   // The fixed-point lift: an unscaled magnitude under a scale.
   assert_eq(
@@ -50,7 +50,7 @@ test "of_int64 and of_int64_scale carry exact integers" {
     "123.45",
   )
   assert_eq(@types.Dec128::of_int64_scale(-5L, scale=2).to_string(), "-0.05")
-  assert_eq(@types.Dec128::of_int64_scale(7L, scale=0).to_string(), "7.0")
+  assert_eq(@types.Dec128::of_int64_scale(7L, scale=0).to_string(), "7")
   // A negative scale is an exponent lift; past Emax it is an infinity.
   assert_eq(
     @types.Dec128::of_int64_scale(1L, scale=-6144).to_string(),
@@ -184,14 +184,14 @@ test "canonical strips the cohort to one member" {
 
 ///|
 test "neg and abs flip and clear the sign" {
-  assert_eq(@types.Dec128::of_int64(5L).neg().to_string(), "-5.0")
-  assert_eq(@types.Dec128::of_int64(-5L).neg().to_string(), "5.0")
+  assert_eq(@types.Dec128::of_int64(5L).neg().to_string(), "-5")
+  assert_eq(@types.Dec128::of_int64(-5L).neg().to_string(), "5")
   // −0 negates to +0 and back, the sign a value's own.
   assert_true(@types.Dec128::zero(neg=true).neg().is_negative() == false)
   assert_true(@types.Dec128::zero().neg().is_negative())
   // NaN carries no sign to flip — negation is the identity.
   assert_true(@types.Dec128::nan().neg().is_nan())
-  assert_eq(@types.Dec128::of_int64(-5L).abs().to_string(), "5.0")
+  assert_eq(@types.Dec128::of_int64(-5L).abs().to_string(), "5")
   assert_true(@types.Dec128::nan().abs().is_nan())
   assert_true(@types.Dec128::infinity(neg=true).abs().is_infinite())
   assert_false(@types.Dec128::infinity(neg=true).abs().is_negative())
@@ -242,13 +242,13 @@ test "Double conversions map the exceptionals across" {
 
 ///|
 test "parse reads the render's every form" {
-  assert_eq(@types.Dec128::parse_opt("5").unwrap().to_string(), "5.0")
-  assert_eq(@types.Dec128::parse_opt("+5").unwrap().to_string(), "5.0")
+  assert_eq(@types.Dec128::parse_opt("5").unwrap().to_string(), "5")
+  assert_eq(@types.Dec128::parse_opt("+5").unwrap().to_string(), "5")
   assert_eq(@types.Dec128::parse_opt(".5").unwrap().to_string(), "0.5")
   assert_eq(@types.Dec128::parse_opt("-.5").unwrap().to_string(), "-0.5")
-  assert_eq(@types.Dec128::parse_opt("5.").unwrap().to_string(), "5.0")
-  assert_eq(@types.Dec128::parse_opt("1e3").unwrap().to_string(), "1000.0")
-  assert_eq(@types.Dec128::parse_opt("1.5E+2").unwrap().to_string(), "150.0")
+  assert_eq(@types.Dec128::parse_opt("5.").unwrap().to_string(), "5")
+  assert_eq(@types.Dec128::parse_opt("1e3").unwrap().to_string(), "1E3")
+  assert_eq(@types.Dec128::parse_opt("1.5E+2").unwrap().to_string(), "1.5E2")
   assert_eq(@types.Dec128::parse_opt("15e-1").unwrap().to_string(), "1.5")
   assert_true(@types.Dec128::parse_opt("inf").unwrap().is_infinite())
   assert_true(@types.Dec128::parse_opt("+inf").unwrap().is_infinite())
@@ -400,20 +400,19 @@ test "to_int64 refuses a magnitude past the range" {
 
 ///|
 test "render picks positional inside its window and scientific beyond" {
-  // The window's edges: adj 39 positional, adj 40 scientific; adj −6
-  // positional, adj −7 scientific.
-  let mut e39 = "1"
-  for _ in 0..<39 {
-    e39 = e39 + "0"
-  }
-  assert_eq(@types.Dec128::parse_opt("1E+39").unwrap().to_string(), e39 + ".0")
+  // The window's edges: adj 39 scientific (a positive quantum stays in
+  // the exponent), adj 40 scientific; adj −6 positional, adj −7
+  // scientific. A 34-digit coefficient cannot reach adj 39 at exponent
+  // zero, so the positional upper edge is the precision's own.
+  assert_eq(@types.Dec128::parse_opt("1E+39").unwrap().to_string(), "1E39")
   assert_eq(@types.Dec128::parse_opt("1E+40").unwrap().to_string(), "1E40")
   assert_eq(@types.Dec128::parse_opt("1E-6").unwrap().to_string(), "0.000001")
   assert_eq(@types.Dec128::parse_opt("1E-7").unwrap().to_string(), "1E-7")
   // The cohort's trailing zeros render positionally too.
   assert_eq(@types.Dec128::parse_opt("1.50").unwrap().to_string(), "1.50")
-  // A short coefficient under a large exponent pads integer zeros.
-  assert_eq(@types.Dec128::parse_opt("1.5E+5").unwrap().to_string(), "150000.0")
+  // A short coefficient under a positive exponent stays scientific, so
+  // the quantum survives the render.
+  assert_eq(@types.Dec128::parse_opt("1.5E+5").unwrap().to_string(), "1.5E5")
   // Every rendering round-trips.
   for
     s in [
@@ -426,5 +425,160 @@ test "render picks positional inside its window and scientific beyond" {
       true,
       msg="round-trip: " + s,
     )
+  }
+}
+
+///|
+test "the total order reads a zero on either side" {
+  let p0 = @types.Dec128::zero()
+  let n0 = @types.Dec128::zero(neg=true)
+  let one = @types.Dec128::of_int64(1L)
+  let neg_one = @types.Dec128::of_int64(-1L)
+  assert_eq(one.cmp_total(p0), 1)
+  assert_eq(p0.cmp_total(one), -1)
+  assert_eq(neg_one.cmp_total(p0), -1)
+  assert_eq(p0.cmp_total(neg_one), 1)
+  assert_eq(one.cmp_total(n0), 1)
+  assert_eq(n0.cmp_total(one), -1)
+  assert_false(one.lt(p0))
+  assert_false(one.le(p0))
+  assert_true(p0.lt(one))
+  assert_true(p0.le(one))
+  assert_true(neg_one.lt(p0))
+  assert_true(neg_one.le(p0))
+  assert_false(p0.lt(neg_one))
+  assert_false(p0.le(neg_one))
+  assert_true(one.gt(p0))
+  assert_true(neg_one.gt(p0) == false)
+}
+
+///|
+test "a fraction past the workspace keeps the value's exponent" {
+  let ones71 = @types.Dec128::parse_opt("0." + "1".repeat(71)).unwrap()
+  assert_eq(ones71.exponent().unwrap(), -34)
+  assert_eq(ones71.to_string(), "0." + "1".repeat(34))
+  let ones69 = @types.Dec128::parse_opt("0." + "1".repeat(69)).unwrap()
+  assert_eq(ones69.exponent().unwrap(), -34)
+  assert_eq(ones69.to_string(), "0." + "1".repeat(34))
+  let ones80 = @types.Dec128::parse_opt("0." + "1".repeat(80)).unwrap()
+  assert_eq(ones80.exponent().unwrap(), -34)
+  let sticky = @types.Dec128::parse_opt("0." + "1".repeat(70) + "6").unwrap()
+  assert_eq(sticky.exponent().unwrap(), -34)
+  assert_eq(sticky.to_string(), "0." + "1".repeat(34))
+  let mixed = @types.Dec128::parse_opt("1" + "0".repeat(69) + ".5").unwrap()
+  assert_eq(mixed.exponent().unwrap(), 36)
+  assert_eq(mixed.to_string(), "1." + "0".repeat(33) + "E69")
+}
+
+///|
+test "to_double maps a finite overflow to the matching infinity" {
+  let pos = @types.Dec128::parse_opt("1E+400").unwrap().to_double()
+  assert_true(pos.is_pos_inf())
+  let neg = @types.Dec128::parse_opt("-1.8E+308").unwrap().to_double()
+  assert_true(neg.is_neg_inf())
+  let max = @types.Dec128::parse_opt("1.7976931348623157E+308")
+    .unwrap()
+    .to_double()
+  assert_true(max.is_finite())
+  let tie = @types.Dec128::parse_opt("9007199254740993").unwrap().to_double()
+  assert_eq(tie, 9007199254740992.0)
+  let tiny = @types.Dec128::parse_opt("-1E-400").unwrap().to_double()
+  assert_eq(tiny, -0.0)
+  assert_true(tiny.reinterpret_as_uint64() == 0x8000_0000_0000_0000UL)
+}
+
+///|
+test "quantize refuses targets past the format's envelope" {
+  let one = @types.Dec128::of_int64(1L)
+  assert_true(one.quantize(places=-7000).is_nan())
+  assert_true(@types.Dec128::zero().quantize(places=-7000).is_nan())
+  assert_true(one.quantize(places=-6145).is_nan())
+  let ceiling = @types.Dec128::parse_opt(
+    "9.999999999999999999999999999999999E+6144",
+  ).unwrap()
+  assert_true(ceiling.quantize(places=-6144).is_nan())
+  let floor = one.quantize(places=-6144)
+  assert_false(floor.is_nan())
+  assert_eq(floor.exponent().unwrap(), 6144)
+  assert_true(floor.is_zero())
+}
+
+///|
+test "a zero addend keeps the preferred exponent and the IEEE sign" {
+  let a = @types.Dec128::parse_opt("1.5").unwrap()
+  let z = @types.Dec128::parse_opt("0.00").unwrap()
+  assert_eq(a.add(z).to_string(), "1.50")
+  assert_eq(z.add(a).to_string(), "1.50")
+  let p0 = @types.Dec128::zero()
+  let n0 = @types.Dec128::zero(neg=true)
+  assert_false(n0.add(p0).is_negative())
+  assert_true(n0.add(n0).is_negative())
+  assert_false(n0.sub(n0).is_negative())
+  assert_eq(a.sub(a).to_string(), "0.0")
+  assert_eq(a.sub(a).exponent().unwrap(), -1)
+  let tiny = @types.Dec128::parse_opt("1E-6176").unwrap()
+  assert_eq(tiny.sub(tiny).to_string(), "0E-6176")
+  assert_eq(
+    @types.Dec128::of_int64(2L).div(@types.Dec128::infinity()).to_string(),
+    "0E-6176",
+  )
+  assert_eq(z.mul(@types.Dec128::of_int64(1L)).to_string(), "0.00")
+  assert_eq(z.div(@types.Dec128::of_int64(7L)).to_string(), "0.00")
+}
+
+///|
+test "a zero reads as an integer at any positive quantum" {
+  assert_eq(@types.Dec128::parse_opt("0E+100").unwrap().to_int64(), Some(0L))
+  assert_eq(@types.Dec128::parse_opt("0E+6144").unwrap().to_int64(), Some(0L))
+  assert_eq(@types.Dec128::parse_opt("0E-6176").unwrap().to_int64(), Some(0L))
+}
+
+///|
+test "an Int32::MIN scale saturates above the ceiling" {
+  let v = @types.Dec128::of_int64_scale(1L, scale=-2147483647 - 1)
+  assert_true(v.is_infinite())
+  assert_false(v.is_negative())
+}
+
+///|
+test "division by an unnormalized divisor stays exact and bounded" {
+  let q1 = @types.Dec128::parse_opt("617283945000000000")
+    .unwrap()
+    .div(@types.Dec128::parse_opt("1234567890").unwrap())
+  assert_eq(q1.to_string(), "500000000")
+  let q2 = @types.Dec128::parse_opt("5977988032340672389359017012444020")
+    .unwrap()
+    .div(@types.Dec128::parse_opt("1500000001").unwrap())
+  assert_eq(q2.to_string(), "3985325352236898024748079.325130627")
+  let q3 = @types.Dec128::parse_opt("5977988032340672389359017012444020")
+    .unwrap()
+    .div(@types.Dec128::parse_opt("1999999999").unwrap())
+  assert_eq(q3.to_string(), "2988994017664833203511925.107977973")
+}
+
+///|
+test "a subnormal result rounds once, not twice" {
+  let q = @types.Dec128::parse_opt("7.717580925573227840427093843424866E-6143")
+    .unwrap()
+    .div(@types.Dec128::parse_opt("71").unwrap())
+  assert_eq(q.to_string(), "1.08698322895397575217283011879223E-6144")
+  let m = @types.Dec128::parse_opt("4.440406042514803616476107086888379E-3067")
+    .unwrap()
+    .mul(@types.Dec128::parse_opt("9.2104199214E-3078").unwrap())
+  assert_eq(m.to_string(), "4.08980042730832825836003019801964E-6144")
+}
+
+///|
+test "a render keeps the value's own quantum" {
+  for
+    s in [
+      "0", "-0", "0.0", "-0.0", "0.00", "0E+2", "0E-6176", "76", "-76", "1.5E+5",
+      "1.50", "1E39",
+    ] {
+    let v = @types.Dec128::parse_opt(s).unwrap()
+    let back = @types.Dec128::parse_opt(v.to_string()).unwrap()
+    assert_eq(back.exponent().unwrap(), v.exponent().unwrap(), msg=s)
+    assert_eq(back.is_negative(), v.is_negative(), msg=s)
+    assert_true(back.equal(v), msg=s)
   }
 }

@@ -48,14 +48,15 @@ test "Decimal renders the exact stored value, cohort kept" {
     "0.05",
   )
   // The cohort's trailing zeros render: 1.00 stays 1.00 (the preferred
-  // exponent the arithmetic keeps), and an integer spells "42.0".
+  // exponent the arithmetic keeps), and an exponent-zero integer spells
+  // its coefficient alone.
   assert_eq(
     @types.Scalar::Decimal(@types.Dec128::of_int64_scale(100L, scale=2)).to_string(),
     "1.00",
   )
   assert_eq(
     @types.Scalar::Decimal(@types.Dec128::of_int64_scale(42L, scale=0)).to_string(),
-    "42.0",
+    "42",
   )
   assert_eq(
     @types.Scalar::Decimal(@types.Dec128::of_int64_scale(5L, scale=6)).to_string(),

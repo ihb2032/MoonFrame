@@ -307,15 +307,42 @@ test "dec128 golden vectors match the IEEE decimal128 arithmetic" {
       }
     } else {
       let expected = @types.Dec128::parse_opt(python_shape(expected_raw)).unwrap()
-      if !got.equal(expected) {
-        fail(
-          "v=" +
-          v +
-          ": got " +
-          got.to_string() +
-          ", want " +
-          expected.to_string(),
-        )
+      // Value, exponent, and sign: value equality alone folds the cohort
+      // and the zero sign, which is exactly the representation these
+      // vectors pin (a zero's quantum, `1.50` against `1.5`). An
+      // infinity has no exponent; its sign is the whole comparison.
+      if expected.is_infinite() {
+        if !got.is_infinite() || got.is_negative() != expected.is_negative() {
+          fail(
+            "v=" +
+            v +
+            ": got " +
+            got.to_string() +
+            ", want " +
+            expected.to_string(),
+          )
+        }
+      } else {
+        if !got.is_finite() {
+          fail("v=" + v + ": expected a finite value, got " + got.to_string())
+        }
+        if !got.equal(expected) ||
+          got.exponent().unwrap() != expected.exponent().unwrap() ||
+          got.is_negative() != expected.is_negative() {
+          fail(
+            "v=" +
+            v +
+            ": got " +
+            got.to_string() +
+            " (exp " +
+            got.exponent().unwrap().to_string() +
+            "), want " +
+            expected.to_string() +
+            " (exp " +
+            expected.exponent().unwrap().to_string() +
+            ")",
+          )
+        }
       }
     }
   }

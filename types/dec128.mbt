@@ -47,9 +47,9 @@ const DEC_EMAX : Int32 = 6144
 const DEC_ETINY : Int32 = -6176
 
 ///|
-/// The guard width the adder aligns at — 33 digits below the coarser
+/// The guard width the adder aligns at — 35 digits below the coarser
 /// addend's exponent keeps every digit a 34-digit sum can read, with the
-/// round-up carry to spare (69 of the workspace's 70 digits).$
+/// round-up carry to spare (69 of the workspace's 72 digits).
 const DEC_ALIGN_GUARD : Int32 = 35
 
 ///|
@@ -284,15 +284,14 @@ fn dec_round_guard(
 ///|
 /// Round a finite intermediate into decimal128 — carry-normalized
 /// workspace, its quantum exponent, and the sticky bit of digits
-/// already dropped elsewhere. The standard's two stations in its own
-/// order: precision first (34 significant digits, ties to even, the
-/// dropped tail joining the sticky bit), then range (a magnitude past
-/// 10^Emax is ±Inf; a quantum exponent below Etiny rounds once more at
-/// the subnormal floor, and one that underflows it whole is a signed
-/// zero). Answers the value and whether it came through
-/// *representationally exact* — no digit dropped at either station —
-/// the flag a cohort refinement may only run on (a rounded value that
-/// gained trailing zeros would read exact).
+/// already dropped elsewhere. One rounding, at the coarser of the two
+/// targets: 34 significant digits, or the subnormal floor when the
+/// precision station would leave the quantum below it. A magnitude
+/// past 10^Emax is ±Inf; one that underflows the floor whole is a
+/// signed zero. Answers the value and whether it came through
+/// *representationally exact* — no digit dropped at the reached
+/// station — the flag a cohort refinement may only run on (a rounded
+/// value that gained trailing zeros would read exact).
 fn dec_finish(
   neg : Bool,
   fa : FixedArray[Int64],
@@ -303,39 +302,14 @@ fn dec_finish(
   let mut exp = exp
   let mut sticky = sticky
   let mut exact = !sticky
-  // Precision: at most 34 significant digits.
-  let mut digits = dec_sig_digits(fa)
-  if digits > DEC_PREC {
-    let (guard_digit, tail) = dec_drop_digits(fa, digits - DEC_PREC)
-    sticky = sticky || tail
-    // Exactness survives a drop of zeros only — a guard digit or a
-    // nonzero tail is a digit the value lost.
-    if guard_digit != 0 || tail {
-      exact = false
-    }
-    exp = dec_add_i32(exp, digits - DEC_PREC)
-    dec_round_guard(fa, guard_digit, sticky)
-    // The round-up may carry a fresh top digit out (all nines): one
-    // digit past the format, dropped exactly — the zero it leaves
-    // cannot round again.
-    digits = dec_sig_digits(fa)
-    if digits > DEC_PREC {
-      let _ = dec_drop_digits(fa, digits - DEC_PREC)
-      exp = dec_add_i32(exp, digits - DEC_PREC)
-    }
-  }
-  // Range: the subnormal floor, then the ceiling.
-  if dec_sig_limbs(fa) == 0 {
-    let e = if exp > DEC_EMAX {
-      DEC_EMAX
-    } else if exp < DEC_ETINY {
-      DEC_ETINY
-    } else {
-      exp
-    }
-    return (dec_of_parts(neg, DEC_KIND_FINITE, fa, e), exact)
-  }
-  if exp < DEC_ETINY {
+  let digits = dec_sig_digits(fa)
+  let precision_drop = if digits > DEC_PREC { digits - DEC_PREC } else { 0 }
+  // One rounding, not two. When the precision station would leave the
+  // quantum below Etiny, the subnormal floor is the coarser target: drop
+  // straight to it from the original coefficient. Rounding to 34 digits
+  // first and then again at the floor can turn the first station's carry
+  // into a false tie at the second (a subnormal result one ulp high).
+  if dec_add_i32(exp, precision_drop) < DEC_ETINY {
     let (guard_digit, tail) = dec_drop_digits(fa, dec_sub_i32(DEC_ETINY, exp))
     sticky = sticky || tail
     if guard_digit != 0 || tail {
@@ -343,14 +317,41 @@ fn dec_finish(
     }
     exp = DEC_ETINY
     dec_round_guard(fa, guard_digit, sticky)
-    if dec_sig_limbs(fa) == 0 {
-      return (dec_of_parts(neg, DEC_KIND_FINITE, fa, DEC_ETINY), exact)
+    // The kept digits plus the floor's guard fit the precision by
+    // construction (`digits + exp < Etiny + 34`), so the round-up's
+    // one extra digit is the only reach into the 34-digit width.
+    return (dec_of_parts(neg, DEC_KIND_FINITE, fa, exp), exact)
+  }
+  // Precision: at most 34 significant digits.
+  if precision_drop > 0 {
+    let (guard_digit, tail) = dec_drop_digits(fa, precision_drop)
+    sticky = sticky || tail
+    // Exactness survives a drop of zeros only — a guard digit or a
+    // nonzero tail is a digit the value lost.
+    if guard_digit != 0 || tail {
+      exact = false
+    }
+    exp = dec_add_i32(exp, precision_drop)
+    dec_round_guard(fa, guard_digit, sticky)
+    // The round-up may carry a fresh top digit out (all nines): one
+    // digit past the format, dropped exactly — the zero it leaves
+    // cannot round again.
+    let carried = dec_sig_digits(fa)
+    if carried > DEC_PREC {
+      let _ = dec_drop_digits(fa, carried - DEC_PREC)
+      exp = dec_add_i32(exp, carried - DEC_PREC)
     }
   }
-  // The ceiling is the VALUE's, not the quantum's: a magnitude whose
-  // leading digit sits past 10^Emax is an infinity however many
-  // trailing zeros its cohort carries (the adjusted exponent reads
-  // the leading digit's place).
+  // Range: the zero cohort stays inside the quantum range; a nonzero
+  // magnitude past the ceiling is an infinity however many trailing
+  // zeros its cohort carries (the adjusted exponent reads the leading
+  // digit's place).
+  if dec_sig_limbs(fa) == 0 {
+    // The subnormal branch above already owns a zero below the floor;
+    // only the ceiling can still clamp here.
+    let e = if exp > DEC_EMAX { DEC_EMAX } else { exp }
+    return (dec_of_parts(neg, DEC_KIND_FINITE, fa, e), exact)
+  }
   if dec_add_i32(exp, dec_sig_digits(fa) - 1) > DEC_EMAX {
     return (Dec128::infinity(neg~), exact)
   }
@@ -373,9 +374,18 @@ fn dec_add_i32(a : Int32, b : Int32) -> Int32 {
 }
 
 ///|
-/// Int32 subtract that saturates — `dec_add_i32`'s twin.
+/// Int32 subtract that saturates — `dec_add_i32`'s twin. The difference
+/// is computed in Int64 directly: negating `Int32::MIN` first would wrap
+/// back to itself and leave the pair unclosed at that one input.
 fn dec_sub_i32(a : Int32, b : Int32) -> Int32 {
-  dec_add_i32(a, -b)
+  let diff = a.to_int64() - b.to_int64()
+  if diff > 2_147_483_647L {
+    2_147_483_647L.to_int()
+  } else if diff < -2_147_483_648L {
+    (-2_147_483_648L).to_int()
+  } else {
+    diff.to_int()
+  }
 }
 
 ///|
@@ -461,7 +471,10 @@ pub fn Dec128::of_int64(v : Int64) -> Dec128 {
 /// value rounds into the format like every finite one.
 pub fn Dec128::of_int64_scale(v : Int64, scale~ : Int32) -> Dec128 {
   let (neg, fa) = dec_load_i64(v)
-  dec_finish(neg, fa, -scale, false).0
+  // `-scale` must saturate: negating `Int32::MIN` wraps back to itself,
+  // which would read as the subnormal floor instead of the ceiling the
+  // caller named.
+  dec_finish(neg, fa, dec_sub_i32(0, scale), false).0
 }
 
 ///|
@@ -536,8 +549,9 @@ pub fn Dec128::exponent(self : Dec128) -> Int32? {
 
 ///|
 /// The adjusted exponent — exponent + significant digits − 1, the
-/// power of ten the leading digit sits at (the ordering magnitude);
-/// `None` on the exceptionals.
+/// power of ten the leading digit sits at (the ordering magnitude); a
+/// zero has no leading digit and answers one below its quantum, and the
+/// exceptionals answer `None`.
 pub fn Dec128::adjusted_exponent(self : Dec128) -> Int32? {
   if self.kind == DEC_KIND_FINITE {
     Some(dec_add_i32(self.exp, dec_sig_digits(self.limbs) - 1))
@@ -647,9 +661,13 @@ pub fn Dec128::cmp_total(self : Dec128, other : Dec128) -> Int32 {
     }
     // A zero against a nonzero finite: the zero sits before every
     // positive and after every negative, its own sign unobservable
-    // here (−0 equals +0 in the total order's zero bucket).
-    let fin_negative = if za { other.neg } else { self.neg }
-    return if fin_negative { 1 } else { -1 }
+    // here (−0 equals +0 in the total order's zero bucket). The
+    // returned sign follows which side is zero — reading only the
+    // nonzero side's sign would reverse every `nonzero`-vs-zero pair.
+    if za {
+      return if other.neg { 1 } else { -1 }
+    }
+    return if self.neg { -1 } else { 1 }
   }
   if self.neg != other.neg {
     return if self.neg { -1 } else { 1 }
@@ -768,9 +786,9 @@ pub fn Dec128::trunc(self : Dec128) -> Dec128 {
 }
 
 ///|
-/// The cohort's canonical member — trailing zeros stripped (one digit
-/// left on a zero), so value-equal decimals hash and key alike. The
-/// exceptionals are their own canonical shapes.
+/// The cohort's canonical member — trailing zeros stripped (a zero
+/// keeps an empty coefficient and its sign), so value-equal decimals
+/// hash and key alike. The exceptionals are their own canonical shapes.
 pub fn Dec128::canonical(self : Dec128) -> Dec128 {
   if self.kind != DEC_KIND_FINITE {
     return self
@@ -823,12 +841,13 @@ fn dec_load(d : Dec128) -> FixedArray[Int64] {
 
 ///|
 /// Addition. NaN dominates; a like-signed infinity absorbs (opposing
-/// ones make the NaN); a zero operand vanishes cohort and all. Finite
-/// pairs align at 33 digits below the coarser exponent — every digit a
-/// 34-digit sum can read, one spare for the carry — the digits that
-/// fall below the alignment folded into the sticky bit. An exact sum
-/// refines to the addends' finer exponent (the preferred exponent)
-/// while the format's 34 digits hold.
+/// ones make the NaN); a zero operand keeps the addends' finer
+/// exponent (the preferred exponent) and the round-to-nearest zero
+/// sign. Finite pairs align at 33 digits below the coarser exponent —
+/// every digit a 34-digit sum can read, one spare for the carry — the
+/// digits that fall below the alignment folded into the sticky bit. An
+/// exact sum refines to the addends' finer exponent while the format's
+/// 34 digits hold.
 pub fn Dec128::add(self : Dec128, other : Dec128) -> Dec128 {
   dec_add_sub(self, other, false)
 }
@@ -837,6 +856,34 @@ pub fn Dec128::add(self : Dec128, other : Dec128) -> Dec128 {
 /// Subtraction — the subtrahend negated, cohort and sign carried.
 pub fn Dec128::sub(self : Dec128, other : Dec128) -> Dec128 {
   dec_add_sub(self, other, true)
+}
+
+///|
+/// A zero at `preferred` — the additive result's cohort, clamped into
+/// the quantum range by the finisher. The sign is the IEEE round-to-
+/// nearest rule's: a sum of two zeroes is negative only when both
+/// addends are (after the subtrahend's sign flip).
+fn dec_zero_at(preferred : Int32, neg : Bool) -> Dec128 {
+  dec_finish(neg, dec_work(), preferred, false).0
+}
+
+///|
+/// The exact sum of a nonzero value and a zero at the finer exponent
+/// `preferred`: append the zeros the finer quantum names, then let the
+/// finisher drop what a 34-digit coefficient cannot hold. The appended
+/// digits are zeros, so a drop is exact; the finisher still clamps a
+/// quantum below the subnormal floor.
+fn dec_refine_to_exp(v : Dec128, preferred : Int32) -> Dec128 {
+  let digits = dec_sig_digits(v.limbs)
+  let needed = dec_add_i32(digits, dec_sub_i32(v.exp, preferred))
+  let keep = if needed > DEC_PREC { DEC_PREC } else { needed }
+  let shift = dec_sub_i32(keep, digits)
+  let new_exp = dec_add_i32(preferred, dec_sub_i32(needed, keep))
+  let fa = dec_load(v)
+  if shift > 0 {
+    dec_shift_left(fa, shift)
+  }
+  dec_finish(v.neg, fa, new_exp, false).0
 }
 
 ///|
@@ -855,11 +902,21 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
     }
     return if a.kind == DEC_KIND_INF { a } else { bn }
   }
-  if dec_sig_limbs(bn.limbs) == 0 {
-    return a
-  }
-  if dec_sig_limbs(a.limbs) == 0 {
-    return bn
+  // The preferred exponent is the finer of the two even when one
+  // addend is zero: `1.5 + 0.00` is `1.50`, and two zeroes keep the
+  // finer quantum (their sign is the round-to-nearest rule's).
+  let preferred = if a.exp < bn.exp { a.exp } else { bn.exp }
+  let a_zero = dec_sig_limbs(a.limbs) == 0
+  let b_zero = dec_sig_limbs(bn.limbs) == 0
+  if a_zero || b_zero {
+    if a_zero && b_zero {
+      return dec_zero_at(preferred, a.neg && bn.neg)
+    }
+    return if a_zero {
+      dec_refine_to_exp(bn, preferred)
+    } else {
+      dec_refine_to_exp(a, preferred)
+    }
   }
   // The alignment: the addends' finer exponent, unless the exponents
   // sit more than the guard width apart — then the finer addend's
@@ -882,7 +939,8 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
   } else {
     let m = dec_cmp_work(wa, wb)
     if m == 0 {
-      Dec128::zero() // x + (−x): the positive zero
+      // x + (−x): the positive zero at the addends' finer quantum.
+      dec_zero_at(preferred, false)
     } else if m > 0 {
       dec_sub_work(wa, wb)
       dec_finish(a.neg, wa, e_work, sticky).0
@@ -991,7 +1049,9 @@ pub fn Dec128::mul(self : Dec128, other : Dec128) -> Dec128 {
     return Dec128::infinity(neg=self.neg != other.neg)
   }
   if dec_sig_limbs(self.limbs) == 0 || dec_sig_limbs(other.limbs) == 0 {
-    return Dec128::zero(neg=self.neg != other.neg)
+    // A zero product keeps the preferred exponent, the operands'
+    // exponents' sum, clamped into the quantum range.
+    return dec_zero_at(dec_add_i32(self.exp, other.exp), self.neg != other.neg)
   }
   let out = dec_work()
   let na = dec_sig_limbs(self.limbs)
@@ -1029,7 +1089,9 @@ pub fn Dec128::div(self : Dec128, other : Dec128) -> Dec128 {
     return Dec128::infinity(neg=self.neg != other.neg)
   }
   if other.kind == DEC_KIND_INF {
-    return Dec128::zero(neg=self.neg != other.neg)
+    // A finite over an infinity is the zero at the subnormal floor (the
+    // infinity names no quantum; the standard's division rule clamps).
+    return dec_zero_at(DEC_ETINY, self.neg != other.neg)
   }
   let a_zero = dec_sig_limbs(self.limbs) == 0
   let b_zero = dec_sig_limbs(other.limbs) == 0
@@ -1040,7 +1102,9 @@ pub fn Dec128::div(self : Dec128, other : Dec128) -> Dec128 {
     return Dec128::infinity(neg=self.neg != other.neg)
   }
   if a_zero {
-    return Dec128::zero(neg=self.neg != other.neg)
+    // A zero over a finite keeps the preferred exponent, the operands'
+    // exponents' difference.
+    return dec_zero_at(dec_sub_i32(self.exp, other.exp), self.neg != other.neg)
   }
   // Scale the dividend so the quotient shows at least 35 digits — the
   // stored operands hold at most 34 digits each, so the width is never
@@ -1069,15 +1133,17 @@ pub fn Dec128::div(self : Dec128, other : Dec128) -> Dec128 {
 ///|
 /// Long division of workspaces: `numer / divisor`, the dividend
 /// already scaled so the quotient's digits fit — schoolbook in base
-/// 10^9, one quotient limb per step (an Int64 estimate off the top
-/// limbs, corrected by at most a couple of compares). Answers the
+/// 10^9, one quotient limb per step. The digit is the largest `q` whose
+/// product with the divisor stays under the running remainder, found by
+/// a bounded binary search over the base's own range: an estimate off
+/// the top limbs is not an upper bound once the divisor's top limb is
+/// small, and walking an overshoot down one at a time can take a
+/// hundred million steps on an ordinary 19-digit divisor. Answers the
 /// quotient workspace and whether the remainder came out exactly zero.
 fn dec_div_work(
   numer : FixedArray[Int64],
   divisor : FixedArray[Int64],
 ) -> (FixedArray[Int64], Bool) {
-  let nb = dec_sig_limbs(divisor)
-  let top = divisor[nb - 1]
   let quot = dec_work()
   // The running remainder, one limb longer than the divisor's count.
   let rem = FixedArray::makei(DEC_WORK_LIMBS + 1, _ => 0L)
@@ -1090,18 +1156,22 @@ fn dec_div_work(
       carry = cur / DEC_BASE
     }
     if carry != 0L || !dec_rem_zero(rem) {
-      // The estimate, off the remainder's window around the divisor's
-      // top limb; corrected down while it overshot.
-      let rem_top = rem[nb] * DEC_BASE + rem[nb - 1]
-      let mut q = rem_top / top
-      if q >= DEC_BASE {
-        q = DEC_BASE - 1L
+      // The quotient digit lies in [0, BASE): the divisor has `nb`
+      // limbs, so its leading limb bounds `rem / divisor` below BASE.
+      // Binary-search the largest feasible digit — at most 30 compares,
+      // independent of how the divisor's limbs are shaped.
+      let mut lo = 0L
+      let mut hi = DEC_BASE - 1L
+      while lo < hi {
+        let mid = lo + (hi - lo + 1L) / 2L
+        if dec_rem_lt_mul(rem, divisor, mid) {
+          hi = mid - 1L
+        } else {
+          lo = mid
+        }
       }
-      while q > 0L && dec_rem_lt_mul(rem, divisor, q) {
-        q = q - 1L
-      }
-      dec_rem_sub_mul(rem, divisor, q)
-      quot[i] = q
+      dec_rem_sub_mul(rem, divisor, lo)
+      quot[i] = lo
     }
   }
   (quot, dec_rem_zero(rem))
@@ -1178,12 +1248,15 @@ pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
   if self.kind != DEC_KIND_FINITE {
     return self
   }
-  let target = dec_add_i32(0, -places)
-  // The two impossible targets: an exponent below the subnormal floor,
-  // and a value whose digits past the target run beyond the format's
-  // 34 (a coefficient that cannot exist there). Both are the
-  // quantize-invalid shape, a NaN.
-  if target < DEC_ETINY {
+  // `-places` must saturate: negating `Int32::MIN` wraps back to
+  // itself, which would read as an exponent far below the format
+  // instead of the far-above one the caller named.
+  let target = dec_sub_i32(0, places)
+  // The impossible targets: an exponent outside the format's own
+  // quantum range, a value whose digits past the target run beyond the
+  // format's 34, and a target that rounds up past `Emax` even though
+  // its quantum is nominal. Each is the quantize-invalid shape, a NaN.
+  if target < DEC_ETINY || target > DEC_EMAX {
     return Dec128::nan()
   }
   let adj = dec_add_i32(self.exp, dec_sig_digits(self.limbs) - 1)
@@ -1206,6 +1279,14 @@ pub fn Dec128::quantize(self : Dec128, places~ : Int32) -> Dec128 {
     dec_shift_left(fa, dec_sub_i32(self.exp, target))
   }
   dec_round_guard(fa, guard_digit, sticky)
+  // A value at the ceiling may round past `Emax`, which has no
+  // representation at the target quantum. (The coefficient itself stays
+  // within 34 digits: a rounding carry needs a kept width of 34, and a
+  // nonzero guard means at most 33 digits were kept.)
+  if dec_sig_limbs(fa) != 0 &&
+    dec_add_i32(target, dec_sig_digits(fa) - 1) > DEC_EMAX {
+    return Dec128::nan()
+  }
   dec_of_parts(self.neg, DEC_KIND_FINITE, fa, target)
 }
 
@@ -1218,6 +1299,11 @@ pub fn Dec128::to_int64(self : Dec128) -> Int64? {
     return None
   }
   let fa = dec_load(self)
+  if dec_sig_limbs(fa) == 0 {
+    // A zero is the integer zero at any quantum — the shift-width guard
+    // below reads the coefficient's digits, which a zero does not have.
+    return Some(0L)
+  }
   if self.exp < 0 {
     // Integral only when every dropped digit is zero — the guard digit
     // included (2.50 is 2.5, not 2).
@@ -1261,20 +1347,20 @@ fn dec_work_to_int64(neg : Bool, fa : FixedArray[Int64]) -> Int64? {
 }
 
 ///|
-/// The render's own spelling always parses as a double — the catch is
-/// the never-taken arm a total conversion must still spell, so the
-/// helper carries the skip.
-#coverage.skip
-fn dec_parse_double_or_nan(s : String) -> Double {
+/// The render's own spelling read by the double parser. The spelling is
+/// always syntactically valid, so the only failure is a magnitude past
+/// the double range: the rounding maps that to the matching infinity,
+/// never to a NaN (a finite decimal and a NaN are different values).
+fn dec_parse_double_rounded(s : String, neg : Bool) -> Double {
   @string.parse_double(s.clamped_view()) catch {
-    _ => @double.not_a_number
+    _ => if neg { @double.neg_infinity } else { @double.infinity }
   }
 }
 
 ///|
 /// The value as a Double — the decimal spelling read by the double
 /// parser (a correctly-rounded conversion), the exceptionals mapped
-/// across.
+/// across, an overflowing finite magnitude to ±∞.
 pub fn Dec128::to_double(self : Dec128) -> Double {
   if self.kind == DEC_KIND_NAN {
     return @double.not_a_number
@@ -1282,7 +1368,7 @@ pub fn Dec128::to_double(self : Dec128) -> Double {
   if self.kind == DEC_KIND_INF {
     return if self.neg { @double.neg_infinity } else { @double.infinity }
   }
-  dec_parse_double_or_nan(self.to_string_value())
+  dec_parse_double_rounded(self.to_string_value(), self.neg)
 }
 
 // ── parse and render ─────────────────────────────────────────────────
@@ -1373,8 +1459,16 @@ pub fn Dec128::parse_opt(s : String) -> Dec128? {
   if i < n && s[i] == '.' {
     i = i + 1
     while i < n && is_digit(s[i].to_int()) {
+      // Only a fraction digit the workspace still holds moves the
+      // value's exponent. Digits past the 70-digit workspace join the
+      // sticky tail; counting them here would shrink the value by a
+      // power of ten (they are below the retained coefficient, not
+      // additional places it names).
+      let was_full = sig_collected >= DEC_DIGIT_LIMIT
       let _ = take_digit(s[i].to_int(), false)
-      frac_digits = frac_digits + 1
+      if !was_full {
+        frac_digits = frac_digits + 1
+      }
       i = i + 1
     }
   }
@@ -1428,12 +1522,13 @@ pub impl Show for Dec128 with fn output(self : Dec128, logger) -> Unit {
 }
 
 ///|
-/// The value's own spelling — the exact stored value, cohort kept:
-/// positional when the leading digit sits from 10^-6 to 10^40,
-/// scientific beyond (the digit string, a point after the first digit,
-/// `E` and the adjusted exponent); the zeroes signed, the exceptionals
-/// `inf` / `-inf` / `NaN`. `parse_opt` reads every spelling back
-/// exactly.
+/// The value's own spelling — the exact stored value, cohort kept, so
+/// `parse_opt` reads every spelling back to the same exponent and sign.
+/// Positional when the leading digit sits from 10^-6 through 10^39 and
+/// the quantum is not positive; scientific beyond, and for a positive
+/// quantum whose trailing zeros would otherwise read back as a coarser
+/// position. The zeroes carry their own quantum (`0`, `0.00`, `0E+2`),
+/// and the exceptionals spell `inf` / `-inf` / `NaN`.
 fn Dec128::to_string_value(self : Dec128) -> String {
   if self.kind == DEC_KIND_NAN {
     return "NaN"
@@ -1444,11 +1539,27 @@ fn Dec128::to_string_value(self : Dec128) -> String {
   let sign = if self.neg { "-" } else { "" }
   let digits = self.coefficient_digits().unwrap_or([])
   if digits.length() == 0 {
-    return sign + "0.0"
+    if self.exp == 0 {
+      return sign + "0"
+    }
+    if self.exp < 0 {
+      let places = -self.exp
+      if places <= 6 {
+        let mut out = sign + "0."
+        for _ in 0..<places {
+          out = out + "0"
+        }
+        return out
+      }
+      return sign + "0E\{self.exp}"
+    }
+    return sign + "0E+\{self.exp}"
   }
   let adj = dec_add_i32(self.exp, digits.length() - 1)
-  if adj >= 40 || adj <= -7 {
-    // Scientific.
+  // A positive quantum has trailing integer zeros that a positional
+  // spelling would absorb into the coefficient; scientific keeps them in
+  // the exponent, where the cohort lives.
+  if adj >= 40 || adj <= -7 || self.exp > 0 {
     let mut out = sign + "\{digits[0]}"
     if digits.length() > 1 {
       out = out + "."
@@ -1458,16 +1569,16 @@ fn Dec128::to_string_value(self : Dec128) -> String {
     }
     out + "E\{adj}"
   } else if adj >= 0 {
-    // Positional with an integer part.
+    // Positional with an integer part. At exponent zero the coefficient
+    // is the whole integer, so no point (and no trailing zero) is added —
+    // `76` round-trips as exponent zero, not as `76.0`.
     let int_len = adj + 1
     let mut out = sign
     for k in 0..<int_len {
-      out = out + "\{if k < digits.length() { digits[k] } else { 0 }}"
+      out = out + "\{digits[k]}"
     }
-    out = out + "."
-    if int_len >= digits.length() {
-      out = out + "0"
-    } else {
+    if int_len < digits.length() {
+      out = out + "."
       for k in int_len..<digits.length() {
         out = out + "\{digits[k]}"
       }

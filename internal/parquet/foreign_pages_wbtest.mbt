@@ -160,7 +160,11 @@ fn one_column_footer(
 }
 
 ///|
-fn foreign_file(spec : ForeignSpec) -> Bytes {
+fn foreign_file(
+  spec : ForeignSpec,
+  scale? : Int32,
+  precision? : Int32,
+) -> Bytes {
   // The page headers and bodies, in order. A dictionary page carries
   // only the DictionaryPageHeader — its num_values names the value set's
   // entries, and the value set rides PLAIN — and the footer's chunk
@@ -208,6 +212,8 @@ fn foreign_file(spec : ForeignSpec) -> Bytes {
     total_values,
     total_size,
     created_by="MoonFrame-foreign-test",
+    scale~,
+    precision~,
   )
   file_over(footer, pages=Bytes::from_array(pages_bytes))
 }
@@ -1160,4 +1166,156 @@ test "a foreign dictionary FLBA decimal reads through its value set" {
     @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
     @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
   ])
+}
+
+///|
+test "a foreign nine-byte FLBA decimal reads its cells" {
+  // Spark's DECIMAL(20,2) rides a nine-byte payload: 64 (0.64 at scale
+  // 2), -1, and zero, all big-endian two's complement.
+  let cell_64 : Array[Byte] = []
+  for _ in 0..<8 {
+    cell_64.push(b'\x00')
+  }
+  cell_64.push(b'\x40')
+  let cell_neg1 : Array[Byte] = []
+  for _ in 0..<9 {
+    cell_neg1.push(b'\xFF')
+  }
+  let cell_zero : Array[Byte] = []
+  for _ in 0..<9 {
+    cell_zero.push(b'\x00')
+  }
+  let file = flba_decimal_file(
+    [cell_64, cell_neg1, cell_zero],
+    2,
+    precision=19,
+    type_length=9,
+  )
+  let read = read_parquet_columns(file, None)
+  assert_eq(read.length(), 1)
+  assert_eq(read[0].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0").unwrap()),
+  ])
+}
+
+///|
+test "a foreign INT32 decimal reads its cells" {
+  let body = plain_defs(3)
+  push_le_i32(body, 64)
+  push_le_i32(body, -1)
+  push_le_i32(body, 0)
+  let pages : Array[ForeignPage] = [
+    {
+      body,
+      encoding: 0,
+      dictionary_page: false,
+      v2: false,
+      num_values: 3,
+      def_len: 0,
+      page_type: 0,
+    },
+  ]
+  let file = foreign_file(
+    { physical: 1, repetition: 1, converted: Some(5), codec: 0, pages, },
+    scale=2,
+    precision=9,
+  )
+  let read = read_parquet_columns(file, None)
+  assert_eq(read.length(), 1)
+  assert_eq(read[0].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0").unwrap()),
+  ])
+}
+
+///|
+test "a foreign variable-width binary decimal reads its cells" {
+  let body = plain_defs(6)
+  // The last two carry a redundant sign-extension byte: `00 40` and
+  // `FF FF` trim to 64 and −1, while `00 80` must keep its zero byte to
+  // stay positive.
+  let payloads : Array[Array[Byte]] = [
+    [b'\x40'],
+    [b'\xFF'],
+    [b'\x00'],
+    [b'\x00', b'\x80'],
+    [b'\x00', b'\x40'],
+    [b'\xFF', b'\xFF'],
+  ]
+  for payload in payloads {
+    push_le_i32(body, payload.length())
+    for b in payload {
+      body.push(b)
+    }
+  }
+  let pages : Array[ForeignPage] = [
+    {
+      body,
+      encoding: 0,
+      dictionary_page: false,
+      v2: false,
+      num_values: 6,
+      def_len: 0,
+      page_type: 0,
+    },
+  ]
+  let file = foreign_file(
+    { physical: 6, repetition: 1, converted: Some(5), codec: 0, pages, },
+    scale=2,
+    precision=19,
+  )
+  let read = read_parquet_columns(file, None)
+  assert_eq(read.length(), 1)
+  assert_eq(read[0].1.dtype(), @types.DataType::Decimal)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("1.28").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("0.64").unwrap()),
+    @types.Scalar::Decimal(@types.Dec128::parse_opt("-0.01").unwrap()),
+  ])
+}
+
+///|
+test "a binary decimal payload of zero or more than sixteen bytes refuses" {
+  for
+    payload in [
+      [],
+      [
+        b'\x01', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      ],
+    ] {
+    let body = plain_defs(1)
+    push_le_i32(body, payload.length())
+    for b in payload {
+      body.push(b)
+    }
+    let pages : Array[ForeignPage] = [
+      {
+        body,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+        page_type: 0,
+      },
+    ]
+    let file = foreign_file(
+      { physical: 6, repetition: 1, converted: Some(5), codec: 0, pages, },
+      scale=2,
+      precision=19,
+    )
+    assert_true(
+      (Ok(ignore(read_parquet_columns(file, None))) catch { e => Err(e) })
+      is Err(@types.DataError::ParseError(_)),
+    )
+  }
 }

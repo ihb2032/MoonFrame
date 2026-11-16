@@ -48,3 +48,25 @@ test "a FIXED_LEN_BYTE_ARRAY element whose type length is cut refuses" {
   assert_true(!schema_read_list(r, into))
   assert_eq(into.length(), 0)
 }
+
+///|
+test "the FLBA width capacity follows the format's digit rule" {
+  assert_eq(flba_width_ceiling(1), 2)
+  assert_eq(flba_width_ceiling(2), 4)
+  assert_eq(flba_width_ceiling(3), 6)
+  assert_eq(flba_width_ceiling(4), 9)
+  assert_eq(flba_width_ceiling(5), 11)
+  assert_eq(flba_width_ceiling(6), 14)
+  assert_eq(flba_width_ceiling(7), 16)
+  assert_eq(flba_width_ceiling(8), 18)
+  assert_eq(flba_width_ceiling(9), 21)
+  assert_eq(flba_width_ceiling(10), 23)
+  assert_eq(flba_width_ceiling(11), 26)
+  assert_eq(flba_width_ceiling(12), 28)
+  assert_eq(flba_width_ceiling(13), 31)
+  assert_eq(flba_width_ceiling(14), 33)
+  assert_eq(flba_width_ceiling(15), 35)
+  assert_eq(flba_width_ceiling(16), 38)
+  assert_eq(flba_width_ceiling(0), -1)
+  assert_eq(flba_width_ceiling(17), -1)
+}

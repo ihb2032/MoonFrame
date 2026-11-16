@@ -4,11 +4,14 @@
 // compression; the RLE_DICTIONARY encoding reads, the writer emits
 // PLAIN). One row group per write, projection pushed into the read.
 //
-// Round-trip caveat: the riders interchange exactly (DATE, TIMESTAMP as
-// TIMESTAMP_MICROS, DECIMAL over INT64 with its scale) — the one
-// deliberate narrowing is a written `Duration`, which rides a bare
+// Round-trip caveat: the riders interchange by value (DATE, TIMESTAMP as
+// TIMESTAMP_MICROS, DECIMAL over INT64 precision 18 or, past that
+// window, FIXED_LEN_BYTE_ARRAY(16) precision 38, with its scale) — the
+// one deliberate narrowing is a written `Duration`, which rides a bare
 // INT64 (no standard converted type names a microsecond span) and reads
-// back `Int`, exactly like its text round trip.
+// back `Int`, exactly like its text round trip. The reader also takes
+// the foreign DECIMAL shapes the writer never emits: `INT32` (precision
+// up to 9) and the legacy variable-width `BYTE_ARRAY`.
 
 ///|
 /// The compression a written parquet file carries (the reader takes
@@ -30,7 +33,9 @@ pub extend ParquetCodec with Debug::{to_repr}
 /// Write a frame as one parquet file. Raises `Unsupported` for a column
 /// whose dtype the mapping does not carry (a `Null` column) and
 /// `InvalidOperation` for a `Date` day count outside the INT32 the
-/// parquet `DATE` annotation rides.
+/// parquet `DATE` annotation rides, for a `Decimal` cell whose NaN / ±∞
+/// shape has no fixed-point spelling, and for a decimal column past the
+/// 38-digit payload window.
 pub fn write_parquet(
   df : @frame.DataFrame,
   path : String,

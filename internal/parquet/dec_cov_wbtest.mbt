@@ -60,3 +60,13 @@ test "the writer's decimal refusals name the exceptional cells" {
   }
   assert_true(fence is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "the decimal accumulator carries from the low half" {
+  // 10 · 3689348814741910323 wraps to 2^64 − 2; adding the next digit
+  // 2 carries into the high half. The value the fold names is
+  // 2 · 2^64, the exact 10·acc + digit.
+  let (hi, lo) = times10_plus(0UL, 3689348814741910323UL, 2UL)
+  assert_eq(hi, 2UL)
+  assert_eq(lo, 0UL)
+}

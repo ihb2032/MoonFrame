@@ -50,20 +50,24 @@ priv struct DtypeMap {
   mut decimal_precision : Int32
   // The FIXED_LEN_BYTE_ARRAY payload's byte width (the schema element's
   // type_length). Write side: always 16 for a decimal column. Read
-  // side: lifted off the footer and gated to the 4 / 8 / 16 spellings
-  // foreign writers emit; -1 elsewhere.
+  // side: lifted off the footer and gated to the 1..16 widths the
+  // 128-bit reader folds; -1 elsewhere.
   mut flba_width : Int32
 }
 
 ///|
 /// The mapping table, one row per writable dtype. `String` rides
 /// `BYTE_ARRAY` + `UTF8`; `Date` `INT32` + `DATE`; `Timestamp` `INT64` +
-/// `TIMESTAMP_MICROS`; `Decimal` `INT64` + `DECIMAL` — each cell lifted
-/// to the column's one adaptive scale exactly (the writer computes it
-/// from the cells and names it in the annotation; a NaN / ±∞ cell or a
-/// value the 18-digit INT64 interchange cannot hold refuses the write);
-/// `Duration` rides bare `INT64` (no standard converted type names a
-/// microsecond span; the round trip keeps the raw count).
+/// `TIMESTAMP_MICROS`; `Decimal` starts on `INT64` + `DECIMAL` and the
+/// writer's adaptive pass moves a column that leaves the 18-digit
+/// payload to `FIXED_LEN_BYTE_ARRAY`(16) at precision 38 — each cell
+/// lifted to the column's one adaptive scale exactly (the writer
+/// computes it from the cells and names it in the annotation; a NaN /
+/// ±∞ cell or a column past the 38-digit window refuses the write).
+/// The read side additionally maps `INT32` + `DECIMAL` and the legacy
+/// variable-width `BYTE_ARRAY` + `DECIMAL`; `Duration` rides bare
+/// `INT64` (no standard converted type names a microsecond span; the
+/// round trip keeps the raw count).
 fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
   match dtype {
     Int =>
@@ -199,16 +203,45 @@ fn physical_from_tag(tag : Int32) -> Physical? {
 }
 
 ///|
+/// The width ceiling a `FIXED_LEN_BYTE_ARRAY` payload can honour — the
+/// format's own capacity rule, `floor(log10(2^(8n−1) − 1))`: a signed
+/// `n`-byte two's-complement payload holds every precision up to it.
+/// `-1` for a width the 128-bit reader cannot fold.
+fn flba_width_ceiling(width : Int32) -> Int32 {
+  match width {
+    1 => 2
+    2 => 4
+    3 => 6
+    4 => 9
+    5 => 11
+    6 => 14
+    7 => 16
+    8 => 18
+    9 => 21
+    10 => 23
+    11 => 26
+    12 => 28
+    13 => 31
+    14 => 33
+    15 => 35
+    16 => 38
+    _ => -1
+  }
+}
+
+///|
 /// The mapping a thrift schema row names, when MoonFrame carries it. A
 /// bare `INT32` reads as `Int` (signed — the UINT annotations refuse
 /// instead of re-reading the bits unsigned); a bare `INT64` the same.
 /// A `FLOAT` (4), `INT96` (3), or `FIXED_LEN_BYTE_ARRAY` (7) physical
 /// type refuses — the first would narrow, the latter two carry dtypes
-/// (`TIMESTAMP` pre-converted, `DECIMAL` over bytes) MoonFrame does not
-/// spell. A `BYTE_ARRAY` without `UTF8` also refuses (a raw binary
-/// column is not a `String`). A `DECIMAL` annotation carries the
-/// format's own envelope: the precision required, one to eighteen
-/// digits over the `INT64` payload, the scale never past it.
+/// (`TIMESTAMP` pre-converted, `DECIMAL` over bytes) unless the
+/// annotation is one MoonFrame spells. A `BYTE_ARRAY` without `UTF8` or
+/// `DECIMAL` refuses (a raw binary column is not a `String`). A
+/// `DECIMAL` annotation carries the format's own envelope: the precision
+/// required, one to nine digits over `INT32`, one to eighteen over
+/// `INT64`, and up to the payload's capacity over a fixed-width or
+/// variable-width byte array, with the scale never past the precision.
 fn map_from_schema(
   physical_tag_value : Int32,
   converted_value : Int32?,
@@ -277,6 +310,27 @@ fn map_from_schema(
         decimal_precision: -1,
         flba_width: -1,
       })
+    (ByteArrayP, Some(DecimalC)) =>
+      // The legacy binary decimal — a variable-width two's-complement
+      // payload, trimmed to its minimal width on read. The format caps
+      // the precision at 38; the 128-bit reader takes payloads whose
+      // minimal width is at most sixteen bytes.
+      match (decimal_scale, decimal_precision) {
+        (Some(scale), Some(p)) =>
+          if scale >= 0 && scale <= p && p >= 1 && p <= 38 {
+            Some({
+              dtype: Decimal,
+              physical: ByteArrayP,
+              converted: Some(DecimalC),
+              decimal_scale: scale,
+              decimal_precision: p,
+              flba_width: -1,
+            })
+          } else {
+            None
+          }
+        _ => None
+      }
     (Int32P, Some(DateC)) =>
       Some({
         dtype: Date,
@@ -295,6 +349,25 @@ fn map_from_schema(
         decimal_precision: -1,
         flba_width: -1,
       })
+    (Int32P, Some(DecimalC)) =>
+      // A DECIMAL over INT32: the payload's own ceiling is nine digits,
+      // the precision required, the scale never past it.
+      match (decimal_scale, decimal_precision) {
+        (Some(scale), Some(p)) =>
+          if scale >= 0 && scale <= p && p >= 1 && p <= 9 {
+            Some({
+              dtype: Decimal,
+              physical: Int32P,
+              converted: Some(DecimalC),
+              decimal_scale: scale,
+              decimal_precision: p,
+              flba_width: -1,
+            })
+          } else {
+            None
+          }
+        _ => None
+      }
     (Int64P, Some(DecimalC)) =>
       // A DECIMAL over INT64: the scale names the dtype, and the
       // annotation's own envelope bounds both — the format's decimal
@@ -325,19 +398,14 @@ fn map_from_schema(
       // writers spell when the unscaled magnitudes leave INT64. The
       // bytes are big-endian two's complement at the element's own
       // type_length; the interchange's decimal ceiling is precision 38,
-      // the scale never past the precision, and the payload's own digit
-      // ceiling bounds the precision a width can honour (9 over 4
-      // bytes, 18 over 8, 38 over 16 — the widths the foreign writers
-      // emit). A FLBA column without the DECIMAL annotation carries no
+      // the scale never past the precision, and the payload's own
+      // capacity bounds the precision a width can honour (the format's
+      // `floor(log10(2^(8n−1) − 1))`, so Spark's 9-byte DECIMAL(20,2)
+      // reads). A FLBA column without the DECIMAL annotation carries no
       // dtype MoonFrame spells and refuses as before.
       match (decimal_scale, decimal_precision, type_length) {
         (Some(scale), Some(p), Some(width)) => {
-          let width_ceiling = match width {
-            4 => 9
-            8 => 18
-            16 => 38
-            _ => -1
-          }
+          let width_ceiling = flba_width_ceiling(width)
           if width_ceiling >= 0 &&
             scale >= 0 &&
             scale <= p &&

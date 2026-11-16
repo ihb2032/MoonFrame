@@ -498,16 +498,10 @@ fn ThriftWriter::text_list_elem(self : ThriftWriter, v : String) -> Unit {
 
 ///|
 /// The ×10-and-add-digit step the 16-byte decimal accumulator folds
-/// by. The low half's add-digit carry is arithmetically unreachable
-/// over the decimal input domain, though the fold keeps the guard
-/// anyway: 2^64 ends in 6, so any k·2^64 ends in an even digit, and
-/// 10L ends in 0 — the low half after the ×10 step (10L − k·2^64)
-/// therefore always ends in an even digit, while the carry needs it
-/// within nine of the wrap (a final digit 1 through 9, all odd).
-/// `#coverage.skip` rides the whole helper for that one arm, the same
-/// trade the BOOLEAN dictionary capacity makes for its memory-bound
-/// arm.
-#coverage.skip
+/// by. The low half's add-digit carry is reachable: `10 · 3689348814741910323`
+/// wraps to `2^64 − 2`, so adding the next digit `2` carries into the
+/// high half. The guard keeps that carry; the whitebox case below pins
+/// it.
 fn times10_plus(
   acc_hi : UInt64,
   acc_lo : UInt64,

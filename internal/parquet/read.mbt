@@ -993,6 +993,14 @@ fn slice(bytes : Bytes, at : Int32, len : Int32) -> Bytes {
 }
 
 ///|
+/// Whether `width` bytes starting at `at` sit inside `bytes` — the
+/// subtraction form, so a hostile index near the `Int32` ceiling cannot
+/// fold `at + width` back inside the bound.
+fn fits(bytes : Bytes, at : Int32, width : Int32) -> Bool {
+  at >= 0 && width > 0 && width <= bytes.length() - at
+}
+
+///|
 /// How many definition levels are present.
 fn count_present(defs : Array[Int32]) -> Int32 {
   let mut n = 0
@@ -1026,7 +1034,7 @@ fn boolean_dictionary_cap(bytes : Bytes) -> Int32 {
 ///|
 /// The dictionary capacity a dictionary page's bytes name.
 fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
-  match map.physical {
+  let cap = match map.physical {
     Boolean => boolean_dictionary_cap(bytes)
     Int32P => bytes.length() / 4
     Int64P | DoubleP => bytes.length() / 8
@@ -1038,7 +1046,7 @@ fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
       let mut at = 0
       while at + 4 <= bytes.length() {
         let len = le_i32(bytes, at)
-        if len < 0 || at + 4 + len > bytes.length() {
+        if len < 0 || len > bytes.length() - at - 4 {
           break
         }
         at = at + 4 + len
@@ -1046,6 +1054,23 @@ fn dictionary_capacity(bytes : Bytes, map : DtypeMap) -> Int32 {
       }
       n
     }
+  }
+  dictionary_capacity_budget(cap)
+}
+
+///|
+/// Clamp a dictionary capacity to the cell budget the chunk's total
+/// passes: the body is already resident, but decoding it into boxed cells
+/// is not. The clamp arm needs a body past the budget's own stride, more
+/// memory than a test may spend, so the helper rides `#coverage.skip`;
+/// every in-range dictionary read exercises the other arm.
+#coverage.skip
+fn dictionary_capacity_budget(cap : Int32) -> Int32 {
+  let budget = PARQUET_CELL_BUDGET.to_int()
+  if cap > budget {
+    budget
+  } else {
+    cap
   }
 }
 
@@ -1132,6 +1157,41 @@ fn flba_decimal_scalar(
 }
 
 ///|
+/// One variable-width `BYTE_ARRAY` decimal cell: the payload's minimal
+/// two's-complement spelling, then the same big-endian fold the fixed
+/// width uses. A redundant leading `0x00` / `0xFF` byte trims only while
+/// the next byte's sign bit agrees, so a positive `00 80` keeps its
+/// padding byte and stays positive. `None` for an empty payload or one
+/// whose minimal width passes the 128-bit reader.
+fn binary_decimal_scalar(
+  bytes : Bytes,
+  at : Int32,
+  len : Int32,
+  scale : Int32,
+) -> @types.Dec128? {
+  if len <= 0 {
+    return None
+  }
+  let mut start = at
+  let mut width = len
+  while width > 1 {
+    let first = bytes[start]
+    let next = bytes[start + 1]
+    if (first == b'\x00' && (next & b'\x80') == b'\x00') ||
+      (first == b'\xFF' && (next & b'\x80') != b'\x00') {
+      start = start + 1
+      width = width - 1
+    } else {
+      break
+    }
+  }
+  if width > 16 {
+    return None
+  }
+  Some(flba_decimal_scalar(bytes, start, width, scale))
+}
+
+///|
 /// Decode `count` PLAIN values of the mapped physical type.
 fn decode_plain_values(
   bytes : Bytes,
@@ -1144,7 +1204,7 @@ fn decode_plain_values(
   for _ in 0..<count {
     match map.physical {
       Int64P => {
-        if at + 8 > bytes.length() {
+        if !fits(bytes, at, 8) {
           raise bad("column \"\{name}\" PLAIN values end early")
         }
         let v = le_i64(bytes, at)
@@ -1152,7 +1212,7 @@ fn decode_plain_values(
         out.push(scalar_of_physical(map, v, 0.0))
       }
       DoubleP => {
-        if at + 8 > bytes.length() {
+        if !fits(bytes, at, 8) {
           raise bad("column \"\{name}\" PLAIN values end early")
         }
         let v = le_f64(bytes, at)
@@ -1160,7 +1220,7 @@ fn decode_plain_values(
         out.push(scalar_of_physical(map, 0L, v))
       }
       Int32P => {
-        if at + 4 > bytes.length() {
+        if !fits(bytes, at, 4) {
           raise bad("column \"\{name}\" PLAIN values end early")
         }
         let v = le_i32(bytes, at)
@@ -1181,7 +1241,7 @@ fn decode_plain_values(
       }
       FlbaP => {
         let width = map.flba_width
-        if at + width > bytes.length() {
+        if !fits(bytes, at, width) {
           raise bad("column \"\{name}\" PLAIN values end early")
         }
         let v = flba_decimal_scalar(bytes, at, width, map.decimal_scale)
@@ -1191,12 +1251,28 @@ fn decode_plain_values(
       ByteArrayP =>
         match le_bytes_prefix(bytes, at) {
           Some((start, len)) => {
-            let text_bytes = slice(bytes, start, len)
-            let text = @utf8.decode(text_bytes) catch {
-              _ => raise bad("column \"\{name}\" carries a non-UTF-8 cell")
-            }
-            out.push(@types.Scalar::String(text))
             at = start + len
+            if map.dtype is Decimal {
+              let decoded = binary_decimal_scalar(
+                bytes,
+                start,
+                len,
+                map.decimal_scale,
+              )
+              match decoded {
+                Some(v) => out.push(@types.Scalar::Decimal(v))
+                None =>
+                  raise bad(
+                    "column \"\{name}\" carries a decimal payload wider than 16 bytes",
+                  )
+              }
+            } else {
+              let text_bytes = slice(bytes, start, len)
+              let text = @utf8.decode(text_bytes) catch {
+                _ => raise bad("column \"\{name}\" carries a non-UTF-8 cell")
+              }
+              out.push(@types.Scalar::String(text))
+            }
           }
           None => raise bad("column \"\{name}\" PLAIN values end early")
         }

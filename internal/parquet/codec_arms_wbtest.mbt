@@ -234,8 +234,21 @@ test "the schema mapping refuses what MoonFrame cannot carry" {
   assert_true(map_from_schema(2, Some(5), Some(2), Some(19), None) is None)
   assert_true(map_from_schema(2, Some(5), Some(5), Some(4), None) is None)
   assert_true(map_from_schema(2, Some(5), Some(-1), Some(18), None) is None)
-  // A BYTE_ARRAY without UTF8 is raw binary, not a String.
+  // A BYTE_ARRAY without UTF8 or DECIMAL is raw binary, not a String.
   assert_true(map_from_schema(6, None, None, None, None) is None)
+  // The DECIMAL annotation over INT32 is the small-value shape foreign
+  // writers emit; its payload's ceiling is nine digits.
+  assert_true(map_from_schema(1, Some(5), Some(2), Some(9), None) is Some(_))
+  assert_true(map_from_schema(1, Some(5), Some(2), Some(10), None) is None)
+  assert_true(map_from_schema(1, Some(5), Some(5), Some(4), None) is None)
+  assert_true(map_from_schema(1, Some(5), None, None, None) is None)
+  assert_true(map_from_schema(1, Some(5), Some(2), None, None) is None)
+  // The legacy variable-width binary decimal.
+  assert_true(map_from_schema(6, Some(5), Some(2), Some(19), None) is Some(_))
+  assert_true(map_from_schema(6, Some(5), Some(2), Some(39), None) is None)
+  assert_true(map_from_schema(6, Some(5), Some(5), Some(4), None) is None)
+  assert_true(map_from_schema(6, Some(5), None, None, None) is None)
+  assert_true(map_from_schema(6, Some(5), Some(2), None, None) is None)
   // A DATE must ride INT32; a TIMESTAMP_MICROS must ride INT64.
   assert_true(map_from_schema(2, Some(6), None, None, None) is None)
   assert_true(map_from_schema(1, Some(10), None, None, None) is None)
@@ -246,9 +259,25 @@ test "the schema mapping refuses what MoonFrame cannot carry" {
   assert_true(map_from_schema(2, Some(10), None, None, None) is Some(_))
   assert_true(map_from_schema(2, Some(5), Some(2), Some(18), None) is Some(_))
   assert_true(map_from_schema(2, Some(5), Some(18), Some(18), None) is Some(_))
-  // The FIXED_LEN_BYTE_ARRAY decimal rides only its three legal
-  // widths — 4, 8, and 16 bytes — and only a precision the width
-  // itself bounds (9, 18, and 38 digits), with the scale inside it.
+  // The FIXED_LEN_BYTE_ARRAY decimal rides every width the format's
+  // capacity rule covers (floor(log10(2^(8n−1) − 1)) digits), with the
+  // scale inside the precision.
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(2), Some(1)) is Some(_))
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(3), Some(1)) is None)
+  // Spark's DECIMAL(20,2) lands on a nine-byte payload; precision 19 is
+  // inside that width's 21-digit capacity.
+  assert_true(
+    map_from_schema(7, Some(5), Some(2), Some(19), Some(9)) is Some(_),
+  )
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(22), Some(9)) is None)
+  assert_true(
+    map_from_schema(7, Some(5), Some(2), Some(35), Some(15)) is Some(_),
+  )
+  // The 128-bit reader's own ceiling.
+  assert_true(
+    map_from_schema(7, Some(5), Some(2), Some(38), Some(16)) is Some(_),
+  )
+  assert_true(map_from_schema(7, Some(5), Some(2), Some(38), Some(17)) is None)
   assert_true(map_from_schema(7, Some(5), Some(2), Some(9), Some(4)) is Some(_))
   assert_true(
     map_from_schema(7, Some(5), Some(2), Some(18), Some(8)) is Some(_),

@@ -135,7 +135,19 @@ Scalar::gt
 # spellings NullsFirst / NullsLast are deliberately not pinned: they live
 # on as the display words of the plan renderer.
 SortOrder
-NullOrder'
+NullOrder
+# Removed with the decimal128 reshape (unreleased): the fixed-point
+# Decimal(scale) dtype and its scale parsers / value fence retired. A
+# decimal is one value type (Dec128) with no scale parameter; the value
+# arithmetic and comparison are total over NaN / ±∞.
+Decimal(scale)
+Decimal(2)
+Decimal(3)
+check_decimal_scale
+parse_decimal_unscaled_opt
+Series::from_decimal_options
+may_carry_decimal
+expr_has_decimal_checked_op'
 
 # `|| true`: a `grep` that filters everything out exits 1, which `set -e` would
 # turn into a silent failure of the whole script.

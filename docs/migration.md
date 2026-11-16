@@ -256,9 +256,10 @@ What has landed on `main`:
   writer (`read_parquet` / `write_parquet` / `parse_parquet`, the lazy
   `scan_parquet`) over a module-internal codec: thrift compact
   metadata, RLE definition levels, PLAIN and dictionary-decoded values,
-  UNCOMPRESSED / SNAPPY / GZIP page bodies. The riders interchange
-  exactly (`DATE`, `TIMESTAMP_MICROS`, `DECIMAL` over `INT64` or, for
-  the past-`INT64` magnitudes, `FIXED_LEN_BYTE_ARRAY`); the one
+  UNCOMPRESSED / SNAPPY / GZIP page bodies. The riders interchange by
+  value (`DATE`, `TIMESTAMP_MICROS`, `DECIMAL` over `INT64` precision
+  18 or, past that window, `FIXED_LEN_BYTE_ARRAY`(16) precision 38);
+  the one
   narrowing is a written `Duration`, which rides a bare
   `INT64` and reads back `Int` (no standard converted type names a
   microsecond span). A `FLOAT` column refuses on read rather than
@@ -317,13 +318,14 @@ What has landed on `main`:
   single raw byte rather than a varint whose continuation bit would
   swallow the next field header.
 - A foreign `DECIMAL` column's annotation now carries the format's own
-  envelope on read: the precision is required, one to eighteen digits
-  over the `INT64` payload, with the scale never past it — a file
-  declaring past that envelope (a missing precision, a precision of
-  zero or nineteen, a scale naming fraction digits the precision does
-  not hold) refuses the column instead of reading cells under an
-  annotation the payload cannot honour. Files MoonFrame writes have
-  always declared precision eighteen.
+  envelope on read: the precision is required, one to nine digits over
+  `INT32`, one to eighteen over `INT64`, up to the payload's capacity
+  over `FIXED_LEN_BYTE_ARRAY`, and at most 38 over the legacy
+  variable-width `BYTE_ARRAY`, with the scale never past the precision
+  — a file declaring past that envelope refuses the column instead of
+  reading cells under an annotation the payload cannot honour. The
+  writer declares precision eighteen over `INT64` and thirty-eight over
+  the wide payload.
 - The chart export gains a browser page: `format_vega_html` /
   `write_vega_html` wrap the specification `format_vega_lite` emits in a
   standalone HTML document that loads the Vega runtime from three pinned
@@ -366,9 +368,9 @@ What has landed on `main`:
   negation / round overflows) is gone with the scale it was about.
   Construct decimals with `Dec128::of_int64` /
   `Dec128::of_int64_scale` / `Dec128::parse_opt` / the `nan` /
-  `infinity` / `zero` constructors; `Series::from_decimal_options(scale,
-  name, values)` becomes `Series::from_decimals(name, values)` over
-  `Dec128?` cells.
+  `infinity` / `zero` constructors, and build a decimal column with
+  `Series::from_scalars(name, cells, dtype=DataType::Decimal)` over
+  `Scalar::Decimal` cells (the expression layer's `lit` does the same).
 - The decimal arithmetic semantics follow the engine: `+` / `-` / `*` /
   `/` all stay `Decimal` (`Int` lifts exactly; a `Float` operand
   promotes the pair to `Float` through the correctly-rounded
@@ -394,17 +396,21 @@ What has landed on `main`:
   source), `Decimal` → `Float` the correctly-rounded conversion,
   `Decimal` → `String` the value rendering. The parquet interchange
   chooses the payload per column at the one adaptive scale every cell
-  honours: still `INT64` + `DECIMAL` (precision 18) while every lifted
-  magnitude fits an `Int64`, and the format's wide decimal —
-  `FIXED_LEN_BYTE_ARRAY`(16) + `DECIMAL` (precision 38, big-endian
-  two's complement) — past that. A NaN / ±∞ cell always refuses (the
-  fixed-point interchange has no exceptional spelling), as does a
-  column past the 16-byte payload's own window (a scale past 38, or a
-  lifted magnitude past 38 digits). Reading takes the annotation at
-  the format's word: the three legal widths (4, 8, 16 bytes at
-  precisions 9, 18, 38) stride and decode exactly, and a foreign
-  payload carrying more than the dtype's 34 significant digits
-  rounds once into the engine.
+  honours: `INT64` + `DECIMAL` (precision 18) while the scale is at
+  most eighteen and every lifted magnitude fits eighteen digits, and
+  otherwise the format's wide decimal — `FIXED_LEN_BYTE_ARRAY`(16) +
+  `DECIMAL` (precision 38, big-endian two's complement). A NaN / ±∞
+  cell always refuses (the fixed-point interchange has no exceptional
+  spelling), as does a column past the 16-byte payload's own window (a
+  scale past 38, or a lifted magnitude past 38 digits). Reading takes
+  the annotation at the format's word: a `FIXED_LEN_BYTE_ARRAY` of any
+  width from one to sixteen bytes strides and decodes exactly while the
+  precision stays inside the format's capacity rule
+  (`floor(log10(2^(8n−1) − 1))` digits), `INT32` + `DECIMAL` covers the
+  small-value payload, and the legacy variable-width `BYTE_ARRAY` +
+  `DECIMAL` trims its redundant sign-extension bytes. A foreign payload
+  carrying more than the dtype's 34 significant digits rounds once into
+  the engine.
 
 ## v0.8.0 → v0.8.1
 

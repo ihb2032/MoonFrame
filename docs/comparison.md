@@ -171,8 +171,9 @@ Where MoonFrame knowingly does something else than Polars.
   `Timestamp` / `Duration` column reduces to `Null` under `sum` / `mean`
   and to its own value under `min` / `max` — the same order those
   columns' own `Series::min` / `max` read; `Decimal` is the one wider
-  rider — its `sum` is exact (matching the dtype's own arithmetic), its
-  `mean` a `Null`; `Bool` / `String` columns null under all four.
+  dtype — `sum` folds the engine's value arithmetic (each addition
+  rounds to 34 digits, so a large total can lose low digits), its `mean`
+  a `Null`; `Bool` / `String` columns null under all four.
 
 For `NaN` everywhere — `sum` / `mean` / `median` / `quantile` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.

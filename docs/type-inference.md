@@ -71,7 +71,7 @@ inference's place:
   it locks in even when the cells would have inferred differently (a
   `0`-padded `zip` column stays `String`, never `Int`).
 - Every dtype with a read parser can be pinned: `Int` / `Float` / `Bool` /
-  `String` parse from cell text, and the rider dtypes `Date` / `Timestamp` /
+  `String` parse from cell text, and the pinned dtypes `Date` / `Timestamp` /
   `Decimal` parse the writers' own text forms (ISO `YYYY-MM-DD`, ISO
   `YYYY-MM-DDTHH:MM:SS.ffffff` with an optional trailing `Z` and an
   optional shorter fraction, and the decimal value reader's forms —
@@ -85,8 +85,8 @@ inference's place:
 - A cell that does not parse under the pin follows `on_parse_error`
   exactly as a post-window mismatch does — including JSON's strong types:
   a JSON `String` in a column pinned `Int` is a mismatch, never a `"1" → 1`
-  coercion. The riders are the deliberate exception on the JSON side —
-  they have no JSON-native type, so their pins read `String` values (the
+  coercion. The pinned dtypes are the deliberate exception on the JSON
+  side — they have no JSON-native type, so their pins read `String` values (the
   writer's own carrier) and nothing else: a JSON `Number` under a
   `Decimal` pin is a mismatch, never a coercion.
 - The map is copied when the options are built, so mutating it afterwards

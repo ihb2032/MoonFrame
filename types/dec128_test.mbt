@@ -44,7 +44,7 @@ test "of_int64 and of_int64_scale carry exact integers" {
     @types.Dec128::of_int64(9_223_372_036_854_775_807L).to_string(),
     "9223372036854775807",
   )
-  // The fixed-point lift: an unscaled magnitude under a scale.
+  // The scaled lift: an integer magnitude under a decimal scale.
   assert_eq(
     @types.Dec128::of_int64_scale(12345L, scale=2).to_string(),
     "123.45",

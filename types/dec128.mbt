@@ -549,8 +549,9 @@ pub fn Dec128::exponent(self : Dec128) -> Int32? {
 
 ///|
 /// The adjusted exponent — exponent + significant digits − 1, the
-/// power of ten the leading digit sits at (the ordering magnitude);
-/// `None` on the exceptionals.
+/// power of ten the leading digit sits at (the ordering magnitude); a
+/// zero has no leading digit and answers one below its quantum, and the
+/// exceptionals answer `None`.
 pub fn Dec128::adjusted_exponent(self : Dec128) -> Int32? {
   if self.kind == DEC_KIND_FINITE {
     Some(dec_add_i32(self.exp, dec_sig_digits(self.limbs) - 1))
@@ -785,9 +786,9 @@ pub fn Dec128::trunc(self : Dec128) -> Dec128 {
 }
 
 ///|
-/// The cohort's canonical member — trailing zeros stripped (one digit
-/// left on a zero), so value-equal decimals hash and key alike. The
-/// exceptionals are their own canonical shapes.
+/// The cohort's canonical member — trailing zeros stripped (a zero
+/// keeps an empty coefficient and its sign), so value-equal decimals
+/// hash and key alike. The exceptionals are their own canonical shapes.
 pub fn Dec128::canonical(self : Dec128) -> Dec128 {
   if self.kind != DEC_KIND_FINITE {
     return self

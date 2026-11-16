@@ -238,12 +238,12 @@ fn LogicalPlan::place_filter(
         // live in the key fold itself and are stated here so the argument
         // is complete where it is made: `key_cell` folds every `NaN` into one
         // group and no row-local operator can distinguish NaN payloads, so
-        // every row of a NaN group carries the same verdict; and it folds a
-        // `Decimal` key to its unscaled magnitude, injective only because a
-        // column's scale is uniform (the dtype carries it). An operator
-        // that could surface a NaN payload or mix decimal scales per cell
-        // must fence this crossing the way division does — add it to
-        // `signed_zero_safe`'s precedent, not silently to the descend set.
+        // every row of a NaN group carries the same verdict; and a `Decimal`
+        // key is its canonical value spelling with both zero signs folded,
+        // so value-equal decimals share one group. An operator that could
+        // surface a NaN payload must fence this crossing the way division
+        // does — add it to `signed_zero_safe`'s precedent, not silently to
+        // the descend set.
         let props = expr_props(predicate.node())
         if props.row_local &&
           props.zero_sign_safe &&
@@ -251,9 +251,9 @@ fn LogicalPlan::place_filter(
           reads_only_bare_columns(predicate, keys) &&
           all_group_cells_stable(exprs) &&
           // The value fence, stage half: the keys and the stitched cells
-          // evaluate over the child's rows, and a decimal or temporal
-          // checked operation refuses on the cells of exactly the groups a
-          // sunken predicate would drop.
+          // evaluate over the child's rows, and a temporal checked
+          // operation refuses on the cells of exactly the groups a sunken
+          // predicate would drop.
           !stage_value_raises(keys, value_risk) &&
           !stage_value_raises(exprs, value_risk) {
           crossed.push(ni => Aggregate(ni, keys, exprs))

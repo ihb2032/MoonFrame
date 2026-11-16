@@ -75,21 +75,22 @@ priv enum LogicalPlan {
 /// The per-format read state of a file-backed leaf: the driver that knows the
 /// format (handed in by the `scan_*` builder, built in `io`) plus the push-down
 /// state the optimizer fills in — the projection it narrows and the predicate
-/// it absorbs — and the decimal probe the scan builder stated when it built
-/// the leaf. Neither the push-down state nor the probe is driver state: the
-/// same driver value can sit under any number of plan shapes.
+/// it absorbs — and the temporal value-risk probe the scan builder stated
+/// when it built the leaf. Neither the push-down state nor the probe is
+/// driver state: the same driver value can sit under any number of plan
+/// shapes.
 priv struct FileScan {
   driver : @scan.ScanDriver
   projection : Array[String]?
   predicate : @expr.Expr?
-  // Whether this read may produce columns of a value-fence family whose
-  // names the plan cannot know — the risk walk's `any` flags for the
-  // leaf, raised by the `Scan(File(_))` arm. Both families reach a text
-  // read only through a `dtypes` pin (`Decimal` / `Date` / `Timestamp`
-  // are riders, never inference verdicts), which the io scan builder
-  // reads off the options it already captures; a parquet footer can name
-  // either family without the builder reading it, so that source carries
-  // the conservative `true` for both.
+  // Whether this read may produce columns of the temporal value-fence
+  // family whose names the plan cannot know — the risk walk's `any` flag
+  // for the leaf, raised by the `Scan(File(_))` arm. The family reaches a
+  // text read only through a `dtypes` pin (`Date` / `Timestamp` are
+  // riders, never inference verdicts), which the io scan builder reads off
+  // the options it already captures; a parquet footer can name the family
+  // without the builder reading it, so that source carries the
+  // conservative `true`.
   may_carry_temporal : Bool
 }
 

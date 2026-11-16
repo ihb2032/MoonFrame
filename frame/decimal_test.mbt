@@ -585,3 +585,115 @@ test "decimal round is the engine's quantize, NaN and infinity passing" {
     d.equal(@types.Dec128::of_int64(7L)),
   )
 }
+
+///|
+test "the two decimal zero signs share one group and one distinct value" {
+  let p0 = @types.Dec128::zero()
+  let n0 = @types.Dec128::zero(neg=true)
+  let s = @series.Series::from_decimals("d", [Some(p0), Some(n0)])
+  assert_eq(s.n_unique(), 1)
+  let df = DataFrame::DataFrame([s])
+  let grouped = df
+    .group_by([@expr.col("d")])
+    .agg([@expr.col("d").count().with_alias("n")])
+  assert_eq(grouped.nrows(), 1)
+  assert_true(grouped.item(0, "n") is @types.Scalar::Int(n) && n == 2L)
+}
+
+///|
+test "a decimal branch selects through when and fill_null" {
+  let five = @types.Dec128::of_int64(5L)
+  let zero = @types.Dec128::zero()
+  let df = DataFrame::DataFrame([
+    @series.Series::from_decimals("d", [None, Some(five)]),
+    @series.Series::from_bools("c", [true, false]),
+  ])
+  let selected = df.with_columns([
+    @expr.when(@expr.col("c"))
+    .then(@expr.col("d"))
+    .otherwise(@expr.lit(@types.Scalar::Decimal(zero)))
+    .with_alias("w"),
+  ])
+  // A null branch cell stays null (Kleene), and the false row takes the
+  // otherwise branch.
+  assert_true(selected.item(0, "w") is @types.Scalar::Null)
+  assert_true(selected.item(1, "w") is @types.Scalar::Decimal(v) && v.is_zero())
+  let filled = df.with_columns([
+    @expr.col("d")
+    .fill_null(@expr.lit(@types.Scalar::Decimal(zero)))
+    .with_alias("f"),
+  ])
+  assert_true(filled.item(0, "f") is @types.Scalar::Decimal(v) && v.is_zero())
+  assert_true(filled.item(1, "f") is @types.Scalar::Decimal(v) && v.equal(five))
+  let clipped = df.with_columns([
+    @expr.col("d")
+    .clip(
+      lower=@expr.lit(@types.Scalar::Decimal(@types.Dec128::of_int64(10L))),
+      upper=@expr.lit(@types.Scalar::Decimal(@types.Dec128::of_int64(20L))),
+    )
+    .with_alias("k"),
+  ])
+  assert_true(
+    clipped.item(1, "k") is @types.Scalar::Decimal(v) &&
+    v.equal(@types.Dec128::of_int64(10L)),
+  )
+}
+
+///|
+test "has_nan and fill_nan see a decimal NaN" {
+  let nan = @types.Dec128::nan()
+  let one = @types.Dec128::of_int64(1L)
+  let s = @series.Series::from_decimals("d", [Some(nan), Some(one), None])
+  assert_true(s.has_nan())
+  let filled = DataFrame::DataFrame([s]).fill_nan(0.0)
+  assert_true(filled.item(0, "d") is @types.Scalar::Decimal(v) && v.is_zero())
+  assert_true(filled.item(1, "d") is @types.Scalar::Decimal(v) && v.equal(one))
+  assert_true(filled.item(2, "d") is @types.Scalar::Null)
+}
+
+///|
+test "a decimal predicate probes NaN, finiteness, and infinity" {
+  let df = DataFrame::DataFrame([
+    @series.Series::from_decimals("d", [
+      Some(@types.Dec128::nan()),
+      Some(@types.Dec128::infinity()),
+      Some(@types.Dec128::of_int64(1L)),
+      None,
+    ]),
+  ])
+  let out = df.select([
+    @expr.col("d").is_nan().with_alias("nan"),
+    @expr.col("d").is_not_nan().with_alias("not_nan"),
+    @expr.col("d").is_finite().with_alias("fin"),
+    @expr.col("d").is_infinite().with_alias("inf"),
+  ])
+  assert_eq(out.item(0, "nan"), @types.Scalar::Bool(true))
+  assert_eq(out.item(0, "not_nan"), @types.Scalar::Bool(false))
+  assert_eq(out.item(0, "fin"), @types.Scalar::Bool(false))
+  assert_eq(out.item(0, "inf"), @types.Scalar::Bool(false))
+  assert_eq(out.item(1, "inf"), @types.Scalar::Bool(true))
+  assert_eq(out.item(1, "not_nan"), @types.Scalar::Bool(true))
+  assert_eq(out.item(2, "fin"), @types.Scalar::Bool(true))
+  assert_eq(out.item(2, "not_nan"), @types.Scalar::Bool(true))
+  assert_eq(out.item(3, "nan"), @types.Scalar::Null)
+}
+
+///|
+test "mixed decimal and float arithmetic stays linear" {
+  // A few thousand rows is enough to catch a per-cell full-column
+  // conversion (the quadratic shape) without making the suite slow once
+  // the conversion is hoisted.
+  let n = 2048
+  let dec = @series.Series::from_decimals(
+    "d",
+    Array::makei(n, i => Some(@types.Dec128::of_int64(i.to_int64()))),
+  )
+  let floats = @series.Series::from_floats(
+    "f",
+    Array::makei(n, i => i.to_double()),
+  )
+  let df = DataFrame::DataFrame([dec, floats])
+  let out = df.with_columns([(@expr.col("d") + @expr.col("f")).with_alias("m")])
+  assert_eq(out.nrows(), n)
+  assert_eq(out.item(n - 1, "m"), @types.Scalar::Float(4094.0))
+}

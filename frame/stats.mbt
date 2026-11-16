@@ -121,10 +121,9 @@ pub fn DataFrame::max(self : DataFrame) -> DataFrame raise @types.DataError {
 /// every dtype (no numeric restriction).
 ///
 /// The `raise` is forwarded by the shared driver (`reduce_to_row`) and
-/// never taken under `Count`: the driver's one real raise is the `Decimal`
-/// `sum` overflow, which `Count` does not reach, and its `from_parts` call
-/// cannot fire (the output names are `self`'s, already unique, and every
-/// output column has length 1).
+/// never taken under `Count`: the driver's per-column reductions are total
+/// for this op, and its `from_parts` call cannot fire (the output names
+/// are `self`'s, already unique, and every output column has length 1).
 pub fn DataFrame::count(self : DataFrame) -> DataFrame raise @types.DataError {
   self.reduce_to_row(FrameReduceOp::Count)
 }
@@ -200,12 +199,11 @@ pub fn DataFrame::n_unique(
 /// row with nothing in it. The height is passed explicitly for the latter,
 /// since there is then no column to infer it from.
 ///
-/// Raises through one real path — `sum` over a `Decimal` column whose total
-/// leaves the `Int64` range (`InvalidOperation`: the exact dtype's checked
-/// fold refuses rather than wraps) — and, forwarded, through the 1-row
-/// `DataFrame::from_parts`, whose failure paths (duplicate name / length
-/// mismatch) cannot fire here: the output column names are exactly `self`'s
-/// (already unique) and every output column has length 1.
+/// Raises only through the forwarded 1-row `DataFrame::from_parts`, whose
+/// failure paths (duplicate name / length mismatch) cannot fire here: the
+/// output column names are exactly `self`'s (already unique) and every
+/// output column has length 1. The per-column reductions are total: a
+/// decimal `sum` carries NaN / ±∞ as values, never a refusal.
 fn DataFrame::reduce_to_row(
   self : DataFrame,
   op : FrameReduceOp,
@@ -224,7 +222,7 @@ fn DataFrame::reduce_to_row(
 /// column by the shared `scalars_to_series`.
 ///
 /// `sum` reads the registry's `summable` bit (the numeric pair plus
-/// `Decimal`, whose exact unscaled addition the kernel performs), `min` /
+/// `Decimal`, whose value arithmetic the kernel performs), `min` /
 /// `max` reduce every dtype the extremum kernel orders — all but `Bool` /
 /// `String` — and `mean` (with `median` / `quantile` / `std` / `var` below)
 /// stays numeric: the approximate statistics are fenced for the `I64`
@@ -290,10 +288,9 @@ fn reduce_column(
     // is total by construction, matching the eager verb it mirrors.
     FrameReduceOp::NullCount =>
       (@types.Scalar::Int(s.null_count().to_int64()), @types.DataType::Int)
-    // `Series::sum` raises for a dtype outside the `summable` gate — kept
-    // away by the `if` — and, inside the gate, for a `Decimal` total past
-    // the `Int64` range (the checked fold's `InvalidOperation`, the one
-    // raise `reduce_to_row`'s docstring names).
+    // `Series::sum` raises only for a dtype outside the `summable` gate —
+    // kept away by the `if`. Inside the gate it is total: a decimal total
+    // that overflows is ±∞, not a refusal.
     FrameReduceOp::Sum =>
       (if summable { s.sum() } else { @types.Scalar::Null }, dtype)
     FrameReduceOp::Min =>

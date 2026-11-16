@@ -48,7 +48,7 @@
 ///   instead of inferring it, as a name → `DataType` map. Only the seven
 ///   dtypes a reader can parse — the four inference picks (`Int` /
 ///   `Float` / `Bool` / `String`) plus the three rider dtypes a pin
-///   carries (`Date` / `Timestamp` / `Decimal(scale)`, read back through
+///   carries (`Date` / `Timestamp` / `Decimal`, read back through
 ///   the writers' exact text forms) — can
 ///   be pinned; anything else is refused with `InvalidOperation` at read
 ///   time, as is a name the input does not carry (a pin is an assertion
@@ -176,7 +176,7 @@ pub fn CsvReadOptions::CsvReadOptions(
 /// - `InvalidOperation` — `options.dtypes` names a column the input does
 ///   not carry, or pins a dtype that has no read parser (anything but
 ///   `Int` / `Float` / `Bool` / `String` / `Date` / `Timestamp` /
-///   `Decimal(scale)`).
+///   `Decimal`).
 /// - `ParseError(Message(...))` — when `strict_quotes` is `true`, the input contains
 ///   an unterminated quoted field, text after a closing quote, or a quote
 ///   inside an unquoted field; or — when `options.strict_column_count` is

@@ -41,7 +41,7 @@
 ///   instead of inferring it, as a name → `DataType` map. Only the seven
 ///   dtypes a reader can parse — the four inference picks (`Int` /
 ///   `Float` / `Bool` / `String`) plus the three rider dtypes a pin
-///   carries (`Date` / `Timestamp` / `Decimal(scale)`, read back through
+///   carries (`Date` / `Timestamp` / `Decimal`, read back through
 ///   the writers' exact text forms, so the cell must be a JSON `String`) —
 ///   can be pinned; anything else is refused with `InvalidOperation` at
 ///   read time, as is a name the input does not carry (a pin is an
@@ -117,7 +117,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// - `InvalidOperation` — `options.dtypes` names a column the input does
 ///   not carry, or pins a dtype that has no read parser (anything but
 ///   `Int` / `Float` / `Bool` / `String` / `Date` / `Timestamp` /
-///   `Decimal(scale)`).
+///   `Decimal`).
 /// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
 ///   inferred dtype, unless `options.on_parse_error` is `Null`, which
 ///   downgrades that cell to a null instead.
@@ -261,8 +261,8 @@ pub fn read_json(
 ///   builtin stringifier — we deliberately do **not** roll our own
 ///   escape so any future Unicode spec tweaks land transparently)
 /// - `Date` / `Timestamp` / `Decimal` → JSON string holding the cell's
-///   value-form rendering (ISO calendar text / ISO instant / fixed-point
-///   decimal); the readers never infer these dtypes, so an unpinned
+///   value-form rendering (ISO calendar text / ISO instant / the decimal
+///   value spelling); the readers never infer these dtypes, so an unpinned
 ///   round-trip reads the column back as `String` / `Float` — a `dtypes`
 ///   pin reads the string back into its rider dtype, text being the
 ///   riders' one carrier in a format with no native type for them.

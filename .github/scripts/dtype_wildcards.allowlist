@@ -26,7 +26,7 @@ internal/column/storage.mbt <top> the wildcard is exhaustiveness only — the dt
 examples/sales_analysis/pipeline/pipeline.mbt is_widget_row the catch-all reads a present cell's as_string; the null arm above it is the example's point
 frame/dataframe.mbt typed_column_cells the catch-all decodes the cell or raises TypeMismatch — a new variant is refused, never silently coerced
 frame/null.mbt DataFrame::fill_null the catch-all compares dtypes (fills only when the scalar's dtype matches the column's) — a new variant simply does not fill
-frame/null.mbt DataFrame::fill_nan the catch-all is the identity pass-through: only Float cells carry NaN, every other variant rides unchanged
+frame/null.mbt DataFrame::fill_nan the catch-all is the identity pass-through: Float and Decimal cells are handled above, every other variant rides unchanged
 frame/pivot.mbt reshape_pivot the catch-all renders the cell for the pivot card — a new variant renders by its own to_string, as today's do
 internal/column/builtin_cast.mbt BuiltinColumn::to_int closure-parameter lines inside the cast's cell loops (i =>), not match arms — the scanner is deliberately lexical
 internal/column/builtin_cast.mbt BuiltinColumn::cast_date_to_timestamp closure-parameter lines inside the cast's cell loops (i => / b =>), not match arms — the scanner is deliberately lexical
@@ -108,7 +108,7 @@ series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/reduce.mbt reduce_arith closure-parameter lines inside the fold drivers (k =>), not match arms — the scanner is deliberately lexical
-series/series.mbt Series::has_nan only a Float column can hold a NaN, every other dtype answers false - the review point when a second floating dtype lands
+series/series.mbt Series::has_nan the wildcard is every non-floating dtype: Float and Decimal each scan their own buffer for NaN
 chart/chart.mbt chart_data_values the column is Duration-dtyped (checked above), so its cells are Duration or Null; the wildcard is the null
 chart/emit.mbt encoding_channel the position-value contract is number|"width"|"height" (the schema's PositionValueDef); the wildcard arm is the raise
 internal/column/builtin_cast.mbt BuiltinColumn::to_int the unreachable-buffer arm (the wire-type refusal the dispatch gate keeps from running — the fence a mislabeled buffer would answer) — arm 260
@@ -126,3 +126,6 @@ internal/kernel/numeric.mbt decimal_unary the eval dispatch routes a Decimal dty
 internal/kernel/predicate.mbt try_fast_is_in the Bool member group's cross-dtype union — a member of any dtype other than Bool abandons the fast path, and Decimal joined the union with the reshape
 series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 623
 series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 627
+internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
+internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
+chart/chart.mbt chart_data_values the column is Decimal-dtyped (checked above), so its cells are Decimal or Null; the wildcard is the remainder of the Scalar enum

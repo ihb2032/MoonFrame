@@ -43,3 +43,17 @@ test "is_in's decimal fast path answers its shapes" {
     is Err(@types.DataError::TypeMismatch(_)),
   )
 }
+
+///|
+test "is_in's decimal fast path folds the two zero signs" {
+  let z = @types.Dec128::zero()
+  let nz = @types.Dec128::zero(neg=true)
+  let one = @types.Dec128::of_int64(1L)
+  let dec = @series.Series::from_decimals("d", [Some(z), Some(nz), Some(one)])
+  let members : Array[@types.Scalar] = [@types.Scalar::Decimal(z)]
+  assert_eq(eval_is_in(dec, members.exact_view()).to_scalars(), [
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(true),
+    @types.Scalar::Bool(false),
+  ])
+}

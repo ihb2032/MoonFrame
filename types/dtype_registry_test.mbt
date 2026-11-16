@@ -50,7 +50,7 @@ test "numericity: Int and Float only, however the buffers align" {
 }
 
 ///|
-test "summability: Decimal sums, the other riders do not" {
+test "summability: Decimal sums, the temporal riders do not" {
   // A decimal column's sum is the IEEE fold; a date / timestamp
   // column has no meaningful sum. Read through the accessor the
   // whole-frame stats gate uses.

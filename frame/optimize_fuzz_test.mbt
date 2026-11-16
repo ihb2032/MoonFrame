@@ -107,10 +107,10 @@ fn fuzz_cases(base : Int32) -> Int32 {
 /// One rich row — `(g, fk, a, b, s, dt, ts, dec)` — with every cell
 /// independently nullable (~1/4 null). A plain tuple (rather than a struct)
 /// so `@shrink` can shrink a frame row-by-row and cell-by-cell out of the
-/// box. `dt` / `ts` / `dec` carry a `Date` day count, a `Timestamp` microsecond
-/// count, and a `Decimal(2)` unscaled magnitude, so every I64 rider rides
-/// every row-selection path the differential exercises (an I64 rebuild that
-/// dropped its dtype identity shows up as a frame-equality divergence).
+/// box. `dt` / `ts` / `dec` carry a `Date` day count, a `Timestamp`
+/// microsecond count, and a `Dec128` value, so the rider dtypes ride every
+/// row-selection path the differential exercises (a rebuild that dropped
+/// its dtype identity shows up as a frame-equality divergence).
 type RichRow = (
   Int64?,
   Double?,
@@ -220,14 +220,13 @@ fn gen_ts_cell() -> @gen.Generator[Int64?] {
 }
 
 ///|
-/// A `Decimal(2)` unscaled magnitude: small values either side of zero,
-/// ~1/4 null, and one envelope-straining magnitude — two of those sum past
-/// the 18-digit checked add, so the value-raising refusals (the sum, the
-/// arithmetic, the cross-scale compare) ride the differential for real:
-/// the decimal value-fence keeps the optimized chain raising exactly where
-/// the eager one does. The generated expressions reference `dec` directly
-/// (the predicate pool, the with_columns arithmetic, and the group
-/// aggregation below), so its dtype and its refusals are both exercised.
+/// A `Decimal` value pool: small values either side of zero, ~1/4 null, one
+/// straining magnitude, and the exceptional shapes the IEEE dtype carries
+/// as values. The decimal arithmetic is total — an overflow is ±∞, never a
+/// refusal — so the differential exercises the value face; the generated
+/// expressions reference `dec` directly (the predicate pool, the
+/// with_columns arithmetic, and the group aggregation below), so its dtype
+/// rides every path.
 fn gen_dec_cell() -> @gen.Generator[@types.Dec128?] {
   // The specials pool mirrors `gen_float_cell`'s: signed zeroes, NaN,
   // both infinities, exact magnitudes — the exceptional shapes the IEEE
@@ -783,8 +782,8 @@ test "fuzz: select/with_columns then filter is optimizer/eager equivalent" {
 /// frame's `dt` / `ts` columns are payload — those riders ride each
 /// row-selection path, so a rebuild that drops a dtype tag shows up as a
 /// divergence — while `dec` is referenced directly (predicate, arithmetic,
-/// aggregation): its checked refusals ride the differential, and the
-/// decimal value-fence owes the oracle its optimized-side fidelity.
+/// aggregation): its value face rides the differential, and the optimized
+/// chain must match the eager one cell for cell.
 #derive(Debug)
 enum VerbSpec {
   VFilter(@expr.Expr)
@@ -958,12 +957,11 @@ fn gen_verb() -> @gen.Generator[VerbSpec] {
     ),
     (
       1,
-      // The decimal `round` alone in its stage: the widening rescale past
-      // the 18-digit envelope (the pool's straining cell widened by
-      // `decimals=3` over `Decimal(2)`) is a checked refusal, so this is
-      // the round entry's own regression face — a stage whose only
-      // decimal-checked operation is the round, not the arithmetic the
-      // entry above already fences.
+      // The decimal `round` alone in its stage: the pool's straining cell
+      // widened by `decimals=3` exercises the quantize path, so this is the
+      // round entry's own regression face — a stage whose only decimal
+      // operation is the round, not the arithmetic the entry above already
+      // exercises.
       @gen.pure(
         VWithColumns([@expr.col("dec").round(decimals=3).with_alias("dec_r3")]),
       ),

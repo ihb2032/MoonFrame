@@ -1010,3 +1010,29 @@ test "a dotted column name escapes through every field reference" {
   )
   assert_true(repeated.contains("\"column\":[\"a\\\\.b\",\"c\\\\[0\\\\]\"]"))
 }
+
+///|
+test "a Decimal channel encodes as quantitative numbers" {
+  // A Decimal column is quantitative, and its data.values cells leave as
+  // numbers, not the value strings the shared JSON records walk writes.
+  // A non-finite decimal has no JSON-number spelling and leaves as null.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("i", [1, 2, 3, 4]),
+    @series.Series::from_decimals("val", [
+      Some(@types.Dec128::of_int64_scale(150L, scale=2)),
+      None,
+      Some(@types.Dec128::nan()),
+      Some(@types.Dec128::infinity()),
+    ]),
+  ])
+  let spec = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::point(@chart.field("i"), @chart.field("val")),
+    ),
+  )
+  assert_eq(channel_key(spec, "y", "type"), "quantitative")
+  assert_true(spec.contains("\"val\":1.50"))
+  assert_true(!spec.contains("\"val\":\"1.50\""))
+  assert_true(spec.contains("\"val\":null"))
+}

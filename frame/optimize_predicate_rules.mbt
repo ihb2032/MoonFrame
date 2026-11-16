@@ -118,12 +118,9 @@ fn classify(node : @ir.ExprNode, kids : Array[ExprProps]) -> ExprProps {
     // a scope-independent fact — the `Dt*` members included, whose calendar
     // and clock math is total over every `Int64` count (the same
     // remainder-first conversion the ISO rendering composes); `Round` reads
-    // only its place count on the numeric dtypes. The family's
-    // value-dependent refusals are the decimal triple `Neg` / `Abs` /
-    // `Round` on an 18-digit magnitude (round's widening rescale is the
-    // same checked multiply), and those are the decimal value-fence's to
-    // carry (`expr_has_decimal_checked_op` lists the triple), not this
-    // structural walk's.
+    // only its place count on the numeric dtypes. The decimal face is
+    // total too: `Neg` / `Abs` are values, and `Round`'s impossible target
+    // is a NaN value, not a raise.
     @ir.ExprNode::Unary(op, _) => {
       let combined = kids_and(kids)
       {

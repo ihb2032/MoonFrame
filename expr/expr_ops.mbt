@@ -139,9 +139,10 @@ pub fn lit_series(series : @series.Series) -> Expr {
 
 ///|
 /// `a + b` — numeric addition. Evaluation rules:
-/// `Int + Int → Int`, any `Float` operand promotes to `Float`, a null on
-/// either side nulls the output cell, non-numeric operands are
-/// `TypeMismatch`.
+/// `Int + Int → Int`, any `Float` operand promotes to `Float`, a
+/// `Decimal` pair stays `Decimal` (an `Int` lifts exactly; a `Float`
+/// promotes the pair to `Float`), a null on either side nulls the output
+/// cell, non-numeric operands are `TypeMismatch`.
 pub impl Add for Expr with fn add(self, other) {
   Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Add, self.node, other.node))
 }
@@ -168,10 +169,12 @@ pub impl Mul for Expr with fn mul(self, other) {
 pub extend Expr with Mul::{mul}
 
 ///|
-/// `a / b` — division, always `Float`: `Int` operands promote, and division
-/// by zero follows IEEE 754 (`±inf` / `nan`) on every backend rather than
-/// trapping — `Int` division-by-zero behaviour differs across backends, so
-/// it is never emitted. A null on either side nulls the output cell.
+/// `a / b` — division. `Int` operands promote to `Float`; a `Decimal`
+/// pair stays `Decimal` (an `Int` lifts exactly, a `Float` promotes the
+/// pair to `Float`). Division by zero follows IEEE 754 (`±inf` / `nan`) on
+/// every backend rather than trapping — `Int` division-by-zero behaviour
+/// differs across backends, so it is never emitted. A null on either side
+/// nulls the output cell.
 pub impl Div for Expr with fn div(self, other) {
   Expr::of_node(@ir.ExprNode::Binary(@ir.BinOp::Div, self.node, other.node))
 }
@@ -268,7 +271,9 @@ pub extend Expr with BitOr::{lor}
 
 ///|
 /// `-e` — numeric negation. `Int` negation wraps on `Int64` minimum
-/// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754.
+/// (MoonBit semantics — total, never aborts); `Float` follows IEEE 754;
+/// a `Decimal` takes the engine's exact negation (the zero sign flips as
+/// a value).
 pub impl Neg for Expr with fn neg(self) {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Neg, self.node))
 }
@@ -278,7 +283,8 @@ pub extend Expr with Neg::{neg}
 
 ///|
 /// `a.abs()` — absolute value. `Int → Int` (`Int64::MIN` wraps, like `Neg`);
-/// `Float → Float` (`|NaN| = NaN`, `|-0.0| = 0.0`). A null stays null; a
+/// `Float → Float` (`|NaN| = NaN`, `|-0.0| = 0.0`); `Decimal → Decimal`
+/// (the engine's exact absolute value, NaN passing). A null stays null; a
 /// non-numeric operand raises `TypeMismatch`.
 pub fn Expr::abs(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::Abs, self.node))
@@ -314,12 +320,14 @@ pub fn Expr::sign(self : Expr) -> Expr {
 /// `Float → Float`; `Int → Int` unchanged (an integer is its own rounding).
 /// `±inf` / `NaN` pass through and `±0.0` keeps its sign. A null stays null;
 /// a non-numeric operand raises `TypeMismatch`. `decimals` (default `0`)
-/// rounds to that many decimal places — `decimals=2` sends `1.005` to `1.0`
-/// or `1.01` as binary floating point dictates. A negative `decimals` clamps
-/// to `0`, and an `Int` column is the identity at any setting. So is a place
-/// finer than the value's own resolution: `round(decimals=20)` returns
-/// `123456.789` unchanged rather than perturbing it by an ulp. (The other
-/// rounding modes remain a deferred additive refinement; this is the
+/// rounds to that many decimal places — on a `Float`, `decimals=2` sends
+/// `1.005` to `1.0` or `1.01` as binary floating point dictates; a
+/// `Decimal` operand takes the engine's exact quantize (ties to even, NaN
+/// and ±∞ passing, an impossible target a NaN cell). A negative `decimals`
+/// clamps to `0`, and an `Int` column is the identity at any setting. So is
+/// a place finer than the value's own resolution: `round(decimals=20)`
+/// returns `123456.789` unchanged rather than perturbing it by an ulp. (The
+/// other rounding modes remain a deferred additive refinement; this is the
 /// ties-to-even form.)
 pub fn Expr::round(self : Expr, decimals~ : Int32 = 0) -> Expr {
   Expr::of_node(
@@ -580,8 +588,9 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 ///|
 /// `Bool` column that is `true` where the operand holds the IEEE `NaN` value.
 /// The operand must be numeric: an `Int` cell is never `NaN` (`false`), a
-/// `Float` cell is tested by `Double::is_nan`, and a non-numeric operand
-/// is a `TypeMismatch` at evaluation. Unlike `is_null`, this *propagates*
+/// `Float` or `Decimal` cell is tested by its own `is_nan`, and a
+/// non-numeric operand is a `TypeMismatch` at evaluation. Unlike `is_null`,
+/// this *propagates*
 /// nulls — a missing cell is neither NaN nor not, so the result cell is
 /// null — since `NaN` is a real value distinct from a missing one. Building
 /// the node is total.
@@ -591,8 +600,9 @@ pub fn Expr::is_nan(self : Expr) -> Expr {
 
 ///|
 /// `Bool` column that is `true` where the operand is a non-`NaN` numeric value
-/// — the complement of `is_nan` on non-null cells, propagating nulls the same
-/// way (a missing cell stays null). Same numeric-operand requirement.
+/// — the complement of `is_nan` on non-null cells, over `Float` and
+/// `Decimal` alike, propagating nulls the same way (a missing cell stays
+/// null). Same numeric-operand requirement.
 pub fn Expr::is_not_nan(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsNotNan, self.node))
 }
@@ -988,8 +998,9 @@ pub fn Expr::over(self : Expr, keys : Array[Expr]) -> Expr {
 
 ///|
 /// Sum of the operand over the evaluation scope (whole frame, or one group
-/// under `agg`). Inherits `Series::sum` semantics: NaN propagates,
-/// nulls are skipped, non-numeric operands are `TypeMismatch`.
+/// under `agg`). Inherits `Series::sum` semantics: NaN propagates, nulls
+/// are skipped, a `Decimal` operand sums as a `Decimal` value (an
+/// overflow is ±∞), non-numeric operands are `TypeMismatch`.
 pub fn Expr::sum(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Agg(@series.ReduceOp::Sum, self.node))
 }
@@ -1153,17 +1164,19 @@ pub fn Expr::backward_fill(self : Expr, limit? : Int32) -> Expr {
 }
 
 ///|
-/// Whether each cell is a finite number — a present `Float` cell unless it
-/// is `NaN` or an infinity; a present `Int` cell always; a null cell null
-/// (Kleene). Numeric only — a non-numeric operand is `TypeMismatch`.
+/// Whether each cell is a finite number — a present `Float` or `Decimal`
+/// cell unless it is `NaN` or an infinity; a present `Int` cell always; a
+/// null cell null (Kleene). Numeric only — a non-numeric operand is
+/// `TypeMismatch`.
 pub fn Expr::is_finite(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsFinite, self.node))
 }
 
 ///|
-/// Whether each cell is an infinity — the `Float` infinities alone (`NaN`
-/// is a value, not an infinity: `false` here and under `is_finite` both);
-/// a present `Int` cell never; a null cell null. Numeric only.
+/// Whether each cell is an infinity — the `Float` and `Decimal` infinities
+/// alone (`NaN` is a value, not an infinity: `false` here and under
+/// `is_finite` both); a present `Int` cell never; a null cell null. Numeric
+/// only.
 pub fn Expr::is_infinite(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsInfinite, self.node))
 }

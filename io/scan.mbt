@@ -33,13 +33,15 @@
 /// confined to a dropped column, or to a row the predicate drops in a column the
 /// predicate does not read, does not surface. Dtype inference still walks the
 /// whole file, so dtypes and the surviving cells match the eager read exactly.
-/// The pins that fence this back are `Decimal` and the temporal riders
-/// (`Date` / `Timestamp`): decimal arithmetic and comparison refuse on
-/// *values*, and temporal `+` / `-` refuse on instants leaving the
+/// The pin that fences this back is the temporal family (`Date` /
+/// `Timestamp`): temporal `+` / `-` refuse on instants leaving the
 /// microsecond range, so above a scan whose pin carries one, the
 /// value-fence holds any predicate or stage expression with such an
-/// operation in place — a sunk one would prune away the very rows the refusal
-/// lives on, and a plan that fails to collect must still fail optimized.
+/// operation in place — a sunk one would prune away the very rows the
+/// refusal lives on, and a plan that fails to collect must still fail
+/// optimized. A `Decimal` pin needs no fence: the decimal operations carry
+/// NaN and ±∞ as values and never raise, so a sunk predicate cannot change
+/// which rows collect.
 ///
 /// `options` (delimiter, header, null strings, inference window, parse-error
 /// policy, strict quotes, dtype pins, …) defaults to `CsvReadOptions::CsvReadOptions()`, mirroring eager
@@ -82,10 +84,10 @@ pub fn scan_csv(
 /// plan and applied by the reader at collect time; projection push-down narrows
 /// which columns those options parse, never which options apply. The projection
 /// starts `None` (read every column) — only the optimizer fills it. A
-/// `Decimal` dtypes pin fences the value half of the push-downs exactly as it
-/// does for `scan_csv` — the shared rider contract, read off the same options
-/// field — and a `Date` / `Timestamp` pin fences the temporal half the same
-/// way.
+/// `Date` / `Timestamp` pin fences the temporal value half of the
+/// push-downs exactly as it does for `scan_csv`, read off the same options
+/// field; a `Decimal` pin carries no value fence (its operations are
+/// total).
 pub fn scan_ndjson(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
@@ -119,10 +121,9 @@ pub fn scan_ndjson(
 /// `options` defaults to `JsonReadOptions::JsonReadOptions()`, mirroring eager
 /// `read_json`, and is captured into the plan and applied at collect time;
 /// projection push-down narrows which columns those options parse, never
-/// which options apply. A `Decimal` dtypes pin fences the value half of the
-/// push-downs exactly as it does for `scan_csv` — the shared rider contract,
-/// read off the same options field — and a `Date` / `Timestamp` pin fences
-/// the temporal half the same way.
+/// which options apply. A `Date` / `Timestamp` pin fences the temporal
+/// value half of the push-downs exactly as it does for `scan_csv`, read off
+/// the same options field; a `Decimal` pin carries no value fence.
 pub fn scan_json(
   path : String,
   options~ : JsonReadOptions = JsonReadOptions::JsonReadOptions(),
@@ -147,13 +148,13 @@ pub fn scan_json(
 /// row-group statistics can offer); a `ParseError` in an unprojected
 /// column does not surface, exactly like the text scans' dropped
 /// columns. The dtypes come from the footer's schema, so a narrowed
-/// scan matches the eager read exactly — and the footer can name
-/// `Decimal` or temporal columns no plan-time fact can rule out (reading
-/// it at build would break the builder's totality), so this source takes
-/// both value-fences' conservative arms: a predicate or stage
-/// expression carrying a decimal- or temporal-checked operation stays
-/// above the scan, trading that push-down for a failing plan still
-/// failing.
+/// scan matches the eager read exactly — and the footer can name temporal
+/// columns no plan-time fact can rule out (reading it at build would break
+/// the builder's totality), so this source takes the temporal value-fence's
+/// conservative arm: a predicate or stage expression carrying a
+/// temporal-checked operation stays above the scan, trading that push-down
+/// for a failing plan still failing. A decimal column needs no fence — its
+/// operations are total over values.
 pub fn scan_parquet(path : String) -> @frame.LazyFrame {
   @frame.LazyFrame::file_scan(
     parquet_scan_driver(path),
@@ -164,10 +165,10 @@ pub fn scan_parquet(path : String) -> @frame.LazyFrame {
 ///|
 /// Whether a read-options dtypes map pins some column to a temporal rider —
 /// the only way a text read produces a `Date` / `Timestamp` column (the
-/// temporal dtypes are riders a pin carries, never an inference verdict, the
-/// standing `Decimal` has; `Duration` has no text parser at all, so a pin
-/// refuses it). The scan builders read it off the options they already
-/// capture, the temporal value-fence's counterpart of the decimal probe.
+/// temporal dtypes are pin-only, never an inference verdict; `Duration` has
+/// no text parser at all, so a pin refuses it). `Decimal` is pin-only too
+/// but has no value fence, so it needs no scan flag. The scan builders read
+/// this off the options they already capture.
 fn pins_temporal(dtypes : Map[String, @types.DataType]) -> Bool {
   for _, dt in dtypes {
     if dt is @types.DataType::Date || dt is @types.DataType::Timestamp {

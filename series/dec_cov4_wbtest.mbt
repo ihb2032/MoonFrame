@@ -5,9 +5,9 @@
 
 ///|
 test "a mislabeled Decimal dtype over an I64 buffer refuses the fill" {
-  // The old fixed-point rider's shape: a Decimal dtype over an I64
-  // buffer (Series::from_i64_options authors it). The Decimal fill
-  // value matches the dtype, so the arm's own buffer guard refuses.
+  // A deliberately mislabeled shape: a Decimal dtype over an I64 buffer
+  // (Series::from_i64_options authors it). The Decimal fill value matches
+  // the dtype, so the arm's own buffer guard refuses.
   let mis = Series::from_i64_options("d", @types.DataType::Decimal, [
     None,
     Some(5L),

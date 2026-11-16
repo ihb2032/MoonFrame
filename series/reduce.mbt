@@ -63,8 +63,9 @@ fn reduce_present(storage : @column.ColumnStorage) -> (Int32) -> Bool {
 /// that widens an `Int` cell before adding, so a mean cannot wrap, and that
 /// sums a present `NaN` in, so it propagates) — whose docstrings state those
 /// rules once; this reducer adds the window mapping and the empty-window
-/// translation. The decimal arm of `sum` carries the checked twin and
-/// refuses on overflow, so the reducer's type raises. With `want_mean` the
+/// translation. The reducer's signature stays raising for the dtype gate
+/// and the refusals the callers translate; the decimal arm itself never
+/// refuses (NaN and ±∞ are values). With `want_mean` the
 /// running total divides by the non-null count and is `Scalar::Null` for an
 /// empty / all-null window (the surfaces translate that: `Series::mean` to
 /// `InvalidOperation`, the grouped / scoped reducers to a null cell);
@@ -84,11 +85,11 @@ fn reduce_arith(
     // column is I64-typed but is not a number, and summing day-counts is a
     // bug, not a reduction. Non-numeric columns raise at factory time, before
     // any window is folded.
-    // The summable gate: `sum` also takes the exact I64 riders (a Decimal
-    // column of one scale adds exactly), while `mean` — an approximate,
-    // `Double`-valued statistic — keeps the numeric gate, so a summable but
-    // non-numeric dtype raises here at factory time exactly as a
-    // non-summable one does below.
+    // The summable gate: `sum` also takes `Decimal` (through the engine's
+    // value arithmetic), while `mean` — an approximate, `Double`-valued
+    // statistic — keeps the numeric gate, so a summable but non-numeric
+    // dtype raises here at factory time exactly as a non-summable one does
+    // below.
     @column.ColumnData::I64(a) if storage.dtype().is_summable() =>
       if want_mean {
         // The mean's output is `Double`, so the accumulator widens each cell
@@ -833,10 +834,10 @@ pub extend ReduceOp with Eq::{equal, not_equal}
 /// place. `Sum` / `Mean` / `Std` / `Var` / `Median` / `Quantile` `raise`
 /// `TypeMismatch` here for a non-numeric column, before any window work
 /// (`Quantile` also raising `InvalidOperation` for a `q` outside `[0, 1]`).
-/// The reducer itself may refuse mid-fold: a decimal `sum` whose total
-/// leaves the `Int64` range raises `InvalidOperation` from whichever
-/// window crosses it (the exact dtype refuses instead of wrapping), so a
-/// caller walks its windows in a `raise` context.
+/// The decimal `sum` does not refuse mid-fold — a `NaN` cell propagates,
+/// +∞ with −∞ makes a `NaN`, and an overflowing total is ±∞ — so the
+/// caller's `raise` context covers the dtype gate and the quantile range,
+/// not a per-window decimal overflow.
 ///
 /// The probe is a logical `DataType`, not a physical witness column: the
 /// caller (`frame`'s aggregation layer) only forwards it back into
@@ -907,10 +908,9 @@ pub fn Series::reducer_for(
 
 ///|
 /// Adapt a total reducer to the raising reducer type `reducer_for` hands
-/// out. The raising half exists for one refusal — the decimal `sum` past
-/// the 18-digit magnitude — and the reducers that cannot refuse (a count,
-/// an extremum, a first / last, a mode) keep their total signatures for
-/// their direct callers, passing through here at the seam.
+/// out. The reducers that cannot refuse (a count, an extremum, a first /
+/// last, a mode) keep their total signatures for their direct callers,
+/// passing through here at the seam.
 fn lift_total(
   reducer : (Int32, (Int32) -> Int32) -> @types.Scalar,
 ) -> (Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError {

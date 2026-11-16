@@ -987,19 +987,25 @@ pub fn format_vega_lite(
 /// The frame as Vega-Lite `data.values`: the shared JSON-records walk
 /// (`@io`'s `df_to_json_records` seam, so every other cell convention
 /// matches `format_json` exactly), with one chart-specific departure —
-/// a `Duration` column's cells leave as their microsecond count instead
-/// of the ISO string the records walk writes. A duration channel is
-/// typed `"quantitative"` (see `format_vega_lite`'s dtype→type rule),
-/// and a quantitative scale reads numbers: Vega's temporal has no
-/// ISO-duration parser, so both halves have to move together.
+/// a `Duration` column's cells leave as their microsecond count and a
+/// `Decimal` column's as numbers instead of the strings the records walk
+/// writes. Both channels are typed `"quantitative"` (see
+/// `format_vega_lite`'s dtype→type rule), and a quantitative scale reads
+/// numbers: Vega's temporal has no ISO-duration parser, and a decimal
+/// channel would otherwise hand the runtime strings. A non-finite
+/// decimal has no JSON-number spelling and leaves as null.
 fn chart_data_values(
   df : @frame.DataFrame,
 ) -> Array[Json] raise @types.DataError {
   let records = @io.df_to_json_records(df)
   let duration_cols : Array[String] = []
+  let decimal_cols : Array[String] = []
   for series in df.iter() {
     if series.dtype() is @types.DataType::Duration {
       duration_cols.push(series.name())
+    }
+    if series.dtype() is @types.DataType::Decimal {
+      decimal_cols.push(series.name())
     }
   }
   if duration_cols.length() > 0 {
@@ -1022,6 +1028,35 @@ fn chart_data_values(
         // cannot occur.
         if records[r] is Object(obj) {
           obj[col] = micros[r]
+        }
+      }
+    }
+  }
+  if decimal_cols.length() > 0 {
+    // A decimal cell leaves the records walk as its value string; a
+    // quantitative channel needs the number itself. The string spelling
+    // rides along as the number's `repr`, so the chart keeps the exact
+    // value text where the double is only an approximation.
+    for col in decimal_cols {
+      let series = df.get_column(col)
+      let len = series.len()
+      let values : Array[Json] = Array::make(len, Json::null())
+      for i in 0..<len {
+        values[i] = match series.get(i) {
+          Decimal(v) => {
+            let d = v.to_double()
+            if d.is_nan() || d.is_inf() {
+              Json::null()
+            } else {
+              Json::number(d, repr=v.to_string())
+            }
+          }
+          _ => Json::null()
+        }
+      }
+      for r in 0..<records.length() {
+        if records[r] is Object(obj) {
+          obj[col] = values[r]
         }
       }
     }

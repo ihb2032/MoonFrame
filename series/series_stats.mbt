@@ -17,12 +17,12 @@ pub fn Series::count(self : Series) -> Int32 {
 ///   `Double`. A `NaN` cell is a valid value, not missing, so it
 ///   participates and **propagates**: any non-null `NaN` makes the sum
 ///   `NaN` (only `Null` is skipped).
-/// - `Decimal` series → `Scalar::Decimal(scale, total)`, exact over the
-///   unscaled 64-bit cells; a total that leaves the `Int64` range
-///   `raise`s `InvalidOperation` rather than wrapping. An empty /
-///   all-null `Decimal` series sums to its scale's zero — the additive
-///   identity in its own dtype, where `sum` (unlike `mean`, which is
-///   `Float`-only) carries a decimal answer.
+/// - `Decimal` series → `Scalar::Decimal(total)`, folded with the
+///   engine's own IEEE addition: a `NaN` cell propagates, +∞ folding
+///   with −∞ makes a `NaN`, and an overflowing total is ±∞ — a value,
+///   never a refusal. An empty / all-null `Decimal` series sums to the
+///   positive zero — the additive identity in its own dtype, where `sum`
+///   (unlike `mean`, which is `Float`-only) carries a decimal answer.
 /// - Empty / all-null numeric series → `Scalar::Int(0)` or
 ///   `Scalar::Float(0.0)` (additive identity). An all-`NaN` `Float` series
 ///   sums to `NaN`, not the identity — every cell is a present value.

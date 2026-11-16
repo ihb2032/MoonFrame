@@ -79,13 +79,12 @@ pub extend ColumnStorage with Debug::{to_repr}
 /// still makes a column unequal to an identical one (`NaN != NaN`, matching
 /// `Double` equality); only null-ness and equal values decide the rest.
 pub impl Eq for ColumnStorage with fn equal(self, other) {
-  // The dtype decides first: the `I64` buffer is shared by four dtypes
-  // (`Int`, `Date`, `Timestamp`, `Decimal(scale)`), so equal buffers under
-  // different dtypes are different columns — a `Date` is not the `Int` count
-  // of its days, and the same unscaled bits are different decimals at
-  // different scales. `DataType`'s equality carries the scale, so this one
-  // check settles the whole identity question before representation is
-  // even read.
+  // The dtype decides first: the `I64` buffer is shared by `Int`, `Date`,
+  // `Timestamp`, and `Duration`, so equal buffers under different dtypes
+  // are different columns — a `Date` is not the `Int` count of its days.
+  // `Decimal` has its own `Dec` buffer, and `DataType` equality names the
+  // dtype, so this one check settles the whole identity question before
+  // representation is even read.
   if self.dtype() != other.dtype() {
     return false
   }

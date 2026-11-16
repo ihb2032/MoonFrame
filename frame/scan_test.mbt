@@ -354,14 +354,13 @@ test "an absorbed predicate reports a kept row's parse error at its true file ro
   assert_eq(lazy_out, eager)
 }
 
-// ── the decimal value-fence over file sources ────────────────────────
+// ── a decimal pin over file sources ─────────────────────────────────
 
 ///|
-/// The fixture the decimal-fence tests read: a `Decimal(0)` pin on `d` whose
-/// second cell doubles past the 18-digit envelope (`d + d` refuses there,
-/// `InvalidOperation` on values), and a `k` a predicate can drop that row by.
-/// Pinning is the only way a text read produces a decimal column, so this is
-/// the shape the file-source arm of the fence exists for.
+/// The fixture the decimal-pin tests read: a `Decimal` pin on `d` whose
+/// second cell is large enough to exercise the value arithmetic (`d + d` is
+/// a rounded value, ±∞ at the extreme), and a `k` a predicate can drop that
+/// row by. Pinning is the only way a text read produces a decimal column.
 fn write_decimal_pin_fixture(
   path : String,
 ) -> @io.CsvReadOptions raise @types.DataError {
@@ -923,9 +922,8 @@ test "a parquet footer's decimal column collects with value parity" {
 
 ///|
 test "a parquet scan still absorbs a bare-column predicate beside a projection" {
-  // The decimal value-fence holds only what carries a decimal-checked
-  // operation; a bare Bool column read is a decision on values the read
-  // itself supplies, so it keeps absorbing into the scan — and beside a
+  // A bare Bool column read is a decision on values the read itself
+  // supplies, so it keeps absorbing into the scan — and beside a
   // narrowed projection it exercises the driver's predicate-plus-projection
   // path, which the comparison predicates' fencing leaves cold.
   let df = DataFrame::DataFrame([

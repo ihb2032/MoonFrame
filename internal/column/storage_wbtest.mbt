@@ -346,11 +346,10 @@ test "Utf8 columns with the same cells but different validity are unequal" {
 
 ///|
 test "ColumnStorage equality settles the dtype before the buffer" {
-  // The `I64` buffer is shared by four dtypes; equal bits under different
-  // dtypes are different columns — a `Date` is not the `Int` count of its
-  // days, a `Timestamp` is not the `Date` of the same number, and the same
-  // unscaled bits are different decimals at different scales (0.05 vs
-  // 0.0005).
+  // The `I64` buffer is shared by `Int` / `Date` / `Timestamp` /
+  // `Duration`; equal bits under different dtypes are different columns —
+  // a `Date` is not the `Int` count of its days, and a `Timestamp` is not
+  // the `Date` of the same number. `Decimal` has its own `Dec` buffer.
   let date = ColumnStorage::Builtin(
     BuiltinColumn::from_i64_options(@types.DataType::Date, [Some(5L)]),
   )

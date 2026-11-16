@@ -580,10 +580,10 @@ test "is_in: rider columns take the hash fast path, cross-dtype members defer" {
 }
 
 ///|
-test "is_in: Timestamp and same-scale Decimal members take the fast path" {
-  // The rider fast path hashes raw counts; the same-scale decimal pair
-  // answers by magnitude, and a cross-scale member defers to the exact
-  // rescaling comparison (1.5 at scale 1 equals 1.50 at scale 2).
+test "is_in: Timestamp and Decimal members take the fast path" {
+  // The rider fast path hashes raw counts; Decimal keys on the canonical
+  // value spelling, so 1.5 at scale 1 matches 1.50 at scale 2 (cohorts
+  // compare equal, and both zero signs share the zero key).
   let ts = DataFrame::from_rows(
     @types.Schema::Schema([@types.Field::Field("t", @types.DataType::Timestamp)]),
     [

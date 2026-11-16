@@ -7,9 +7,8 @@
 /// Fill every null cell of the **dtype-compatible** columns with `value`,
 /// leaving the rest of the frame verbatim. A column is compatible when its
 /// dtype equals `value`'s dtype exactly: an `Int` value fills `Int` columns,
-/// a `Float` value fills `Float` columns, and so on — the equality is full,
-/// not per-variant, so a `Decimal(2)` value fills only `Decimal(2)` columns
-/// (a `Decimal(3)` column is left untouched rather than rescaled). Columns
+/// a `Float` value fills `Float` columns, a `Decimal` value fills every
+/// `Decimal` column, and so on. Columns
 /// of any other dtype are left untouched (not an error), and so are **all**
 /// columns when `value` is `Scalar::Null` — filling nulls with null is a
 /// no-op, so it skips everything and returns the frame unchanged.
@@ -177,19 +176,21 @@ pub fn DataFrame::fill_null_backward(
 }
 
 ///|
-/// Replace every `NaN` cell of the **`Float`** columns with `value`,
-/// leaving every other column verbatim — `NaN` is a value, not a missing
-/// cell, so only the float domain can hold one. Null cells are untouched —
-/// they are missing, not `NaN`. Names, dtypes, and the row count are
-/// unchanged.
+/// Replace every `NaN` cell of the **`Float` and `Decimal`** columns with
+/// `value`, leaving every other column verbatim — `NaN` is a value, not a
+/// missing cell, and both IEEE floating dtypes hold one. A decimal cell
+/// takes `value` through the correctly-rounded `Double → Decimal`
+/// conversion. Null cells are untouched — they are missing, not `NaN`.
+/// Names, dtypes, and the row count are unchanged.
 pub fn DataFrame::fill_nan(
   self : DataFrame,
   value : Double,
 ) -> DataFrame raise @types.DataError {
+  let dec_value = @types.Dec128::from_double(value)
   let new_cols = self.columns.map(s => {
-    // Only a `Float` column can hold a `NaN`, and only a present cell can
-    // hold one — `has_nan` scans the buffer directly (no boxing), so a
-    // NaN-free column returns verbatim instead of paying the full
+    // Only a floating column can hold a `NaN`, and only a present cell
+    // can hold one — `has_nan` scans the buffer directly (no boxing), so
+    // a NaN-free column returns verbatim instead of paying the full
     // re-materialisation below.
     if !s.has_nan() {
       s
@@ -204,10 +205,16 @@ pub fn DataFrame::fill_nan(
               } else {
                 c
               }
+            @types.Scalar::Decimal(v) =>
+              if v.is_nan() {
+                @types.Scalar::Decimal(dec_value)
+              } else {
+                c
+              }
             other => other
           }
         })
-      @series.scalars_to_series(@types.DataType::Float, s.name(), cells)
+      @series.scalars_to_series(s.dtype(), s.name(), cells)
     }
   })
   self.with_same_schema(new_cols, self.nrows)

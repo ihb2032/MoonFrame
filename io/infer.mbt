@@ -58,9 +58,9 @@ fn copy_dtypes(
 /// carry parse through the value-type layer's rider parsers — the text
 /// forms the writers render, read back exactly. Everything else a
 /// `DataType` can name — `Null` — has no read parser, so pinning it is
-/// refused loudly rather than silently ignored. A `Decimal(scale)` pin
-/// carrying a scale outside the dtype's envelope refuses here, at the
-/// caller's assertion, rather than at the first cell.
+/// refused loudly rather than silently ignored. A `Decimal` pin carries no
+/// scale parameter any more; its value reader accepts the writers' text
+/// forms and refuses at the first cell that is not one.
 fn inferred_from_override(
   column : String,
   dt : @types.DataType,
@@ -248,8 +248,8 @@ fn parse_float_opt(s : String, allow_nonfinite : Bool) -> Double? {
 /// the locked-in dtype), and `build` wraps the option array into a
 /// `Series`. Used for the parseable dtypes (`Int` / `Float` / `Bool`) and
 /// the total-constructor rider pins (`Date` / `Timestamp`); the `Decimal`
-/// pin's constructor validates its scale and so takes the dedicated shell
-/// below, and the `String` fallback goes through the near-total
+/// pin's value reader runs through the dedicated shell below, and the
+/// `String` fallback goes through the near-total
 /// `build_string_column` below (its `render` never fails, so it needs no
 /// `parse` / `err` / `on_parse_error`).
 ///

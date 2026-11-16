@@ -6,13 +6,15 @@
 /// from the comparison (`eval_compare`) and Kleene (`eval_logic`) kernels, so
 /// they cannot drift from `eq` / `ge` / `le` and the connectives. `is_in` has
 /// one exception, `try_fast_is_in`: a hash-set pass for the dtypes where
-/// membership is plain equality — `String`, `Bool`, `Int`, `Float`, and the
-/// same-dtype I64 riders (`Date` / `Timestamp` / same-scale `Decimal`) whose
-/// members share the column's dtype. On `Float` the set spells IEEE `==`
-/// exactly (a NaN member matches nothing, a NaN cell answers false, the two
-/// zeros fold), so nothing with a cross-type or cross-scale subtlety leaves
-/// the shared path — the mixed `Int` vs `Float` exactness and the
-/// `TypeMismatch` on an incomparable member stay on the general kernel.
+/// membership is plain equality — `String`, `Bool`, `Int`, `Float`, the
+/// same-dtype I64 riders (`Date` / `Timestamp`), and `Decimal` over its own
+/// buffer, whose members share the column's dtype. On `Float` the set spells
+/// IEEE `==` exactly (a NaN member matches nothing, a NaN cell answers
+/// false, the two zeros fold); `Decimal` keys on the canonical value
+/// spelling (cohorts equal, both zero signs folded). Nothing with a
+/// cross-type subtlety leaves the shared path — the mixed `Int` vs `Float`
+/// exactness and the `TypeMismatch` on an incomparable member stay on the
+/// general kernel.
 
 ///|
 /// `is_in`: `true` where the cell equals one of `members`. The general path
@@ -159,14 +161,12 @@ fn try_fast_is_in(
         ),
       )
     }
-    // A `Date` / `Timestamp` / `Decimal` column (the I64 riders): the cells
-    // hash on their raw counts when every member carries the column's own
-    // rider dtype — for `Decimal`, at the column's own scale, whose
-    // cross-scale equality only the general path's exact rescaling arm
-    // serves. A member of any other dtype (an `Int` against a `Date`
-    // column, a cross-scale decimal) abandons the fast path, which keeps
-    // the dtypes distinct exactly as the general path's Scalar comparison
-    // does.
+    // A `Date` / `Timestamp` column (the I64 riders): the cells hash on
+    // their raw counts when every member carries the column's own rider
+    // dtype. A `Decimal` column takes its own arm below, keyed on the
+    // canonical value spelling. A member of any other dtype (an `Int`
+    // against a `Date` column) abandons the fast path, which keeps the
+    // dtypes distinct exactly as the general path's Scalar comparison does.
     @column.ColumnData::I64(data) => {
       let dtype = operand.dtype()
       hash_set_is_in(name, data, valid, members, m => {
@@ -188,7 +188,7 @@ fn try_fast_is_in(
         match m {
           @types.Scalar::Decimal(v) =>
             if !v.is_nan() {
-              set[v.canonical().to_string()] = ()
+              set[@series.dec_key_string(v)] = ()
             }
           @types.Scalar::Null => ()
           _ => return None
@@ -203,7 +203,7 @@ fn try_fast_is_in(
             } else if data[i].is_nan() {
               Some(false)
             } else {
-              Some(set.contains(data[i].canonical().to_string()))
+              Some(set.contains(@series.dec_key_string(data[i])))
             }
           }),
         ),

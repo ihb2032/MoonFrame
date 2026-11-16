@@ -14,6 +14,12 @@ test "key_cell normalises each Scalar variant" {
     @types.Scalar::Decimal(@types.Dec128::of_int64_scale(25L, scale=2)),
   )
   assert_true(dec_key == KDec("0.25"))
+  // Both zero signs share one key; a decimal NaN joins the one bucket.
+  let p0 = @types.Dec128::zero()
+  let n0 = @types.Dec128::zero(neg=true)
+  assert_true(key_cell(@types.Scalar::Decimal(p0)) == KDec("0"))
+  assert_true(key_cell(@types.Scalar::Decimal(n0)) == KDec("0"))
+  assert_true(key_cell(@types.Scalar::Decimal(@types.Dec128::nan())) == KNaN)
   assert_true(key_cell(@types.Scalar::Null) == KNull)
 }
 

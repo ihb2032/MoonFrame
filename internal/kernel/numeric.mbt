@@ -234,7 +234,7 @@ fn eval_arith(
       match decimal_arith(left, right, dec) {
         Some(s) => s
         None =>
-          match mixed_decimal_float_pair(left, right, verb, float_op) {
+          match mixed_decimal_float_pair(left, right, float_op) {
             Some(s) => s
             None =>
               match
@@ -403,7 +403,7 @@ fn eval_div(left : Series, right : Series) -> Series raise @types.DataError {
   match decimal_arith_gate(left, right) {
     Some(s) => s
     None =>
-      match mixed_decimal_float_pair(left, right, "divide", (a, b) => a / b) {
+      match mixed_decimal_float_pair(left, right, (a, b) => a / b) {
         Some(s) => s
         None => eval_binary_float(left, right, "divide", (a, b) => a / b)
       }
@@ -451,7 +451,6 @@ fn decimal_arith_gate(left : Series, right : Series) -> Series? {
 fn mixed_decimal_float_pair(
   left : Series,
   right : Series,
-  verb : String,
   float_op : (Double, Double) -> Double,
 ) -> Series? {
   let dec_left = left.dtype() is @types.DataType::Decimal
@@ -470,24 +469,26 @@ fn mixed_decimal_float_pair(
   let ll = left.len()
   let rl = right.len()
   let n = if ll <= rl { ll } else { rl }
+  // Convert each side once, not once per output cell: the helpers walk
+  // the whole buffer, so calling them inside `Array::makei` made the
+  // pair's cost quadratic in the row count.
+  let left_values = if dec_left {
+    dec_buffer_doubles(left)
+  } else {
+    f64_buffer(left)
+  }
+  let right_values = if dec_right {
+    dec_buffer_doubles(right)
+  } else {
+    f64_buffer(right)
+  }
   let cells : Array[Double?] = Array::makei(n, i => {
     if lv[i] && rv[i] {
-      let x = if dec_left {
-        dec_buffer_doubles(left)[i]
-      } else {
-        f64_buffer(left)[i]
-      }
-      let y = if dec_right {
-        dec_buffer_doubles(right)[i]
-      } else {
-        f64_buffer(right)[i]
-      }
-      Some(float_op(x, y))
+      Some(float_op(left_values[i], right_values[i]))
     } else {
       None
     }
   })
-  ignore(verb)
   Some(Series::from_float_options(left.name(), cells))
 }
 
@@ -1079,7 +1080,7 @@ fn round_half_even(a : Double) -> Double {
 /// present `Int` cell is never `NaN` (so the constant `false`); a non-numeric
 /// operand raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
 fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
-  num_probe(operand, "is_nan", v => v.is_nan(), false)
+  num_probe(operand, "is_nan", v => v.is_nan(), false, v => v.is_nan())
 }
 
 ///|
@@ -1088,7 +1089,7 @@ fn eval_is_nan(operand : Series) -> Series raise @types.DataError {
 /// as "not NaN". A present `Int` cell is always not-NaN; a non-numeric operand
 /// raises `TypeMismatch`. Lands on the nullable `Builtin` backend.
 fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
-  num_probe(operand, "is_not_nan", v => !v.is_nan(), true)
+  num_probe(operand, "is_not_nan", v => !v.is_nan(), true, v => !v.is_nan())
 }
 
 ///|
@@ -1096,13 +1097,16 @@ fn eval_is_not_nan(operand : Series) -> Series raise @types.DataError {
 /// `eval_is_not_nan` / `eval_is_finite` / `eval_is_infinite`: `cell` names
 /// what a present `Float` cell must satisfy, `int_const` the verdict for a
 /// present `Int` cell (never NaN, always finite — each probe's polarity
-/// fixes it), `probe` the name the non-numeric raise carries. The two
-/// polarities of each probe are two argument pairs over this one body.
+/// fixes it), `dec_cell` the same test over a present decimal cell (the
+/// second floating dtype, which carries the same exceptional shapes), and
+/// `probe` the name the non-numeric raise carries. The two polarities of
+/// each probe are two argument pairs over this one body.
 fn num_probe(
   operand : Series,
   probe : String,
   cell : (Double) -> Bool,
   int_const : Bool,
+  dec_cell : (@types.Dec128) -> Bool,
 ) -> Series raise @types.DataError {
   // `Numeric` fast arm, as in `eval_arith`: all cells present, so the probe
   // is a raw-array pass.
@@ -1134,10 +1138,14 @@ fn num_probe(
         operand.name(),
         map_present(a.length(), valid, _ => int_const),
       )
+    @column.ColumnData::Dec(a) =>
+      Series::from_bool_options(
+        operand.name(),
+        map_present(a.length(), valid, i => dec_cell(a[i])),
+      )
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_)
-    | @column.ColumnData::Dec(_) =>
+    | @column.ColumnData::Utf8(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{probe} requires a numeric operand, got \{operand.dtype()}",
@@ -1153,7 +1161,9 @@ fn num_probe(
 /// `TypeMismatch`. Lands on the nullable `Builtin` backend (the
 /// `eval_is_nan` shape).
 fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
-  num_probe(operand, "is_finite", v => !v.is_nan() && !v.is_inf(), true)
+  num_probe(operand, "is_finite", v => !v.is_nan() && !v.is_inf(), true, v => {
+    v.is_finite()
+  })
 }
 
 ///|
@@ -1162,5 +1172,5 @@ fn eval_is_finite(operand : Series) -> Series raise @types.DataError {
 /// infinite nor not-infinite-by-sign: it lands `false` here and `false`
 /// there, null stays null).
 fn eval_is_infinite(operand : Series) -> Series raise @types.DataError {
-  num_probe(operand, "is_infinite", v => v.is_inf(), false)
+  num_probe(operand, "is_infinite", v => v.is_inf(), false, v => v.is_infinite())
 }

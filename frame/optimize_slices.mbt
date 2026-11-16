@@ -14,7 +14,7 @@
 /// into its now-rewritten input through `place_slice`. Bottom-up over the
 /// shared post-order — iterative, total, like every engine walk.
 fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
-  // The value risk (both dtype families) of each rebuilt subtree, threaded
+  // The value risk (the temporal family) of each rebuilt subtree, threaded
   // beside the plan exactly as `push_predicates` does — a sunk window moves
   // rows, never names, so a window node's accumulator is its input's.
   self.rebuild_postorder(
@@ -66,8 +66,8 @@ fn LogicalPlan::place_slice(
   value_risk~ : ValueRisk,
 ) -> LogicalPlan {
   let crossed : Array[(LogicalPlan) -> LogicalPlan] = []
-  // The value fence: a stage whose expressions combine decimal or temporal
-  // cells refuses on values, and a sunk window prunes the rows the refusal
+  // The value fence: a stage whose expressions combine temporal cells
+  // refuses on values, and a sunk window prunes the rows the refusal
   // lives on — the same error-faithfulness the row-local gates keep. The
   // pass hands in the risk it already maintains for this subtree — this
   // entry has a single caller, so the risk is a required label, not an

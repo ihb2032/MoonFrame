@@ -16,7 +16,7 @@
 // on one fact — a `rename`'s pairs apply in order, so a name can ride
 // several steps to its final one — which this walk spells over the full
 // name set (`sequential_rename` below) and the risk walk spells over its
-// decimal subset.
+// temporal subset.
 //
 // The `Join` arm's union is exact for every name it *offers* — left
 // names, a clash-free right name under its own name, a clashing one under
@@ -221,7 +221,7 @@ fn frame_op_names(op : FrameOp, below : @set.Set[String]?) -> @set.Set[String]? 
       }
     // The closure is total and collect runs it on exactly these column
     // names, so running it here reads the mapping rather than guessing it
-    // — the same precedent as the decimal walk.
+    // — the same precedent as the temporal walk.
     RenameWith(f) =>
       match below {
         None => None

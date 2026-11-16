@@ -91,10 +91,11 @@ pub fn DataType::is_numeric(self : DataType) -> Bool {
 }
 
 ///|
-/// Whether the exact reduction `sum` accepts the dtype — the registry row it
-/// reads states why this is wider than `is_numeric` for exactly one rider:
-/// unscaled decimal cells of a single scale add exactly, refusing the total
-/// that leaves the `Int64` range.
+/// Whether the reduction `sum` accepts the dtype — the registry row it
+/// reads states why this is wider than `is_numeric` for exactly one dtype:
+/// a `Decimal` column folds through the engine's value arithmetic (NaN
+/// propagates, an overflow is ±∞), while the approximate statistics stay
+/// behind the numeric gate.
 pub fn DataType::is_summable(self : DataType) -> Bool {
   self.dtype_profile().summable
 }
@@ -109,13 +110,15 @@ pub fn DataType::is_summable(self : DataType) -> Bool {
 /// arm of its own.
 ///
 /// This is one of three dtype-pair gates in the engine, each with its own
-/// semantics: this one (comparison), the arithmetic gate
-/// (`is_numeric` on both sides, `numeric_general_pair` in the kernel — no
-/// same-dtype clause, so `Date` does not subtract from `Date`), and the
-/// ternary gate (same dtype, or one side numeric — `eval_ternary`). They
-/// agree on every registry row today because the non-numeric rows are all
-/// riders; changing a row's `numeric` flag is a review of all three, which
-/// is why each spells a pointer back here.
+/// semantics: this one (comparison), the arithmetic gate (the `Decimal`
+/// pair's engine route first, then `is_numeric` on both sides —
+/// `numeric_general_pair` in the kernel, no same-dtype clause, so `Date`
+/// does not subtract from `Date`), and the ternary gate (same dtype — now
+/// including `Decimal` — or `Int` with `Float` — `eval_ternary`). The
+/// comparison and ternary gates share the same-dtype clause; the
+/// arithmetic gate reads the registry's numeric flag. Changing a row's
+/// `numeric` flag is a review of all three, which is why each spells a
+/// pointer back here.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {

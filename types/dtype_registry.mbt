@@ -10,7 +10,8 @@
 // This file is also where the physical buffer vocabulary lives. The logical
 // and physical sets grow independently: logical dtypes arrive often (a `Date`
 // rides the `I64` buffer), while the physical set is frozen by design and only
-// grows for a buffer no existing one can serve (a fixed-point `Decimal`, say).
+// grows for a buffer no existing one can serve (the `Dec` buffer `Decimal`
+// materialises into).
 // A dtype riding an existing buffer is *defined* by how it reinterprets the
 // buffer's raw cell on read — that lift is `i64_rider_scalar` below, the row
 // where the next I64 rider registers its read side (the write side carries the
@@ -48,7 +49,7 @@ pub(all) enum PhysicalType {
 /// targets) without touching a reader.
 priv struct DTypeProfile {
   /// The `Show` spelling of the dtype (the `display` rendering, e.g. `Date`;
-  /// a parameterised dtype interpolates its parameter, `Decimal(2)`).
+  /// no dtype is parameterised today, so every row is a literal).
   display : String
   /// The buffer kind the dtype's columns materialise into; `None` for the
   /// value-level `Null`, which has no storable representation.
@@ -57,12 +58,10 @@ priv struct DTypeProfile {
   /// accept the dtype. `Date` is `false`: its `I64` cells are days, and
   /// summing them is a bug, not a reduction.
   numeric : Bool
-  /// Whether the *exact* reduction `sum` accepts the dtype — the one numeric
-  /// verb that stays correct over an `I64` rider whose arithmetic is fenced:
-  /// adding unscaled decimal cells of one scale is exact within the `Int64`
-  /// range and refuses past it, so `Decimal` sums while its arithmetic (and
-  /// the approximate statistics, which go through the `numeric` gate) stay
-  /// fenced.
+  /// Whether the reduction `sum` accepts the dtype — wider than `numeric`
+  /// for exactly one dtype: a `Decimal` column folds through the engine's
+  /// value arithmetic (NaN propagates, an overflow is ±∞), while the
+  /// approximate statistics stay behind the `numeric` gate.
   summable : Bool
   /// Whether the whole-frame `min` / `max` reductions order the dtype —
   /// the orderable columns are the numerics and the temporal riders

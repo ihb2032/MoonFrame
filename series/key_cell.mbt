@@ -53,17 +53,32 @@ pub extend KeyCell with Eq::{equal, not_equal}
 pub extend KeyCell with Hash::{hash, hash_combine}
 
 ///|
+/// The decimal key string: one spelling for both zero signs, the
+/// canonical cohort member for every other finite value (trailing zeros
+/// stripped, so `1.0` and `1.00` are one key — numeric value equality;
+/// the string carries it so the hash and the equality agree by
+/// construction). NaN never reaches here — it keys as the one `KNaN`
+/// bucket. The single spelling every decimal key consumer reads, so
+/// `key_cell` and `is_in` cannot drift on ±0.
+#doc(hidden)
+#internal(engine, "MoonFrame execution engine API")
+pub fn dec_key_string(v : @types.Dec128) -> String {
+  if v.is_zero() {
+    "0"
+  } else {
+    v.canonical().to_string()
+  }
+}
+
+///|
 /// The decimal key cell: NaN one bucket, every finite value its
-/// canonical cohort member's spelling (trailing zeros stripped, so
-/// `1.0` and `1.00` are one key — numeric value equality; the string
-/// carries it so the hash and the equality agree by construction),
-/// the zeroes folded through the canonical zero. The decimal twin of
-/// `float_key_cell` below.
+/// `dec_key_string` spelling — the zeroes folded through the one zero
+/// key. The decimal twin of `float_key_cell` below.
 fn dec_key_cell(v : @types.Dec128) -> KeyCell {
   if v.is_nan() {
     KNaN
   } else {
-    KDec(v.canonical().to_string())
+    KDec(dec_key_string(v))
   }
 }
 

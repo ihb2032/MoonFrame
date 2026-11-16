@@ -142,6 +142,19 @@ pub fn eval_ternary(
         ),
       )
     }
+    (@column.ColumnData::Dec(a), @column.ColumnData::Dec(b)) =>
+      // The two branches hold the same dtype, so the selection is a
+      // cell-for-cell pick of the decimal buffer (a null branch cell
+      // stays null through `select_cells`).
+      Series::from_decimals(
+        t2.name(),
+        select_cells(
+          cond_cells,
+          cv,
+          i => if tv[i] { Some(a[i]) } else { None },
+          i => if ev[i] { Some(b[i]) } else { None },
+        ),
+      )
     (@column.ColumnData::I64(_), @column.ColumnData::I64(_))
     | (@column.ColumnData::I64(_), @column.ColumnData::F64(_))
     | (@column.ColumnData::F64(_), @column.ColumnData::I64(_))

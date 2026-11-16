@@ -86,9 +86,10 @@ pub fn CsvWriteOptions::CsvWriteOptions(
 /// - Round-trip caveat: cells render via `Scalar::to_string`, so a `Float`
 ///   whose value is a whole number is written without a fractional part
 ///   (`2.0` → `2`) and is re-inferred as `Int` on read — the same dtype
-///   narrowing the JSON writer documents. The `I64` riders write their
-///   exact text forms (`Date` / `Timestamp` as ISO text, `Decimal` as
-///   fixed-point text), which inference still never picks up — a
+///   narrowing the JSON writer documents. The rider dtypes write their
+///   value text (`Date` / `Timestamp` as ISO text, `Decimal` as its
+///   positional / scientific value form), which inference still never
+///   picks up — a
 ///   written-back rider column reads as `String` / `Float` unless a
 ///   `dtypes` pin names the dtype, and the riders' read parsers accept
 ///   exactly the text this writer emits, so the pinned round trip is

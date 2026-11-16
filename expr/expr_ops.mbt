@@ -588,8 +588,9 @@ pub fn Expr::is_not_null(self : Expr) -> Expr {
 ///|
 /// `Bool` column that is `true` where the operand holds the IEEE `NaN` value.
 /// The operand must be numeric: an `Int` cell is never `NaN` (`false`), a
-/// `Float` cell is tested by `Double::is_nan`, and a non-numeric operand
-/// is a `TypeMismatch` at evaluation. Unlike `is_null`, this *propagates*
+/// `Float` or `Decimal` cell is tested by its own `is_nan`, and a
+/// non-numeric operand is a `TypeMismatch` at evaluation. Unlike `is_null`,
+/// this *propagates*
 /// nulls — a missing cell is neither NaN nor not, so the result cell is
 /// null — since `NaN` is a real value distinct from a missing one. Building
 /// the node is total.
@@ -599,8 +600,9 @@ pub fn Expr::is_nan(self : Expr) -> Expr {
 
 ///|
 /// `Bool` column that is `true` where the operand is a non-`NaN` numeric value
-/// — the complement of `is_nan` on non-null cells, propagating nulls the same
-/// way (a missing cell stays null). Same numeric-operand requirement.
+/// — the complement of `is_nan` on non-null cells, over `Float` and
+/// `Decimal` alike, propagating nulls the same way (a missing cell stays
+/// null). Same numeric-operand requirement.
 pub fn Expr::is_not_nan(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsNotNan, self.node))
 }
@@ -1162,17 +1164,19 @@ pub fn Expr::backward_fill(self : Expr, limit? : Int32) -> Expr {
 }
 
 ///|
-/// Whether each cell is a finite number — a present `Float` cell unless it
-/// is `NaN` or an infinity; a present `Int` cell always; a null cell null
-/// (Kleene). Numeric only — a non-numeric operand is `TypeMismatch`.
+/// Whether each cell is a finite number — a present `Float` or `Decimal`
+/// cell unless it is `NaN` or an infinity; a present `Int` cell always; a
+/// null cell null (Kleene). Numeric only — a non-numeric operand is
+/// `TypeMismatch`.
 pub fn Expr::is_finite(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsFinite, self.node))
 }
 
 ///|
-/// Whether each cell is an infinity — the `Float` infinities alone (`NaN`
-/// is a value, not an infinity: `false` here and under `is_finite` both);
-/// a present `Int` cell never; a null cell null. Numeric only.
+/// Whether each cell is an infinity — the `Float` and `Decimal` infinities
+/// alone (`NaN` is a value, not an infinity: `false` here and under
+/// `is_finite` both); a present `Int` cell never; a null cell null. Numeric
+/// only.
 pub fn Expr::is_infinite(self : Expr) -> Expr {
   Expr::of_node(@ir.ExprNode::Unary(@ir.UnOp::IsInfinite, self.node))
 }

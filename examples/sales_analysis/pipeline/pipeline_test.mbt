@@ -159,9 +159,9 @@ test "is_widget_row: a non-String product column surfaces a typed mismatch" {
         @moonframe.TypeMismatchDetail::Expected(
           @moonframe.DataType::String,
           @moonframe.DataType::Int,
-          _
-        )
-      )
+          _,
+        ),
+      ),
     ),
   )
 }

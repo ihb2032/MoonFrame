@@ -696,7 +696,7 @@ test "grouped agg over zero groups consumes the deferred probe" {
   assert_true(
     r
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -1012,20 +1012,20 @@ test "std, variance, and median reject non-numeric columns" {
   assert_true(
     (Ok(whole(strs, @expr.col("x").std())) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
     (Ok(whole(strs, @expr.col("x").variance())) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   let bools = DataFrame::DataFrame([Series::from_bools("x", [true, false])])
   assert_true(
     (Ok(whole(bools, @expr.col("x").median())) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

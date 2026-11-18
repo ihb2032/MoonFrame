@@ -275,7 +275,7 @@ test "str_zfill: a non-String operand raises TypeMismatch" {
   assert_true(
     (Ok(df.select([@expr.col("n").str_zfill(3)])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -358,7 +358,7 @@ test "str regex: a non-String operand is a TypeMismatch" {
       e => Err(e)
     })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -497,7 +497,7 @@ test "str_slice: a non-String operand raises TypeMismatch" {
   assert_true(
     (Ok(df.select([@expr.col("n").str_slice(0)])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

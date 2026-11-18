@@ -573,8 +573,8 @@ test "is_in: rider columns take the hash fast path, cross-dtype members defer" {
     mixed
     is Err(
       @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Operation("compare", _, _)
-      )
+        @types.TypeMismatchDetail::Operation("compare", _, _),
+      ),
     ),
   )
 }

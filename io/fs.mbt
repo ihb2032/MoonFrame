@@ -63,7 +63,7 @@ const GUNZIP_MAX_OUTPUT : Int32 = 0x4000_0000
 /// happens to sit under a `.gz` name is not mistaken for one.
 ///
 /// The output rides a cap, enforced by the inflater itself
-/// (`@gzip.decompress`'s `max_output`), never by the trailer's declared
+/// (`@gzip.decompress`'s `max_output_bytes`), never by the trailer's declared
 /// ISIZE: that 4-byte little-endian length is best-effort by format —
 /// stored modulo 2^32, so an expansion can wrap it to any value, and a
 /// multi-member stream declares only its *last* member's length — so a
@@ -89,7 +89,7 @@ fn gunzip_bytes_capped(
   if bytes.length() < 2 || bytes[0] != b'\x1f' || bytes[1] != b'\x8b' {
     return bytes
   }
-  @gzip.decompress(bytes, max_output=cap) catch {
+  @gzip.decompress(bytes, max_output_bytes=cap) catch {
     // The cap's refusal, kept apart from the malformed-stream arm: the
     // message names the cap rather than claiming the stream is invalid.
     @gzip.GzipError(OutputLimitExceeded(limit~, observed~), _detail) =>

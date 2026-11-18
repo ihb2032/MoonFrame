@@ -193,9 +193,9 @@ test "from_scalars refuses a foreign cell in cell order" {
         @types.TypeMismatchDetail::Expected(
           @types.DataType::Int,
           @types.DataType::Float,
-          "x"
-        )
-      )
+          "x",
+        ),
+      ),
     ),
   )
   // With dtype~ locked, the Int cell is foreign to the Float column — an
@@ -215,9 +215,9 @@ test "from_scalars refuses a foreign cell in cell order" {
         @types.TypeMismatchDetail::Expected(
           @types.DataType::Float,
           @types.DataType::Int,
-          "x"
-        )
-      )
+          "x",
+        ),
+      ),
     ),
   )
 }

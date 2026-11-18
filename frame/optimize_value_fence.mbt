@@ -467,7 +467,7 @@ fn expr_has_temporal_checked_op(expr : @ir.ExprNode) -> Bool {
         | @ir.BinOp::Atan2
         | @ir.BinOp::Hypot,
         _,
-        _
+        _,
       ) => node.each_child(k => stack.push(k))
       // The leaves carry no operand to check.
       @ir.ExprNode::Col(_)

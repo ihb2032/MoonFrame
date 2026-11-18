@@ -777,13 +777,13 @@ test "is_nan / is_not_nan: a non-numeric operand raises TypeMismatch" {
   assert_true(
     (Ok(df.with_columns([@expr.col("s").is_nan()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
     (Ok(df.with_columns([@expr.col("s").is_not_nan()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -841,7 +841,7 @@ test "fill_null / fill_nan evaluate exactly like their guarded-ternary spelling"
       e => Err(e)
     })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

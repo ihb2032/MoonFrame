@@ -449,7 +449,7 @@ test "parse_csv_str: strict_quotes rejects all malformed quote shapes" {
     }
     match result {
       Err(
-        @types.DataError::ParseError(@types.ParseErrorDetail::Message(message))
+        @types.DataError::ParseError(@types.ParseErrorDetail::Message(message)),
       ) => assert_eq(message, expected)
       _ => fail("expected strict quote ParseError")
     }
@@ -491,7 +491,7 @@ test "parse_csv_str: strict_quotes and cell errors name the same data row" {
   assert_true(
     cell_err
     is Err(
-      @types.DataError::ParseError(@types.ParseErrorDetail::Cell(_, _, 2, _, _))
+      @types.DataError::ParseError(@types.ParseErrorDetail::Cell(_, _, 2, _, _)),
     ),
   )
   let quote_err = Ok(
@@ -507,9 +507,9 @@ test "parse_csv_str: strict_quotes and cell errors name the same data row" {
     is Err(
       @types.DataError::ParseError(
         @types.ParseErrorDetail::Message(
-          "row 2: unexpected character after a closing quote"
-        )
-      )
+          "row 2: unexpected character after a closing quote",
+        ),
+      ),
     ),
   )
 }
@@ -1026,9 +1026,9 @@ test "parse_csv_str: a rider pin's bad cell follows on_parse_error" {
             _,
             1,
             expected,
-            _
-          )
-        )
+            _,
+          ),
+        ),
       ) => assert_eq(expected, dt)
       _ => fail("expected a located ParseError for \{dt}")
     }

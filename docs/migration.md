@@ -7,7 +7,7 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
-## v0.8.1 → v0.9.0 (unreleased)
+## v0.8.1 → v0.9.0
 
 Source-level note:
 

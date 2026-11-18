@@ -948,9 +948,9 @@ test "parse_json_str: the rider pins read JSON strings, and only strings" {
           _,
           _,
           _,
-          _
-        )
-      )
+          _,
+        ),
+      ),
     ),
   )
   // The resilient policy nulls the off-form cell and keeps the pin.
@@ -974,8 +974,8 @@ test "parse_json_str: the rider pins read JSON strings, and only strings" {
     match bad {
       Err(
         @types.DataError::ParseError(
-          @types.ParseErrorDetail::Cell(_, _, _, expected, _)
-        )
+          @types.ParseErrorDetail::Cell(_, _, _, expected, _),
+        ),
       ) => assert_eq(expected, dt)
       _ => fail("expected a located ParseError for \{dt}")
     }

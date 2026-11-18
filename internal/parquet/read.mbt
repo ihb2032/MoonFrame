@@ -9,7 +9,7 @@
 ///|
 /// The most cells one column chunk may declare — the allocation-budget
 /// guard, the reader's own spelling of the cap the io layer's gzip read
-/// carries (`max_output` on one decompression): the file-length bound
+/// carries (`max_output_bytes` on one decompression): the file-length bound
 /// already holds a chunk to eight one-bit cells per byte of file, but a
 /// twenty-megabyte file can still legally claim a hundred and sixty
 /// million of them, and every cell past here sizes boxed values the
@@ -563,7 +563,7 @@ fn gzip_page_body_capped(
   bytes : Bytes,
   cap : Int32,
 ) -> Bytes raise @types.DataError {
-  @gzip.decompress(bytes, max_output=cap) catch {
+  @gzip.decompress(bytes, max_output_bytes=cap) catch {
     // The cap's refusal, kept apart from the malformed-stream arm: the
     // message names the cap rather than claiming the stream is invalid.
     @gzip.GzipError(OutputLimitExceeded(limit~, observed~), _detail) =>

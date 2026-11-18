@@ -48,9 +48,9 @@ test "vstack refuses a slot whose names differ" {
     is Err(
       @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
-          "vstack column 0 is a but the stacked column is z"
-        )
-      )
+          "vstack column 0 is a but the stacked column is z",
+        ),
+      ),
     ),
   )
   // Same dtype, names swapped between slots — a reorder, not a rename — is
@@ -64,9 +64,9 @@ test "vstack refuses a slot whose names differ" {
     is Err(
       @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
-          "vstack column 0 is a but the stacked column is b"
-        )
-      )
+          "vstack column 0 is a but the stacked column is b",
+        ),
+      ),
     ),
   )
 }

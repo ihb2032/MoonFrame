@@ -111,7 +111,7 @@ test "unary numeric: Builtin arm, null propagation, NaN, non-numeric" {
   assert_true(
     (Ok(strs.select([@expr.col("s").abs()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -197,7 +197,7 @@ test "round: Builtin null, NaN / ±inf pass through, non-numeric raises" {
   assert_true(
     (Ok(strs.select([@expr.col("s").round()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -1195,13 +1195,13 @@ test "math family: non-numeric operands raise TypeMismatch" {
   assert_true(
     (Ok(df.select([@expr.col("s").sin()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
     (Ok(df.select([@expr.col("d").ln()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

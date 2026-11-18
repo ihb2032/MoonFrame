@@ -40,13 +40,13 @@ pub(all) enum ExprNode {
   Map(
     String,
     ArrayView[ExprNode],
-    (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError
+    (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
   )
   MapBatches(
     String,
     ArrayView[ExprNode],
     Bool,
-    (Array[@series.Series]) -> @series.Series raise @types.DataError
+    (Array[@series.Series]) -> @series.Series raise @types.DataError,
   )
   Over(ExprNode, Array[ExprNode])
 }

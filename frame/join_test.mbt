@@ -610,7 +610,7 @@ test "join raises TypeMismatch when a key's dtype differs across frames" {
       e => Err(e)
     })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }
@@ -1098,7 +1098,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
       e => Err(e)
     })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
@@ -1108,7 +1108,7 @@ test "right / outer join raise TypeMismatch when a key dtype differs" {
       e => Err(e)
     })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

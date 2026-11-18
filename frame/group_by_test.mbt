@@ -563,13 +563,13 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
   assert_true(
     (Ok(grouped.agg([@expr.col("product").sum()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
     (Ok(grouped.agg([@expr.col("product").mean()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   // Also a Bool column: sum and mean are both undefined.
@@ -577,13 +577,13 @@ test "Sum / Mean on a non-numeric column raises TypeMismatch" {
   assert_true(
     (Ok(bgrouped.agg([@expr.col("vb").sum()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
   assert_true(
     (Ok(bgrouped.agg([@expr.col("vb").mean()])) catch { e => Err(e) })
     is Err(
-      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_))
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(_)),
     ),
   )
 }

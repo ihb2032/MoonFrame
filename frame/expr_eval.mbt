@@ -152,7 +152,7 @@ priv enum EvalStep {
   ApplyIsBetween(@types.ClosedInterval)
   ApplyMap(
     (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError,
-    Int32
+    Int32,
   )
   ApplyMapBatches((Array[Series]) -> Series raise @types.DataError, Int32)
 }

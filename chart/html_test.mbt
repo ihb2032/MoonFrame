@@ -123,3 +123,26 @@ test "write_vega_html: invalid path surfaces as IoError" {
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
+
+///|
+test "every literal < and line separator in chart data is escaped" {
+  // `String::replace` substitutes only the first occurrence; the rewrite
+  // must use `replace_all`, or a second cell's payload can close the
+  // host script element.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("label", [
+      "<x>", "</script><script>alert(1)</script>", "a\u{2028}b\u{2028}c",
+    ]),
+    @series.Series::from_ints("v", [1L, 2L, 3L]),
+  ])
+  let html = @chart.format_vega_html(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::bar(@chart.field("label"), @chart.field("v")),
+    ),
+  )
+  assert_true(!html.contains("</script><script>alert(1)</script>"))
+  assert_true(!html.contains("\u{2028}"))
+  assert_true(html.contains("\\u003c"))
+  assert_true(html.contains("\\u2028"))
+}

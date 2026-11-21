@@ -84,9 +84,9 @@ pub fn write_vega_html(
 /// an escape already present: the result spells the same JSON value.
 fn json_for_script(json : String) -> String {
   json
-  .replace(old="<", new="\\u003c")
-  .replace(old="\u{2028}", new="\\u2028")
-  .replace(old="\u{2029}", new="\\u2029")
+  .replace_all(old="<", new="\\u003c")
+  .replace_all(old="\u{2028}", new="\\u2028")
+  .replace_all(old="\u{2029}", new="\\u2029")
 }
 
 ///|

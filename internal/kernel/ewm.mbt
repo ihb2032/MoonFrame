@@ -48,12 +48,15 @@ fn eval_ewm(
   // before the incoming value joins. `adjust` keeps the denominator (the
   // weighted mean divides by `w`); without it the plain recursive blend
   // `y = (1 - alpha) * y + alpha * x` answers, which weights the first
-  // sample fully regardless of `w`.
+  // sample fully regardless of `w`. The variance follows the same split:
+  // adjusted, it is `m2 / w - mean^2`; non-adjusted, it is the recursive
+  // second raw moment `q = (1 - alpha) * q + alpha * x^2` minus `y^2`.
   let decay = 1.0 - alpha
   let mut w = 0.0
   let mut m1 = 0.0
   let mut m2 = 0.0
   let mut y_prev = 0.0
+  let mut q_prev = 0.0
   let mut seen = 0
   let out : Array[Double?] = []
   for cell in operand.to_scalars() {
@@ -73,6 +76,7 @@ fn eval_ewm(
           m1 = m1 * decay
           m2 = m2 * decay
           y_prev = y_prev * decay
+          q_prev = q_prev * decay
           out.push(None)
         }
       Some(v) => {
@@ -84,12 +88,14 @@ fn eval_ewm(
         // The first observed value seeds the recursive blend at its full
         // weight (`adjust` needs no seed — the quotient handles it), so a
         // one-value column answers that value under either policy.
-        y_prev = if adjust {
-          mean
+        if adjust {
+          y_prev = mean
         } else if seen == 1 {
-          v
+          y_prev = v
+          q_prev = v * v
         } else {
-          decay * y_prev + alpha * v
+          y_prev = decay * y_prev + alpha * v
+          q_prev = decay * q_prev + alpha * v * v
         }
         if seen >= min_samples {
           // The variance is the difference of two raw moments, a
@@ -100,7 +106,11 @@ fn eval_ewm(
           // NaN passes the comparison untouched, keeping the
           // NaN-as-a-value family rule).
           let variance = {
-            let v = m2 / w - mean * mean
+            let v = if adjust {
+              m2 / w - mean * mean
+            } else {
+              q_prev - y_prev * y_prev
+            }
             if v < 0.0 {
               0.0
             } else {

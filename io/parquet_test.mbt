@@ -101,3 +101,66 @@ test "a write to an unwritable path raises the io error" {
   }
   assert_true(result is Err(@types.DataError::IoError(_)))
 }
+
+///|
+test "a sunk window reads the row groups it needs" {
+  // A multi-group file under a sunk window: the head absorbs into the
+  // scan leaf, the groups outside the window never decode, and the
+  // collected rows are exactly the eager read's — across `head`, `tail`
+  // (a window anchored at the file's end), and a negative-offset
+  // `slice` that cuts through a group's middle.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("i", [1, 2, 3, 4, 5, 6]),
+  ])
+  let path = "_build/io_parquet_window_groups.parquet"
+  @io.write_parquet(df, path, row_group_rows=2)
+  // The head absorbed into the leaf — no `HEAD` node above it.
+  assert_eq(
+    @io.scan_parquet(path).head(2).explain(optimized=true),
+    "SCAN_PARQUET \"_build/io_parquet_window_groups.parquet\" WINDOW HEAD 2",
+  )
+  let cells = @io.scan_parquet(path)
+    .head(2)
+    .collect()
+    .get_column("i")
+    .to_scalars()
+  assert_eq(cells, [@types.Scalar::Int(1), @types.Scalar::Int(2)])
+  let tail = @io.scan_parquet(path)
+    .tail(2)
+    .collect()
+    .get_column("i")
+    .to_scalars()
+  assert_eq(tail, [@types.Scalar::Int(5), @types.Scalar::Int(6)])
+  let sliced = @io.scan_parquet(path)
+    .slice(-3)
+    .collect()
+    .get_column("i")
+    .to_scalars()
+  assert_eq(sliced, [
+    @types.Scalar::Int(4),
+    @types.Scalar::Int(5),
+    @types.Scalar::Int(6),
+  ])
+  // The eager read answers the same rows — the sunk window changed which
+  // groups decode, never which rows collect.
+  let eager_head = @io.read_parquet(path).head(2).get_column("i").to_scalars()
+  assert_eq(cells, eager_head)
+}
+
+///|
+test "an empty window still answers the columns" {
+  // `head(0)` selects no rows, and the sunk window skips every row
+  // group — but the collected frame keeps the schema, exactly as an
+  // eager read-then-head answers `0×N`, not `0×0`.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("i", [1, 2, 3, 4]),
+    @series.Series::from_string_options("s", [Some("a"), None, Some("c"), None]),
+  ])
+  let path = "_build/io_parquet_empty_window.parquet"
+  @io.write_parquet(df, path, row_group_rows=2)
+  let got = @io.scan_parquet(path).head(0).collect()
+  let eager = @io.read_parquet(path).head(0)
+  assert_eq(got.shape(), eager.shape())
+  assert_eq(got.columns(), eager.columns())
+  assert_eq(got.get_column("i").dtype(), @types.DataType::Int)
+}

@@ -83,6 +83,12 @@ priv struct FileScan {
   driver : @scan.ScanDriver
   projection : Array[String]?
   predicate : @expr.Expr?
+  // The row window the slice pass sank into the leaf — the deepest
+  // position a `head` / `tail` / `slice` reached, absorbed only when the
+  // driver can pay for it (a columnar source skips the row groups
+  // outside the window). Applied by the driver before the predicate,
+  // the order the plan spelled (the window sank below the filter).
+  window : @scan.ScanWindow?
   // Whether this read may produce columns of the temporal value-fence
   // family whose names the plan cannot know — the risk walk's `any` flag
   // for the leaf, raised by the `Scan(File(_))` arm. The family reaches a

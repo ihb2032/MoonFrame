@@ -57,9 +57,11 @@ fn LogicalPlan::push_slices(self : LogicalPlan) -> LogicalPlan {
 /// outright — except a window sitting in the way, which is a *fusion*
 /// candidate rather than a floor: the two windows compose into one
 /// (`fuse_windows` states the arithmetic) and the descent continues with
-/// the composite. The scans are the floor — absorbing into a source's own
-/// row limit is future work with the streaming reader. Iterative spine
-/// descent like `place_filter` — total at any depth.
+/// the composite. A file scan whose driver pays for a window is no floor
+/// at all: the window absorbs into the leaf (`absorb_window` states the
+/// conditions), the driver applying it as it reads — skipping the row
+/// groups outside it, for a columnar source. Iterative spine descent like
+/// `place_filter` — total at any depth.
 fn LogicalPlan::place_slice(
   self : LogicalPlan,
   window : FrameOp,
@@ -107,12 +109,61 @@ fn LogicalPlan::place_slice(
         descending = false
     }
   }
-  let mut result = Unary(cur, window)
+  // The deepest position: an absorbing file source takes the window into
+  // the leaf instead of the wrapper node. The window composes with one
+  // an earlier descent already sank there (`fuse_windows` again — no
+  // composite, no absorption, the node stays), and a shape the window
+  // vocabulary does not carry stays a node too.
+  let mut result = match cur {
+    Scan(File(fs)) if fs.driver.absorbs_window() && fs.predicate is None => {
+      // Absorb the (possibly fused) window's scan spelling, if it has
+      // one: the pass sinks only `Head` / `Tail` / `Slice`, so this is
+      // `Some` for every window that reaches the floor.
+      let absorbed : @scan.ScanWindow? = match fs.window {
+        Some(already) =>
+          match fuse_windows(window, window_as_frame_op(already)) {
+            Some(fused) => frame_op_as_window(fused)
+            None => None
+          }
+        None => frame_op_as_window(window)
+      }
+      match absorbed {
+        Some(w) => Scan(File({ ..fs, window: Some(w), }))
+        None => Unary(cur, window)
+      }
+    }
+    _ => Unary(cur, window)
+  }
   for i = crossed.length() - 1; i >= 0; i = i - 1 {
     let rewrap = crossed[i]
     result = rewrap(result)
   }
   result
+}
+
+///|
+/// A plan window's spelling for a scan leaf — `Some` for the three
+/// window shapes the slice pass sinks, `None` for every other
+/// operation (the caller leaves those as nodes; the answer is the
+/// conservative one for any input, not a fabricated default).
+fn frame_op_as_window(op : FrameOp) -> @scan.ScanWindow? {
+  match op {
+    Head(n) => Some(@scan.ScanWindow::Head(n))
+    Tail(n) => Some(@scan.ScanWindow::Tail(n))
+    Slice(offset, length) => Some(@scan.ScanWindow::Slice(offset, length))
+    _ => None
+  }
+}
+
+///|
+/// The reverse spelling, for composing a newly sunk window with one the
+/// leaf already absorbed.
+fn window_as_frame_op(window : @scan.ScanWindow) -> FrameOp {
+  match window {
+    @scan.ScanWindow::Head(n) => Head(n)
+    @scan.ScanWindow::Tail(n) => Tail(n)
+    @scan.ScanWindow::Slice(offset, length) => Slice(offset, length)
+  }
 }
 
 ///|

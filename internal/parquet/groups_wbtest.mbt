@@ -18,6 +18,7 @@ fn hostile_group_file(
   num_rows : Int64,
   groups : Array[(String, Int64, Int64)],
   pages : Bytes,
+  garble_rows~ : Bool = false,
 ) -> Bytes {
   let w = thrift_writer()
   w.i32_field(1, 1)
@@ -61,7 +62,14 @@ fn hostile_group_file(
     w.struct_end()
     w.struct_end()
     w.i64_field(2, 8L)
-    w.i64_field(3, rows)
+    // The garbled spelling names the group's row count as text - the
+    // footer walk refuses the field rather than reading a number that
+    // is not there.
+    if garble_rows {
+      w.text_field(3, "not-a-count")
+    } else {
+      w.i64_field(3, rows)
+    }
     w.struct_end()
   }
   w.text_field(6, "MoonFrame-test")
@@ -284,4 +292,108 @@ test "group rows past the count and hostile counts refuse" {
     is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
     msg.contains("3000000000 rows, past a frame's own height"),
   )
+}
+
+///|
+test "a garbled group row count refuses the footer walk" {
+  // The group's own field 3 spelled as text: the walk refuses the field
+  // rather than reading a number that is not there.
+  let file = hostile_group_file(
+    ["v"],
+    1L,
+    [("v", 1L, 1L)],
+    Bytes::from_array([]),
+    garble_rows=true,
+  )
+  let result = Ok(ignore(read_parquet_frame(file, None))) catch { e => Err(e) }
+  assert_true(
+    result
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
+    msg.contains("the row group list is malformed"),
+  )
+}
+
+///|
+test "the schema batch answers columns without decoding cells" {
+  // A file with no groups has no columns to answer — 0×0. A real file's
+  // schema batch carries the projected columns as zero-row series with
+  // their dtypes, never decoding a page.
+  let bare = hostile_group_file(["v"], 0L, [], Bytes::from_array([]))
+  let bare_reader = ParquetGroupReader::group_reader(bare, None)
+  let (empty, empty_rows) = bare_reader.schema_group()
+  assert_eq(empty.length(), 0)
+  assert_eq(empty_rows, 0)
+  let columns = sample_columns()
+  let names = names_of(columns)
+  let bytes = write_parquet_bytes(columns, names, Uncompressed, group_rows=2L)
+  let reader = ParquetGroupReader::group_reader(bytes, Some(["i", "s"]))
+  let (schema, rows) = reader.schema_group()
+  assert_eq(rows, 0)
+  assert_eq(schema.length(), 2)
+  assert_eq(schema[0].0, "i")
+  assert_eq(schema[0].1.dtype(), @types.DataType::Int)
+  assert_eq(schema[0].1.len(), 0)
+  assert_eq(schema[1].1.dtype(), @types.DataType::String)
+}
+
+///|
+test "a group's own chunk past the cell budget refuses at its decode" {
+  // The whole-file entry refuses a joined count at the footer; the group
+  // reader walks one group at a time, so its refusal is the chunk's own
+  // — the same budget, reached through the per-group path.
+  let file = hostile_group_file(
+    ["v"],
+    134_217_729L,
+    [("v", 134_217_729L, 134_217_729L)],
+    Bytes::makei(16_777_220, _ => 0),
+  )
+  let reader = ParquetGroupReader::group_reader(file, None)
+  let result = Ok(ignore(reader.decode_group(0))) catch { e => Err(e) }
+  assert_true(
+    result is Err(@types.DataError::InvalidOperation(msg)) &&
+    msg.contains("past the 134217728-cell budget"),
+  )
+}
+
+///|
+test "a file-wide row count past a frame's height refuses the total" {
+  // The group's own count stayed inside Int32; the file's declaration
+  // did not — the whole-file height answer refuses it.
+  let file = hostile_group_file(
+    ["v"],
+    3_000_000_000L,
+    [("v", 3_000_000_000L, 0L)],
+    Bytes::from_array([]),
+  )
+  let reader = ParquetGroupReader::group_reader(file, None)
+  let result = Ok(ignore(reader.total_rows())) catch { e => Err(e) }
+  assert_true(
+    result
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
+    msg.contains("the file declares 3000000000 rows, past a frame's own height"),
+  )
+}
+
+///|
+test "a group row count cut off mid-varint refuses the walk" {
+  // The reader's row-count field ends the buffer inside its varint: the
+  // continuation bit promises a byte that is not there, and the walk
+  // refuses the group list rather than reading a number that is not
+  // there. Built directly — the writer never truncates its own varints,
+  // so no whole-file spelling reaches this arm.
+  let w = thrift_writer()
+  w.list_header(1, 12)
+  w.struct_field_begin_list_elem()
+  w.field_header(3, 6)
+  let bytes : Array[Byte] = []
+  for b in w.finish() {
+    bytes.push(b)
+  }
+  // The varint's lone byte: continuation set, nothing after it.
+  bytes.push((0x80).to_byte())
+  let r = thrift_reader(Bytes::from_array(bytes))
+  r.pos = 0
+  let groups : Array[GroupRaw] = []
+  assert_false(row_groups_read(r, groups))
+  assert_eq(groups.length(), 0)
 }

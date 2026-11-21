@@ -7,6 +7,23 @@ written when the release is cut; the per-symbol reference — generated from the
 docstrings — is on [mooncakes.io](https://mooncakes.io/docs/ihb2032/MoonFrame)
 and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
+## v0.9.0 → v0.10.0 (unreleased)
+
+No source-level breaks so far. What changed on `main` since 0.9.0:
+
+- Parquet files with more than one row group now read (0.9 refused them
+  with `Unsupported`); a column's cells concatenate across the groups in
+  their declared order. `write_parquet` gains `row_group_rows~`
+  (default `0` = the whole frame as one row group, the 0.9 layout).
+- The slice pushdown pass now sinks a `head` / `tail` / `slice` into a
+  `scan_parquet` leaf — the row groups outside the window are skipped
+  outright, and `explain(optimized=true)` renders the absorbed window as
+  a `WINDOW …` suffix on the `SCAN_PARQUET` line. The surviving rows are
+  exactly the eager read's; a page-level parse refusal confined to a
+  skipped group no longer surfaces, the same skipping trade the
+  projection pushdown already makes for dropped columns. The text scans
+  keep their window as a plan node above the read.
+
 ## v0.8.1 → v0.9.0
 
 Source-level note:

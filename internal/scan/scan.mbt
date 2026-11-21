@@ -138,15 +138,25 @@ pub struct ScanDriver {
   /// cannot apply it still receives it, and applies it after the read
   /// (the row range is the same wherever the cut lands).
   priv batches_fn : (Array[String]?, @expr.Expr?, ScanWindow?) -> BatchCursor raise @types.DataError
+  /// Whether the optimizer may sink a window into this source — a
+  /// columnar one skips the batches outside the window outright, so
+  /// absorption pays; a textual one would read whole and cut, no cheaper
+  /// than the window node it would replace, so it says `false` and the
+  /// window stays a node above the scan (still applied if a window
+  /// reaches the driver by another path — the row range is the same
+  /// wherever the cut lands).
+  priv absorbs_window : Bool
 }
 
 ///|
-/// Assemble a driver from its label and its batched read.
+/// Assemble a driver from its label, its batched read, and whether the
+/// optimizer may sink a window into the source.
 pub fn ScanDriver::driver(
   label_fn : () -> String,
   batches_fn : (Array[String]?, @expr.Expr?, ScanWindow?) -> BatchCursor raise @types.DataError,
+  absorbs_window~ : Bool = false,
 ) -> ScanDriver {
-  { label_fn, batches_fn, }
+  { label_fn, batches_fn, absorbs_window, }
 }
 
 ///|
@@ -155,6 +165,12 @@ pub fn ScanDriver::driver(
 /// around it.
 pub fn ScanDriver::label(self : ScanDriver) -> String {
   (self.label_fn)()
+}
+
+///|
+/// Whether the optimizer may sink a window into this source.
+pub fn ScanDriver::absorbs_window(self : ScanDriver) -> Bool {
+  self.absorbs_window
 }
 
 ///|

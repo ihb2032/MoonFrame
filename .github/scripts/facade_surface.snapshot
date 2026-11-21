@@ -1024,8 +1024,8 @@ fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
-fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError <- root
-fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec) -> Unit raise @types.DataError <- io
+fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError <- root
+fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError <- io
 fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root

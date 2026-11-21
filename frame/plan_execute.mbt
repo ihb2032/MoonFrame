@@ -87,6 +87,7 @@ fn ScanSource::execute_scan(
       let cursor = fs.driver.batches(
         projection=fs.projection,
         predicate=fs.predicate,
+        window=fs.window,
       )
       let frames : Array[DataFrame] = []
       while true {

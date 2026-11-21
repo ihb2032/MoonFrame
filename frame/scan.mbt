@@ -21,7 +21,13 @@ pub fn LazyFrame::file_scan(
 ) -> LazyFrame {
   {
     plan: Scan(
-      File({ driver, projection: None, predicate: None, may_carry_temporal, }),
+      File({
+        driver,
+        projection: None,
+        predicate: None,
+        window: None,
+        may_carry_temporal,
+      }),
     ),
   }
 }

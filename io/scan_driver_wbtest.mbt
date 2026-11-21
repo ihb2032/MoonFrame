@@ -170,7 +170,11 @@ test "the parquet cursor walks a multi-group file group by group" {
     @types.Scalar::Int(4),
   ])
   assert_eq(windowed[1].columns()[0].to_scalars(), [@types.Scalar::Int(5)])
-  // An empty window skips every group and yields no batch at all.
+  // An empty window skips every group but still answers the columns —
+  // one zero-row batch over the schema, the `0×N` shape an eager
+  // read-then-window yields.
   let empty = batches_of(driver, window=Some(@scan.ScanWindow::Head(0)))
-  assert_eq(empty.length(), 0)
+  assert_eq(empty.length(), 1)
+  assert_eq((empty[0].columns().length(), empty[0].height()), (1, 0))
+  assert_eq(empty[0].columns()[0].dtype(), @types.DataType::Int)
 }

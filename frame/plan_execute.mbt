@@ -1,11 +1,30 @@
 ///|
-/// The engine behind `collect`: a bottom-up plan interpreter that delegates
-/// each node to the public eager operator it defers, plus the `Scan`-leaf and
-/// `Unary`-node halves (`execute_scan`, `apply_frame_op`), kept apart from
-/// the IR definition and the renderer so each reads alone.
+/// The engine behind `collect`: the morsel pipeline a tree-shaped plan
+/// walks (`build_pipeline`), with the memoised interpreter as the
+/// DAG-shaped fallback, plus the `Scan`-leaf and `Unary`-node halves
+/// (`execute_scan`, `apply_frame_op`), kept apart from the IR definition
+/// and the renderer so each reads alone.
 
 ///|
-/// Bottom-up plan interpreter — the whole of `collect`. Each node
+/// Execute a plan — `collect`'s whole body. A tree-shaped plan walks the
+/// morsel pipeline (`build_pipeline`); a DAG-shaped plan — nested
+/// self-joins sharing node objects — falls back to the memoised
+/// interpreter below, whose memo runs each shared subplan exactly once
+/// where a pipeline would re-execute it per occurrence. Both engines
+/// hold the same contract: collecting a plan is equal to running the
+/// same verbs eagerly in the same order, and the first `DataError` a
+/// failing plan raises is the eager chain's own, in the eager chain's
+/// order (a `Join`'s left side before its right).
+fn LogicalPlan::execute(self : LogicalPlan) -> DataFrame raise @types.DataError {
+  if self.has_shared_subplan() {
+    return self.execute_memoised()
+  }
+  self.build_pipeline().run()
+}
+
+///|
+/// Bottom-up memoised interpreter — the DAG-shaped plans' executor, and
+/// the pipeline's equivalence oracle. Each node
 /// delegates to the public eager operator it mirrors (`Filter` →
 /// `filter`, `WithColumns` → `with_columns`, …), so with no
 /// optimizer in front the lazy layer is a *faithful deferred executor*:
@@ -18,7 +37,9 @@
 /// `read_*_projected` once the optimizer has filled its projection — so a
 /// missing file (`IoError`) or a parse failure (`ParseError`) surfaces here
 /// too.
-fn LogicalPlan::execute(self : LogicalPlan) -> DataFrame raise @types.DataError {
+fn LogicalPlan::execute_memoised(
+  self : LogicalPlan,
+) -> DataFrame raise @types.DataError {
   // Memoised post-order fold (not the call stack), so a deep plan collects
   // without overflowing and aborting — the never-abort contract the
   // expression evaluator (`eval_expr`) also keeps. Each node applies the
@@ -39,31 +60,44 @@ fn LogicalPlan::execute(self : LogicalPlan) -> DataFrame raise @types.DataError 
         memo_result(memo, left).join(memo_result(memo, right), options)
       Aggregate(input, keys, exprs) =>
         memo_result(memo, input).group_by(keys).agg(exprs)
-      // The convenience half: the tag resolves against the eager verb on the
+      // The convenience half resolves against the eager verb on the
       // collected input, so `collect` is the eager `group_by(keys).<verb>()`
       // bit-for-bit.
-      AggregateAll(input, keys, op) => {
-        let grouped = memo_result(memo, input).group_by(keys)
-        match op {
-          Sum => grouped.sum()
-          Mean => grouped.mean()
-          Median => grouped.median()
-          Quantile(q, interpolation) => grouped.quantile(q, interpolation~)
-          Std => grouped.std()
-          Var => grouped.variance()
-          Min => grouped.min()
-          Max => grouped.max()
-          Count => grouped.count()
-          First => grouped.first()
-          Last => grouped.last()
-          NUnique => grouped.n_unique()
-          Len => grouped.len()
-        }
-      }
+      AggregateAll(input, keys, op) =>
+        agg_all_frame(memo_result(memo, input), keys, op)
     }
     memo.push((node, result))
   }
   memo_result(memo, self)
+}
+
+///|
+/// The convenience aggregation's eager resolution — the `AggregateAll`
+/// node's half of both engines (the interpreter's and the pipeline's
+/// blocker): the tag resolves against the eager verb on the collected
+/// input, so `collect` is the eager `group_by(keys).<verb>()`
+/// bit-for-bit. One place to add a new convenience verb.
+fn agg_all_frame(
+  df : DataFrame,
+  keys : Array[@expr.Expr],
+  op : LazyAggAll,
+) -> DataFrame raise @types.DataError {
+  let grouped = df.group_by(keys)
+  match op {
+    Sum => grouped.sum()
+    Mean => grouped.mean()
+    Median => grouped.median()
+    Quantile(q, interpolation) => grouped.quantile(q, interpolation~)
+    Std => grouped.std()
+    Var => grouped.variance()
+    Min => grouped.min()
+    Max => grouped.max()
+    Count => grouped.count()
+    First => grouped.first()
+    Last => grouped.last()
+    NUnique => grouped.n_unique()
+    Len => grouped.len()
+  }
 }
 
 ///|
@@ -83,22 +117,14 @@ fn ScanSource::execute_scan(
 ) -> DataFrame raise @types.DataError {
   match self {
     InMemory(df) => df
-    File(fs) => {
-      let cursor = fs.driver.batches(
-        projection=fs.projection,
-        predicate=fs.predicate,
-        window=fs.window,
+    File(fs) =>
+      drain_batches(
+        fs.driver.batches(
+          projection=fs.projection,
+          predicate=fs.predicate,
+          window=fs.window,
+        ),
       )
-      let frames : Array[DataFrame] = []
-      while true {
-        match cursor.next() {
-          Some(batch) =>
-            frames.push(DataFrame::from_parts(batch.columns(), batch.height()))
-          None => break
-        }
-      }
-      stack_frames("scan assembly", frames)
-    }
   }
 }
 

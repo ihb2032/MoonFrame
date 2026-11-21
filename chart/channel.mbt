@@ -543,6 +543,13 @@ pub extend VegaChannel with Debug::{to_repr}
 /// type_override=Nominal)`. The `col` idiom of the chart export: a free
 /// function, so the facade re-exports it and the common call stays two
 /// words short.
+///
+/// The Vega-Lite schema defines the modifier set per channel: a modifier
+/// the channel's field definition does not carry is dropped at emission
+/// (a `condition` on a position channel, a `sort` on `text`), while a
+/// `constant` / `datum` on a channel whose definition union has no such
+/// branch raises `InvalidOperation` — there the whole definition would be
+/// empty, not merely narrowed.
 pub fn field(
   name : String,
   aggregate? : VegaAggregate,

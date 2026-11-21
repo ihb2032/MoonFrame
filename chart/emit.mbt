@@ -65,6 +65,11 @@ fn encoding_channel(
     )
   }
   if channel.value is Some(value) {
+    if !allows_value_key(key) {
+      raise @types.DataError::InvalidOperation(
+        "channel \{key} has no value definition in the Vega-Lite schema; a constant cannot stand in for its field",
+      )
+    }
     if is_position_key(key) {
       // The position value definition: a number, or the plot's own
       // width / height by name — the schema's PositionValueDef allows
@@ -102,7 +107,13 @@ fn encoding_channel(
   }
   if channel.datum is Some(datum) {
     // The datum definition: a constant that passes through the channel's
-    // scale rather than being shown verbatim.
+    // scale rather than being shown verbatim. Only the channel unions
+    // that carry a datum branch can hold one.
+    if !allows_datum_key(key) {
+      raise @types.DataError::InvalidOperation(
+        "channel \{key} has no datum definition in the Vega-Lite schema; use a field or a value",
+      )
+    }
     ch["datum"] = datum
     return Json::object(ch)
   }
@@ -127,7 +138,7 @@ fn encoding_channel(
   if channel.time_unit is Some(unit) {
     ch["timeUnit"] = Json::string(time_unit_string(unit))
   }
-  if channel.sort is Some(sort) && !is_secondary_key(key) {
+  if channel.sort is Some(sort) && allows_sort_key(key) {
     ch["sort"] = sort_json(sort)
   }
   if channel.stack is Some(stack) && allows_stack_key(key) {
@@ -154,7 +165,7 @@ fn encoding_channel(
   // A set `value` already returned above (the value-definition arm), so a
   // channel reaching here carries none — the condition key is purely the
   // secondary-channel gate.
-  if channel.condition is Some(condition) && !is_secondary_key(key) {
+  if channel.condition is Some(condition) && allows_condition_key(key) {
     ch["condition"] = vega_condition_emit_json(condition)
   }
   if !is_secondary_key(key) {
@@ -185,6 +196,111 @@ fn is_secondary_key(key : String) -> Bool {
 }
 
 ///|
+/// The mark-property channels, whose field definition is the schema's
+/// `MarkPropFieldDef`: they carry a `condition`, a `legend`, a `scale`,
+/// and a `sort`.
+fn is_mark_prop_key(key : String) -> Bool {
+  key == "angle" ||
+  key == "color" ||
+  key == "fill" ||
+  key == "fillOpacity" ||
+  key == "opacity" ||
+  key == "shape" ||
+  key == "size" ||
+  key == "stroke" ||
+  key == "strokeDash" ||
+  key == "strokeOpacity" ||
+  key == "strokeWidth"
+}
+
+///|
+/// The string-bearing channels (`StringFieldDef`): they carry `format`
+/// and `condition`, but no scale, sort, or legend.
+fn is_string_key(key : String) -> Bool {
+  key == "text" ||
+  key == "tooltip" ||
+  key == "href" ||
+  key == "url" ||
+  key == "description"
+}
+
+///|
+/// Whether the channel's field definition admits a `condition`: the
+/// mark-property and string families only. A position, offset, polar,
+/// secondary, detail / key, order, or temporal field definition has no
+/// `condition` property in the schema.
+fn allows_condition_key(key : String) -> Bool {
+  is_mark_prop_key(key) || is_string_key(key)
+}
+
+///|
+/// Whether the channel's field definition admits a `sort`: the primary
+/// positions, the offsets, the polar pair, the time channel, the
+/// mark-property family, and `order`. A secondary, lat/long, string, or
+/// detail / key definition has no `sort` property.
+fn allows_sort_key(key : String) -> Bool {
+  key == "x" ||
+  key == "y" ||
+  key == "theta" ||
+  key == "radius" ||
+  key == "time" ||
+  key == "order" ||
+  is_offset_key(key) ||
+  is_mark_prop_key(key)
+}
+
+///|
+/// Whether the channel's definition union carries a datum branch. Most
+/// channels do; `detail` / `key` (a plain typed field), `time` (a field
+/// only), `order` (order definitions), the `tooltip` / `href` / `url` /
+/// `description` string channels (a field or a value), and the secondary
+/// `xError` / `yError` pairs (a field or a value) do not. `text` is the
+/// one string channel whose union adds a datum branch.
+fn allows_datum_key(key : String) -> Bool {
+  key == "x" ||
+  key == "y" ||
+  key == "x2" ||
+  key == "y2" ||
+  key == "theta" ||
+  key == "radius" ||
+  key == "theta2" ||
+  key == "radius2" ||
+  key == "latitude" ||
+  key == "longitude" ||
+  key == "latitude2" ||
+  key == "longitude2" ||
+  key == "text" ||
+  is_offset_key(key) ||
+  is_mark_prop_key(key)
+}
+
+///|
+/// Whether the channel's definition union carries a value branch. The
+/// plain `detail` / `key` and `time` channels do not, nor do the
+/// `latitude` / `longitude` channels (their union is a field or a
+/// datum); the secondary error channels and the far geo corners do.
+fn allows_value_key(key : String) -> Bool {
+  key == "x" ||
+  key == "y" ||
+  key == "x2" ||
+  key == "y2" ||
+  key == "theta" ||
+  key == "radius" ||
+  key == "theta2" ||
+  key == "radius2" ||
+  key == "xError" ||
+  key == "xError2" ||
+  key == "yError" ||
+  key == "yError2" ||
+  key == "latitude2" ||
+  key == "longitude2" ||
+  key == "order" ||
+  is_offset_key(key) ||
+  is_mark_prop_key(key) ||
+  is_string_key(key)
+}
+
+///|
 /// The position channels — the two primary positions, their far ends,
 /// and the polar pair — whose value definition is the schema's
 /// `PositionValueDef`: a number, or the plot's own `"width"` / `"height"`
@@ -211,11 +327,12 @@ fn is_offset_key(key : String) -> Bool {
 
 ///|
 /// The channels whose field definition may carry a `format` — the
-/// string-bearing family (`text`, `tooltip`, `href`, `url`); a position
-/// or color channel formats its axis or legend instead, so the schema
-/// carries no `format` on their definitions.
+/// string-bearing family (`text`, `tooltip`, `href`, `url`,
+/// `description`); a position or color channel formats its axis or
+/// legend instead, so the schema carries no `format` on their
+/// definitions.
 fn allows_format_key(key : String) -> Bool {
-  key == "text" || key == "tooltip" || key == "href" || key == "url"
+  is_string_key(key)
 }
 
 ///|
@@ -234,17 +351,8 @@ fn allows_scale_key(key : String) -> Bool {
   allows_stack_key(key) ||
   key == "xOffset" ||
   key == "yOffset" ||
-  key == "color" ||
-  key == "fill" ||
-  key == "stroke" ||
-  key == "opacity" ||
-  key == "fillOpacity" ||
-  key == "strokeOpacity" ||
-  key == "strokeWidth" ||
-  key == "strokeDash" ||
-  key == "size" ||
-  key == "shape" ||
-  key == "angle"
+  key == "time" ||
+  is_mark_prop_key(key)
 }
 
 ///|
@@ -260,17 +368,7 @@ fn allows_axis_key(key : String) -> Bool {
 /// `fill`, `stroke`, the opacities and widths, `size`, `shape`,
 /// `angle`), which draw a legend swatch; positions draw axes instead.
 fn allows_legend_key(key : String) -> Bool {
-  key == "color" ||
-  key == "fill" ||
-  key == "stroke" ||
-  key == "opacity" ||
-  key == "fillOpacity" ||
-  key == "strokeOpacity" ||
-  key == "strokeWidth" ||
-  key == "strokeDash" ||
-  key == "size" ||
-  key == "shape" ||
-  key == "angle"
+  is_mark_prop_key(key)
 }
 
 ///|

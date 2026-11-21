@@ -582,3 +582,43 @@ test "a render keeps the value's own quantum" {
     assert_true(back.equal(v), msg=s)
   }
 }
+
+///|
+test "a tie beyond the guard window rounds by the dropped remainder" {
+  // The finer operand's first discarded digit is not a sticky bit's
+  // tail: its sign relative to the aligned workspace decides the tie.
+  let one = @types.Dec128::of_int64(1L)
+  let below = one.sub(@types.Dec128::parse_opt("51E-36").unwrap())
+  assert_eq(
+    below.to_string(),
+    @types.Dec128::parse_opt("0.9999999999999999999999999999999999")
+    .unwrap()
+    .to_string(),
+  )
+  let above = one.add(@types.Dec128::parse_opt("501E-36").unwrap())
+  assert_eq(
+    above.to_string(),
+    @types.Dec128::parse_opt("1.000000000000000000000000000000001")
+    .unwrap()
+    .to_string(),
+  )
+  // The mirror: the finer operand is the minuend, so the difference is
+  // the negation of the first case.
+  let negated = @types.Dec128::parse_opt("51E-36").unwrap().sub(one)
+  assert_eq(
+    negated.to_string(),
+    @types.Dec128::parse_opt("-0.9999999999999999999999999999999999")
+    .unwrap()
+    .to_string(),
+  )
+}
+
+///|
+test "an alignment that drops only zeros leaves the value exact" {
+  // 10E-36 is 1E-35: aligning it to the adder's guard foot drops a zero,
+  // so the alignment reports no residual and the rounding stays exact.
+  let v = @types.Dec128::of_int64(1L).add(
+    @types.Dec128::parse_opt("10E-36").unwrap(),
+  )
+  assert_eq(v.to_string(), "1.000000000000000000000000000000000")
+}

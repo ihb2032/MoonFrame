@@ -62,6 +62,7 @@ pub fn write_parquet(
     names,
     chosen,
     group_rows=row_group_rows.to_int64(),
+    height=df.nrows(),
   )
   @fs.write_bytes_to_file(path, bytes) catch {
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)

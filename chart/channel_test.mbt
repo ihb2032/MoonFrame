@@ -998,3 +998,173 @@ test "an offset channel constant must be a number alone" {
   }
   assert_true(refused_too is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "channel modifiers follow the schema's per-channel field definition" {
+  let df = channel_df()
+  // A condition is legal on mark-property and string channels only; a
+  // position channel's field definition has no condition property.
+  let positional = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field(
+          "cat",
+          condition=@chart.VegaCondition::When(
+            @chart.VegaPredicate::Expr("datum.cat"),
+            Json::string("red"),
+          ),
+        ),
+        y=@chart.field("val"),
+      ),
+    ),
+  )
+  assert_true(!positional.contains("\"condition\""))
+  // `format` is legal on the string family, `description` included.
+  let formatted = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        description_channel=@chart.field("cat", format=".2f"),
+      ),
+    ),
+  )
+  assert_true(formatted.contains("\"format\":\".2f\""))
+  // `scale` is legal on the time channel.
+  let scaled = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Bar,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        time=@chart.field(
+          "ts",
+          type_override=@chart.VegaType::Temporal,
+          scale=@chart.VegaScaleRef::Off,
+        ),
+      ),
+    ),
+  )
+  assert_true(scaled.contains("\"scale\":null"))
+  // `sort` is not legal on a string channel (text/tooltip/...).
+  let text_sorted = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Text,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        text=@chart.field("cat", sort=@chart.VegaChannelSort::Descending),
+      ),
+    ),
+  )
+  assert_true(!text_sorted.contains("\"sort\":\"descending\""))
+}
+
+///|
+test "a value or datum on a channel without that branch refuses" {
+  let df = channel_df()
+  for
+    channel in [
+      ("detail", @chart.constant(Json::number(1))),
+      ("latitude", @chart.constant(Json::number(1))),
+      ("order", @chart.datum(Json::number(1))),
+      ("detail", @chart.datum(Json::number(1))),
+      ("time", @chart.datum(Json::number(1))),
+    ] {
+    let (which, ch) = channel
+    let spec = match which {
+      "detail" =>
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          detail=ch,
+        )
+      "latitude" =>
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Point,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          latitude=ch,
+        )
+      "order" =>
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          order=ch,
+        )
+      _ =>
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          time=ch,
+        )
+    }
+    let result = Ok(@chart.format_vega_lite(df, @chart.Chart::of(spec))) catch {
+      e => Err(e)
+    }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+}
+
+///|
+test "a non-finite number anywhere in the spec refuses" {
+  let df = channel_df()
+  let spec = @chart.ChartSpec::of(
+    @chart.ChartKind::Bar,
+    x=@chart.field("cat"),
+    y=@chart.field("val"),
+    color=@chart.field(
+      "cat",
+      condition=@chart.VegaCondition::When(
+        @chart.VegaPredicate::Range("cat", (0.0, @double.infinity), None),
+        Json::string("red"),
+      ),
+    ),
+  )
+  let result = Ok(@chart.format_vega_lite(df, @chart.Chart::of(spec))) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "text accepts a datum while tooltip does not" {
+  let df = channel_df()
+  let text_datum = @chart.format_vega_lite(
+    df,
+    @chart.Chart::of(
+      @chart.ChartSpec::of(
+        @chart.ChartKind::Text,
+        x=@chart.field("cat"),
+        y=@chart.field("val"),
+        text=@chart.datum(Json::string("hi")),
+      ),
+    ),
+  )
+  assert_true(text_datum.contains("\"datum\":\"hi\""))
+  let tooltip_datum = Ok(
+    @chart.format_vega_lite(
+      df,
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          tooltip=@chart.datum(Json::number(1)),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(tooltip_datum is Err(@types.DataError::InvalidOperation(_)))
+}

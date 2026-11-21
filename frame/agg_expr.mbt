@@ -90,6 +90,19 @@ pub fn GroupedDataFrame::agg(
   exprs : Array[@expr.Expr],
 ) -> DataFrame raise @types.DataError {
   self.check_handle_invariants()
+  // A window is frame-tall by construction, so it cannot reduce per group.
+  // The structural gate below (`reduces_per_group`) sees a top-level `Over`
+  // but treats an `Agg` / `MapBatches(returns_scalar=true)` as terminal and
+  // does not look inside its operand — a window there would evaluate over
+  // the whole frame and then be folded per group. Reject the whole tree
+  // here, the contract `Expr::over` and the migration guide state.
+  for expr in exprs {
+    if contains_window(expr.node()) {
+      raise @types.DataError::InvalidOperation(
+        "an over window cannot appear inside an aggregation expression: \{expr.to_string()}",
+      )
+    }
+  }
   let out_cols : Array[Series] = []
   // Key columns: gather one representative cell per group from the
   // materialised key columns `group_by` already built (each named by its
@@ -229,10 +242,12 @@ fn reduces_per_group(expr : @expr.Expr) -> Bool {
         match e {
           @ir.ExprNode::Col(_)
           | @ir.ExprNode::Map(_, _, _)
-          | @ir.ExprNode::LitSeries(_) => return false
-          // A window is frame-tall by construction — it stitches back to
-          // every row — so it does not reduce inside a group aggregation.
-          @ir.ExprNode::Over(_, _) => return false
+          | @ir.ExprNode::LitSeries(_)
+          // A window is frame-tall by construction, so it does not reduce
+          // inside a group aggregation. `agg` rejects it at entry with a
+          // located error; this arm keeps the structural verdict for any
+          // future caller.
+          | @ir.ExprNode::Over(_, _) => return false
           // A batch map reduces per group only when flagged `returns_scalar`:
           // then it is terminal like `Agg` (its result is the group's single
           // cell); otherwise it is row-wise like `Map` and does not reduce.

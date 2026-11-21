@@ -172,19 +172,114 @@ fn LogicalPlan::build_pipeline(
 fn Pipeline::run(self : Pipeline) -> DataFrame raise @types.DataError {
   let mut cursor = (self.source)()
   for span in self.spans {
-    match span {
-      Flow(runs) => cursor = map_batches(cursor, runs)
-      Block(runs) => {
-        let mut frame = drain_batches(cursor)
-        for run in runs {
-          let Morph(f) = run
-          frame = f(frame)
-        }
-        cursor = single_source(frame)()
-      }
-    }
+    cursor = walk_span(cursor, span)
   }
   drain_batches(cursor)
+}
+
+///|
+/// Walk one span: a `Flow` wraps the cursor so its verbs ride each
+/// batch in flight; a `Block` drains what has flowed, runs its verbs on
+/// the whole frame, and re-emits the frame as a single batch.
+fn walk_span(
+  cursor : @scan.BatchCursor,
+  span : Span,
+) -> @scan.BatchCursor raise @types.DataError {
+  match span {
+    Flow(runs) => map_batches(cursor, runs)
+    Block(runs) => {
+      let mut frame = drain_batches(cursor)
+      for run in runs {
+        let Morph(f) = run
+        frame = f(frame)
+      }
+      single_source(frame)()
+    }
+  }
+}
+
+///|
+/// The batches of one lazy collection — the pipeline's streaming face.
+/// `next` hands back each batch of the collected result in order, then
+/// `None` forever, so a consumer that reads what it needs and stops
+/// simply stops asking: the source's remaining batches are never read.
+/// The batch boundaries are the pipeline's own (a parquet file's row
+/// groups, one batch per textual source) and carry no size promise;
+/// what the streaming *does* promise is that a pipeline whose verbs all
+/// ride the flow answers batch by batch without ever holding the whole
+/// result, the way `collect` never does.
+pub struct BatchStream {
+  priv step : () -> DataFrame? raise @types.DataError
+}
+
+///|
+/// Assemble a stream from its next step — the pipeline's own factory;
+/// the public entry is `LazyFrame::collect_batches`.
+fn BatchStream::stream(
+  step : () -> DataFrame? raise @types.DataError,
+) -> BatchStream {
+  { step, }
+}
+
+///|
+/// The next batch of the collection, or `None` once it has answered
+/// everything. Raises the read's own `DataError` — the same error, on
+/// the same first offending batch, `collect` would raise.
+pub fn BatchStream::next(
+  self : BatchStream,
+) -> DataFrame? raise @types.DataError {
+  (self.step)()
+}
+
+///|
+/// A pipeline as its batches: every span walks as `run` walks it — a
+/// blocking stretch materialises when the first batch is pulled, not
+/// before — except a *trailing* flow, whose batches answer as they
+/// arrive, verbs applied in flight, never stacked into one frame.
+fn Pipeline::into_stream(self : Pipeline) -> BatchStream {
+  // The walk's place: the current batch source (opened at the first
+  // pull — construction reads nothing, like every `LazyFrame` builder)
+  // and the next span to walk. A trailing flow stays unwalked: each
+  // pull wraps the same cursor in the same span, and wrapping is
+  // stateless — the underlying cursor's own position is the only state.
+  let cursor : Array[@scan.BatchCursor?] = [None]
+  let at : Array[Int32] = [0]
+  BatchStream::stream(() => {
+    let mut cur = match cursor[0] {
+      Some(c) => c
+      None => {
+        let opened = (self.source)()
+        cursor[0] = Some(opened)
+        opened
+      }
+    }
+    let last = self.spans.length() - 1
+    // Walk every span except a trailing flow — a trailing *block* walks
+    // like any other (its materialised frame is the one batch it
+    // answers), so only the trailing flow stays unwalked.
+    let trailing_flow = last >= 0 && self.spans[last] is Flow(_)
+    while at[0] < self.spans.length() && !(trailing_flow && at[0] == last) {
+      cur = walk_span(cur, self.spans[at[0]])
+      cursor[0] = Some(cur)
+      at[0] = at[0] + 1
+    }
+    match self.spans.get(at[0]) {
+      // The trailing flow: its verbs ride the batches as they answer.
+      Some(Flow(runs)) => batch_frame(map_batches(cur, runs).next())
+      // Everything else has walked (a trailing block re-emitted its one
+      // batch), so the batches that answer are the walked cursor's own.
+      _ => batch_frame(cur.next())
+    }
+  })
+}
+
+///|
+/// One batch as the frame a consumer reads.
+fn batch_frame(batch : @scan.ScanBatch?) -> DataFrame? raise @types.DataError {
+  match batch {
+    None => None
+    Some(b) => Some(DataFrame::from_parts(b.columns(), b.height()))
+  }
 }
 
 ///|

@@ -138,6 +138,7 @@ pub using @frame {
   type HtmlOptions,
   type PivotAgg,
   type LazyFrame,
+  type BatchStream,
   type Optimizations,
 }
 

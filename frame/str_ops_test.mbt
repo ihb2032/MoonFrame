@@ -734,3 +734,27 @@ test "the pad verbs refuse a width past the envelope" {
     padded[0] is @types.Scalar::String(cell) && cell.char_length() == 16_777_216,
   )
 }
+
+///|
+test "string ops treat an unpaired surrogate as one character" {
+  // Core's char_length aborts on a high surrogate followed by a non-low
+  // unit; the column legally holds the WTF-8 spelling, so every
+  // character-counting op uses the engine's own counter.
+  let half = StringBuilder()
+  half.write_char(Int32::unsafe_to_char(0xD800))
+  let lone = half.to_string()
+  let s = "a" + lone + "b"
+  let df = DataFrame::DataFrame([Series::from_strings("s", [s])])
+  let out = df.select([
+    @expr.col("s").str_len_chars().with_alias("n"),
+    @expr.col("s").str_slice(1, length=1).with_alias("mid"),
+    @expr.col("s").str_pad_start(5, fill='.').with_alias("ps"),
+    @expr.col("s").str_pad_end(5, fill='.').with_alias("pe"),
+    @expr.col("s").str_zfill(5).with_alias("z"),
+  ])
+  assert_eq(out.get_column("n").to_scalars(), [@types.Scalar::Int(3)])
+  assert_eq(out.get_column("mid").to_scalars(), [@types.Scalar::String(lone)])
+  assert_eq(out.get_column("ps").to_scalars(), [@types.Scalar::String(".." + s)])
+  assert_eq(out.get_column("pe").to_scalars(), [@types.Scalar::String(s + "..")])
+  assert_eq(out.get_column("z").to_scalars(), [@types.Scalar::String("00" + s)])
+}

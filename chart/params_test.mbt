@@ -518,3 +518,29 @@ test "a radio / select binding may render as a dropdown" {
     ),
   )
 }
+
+///|
+test "a nested chart refuses a variable parameter" {
+  let child = @chart.ChartSpec::of(
+    @chart.ChartKind::Bar,
+    x=@chart.field("cat"),
+    y=@chart.field("val"),
+    params=[
+      @chart.VegaParam::Variable(
+        @chart.VegaVariableParam::VegaVariableParam(
+          name="cut",
+          value=Json::number(1),
+        ),
+      ),
+    ],
+  )
+  let chart = @chart.Chart::Layer(
+    @chart.VegaLayer::VegaLayer([@chart.Chart::of(child)]),
+  )
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_strings("cat", ["x"]),
+    @series.Series::from_ints("val", [1L]),
+  ])
+  let result = Ok(@chart.format_vega_lite(df, chart)) catch { e => Err(e) }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}

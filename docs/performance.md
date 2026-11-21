@@ -15,9 +15,9 @@ These are analytical notes on complexity and layout; for measured throughput a
 - **Validity bitmap.** Nulls live in a byte-packed bitmap (1 bit per row,
   `1 = valid`) kept separate from the data buffer — Arrow's representation.
 - **`O(1)` column lookup.** A `name → index` map backs every name resolution —
-  the frame's own cache behind `get_column`, and the schema's behind `index_of` /
-  `field` / `select` / `rename` — so a wide frame never scans a name array,
-  whether the question reaches it through the columns or through the schema.
+  the schema's map, read by `get_column` and by `index_of` / `field` /
+  `select` / `rename` — so a wide frame never scans a name array, whether
+  the question reaches it through the columns or through the schema.
 
 ## The `Numeric` fast path
 
@@ -58,7 +58,9 @@ into a fresh buffer but share the parent's validity bitmap as a zero-copy
 view, advancing the bitmap `offset` instead of repacking it (a `Numeric`
 column carries no bitmap, so only its data is copied, and an all-valid
 `Numeric` sub-range stays `Numeric`). So the *validity* is zero-copy, not the
-column: the row data is always a fresh buffer. Equality is logical: a slice
+column: a slice's row data is a fresh buffer except a String column's
+immutable UTF-8 value bytes, which the slice view shares while it rebuilds
+only the offsets window. Equality is logical: a slice
 compares equal to a freshly built column with the same cells, regardless of the
 shared bitmap's `offset`.
 
@@ -140,7 +142,8 @@ file source's push-down can prune the data an error was hiding in — see below.
 - **Predicate pushdown** sinks each `filter` toward the scan, so rows drop
   as early as the operator provably commutes with the predicate.
 - **Projection pushdown** narrows each scan to the columns its consumers
-  actually read. For a file source (`scan_csv` / `scan_ndjson`) the column
+  actually read. For a file source (`scan_csv` / `scan_ndjson` /
+  `scan_json` / `scan_parquet`) the column
   set is pushed into the reader, so a column no stage reads is **never
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
@@ -152,9 +155,9 @@ file source's push-down can prune the data an error was hiding in — see below.
 Because a pruned column is never parsed, a parse error confined to it — or to a
 row a pushed-down predicate drops, in a column the predicate does not read — is
 what an optimized plan will not surface that a full eager read would. That is
-the deliberate one, and it applies only to file sources (`scan_csv` /
-`scan_ndjson`); `LazyFrame::collect`'s docstring states both cases as the
-plan-level contract.
+the deliberate one, and it applies to every file source (`scan_csv` /
+`scan_ndjson` / `scan_json` / `scan_parquet`); `LazyFrame::collect`'s
+docstring states both cases as the plan-level contract.
 
 See the operator docstrings (collected in the generated reference) for the
 per-operation semantics and

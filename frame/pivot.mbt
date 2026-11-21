@@ -160,6 +160,20 @@ pub fn DataFrame::pivot(
         }
       }
     }
+    // `Sum` is gated at the same entry point instead of only on the first
+    // slot that happens to hold a cell: a zero-row frame has no slot to
+    // reduce, and a String / Bool / temporal values column must refuse
+    // there exactly as it does on a frame with rows.
+    Some(Sum) =>
+      for c in values_cols {
+        if !c.dtype().is_summable() {
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "sum undefined for \{c.dtype()} (column \{c.name()})",
+            ),
+          )
+        }
+      }
     _ => ()
   }
   reshape_pivot(on_cols, index_cols, values_cols, aggregate_function)
@@ -425,8 +439,12 @@ pub fn DataFrame::unpivot(
   value_name~ : String = "value",
 ) -> DataFrame raise @types.DataError {
   // Name-only resolution: the reshape selects columns, it does not compute.
+  // Repeated keys are idempotent, the `drop` / `drop_nulls` convention the
+  // file header names: resolving `col("x")` twice must not emit the column
+  // twice, and a repeated index key must not collide with itself in the
+  // output schema.
   let index_cols = match index {
-    Some(keys) => self.resolve_subset_columns(keys)
+    Some(keys) => dedupe_series_by_name(self.resolve_subset_columns(keys))
     None => []
   }
   let index_names : Map[String, Unit] = Map([])
@@ -434,7 +452,7 @@ pub fn DataFrame::unpivot(
     index_names[c.name()] = ()
   }
   let on_cols = match on {
-    Some(keys) => self.resolve_subset_columns(keys)
+    Some(keys) => dedupe_series_by_name(self.resolve_subset_columns(keys))
     None => self.columns.filter(c => !index_names.contains(c.name()))
   }
   if on_cols.is_empty() {
@@ -513,6 +531,22 @@ pub fn DataFrame::unpivot(
   out_cols.push(Series::from_strings(variable_name, variables))
   out_cols.push(@series.scalars_to_series(value_dtype, value_name, values))
   DataFrame::from_parts(out_cols, n * k)
+}
+
+///|
+/// Keep the first occurrence of each column name. The reshape verbs
+/// resolve their key lists by output name and tolerate repetition the
+/// way `drop` does, so a name listed twice selects its column once.
+fn dedupe_series_by_name(columns : Array[Series]) -> Array[Series] {
+  let seen : Map[String, Unit] = Map([])
+  let out : Array[Series] = []
+  for c in columns {
+    if !seen.contains(c.name()) {
+      seen[c.name()] = ()
+      out.push(c)
+    }
+  }
+  out
 }
 
 ///|

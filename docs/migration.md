@@ -680,7 +680,8 @@ Sort direction and null placement leave the enum vocabulary — they are
 Polars' `descending` / `nulls_last` flags now. `DataFrame::sort` /
 `LazyFrame::sort` take `(key, descending, nulls_last)` tuples, and
 `Series::sort` takes labeled `descending?` (default `false`) /
-`nulls_last?` (default `true`, the previous default). The mapping is
+`nulls_last?` (default `false`; the default moved before the release — see
+"`Series::sort` places nulls first by default" below). The mapping is
 mechanical:
 
 | before | after |

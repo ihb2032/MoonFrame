@@ -224,16 +224,21 @@ test "scan_csv with an absorbed predicate collects equal to the eager read then 
 }
 
 ///|
-test "an absorbed predicate sees every row, so an aggregate threshold agrees with eager" {
+test "a scope-dependent predicate stays above the scan and agrees with eager" {
   let path = "_build/lazy_scan_csv_predicate_agg.csv"
   write_fixture(path)
-  // The pruning phase builds the predicate's columns over the *whole* file, so
-  // a mean-of-the-column threshold is the file's mean, not a partial one.
+  // A mean-of-the-column threshold is not row-stable: a driver that applies
+  // an absorbed predicate per batch would recompute it per batch, so the
+  // optimizer keeps it above the scan and the pipeline evaluates it over the
+  // whole file in a blocking span.
   let predicate = @expr.col("qty").gt(@expr.col("qty").mean())
-  assert_eq(
-    @io.scan_csv(path).filter(predicate).collect(),
-    @io.read_csv(path).filter(predicate),
+  let plan = @io.scan_csv(path).filter(predicate)
+  assert_true(
+    plan
+    .explain(optimized=true)
+    .has_prefix("FILTER (col(qty) > col(qty).mean())\n  SCAN_CSV"),
   )
+  assert_eq(plan.collect(), @io.read_csv(path).filter(predicate))
 }
 
 ///|
@@ -944,5 +949,29 @@ test "a parquet scan still absorbs a bare-column predicate beside a projection" 
     .explain(optimized=true),
     "SELECT [col(i)]\n" +
     "  SCAN_PARQUET \"_build/lazy_scan_parquet_bool_pred.parquet\" [\"i\"] WHERE col(flag)",
+  )
+}
+
+///|
+test "a scope-dependent predicate over multi-row-group parquet matches eager" {
+  // A predicate carrying an aggregation is not row-stable. The optimizer
+  // must keep it above the scan: the parquet driver applies an absorbed
+  // predicate once per row group, which would compute a per-group mean.
+  let df = DataFrame::DataFrame([
+    @series.Series::from_ints("i", [1, 2, 3, 10, 20, 30]),
+  ])
+  let path = "_build/lazy_scan_parquet_scope_predicate.parquet"
+  @io.write_parquet(df, path, row_group_rows=3)
+  let pred = @expr.col("i").gt(@expr.col("i").mean())
+  assert_eq(
+    @io.scan_parquet(path).filter(pred).collect(),
+    @io.read_parquet(path).filter(pred),
+  )
+  // The first filter is row-stable and may be absorbed; the second must
+  // still block, so the pipeline evaluates it over the whole file.
+  let row_local = @expr.col("i").gt(@expr.lit_int(0))
+  assert_eq(
+    @io.scan_parquet(path).filter(row_local).filter(pred).collect(),
+    @io.read_parquet(path).filter(row_local).filter(pred),
   )
 }

@@ -788,11 +788,21 @@ fn vega_brush_emit_json(b : VegaBrush) -> Json {
 /// schema's `views` key (which facet views a selection spans) exists
 /// only on the top-level selection-parameter form, so a nested emission
 /// drops it — the selection simply spans the views of the spec that
-/// declares it.
-fn vega_param_emit_json(p : VegaParam, nested : Bool) -> Json {
+/// declares it. A nested host's `params` items are
+/// `SelectionParameter` only; a variable parameter there has no legal
+/// schema shape and refuses.
+fn vega_param_emit_json(
+  p : VegaParam,
+  nested : Bool,
+) -> Json raise @types.DataError {
   let obj : Map[String, Json] = Map([])
   match p {
     Variable(v) => {
+      if nested {
+        raise @types.DataError::InvalidOperation(
+          "a nested chart cannot declare a variable parameter \"\{v.name}\": only selection parameters are legal below the top level",
+        )
+      }
       obj["name"] = Json::string(v.name)
       if v.value is Some(value) {
         obj["value"] = value
@@ -828,8 +838,15 @@ fn vega_param_emit_json(p : VegaParam, nested : Bool) -> Json {
 ///|
 /// A parameter list as the schema's `params` array, each parameter
 /// nested or top-level per `nested`.
-fn vega_params_emit_json(params : Array[VegaParam], nested : Bool) -> Json {
-  Json::array(params.map(fn(p) { vega_param_emit_json(p, nested) }))
+fn vega_params_emit_json(
+  params : Array[VegaParam],
+  nested : Bool,
+) -> Json raise @types.DataError {
+  let out : Array[Json] = []
+  for p in params {
+    out.push(vega_param_emit_json(p, nested))
+  }
+  Json::array(out)
 }
 
 ///|

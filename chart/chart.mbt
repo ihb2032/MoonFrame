@@ -980,7 +980,41 @@ pub fn format_vega_lite(
   let data : Map[String, Json] = Map([])
   data["values"] = Json::array(chart_data_values(df))
   obj["data"] = Json::object(data)
-  Json::object(obj).stringify()
+  let tree = Json::object(obj)
+  refuse_non_finite_json(tree)
+  tree.stringify()
+}
+
+///|
+/// The schema has no JSON spelling for `NaN` or `±Infinity`; the core
+/// encoder renders such a number as a JSON *string*, which lands in a
+/// position the schema types as a number and makes the whole spec
+/// invalid. Refuse the tree instead, wherever the value sits.
+fn refuse_non_finite_json(root : Json) -> Unit raise @types.DataError {
+  let stack : Array[Json] = [root]
+  for ;; {
+    match stack.pop() {
+      None => return
+      Some(v) =>
+        match v {
+          Number(n, ..) =>
+            if !n.is_finite() {
+              raise @types.DataError::InvalidOperation(
+                "a chart property carries a non-finite number (NaN or ±Infinity); the Vega-Lite schema has no JSON spelling for it",
+              )
+            }
+          Array(items) =>
+            for item in items {
+              stack.push(item)
+            }
+          Object(obj) =>
+            for item in obj.values() {
+              stack.push(item)
+            }
+          _ => ()
+        }
+    }
+  }
 }
 
 ///|
@@ -1541,7 +1575,9 @@ fn facet_channel_json(
 /// alone, and a `layer` member (the schema's `UnitSpec`) carries no
 /// `width` / `height` / `view` either — the layer itself sizes the
 /// shared frame. `name`, `description`, `title`, `projection`,
-/// `transform`, and `params` are legal at every host.
+/// `transform`, and selection `params` are legal at every host; a
+/// variable parameter is top-level only (a nested host's `params` items
+/// are `SelectionParameter`), and the emitter refuses one there.
 fn unit_emit(
   spec : ChartSpec,
   df : @frame.DataFrame,

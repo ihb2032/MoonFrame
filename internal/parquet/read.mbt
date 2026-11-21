@@ -161,10 +161,21 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   // so the two spellings of the total must agree.
   let paired : Array[ParquetGroup] = []
   let mut summed = 0L
-  for group in groups {
+  for gi, group in groups {
     let columns : Array[ColumnRead] = []
     for chunk in group.chunks {
-      columns.push(pair_chunk(schema, chunk))
+      let column = pair_chunk(schema, chunk)
+      // A flat column chunk's value count is its row count (nulls are
+      // values in the metadata). The whole-file read decodes by the
+      // chunk count while the batch read derives its height from the
+      // group count; a file that disagrees would make the two engines
+      // answer different heights, so refuse it here, once.
+      if column.chunk.num_values != group.num_rows {
+        raise bad(
+          "row group \{gi + 1} column \"\{column.chunk.name}\" declares \{column.chunk.num_values} values but the group declares \{group.num_rows} rows",
+        )
+      }
+      columns.push(column)
     }
     paired.push({ columns, num_rows: group.num_rows, })
     summed = summed + group.num_rows

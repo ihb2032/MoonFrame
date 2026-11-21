@@ -526,3 +526,43 @@ test "a 0-row frame pivots to the index columns alone, no value columns" {
   assert_eq(r.shape(), (0, 1))
   assert_eq(r.columns(), ["k"])
 }
+
+///|
+test "unpivot treats repeated on and index keys idempotently" {
+  let df = DataFrame::DataFrame([
+    Series::from_ints("id", [1L]),
+    Series::from_ints("x", [10L]),
+  ])
+  let out = df.unpivot(on=[@expr.col("x"), @expr.col("x")], index=[
+    @expr.col("id"),
+    @expr.col("id"),
+  ])
+  assert_eq(out.shape(), (1, 3))
+  assert_eq(out.get_column("variable").to_scalars(), [
+    @types.Scalar::String("x"),
+  ])
+  assert_eq(out.get_column("value").to_scalars(), [@types.Scalar::Int(10)])
+}
+
+///|
+test "pivot Sum validates its values dtype on an empty frame" {
+  // A zero-row frame produces no slot to reduce, so a lazy per-slot gate
+  // would never run. The entry gate must refuse a non-summable values
+  // column exactly as it does on a frame with rows.
+  let empty = DataFrame::empty(
+    @types.Schema::Schema([
+      @types.Field::Field("q", @types.DataType::String),
+      @types.Field::Field("v", @types.DataType::String),
+    ]),
+  )
+  let result : Result[DataFrame, @types.DataError] = Ok(
+    empty.pivot(
+      on=[@expr.col("q")],
+      values=[@expr.col("v")],
+      aggregate_function=Sum,
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::TypeMismatch(_)))
+}

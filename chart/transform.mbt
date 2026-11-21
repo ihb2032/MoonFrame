@@ -266,9 +266,12 @@ pub fn VegaLookupData::fields(self : VegaLookupData) -> Array[String]? {
 /// schema key.
 fn vega_lookup_data_emit_json(x : VegaLookupData) -> Json {
   let obj : Map[String, Json] = Map([])
+  // The schema's `LookupData.data` is a `Data` object, not a bare
+  // string. A named source is the shape this mirror carries.
   {
-    let v = x.data
-    obj["data"] = Json::string(v)
+    let source : Map[String, Json] = Map([])
+    source["name"] = Json::string(x.data)
+    obj["data"] = Json::object(source)
   }
   {
     let v = x.key

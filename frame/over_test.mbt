@@ -186,6 +186,31 @@ test "a window does not reduce inside a group aggregation" {
 }
 
 ///|
+test "a window nested under a terminal reduction is refused" {
+  // `reduces_per_group` treats `Agg` and `MapBatches(returns_scalar=true)`
+  // as terminal, so the window under them used to escape the gate. The
+  // whole-tree scan in `agg` refuses it before evaluation.
+  let df = groups_df()
+  let cases : Array[@expr.Expr] = [
+    @expr.col("x").over([@expr.col("g")]).sum().with_alias("s"),
+    @expr.col("x")
+    .over([@expr.col("g")])
+    .map_batches(label="cnt", returns_scalar=true, s => {
+      Series::from_ints("n", [s.len().to_int64()])
+    })
+    .with_alias("s"),
+  ]
+  for expr in cases {
+    let result : Result[DataFrame, @types.DataError] = Ok(
+      df.group_by([@expr.col("g")]).agg([expr]),
+    ) catch {
+      e => Err(e)
+    }
+    assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+  }
+}
+
+///|
 test "a window column serves as a filter predicate" {
   let df = groups_df()
   let out = df.filter(
@@ -231,6 +256,24 @@ test "an empty frame evaluates its window to the inner's dtype" {
     @expr.col("x").sum().over([@expr.col("g")]).with_alias("s"),
   ])
   assert_eq(out.nrows(), 0)
+  assert_eq(out.get_column("s").dtype(), @types.DataType::Int)
+}
+
+///|
+test "an empty frame's window stays zero rows through select" {
+  // `select` reads the output height off its results; the window's
+  // empty-scope dtype probe is length 1, which used to be mistaken for a
+  // summary row. A window is frame-tall, so the result is 0×1.
+  let df = DataFrame::empty(
+    @types.Schema::Schema([
+      @types.Field::Field("g", @types.DataType::String),
+      @types.Field::Field("x", @types.DataType::Int),
+    ]),
+  )
+  let out = df.select([
+    @expr.col("x").sum().over([@expr.col("g")]).with_alias("s"),
+  ])
+  assert_eq(out.shape(), (0, 1))
   assert_eq(out.get_column("s").dtype(), @types.DataType::Int)
 }
 

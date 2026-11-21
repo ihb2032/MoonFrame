@@ -10,8 +10,10 @@
 ///   String parses plain base-10 integers (other forms `raise ParseError`).
 /// - `Float` — Int promoted; identity on Float; Bool → `1.0` / `0.0`;
 ///   String parses decimals / scientific notation.
-/// - `String` — every dtype renders to its value form, including
-///   `Decimal` (the engine's own spelling).
+/// - `String` — every numeric, `Bool`, and `String` source renders to its
+///   value form, including `Decimal` (the engine's own spelling). The
+///   temporal riders (`Date` / `Timestamp` / `Duration`) refuse: their
+///   underlying `I64` counts are not values to reinterpret as text.
 /// - `Decimal` — from `Int` exactly, from `Float` through the
 ///   correctly-rounded conversion, from `String` through the value
 ///   parser; toward `Int` it truncates toward zero (a `NaN` / ±∞ / an
@@ -26,8 +28,9 @@
 ///
 /// Null slots are preserved verbatim. A cast onto the column's **own**
 /// dtype is the identity — the column is shared, not rebuilt — for every
-/// dtype, including `Bool` / `Date` / `Timestamp` / `Decimal` /
-/// `Duration`, whose other cross-dtype pairings are refused. A numeric
+/// dtype, including `Bool` / `Date` / `Timestamp` / `Duration`, whose
+/// other cross-dtype pairings are refused (`Decimal` crosses to
+/// `Int` / `Float` / `String`). A numeric
 /// result lands on the `Builtin` backend; the engine re-converges it onto
 /// the unboxed fast path where a later step benefits. Every other pairing
 /// — a `Bool` or `Null` target, a temporal target from a non-temporal

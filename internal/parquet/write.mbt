@@ -52,8 +52,23 @@ pub fn write_parquet_bytes(
   names : Array[String],
   codec : Codec,
   group_rows~ : Int64 = 0L,
+  height? : Int32,
 ) -> Bytes raise @types.DataError {
   let ncols = columns.length()
+  // The footer spells every name through the core UTF-8 encoder, which
+  // aborts on an unpaired surrogate. Cell values are guarded at
+  // `encode_plain_value`; names need the same refusal, before any page
+  // is written, so the failure is the `InvalidOperation` the signature
+  // promises and never a half-written file.
+  for name in names {
+    match @text.find_unpaired_surrogate(name) {
+      Some(_) =>
+        raise @types.DataError::InvalidOperation(
+          "cannot write a parquet column name containing an unpaired UTF-16 surrogate: the UTF-8 encoding would not round-trip",
+        )
+      None => ()
+    }
+  }
   // The maps first — they name the schema rows and the page encoders.
   let maps : Array[DtypeMap] = []
   for i in 0..<ncols {
@@ -125,14 +140,24 @@ pub fn write_parquet_bytes(
       }
     }
   }
-  let nrows : Int64 = if ncols == 0 {
-    0L
-  } else {
-    let height = columns[0].len()
+  let nrows : Int64 = {
+    let derived = if ncols == 0 { 0 } else { columns[0].len() }
     for i in 1..<ncols {
-      if columns[i].len() != height {
-        raise @types.DataError::LengthMismatch(height, columns[i].len())
+      if columns[i].len() != derived {
+        raise @types.DataError::LengthMismatch(derived, columns[i].len())
       }
+    }
+    // A caller that knows the frame's height (the io layer always does)
+    // pins it even when there are no columns: a parquet row group can
+    // carry `num_rows` with zero column chunks, which is how an `N×0`
+    // frame survives the round-trip. Without a supplied height, derive
+    // it from the first column, and an empty column list is 0.
+    let height = match height {
+      Some(h) => h
+      None => derived
+    }
+    if ncols > 0 && height != derived {
+      raise @types.DataError::LengthMismatch(derived, height)
     }
     height.to_int64()
   }

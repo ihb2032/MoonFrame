@@ -259,12 +259,17 @@ fn dec_add_one(fa : FixedArray[Int64]) -> Unit {
 
 ///|
 /// Round half-to-even by a guard digit: past 5 rounds up, below 5
-/// stays, and exactly 5 rounds up when the sticky tail was nonzero or
-/// the kept last digit is odd.
+/// stays, and exactly 5 rounds up when the sticky tail was nonzero, the
+/// dropped alignment remainder is positive, or (with both zero) the
+/// kept last digit is odd. A negative alignment remainder is the one
+/// case that rounds a tie *down*: the exact value sits below the tie
+/// the truncated workspace spells, so half-even's "odd → up" must not
+/// apply.
 fn dec_round_guard(
   fa : FixedArray[Int64],
   guard_digit : Int32,
   sticky : Bool,
+  residual~ : Int32 = 0,
 ) -> Unit {
   if guard_digit > 5 {
     // Even an all-zero coefficient takes the up-round — the one is the
@@ -273,7 +278,7 @@ fn dec_round_guard(
   } else if guard_digit == 5 {
     // The kept last digit lives at the coefficient's little end —
     // limb 0's lowest digit, little-endian.
-    if sticky || fa[0] % 10L % 2L == 1L {
+    if sticky || residual > 0 || (residual == 0 && fa[0] % 10L % 2L == 1L) {
       dec_add_one(fa)
     }
   }
@@ -286,22 +291,26 @@ fn dec_round_guard(
 /// workspace, its quantum exponent, and the sticky bit of digits
 /// already dropped elsewhere. One rounding, at the coarser of the two
 /// targets: 34 significant digits, or the subnormal floor when the
-/// precision station would leave the quantum below it. A magnitude
-/// past 10^Emax is ±Inf; one that underflows the floor whole is a
-/// signed zero. Answers the value and whether it came through
-/// *representationally exact* — no digit dropped at the reached
-/// station — the flag a cohort refinement may only run on (a rounded
-/// value that gained trailing zeros would read exact).
+/// precision station would leave the quantum below it. `residual` is
+/// the signed remainder of an alignment that dropped digits below the
+/// workspace's own least digit: +1 when the exact magnitude is above
+/// the workspace, −1 when below (subtraction's finer subtrahend), 0
+/// when exact. A magnitude past 10^Emax is ±Inf; one that underflows
+/// the floor whole is a signed zero. Answers the value and whether it
+/// came through *representationally exact* — no digit dropped at the
+/// reached station — the flag a cohort refinement may only run on (a
+/// rounded value that gained trailing zeros would read exact).
 fn dec_finish(
   neg : Bool,
   fa : FixedArray[Int64],
   exp : Int32,
   sticky : Bool,
+  residual~ : Int32 = 0,
 ) -> (Dec128, Bool) {
   dec_carry(fa)
   let mut exp = exp
   let mut sticky = sticky
-  let mut exact = !sticky
+  let mut exact = !sticky && residual == 0
   let digits = dec_sig_digits(fa)
   let precision_drop = if digits > DEC_PREC { digits - DEC_PREC } else { 0 }
   // One rounding, not two. When the precision station would leave the
@@ -312,11 +321,11 @@ fn dec_finish(
   if dec_add_i32(exp, precision_drop) < DEC_ETINY {
     let (guard_digit, tail) = dec_drop_digits(fa, dec_sub_i32(DEC_ETINY, exp))
     sticky = sticky || tail
-    if guard_digit != 0 || tail {
+    if guard_digit != 0 || tail || residual != 0 {
       exact = false
     }
     exp = DEC_ETINY
-    dec_round_guard(fa, guard_digit, sticky)
+    dec_round_guard(fa, guard_digit, sticky, residual~)
     // The kept digits plus the floor's guard fit the precision by
     // construction (`digits + exp < Etiny + 34`), so the round-up's
     // one extra digit is the only reach into the 34-digit width.
@@ -328,11 +337,11 @@ fn dec_finish(
     sticky = sticky || tail
     // Exactness survives a drop of zeros only — a guard digit or a
     // nonzero tail is a digit the value lost.
-    if guard_digit != 0 || tail {
+    if guard_digit != 0 || tail || residual != 0 {
       exact = false
     }
     exp = dec_add_i32(exp, precision_drop)
-    dec_round_guard(fa, guard_digit, sticky)
+    dec_round_guard(fa, guard_digit, sticky, residual~)
     // The round-up may carry a fresh top digit out (all nines): one
     // digit past the format, dropped exactly — the zero it leaves
     // cannot round again.
@@ -921,21 +930,27 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
   // The alignment: the addends' finer exponent, unless the exponents
   // sit more than the guard width apart — then the finer addend's
   // digits all fall below the coarser one's 35-digit guard window, and
-  // the alignment works at the window's foot instead (the fallen digits
-  // riding the sticky bit). The guard (35) plus a 34-digit addend is 69
-  // digits, inside the workspace's 70 with the carry to spare.
+  // the alignment works at the window's foot instead. The fallen
+  // digits are not merely a sticky bit: their sign relative to the
+  // truncated workspace decides which way a tie rounds, so
+  // `dec_align_to` reports whether anything nonzero fell and the adder
+  // turns that into a signed residual. The guard (35) plus a 34-digit
+  // addend is 69 digits, inside the workspace's 70 with the carry to
+  // spare.
   let e_fine = if a.exp < bn.exp { a.exp } else { bn.exp }
   let e_coarse = if a.exp >= bn.exp { a.exp } else { bn.exp }
   let window_foot = dec_add_i32(e_coarse, -DEC_ALIGN_GUARD)
   let e_work = if window_foot > e_fine { window_foot } else { e_fine }
   let wa = dec_load(a)
   let wb = dec_load(bn)
-  let sa = dec_align_to(wa, a.exp, e_work)
-  let sb = dec_align_to(wb, bn.exp, e_work)
-  let sticky = sa || sb
+  let ra = dec_align_to(wa, a.exp, e_work)
+  let rb = dec_align_to(wb, bn.exp, e_work)
   if a.neg == bn.neg {
     dec_add_work(wa, wb)
-    dec_finish(a.neg, wa, e_work, sticky).0
+    // Same sign: either fallen remainder raises the exact magnitude
+    // above the truncated sum.
+    let residual = if ra != 0 || rb != 0 { 1 } else { 0 }
+    dec_finish(a.neg, wa, e_work, false, residual~).0
   } else {
     let m = dec_cmp_work(wa, wb)
     if m == 0 {
@@ -943,10 +958,15 @@ fn dec_add_sub(a : Dec128, b : Dec128, sub : Bool) -> Dec128 {
       dec_zero_at(preferred, false)
     } else if m > 0 {
       dec_sub_work(wa, wb)
-      dec_finish(a.neg, wa, e_work, sticky).0
+      // |a| > |b|: a fallen digit in `a` leaves the exact difference
+      // above the truncated one; one in `b` leaves it below.
+      let residual = if ra != 0 { 1 } else if rb != 0 { -1 } else { 0 }
+      dec_finish(a.neg, wa, e_work, false, residual~).0
     } else {
       dec_sub_work(wb, wa)
-      dec_finish(bn.neg, wb, e_work, sticky).0
+      // |b| > |a|, the mirror.
+      let residual = if rb != 0 { 1 } else if ra != 0 { -1 } else { 0 }
+      dec_finish(bn.neg, wb, e_work, false, residual~).0
     }
   }
 }
@@ -974,20 +994,26 @@ fn dec_refine_up(out : Dec128, preferred : Int32) -> Dec128 {
 
 ///|
 /// Move a workspace from exponent `from` to the alignment `to`,
-/// answering the sticky bit of digits lost below the workspace. A
+/// answering whether any nonzero digit fell below the workspace. A
 /// finer target shifts left (trailing zeros appended — exact, bounded
-/// by the adder's guard); a coarser one drops digits with the tail
-/// folded into the sticky bit.
-fn dec_align_to(fa : FixedArray[Int64], from : Int32, to : Int32) -> Bool {
+/// by the adder's guard); a coarser one drops digits. The first
+/// dropped digit counts: it is the first digit of a remainder smaller
+/// than the workspace's least unit, and the adder needs its sign, not
+/// only the tail behind it.
+fn dec_align_to(fa : FixedArray[Int64], from : Int32, to : Int32) -> Int32 {
   if to == from {
-    return false
+    return 0
   }
   if to < from {
     dec_shift_left(fa, dec_sub_i32(from, to))
-    return false
+    return 0
   }
-  let (_, tail) = dec_drop_digits(fa, dec_sub_i32(to, from))
-  tail
+  let (guard_digit, tail) = dec_drop_digits(fa, dec_sub_i32(to, from))
+  if guard_digit != 0 || tail {
+    1
+  } else {
+    0
+  }
 }
 
 ///|

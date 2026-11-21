@@ -767,6 +767,84 @@ fn vega_view_config_emit_json(x : VegaViewConfig) -> Json {
 }
 
 ///|
+/// How a channel renders a datum a scale marks invalid: the schema's
+/// `"zero-or-min"` spelling or an explicit value object.
+#derive(Eq, Debug)
+pub(all) enum VegaScaleInvalidData {
+  ZeroOrMin
+  Value(Json)
+}
+
+///|
+/// The per-channel invalid-data defaults under `config.scale.invalid`:
+/// the schema maps channel names to a show-as shape, not a boolean.
+#derive(Eq, Debug)
+pub struct VegaScaleInvalidDataConfig {
+  angle : VegaScaleInvalidData?
+  color : VegaScaleInvalidData?
+  fill : VegaScaleInvalidData?
+  fill_opacity : VegaScaleInvalidData?
+  opacity : VegaScaleInvalidData?
+  radius : VegaScaleInvalidData?
+  shape : VegaScaleInvalidData?
+  size : VegaScaleInvalidData?
+  stroke : VegaScaleInvalidData?
+  stroke_dash : VegaScaleInvalidData?
+  stroke_opacity : VegaScaleInvalidData?
+  stroke_width : VegaScaleInvalidData?
+  theta : VegaScaleInvalidData?
+  time : VegaScaleInvalidData?
+  x : VegaScaleInvalidData?
+  x_offset : VegaScaleInvalidData?
+  y : VegaScaleInvalidData?
+  y_offset : VegaScaleInvalidData?
+}
+
+///|
+/// Build the per-channel invalid-data config; every channel is optional.
+pub fn VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(
+  angle? : VegaScaleInvalidData,
+  color? : VegaScaleInvalidData,
+  fill? : VegaScaleInvalidData,
+  fill_opacity? : VegaScaleInvalidData,
+  opacity? : VegaScaleInvalidData,
+  radius? : VegaScaleInvalidData,
+  shape? : VegaScaleInvalidData,
+  size? : VegaScaleInvalidData,
+  stroke? : VegaScaleInvalidData,
+  stroke_dash? : VegaScaleInvalidData,
+  stroke_opacity? : VegaScaleInvalidData,
+  stroke_width? : VegaScaleInvalidData,
+  theta? : VegaScaleInvalidData,
+  time? : VegaScaleInvalidData,
+  x? : VegaScaleInvalidData,
+  x_offset? : VegaScaleInvalidData,
+  y? : VegaScaleInvalidData,
+  y_offset? : VegaScaleInvalidData,
+) -> VegaScaleInvalidDataConfig {
+  {
+    angle,
+    color,
+    fill,
+    fill_opacity,
+    opacity,
+    radius,
+    shape,
+    size,
+    stroke,
+    stroke_dash,
+    stroke_opacity,
+    stroke_width,
+    theta,
+    time,
+    x,
+    x_offset,
+    y,
+    y_offset,
+  }
+}
+
+///|
 /// The scale engine's defaults: padding and size ranges per mark family,
 /// the min / max clamps the runtime applies when a scale's range is
 /// unspecified, rounding, and animation hints.
@@ -781,7 +859,7 @@ pub struct VegaScaleConfig {
   clamp : Bool?
   continuous_padding : Double?
   frames_per_second : Double?
-  invalid : Bool?
+  invalid : VegaScaleInvalidDataConfig?
   max_band_size : Double?
   max_font_size : Double?
   max_opacity : Double?
@@ -825,7 +903,7 @@ pub fn VegaScaleConfig::VegaScaleConfig(
   clamp? : Bool,
   continuous_padding? : Double,
   frames_per_second? : Double,
-  invalid? : Bool,
+  invalid? : VegaScaleInvalidDataConfig,
   max_band_size? : Double,
   max_font_size? : Double,
   max_opacity? : Double,
@@ -884,6 +962,84 @@ pub fn VegaScaleConfig::VegaScaleConfig(
 }
 
 ///|
+/// One invalid-data show-as shape: the schema's string constant or a
+/// value object.
+fn vega_scale_invalid_data_show_emit_json(v : VegaScaleInvalidData) -> Json {
+  match v {
+    ZeroOrMin => Json::string("zero-or-min")
+    Value(value) => {
+      let obj : Map[String, Json] = Map([])
+      obj["value"] = value
+      Json::object(obj)
+    }
+  }
+}
+
+///|
+/// The emitted per-channel invalid-data object, each set channel under
+/// its schema key.
+fn vega_scale_invalid_data_config_emit_json(
+  x : VegaScaleInvalidDataConfig,
+) -> Json {
+  let obj : Map[String, Json] = Map([])
+  if x.angle is Some(v) {
+    obj["angle"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.color is Some(v) {
+    obj["color"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.fill is Some(v) {
+    obj["fill"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.fill_opacity is Some(v) {
+    obj["fillOpacity"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.opacity is Some(v) {
+    obj["opacity"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.radius is Some(v) {
+    obj["radius"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.shape is Some(v) {
+    obj["shape"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.size is Some(v) {
+    obj["size"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.stroke is Some(v) {
+    obj["stroke"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.stroke_dash is Some(v) {
+    obj["strokeDash"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.stroke_opacity is Some(v) {
+    obj["strokeOpacity"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.stroke_width is Some(v) {
+    obj["strokeWidth"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.theta is Some(v) {
+    obj["theta"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.time is Some(v) {
+    obj["time"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.x is Some(v) {
+    obj["x"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.x_offset is Some(v) {
+    obj["xOffset"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.y is Some(v) {
+    obj["y"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  if x.y_offset is Some(v) {
+    obj["yOffset"] = vega_scale_invalid_data_show_emit_json(v)
+  }
+  Json::object(obj)
+}
+
+///|
 /// The emitted JSON object of a `VegaScaleConfig`, every set property
 /// under its schema key.
 fn vega_scale_config_emit_json(x : VegaScaleConfig) -> Json {
@@ -916,7 +1072,7 @@ fn vega_scale_config_emit_json(x : VegaScaleConfig) -> Json {
     obj["framesPerSecond"] = Json::number(v)
   }
   if x.invalid is Some(v) {
-    obj["invalid"] = Json::boolean(v)
+    obj["invalid"] = vega_scale_invalid_data_config_emit_json(v)
   }
   if x.max_band_size is Some(v) {
     obj["maxBandSize"] = Json::number(v)

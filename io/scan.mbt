@@ -142,7 +142,8 @@ pub fn scan_json(
 /// The **projection** push-down is where a columnar source pays: the
 /// optimizer narrows the leaf to the columns the pipeline consumes, and
 /// only those chunks decode — a `select` of two columns of a wide file
-/// never touches the other chunks' bytes at all. The **predicate**
+/// never decodes the other chunks' pages, though the file's bytes are
+/// still read whole. The **predicate**
 /// push-down moves the filter into the read as a post-decode filter
 /// over the projected frame (the row pruning a columnar file without
 /// row-group statistics can offer); a `ParseError` in an unprojected

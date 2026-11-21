@@ -36,10 +36,18 @@ pub extend ParquetCodec with Debug::{to_repr}
 /// parquet `DATE` annotation rides, for a `Decimal` cell whose NaN / ±∞
 /// shape has no fixed-point spelling, and for a decimal column past the
 /// 38-digit payload window.
+///
+/// `row_group_rows` spells the row-group layout: the default `0` writes
+/// the whole frame as one row group, a positive bound writes consecutive
+/// groups of that many rows with the last one the remainder — the layout
+/// a foreign columnar reader pages through, and the batch boundaries a
+/// lazy `scan_parquet` reads group by group. A bound at or past the
+/// height is the single group again.
 pub fn write_parquet(
   df : @frame.DataFrame,
   path : String,
   codec? : ParquetCodec,
+  row_group_rows~ : Int32 = 0,
 ) -> Unit raise @types.DataError {
   let chosen = match codec {
     Some(Uncompressed) => @parquet.Codec::Uncompressed
@@ -49,7 +57,12 @@ pub fn write_parquet(
   }
   let columns = df.column_series()
   let names = columns.map(c => c.name())
-  let bytes = @parquet.write_parquet_bytes(columns, names, chosen)
+  let bytes = @parquet.write_parquet_bytes(
+    columns,
+    names,
+    chosen,
+    group_rows=row_group_rows.to_int64(),
+  )
   @fs.write_bytes_to_file(path, bytes) catch {
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }

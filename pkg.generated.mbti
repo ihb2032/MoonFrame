@@ -68,7 +68,7 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
-pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec) -> Unit raise @types.DataError
+pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError
 
 pub fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
 

@@ -806,11 +806,13 @@ test "a chunk whose physical type disagrees with its schema refuses" {
 }
 
 ///|
-test "a multi-row-group file refuses naming the shape" {
+test "a multi-row-group file reads, its groups in order" {
   // Two row groups each carrying their own chunks for the same columns:
-  // concatenating them would splice same-named columns into one chunk
-  // list, so the footer walk refuses at the row-group count instead —
-  // the groups here are empty, proving the refusal is the count's own.
+  // the cells concatenate across the groups in their declared order —
+  // the row order a foreign writer's file-wide sequence spells. The
+  // groups here are empty (no chunks, no counts), proving the group
+  // count itself is no refusal: the file reads as the empty frame its
+  // zero rows name.
   let w = thrift_writer()
   w.i32_field(1, 1)
   w.field_header(2, 9)
@@ -847,13 +849,8 @@ test "a multi-row-group file refuses naming the shape" {
   for b in b"PAR1" {
     out.push(b)
   }
-  let result = Ok(ignore(read_parquet_columns(Bytes::from_array(out), None))) catch {
-    e => Err(e)
-  }
-  assert_true(
-    result is Err(@types.DataError::Unsupported(msg)) &&
-    msg.contains("multi-row-group parquet files are not supported yet"),
-  )
+  let read = read_parquet_columns(Bytes::from_array(out), None)
+  assert_eq(read.length(), 0)
 }
 
 ///|

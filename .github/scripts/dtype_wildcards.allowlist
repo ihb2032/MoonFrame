@@ -51,7 +51,7 @@ types/error.mbt json_cell_expectation the catch-all derives the diagnostic wordi
 io/json_core.mbt frame_from_json_records the wildcard rejects a non-object JSON record with a located ParseError — the scrutinee is a Json value, not a dtype enum; the signature's dtypes parameter triggered the signature-half attribution
 internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
 internal/parquet/write.mbt encode_plain_value the map fixes the (physical, scalar) pair; the wildcard raises loudly — a cell the map cannot carry refuses the write
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
 internal/parquet/read.mbt decode_plain_values the catch's wildcard is the malformed-UTF-8 raise — the loud refusal, not a silent swallow
 internal/kernel/temporal.mbt temporal_arith the cell match is over the temporal pairs; the wildcard is the null (or mixed) source pair — one per the date and the shift half
 internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate
@@ -95,11 +95,11 @@ internal/parquet/build.mbt build_series the page walk fixes one Scalar variant p
 internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
 internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
 internal/parquet/build.mbt build_series the page walk fixes one Scalar variant per column's map; the wildcard is the null cell (and any off-type cell the walk nulls)
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
-internal/parquet/read.mbt decode_column the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
+internal/parquet/read.mbt decode_chunk_cells the arms route by page type and encoding; the wildcards are the null cells and the off-type cells the def levels null
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive
 series/null.mbt Series::fill_null the inner gate raises TypeMismatch (loud); the outer Scalar match is exhaustive

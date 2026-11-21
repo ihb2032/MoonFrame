@@ -11,8 +11,9 @@
 /// Cast by target dtype — the single public cross-dtype conversion. `Int`
 /// truncates / parses, `Float` promotes / parses (per the file-private
 /// `to_int` / `to_float` helpers this dispatches to), and `String` renders
-/// every dtype through the near-total `to_string_column` (its one refusal
-/// is the string layout's payload bound). The temporal pair is
+/// every numeric, `Bool`, and `String` source, plus `Decimal`, through the
+/// near-total `to_string_column` (its one refusal is the string layout's
+/// payload bound). The temporal pair is
 /// the one rider conversion offered: `Date` → `Timestamp` (each day count
 /// times the microseconds a day holds, checked — a day count whose product
 /// leaves `Int64` raises `ParseError`), and `Timestamp` → `Date` (the

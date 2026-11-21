@@ -51,8 +51,9 @@
 /// offending key, a dtype clash raises `TypeMismatch`, an off-frame key length
 /// raises `LengthMismatch`, and the
 /// unrepresentable `Null` literal raises `Unsupported`. Every evaluated
-/// key is one of `Int` / `Float` / `Bool` / `String` (there is no
-/// Null-dtype backend), so it is always sortable.
+/// key has a total order: `Int` / `Float` / `Bool` / `String` / `Decimal`,
+/// plus `Date` / `Timestamp` / `Duration`, whose `I64` counts sort as
+/// integers.
 ///
 /// An empty key set is a no-op identity: zero keys ⇒ every comparison
 /// returns 0 ⇒ stability preserves the input order.

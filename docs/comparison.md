@@ -223,9 +223,15 @@ here today:
   present too — `pivot` / `unpivot` on both layers — with unpivot's value
   column requiring a
   unifying dtype (`Int` / `Float` widen; no stringly supertype).
-- **Lazy** — no streaming execution: a scan pushes projections, predicates,
-  and row windows down into the reader, but the text formats still
-  tokenise the whole file. The columnar
+- **Lazy** — batch-wise execution, not Polars' parallel streaming engine:
+  a tree-shaped plan walks a morsel pipeline where row-local verbs (a
+  filter, a row-stable selection) ride each batch in flight and
+  row-global verbs (a sort, an aggregation, a join) materialise —
+  `LazyFrame::collect_batches` hands the batches to the consumer as they
+  answer, so a plan ending in flow verbs runs in bounded memory. The
+  scans push projections, predicates, and row windows down into the
+  reader, but the text formats still tokenise the whole file, and a
+  blocking verb holds its whole input (no spilling). The columnar
   side is native: `scan_parquet` skips unpicked chunks' bytes entirely,
   and a sunk `head` / `tail` / `slice` skips the row groups outside its
   window outright (multi-row-group files read; a written file's layout

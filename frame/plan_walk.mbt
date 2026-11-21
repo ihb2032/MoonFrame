@@ -235,10 +235,10 @@ fn LogicalPlan::post_order_unique(self : LogicalPlan) -> Array[LogicalPlan] {
 /// is refused with `InvalidOperation` instead of answered with some other
 /// node's frame — a wrong-entry answer would turn a broken walk into
 /// silently wrong data.
-fn memo_result(
-  memo : Array[(LogicalPlan, DataFrame)],
+fn[A] memo_result(
+  memo : Array[(LogicalPlan, A)],
   node : LogicalPlan,
-) -> DataFrame raise @types.DataError {
+) -> A raise @types.DataError {
   for i = memo.length() - 1; i >= 0; i = i - 1 {
     if physical_equal(memo[i].0, node) {
       return memo[i].1

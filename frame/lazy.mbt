@@ -644,6 +644,41 @@ pub fn LazyFrame::collect(
 }
 
 ///|
+/// Collect the same result as `collect`, batch by batch — the streaming
+/// face of the same optimised plan. `BatchStream::next` hands back each
+/// batch in order and then `None` forever; stacking the batches in
+/// order yields exactly `collect`'s frame (same rows, same order, same
+/// first error), and a consumer that stops asking stops the read: the
+/// source's remaining batches are never touched. The boundaries are the
+/// pipeline's own — a parquet file answers one batch per row group, a
+/// textual source one batch over its whole read, and a plan ending in a
+/// row-global verb (a sort, an aggregation, a join) answers one batch,
+/// the materialised result — so the batch count and size carry no
+/// promise; the promise is bounded memory, that a plan whose verbs all
+/// ride the flow answers without ever holding the whole result.
+///
+/// Nothing reads until the first `next` — the builder stays total like
+/// every `LazyFrame` constructor, so a missing file or a malformed read
+/// surfaces at the first pull, as the same `DataError` `collect` would
+/// raise. `optimizations` defaults to the same every-stage-on pipeline
+/// `collect` runs.
+pub fn LazyFrame::collect_batches(
+  self : LazyFrame,
+  optimizations~ : Optimizations = Optimizations::Optimizations(),
+) -> BatchStream raise @types.DataError {
+  let optimized = self.plan.optimize_with(optimizations)
+  // A shared-subplan plan keeps the interpreter's path — its whole
+  // frame is the one batch a source-over-it pipeline answers.
+  if optimized.has_shared_subplan() {
+    return {
+      source: () => single_source(optimized.execute_memoised())(),
+      spans: [],
+    }.into_stream()
+  }
+  optimized.build_pipeline().into_stream()
+}
+
+///|
 /// Render the logical plan as an indented tree — the root operation on
 /// the first line, inputs two spaces deeper, expressions in their
 /// documented `Show` form, and `SCAN [rows×cols]` leaves:

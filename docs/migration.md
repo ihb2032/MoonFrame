@@ -23,6 +23,16 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   skipped group no longer surfaces, the same skipping trade the
   projection pushdown already makes for dropped columns. The text scans
   keep their window as a plan node above the read.
+- `collect` executes tree-shaped plans through a batch-wise pipeline —
+  same rows, same order, same first error as before; what changes is
+  where memory is spent (a plan whose verbs all ride the flow answers
+  batch by batch, and a row-global verb materialises its input as it
+  always did). A plan sharing one `LazyFrame` across both sides of a
+  join keeps the previous node-by-node executor.
+- `LazyFrame::collect_batches` joins the facade (with its `BatchStream`
+  answer): the same optimised plan, handed to the consumer batch by
+  batch — stacking the batches equals `collect`, and stopping the stream
+  stops the read.
 
 ## v0.8.1 → v0.9.0
 

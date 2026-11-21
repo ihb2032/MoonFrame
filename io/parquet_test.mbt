@@ -164,3 +164,55 @@ test "an empty window still answers the columns" {
   assert_eq(got.columns(), eager.columns())
   assert_eq(got.get_column("i").dtype(), @types.DataType::Int)
 }
+
+///|
+test "collect_batches walks a parquet file's row groups" {
+  // The batch boundaries are the file's own: one batch per row group,
+  // in the groups' declared order, and a trailing flow (a filter) keeps
+  // those boundaries while a trailing block (a sort) answers one batch.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("i", [1, 2, 3, 4, 5, 6]),
+  ])
+  let path = "_build/io_parquet_batches.parquet"
+  @io.write_parquet(df, path, row_group_rows=2)
+  let stream = @io.scan_parquet(path).collect_batches()
+  let rows : Array[Array[@types.Scalar]] = []
+  while true {
+    match stream.next() {
+      Some(batch) => rows.push(batch.get_column("i").to_scalars().copy())
+      None => break
+    }
+  }
+  assert_eq(rows.length(), 3)
+  assert_eq(rows[0], [@types.Scalar::Int(1), @types.Scalar::Int(2)])
+  assert_eq(rows[2], [@types.Scalar::Int(5), @types.Scalar::Int(6)])
+  // A trailing filter flows: the batches stay the row groups'.
+  let filtered = @io.scan_parquet(path)
+    .filter(@expr.col("i").gt(@expr.lit_int(1)))
+    .collect_batches()
+  let kept : Array[Int32] = []
+  while true {
+    match filtered.next() {
+      Some(batch) => kept.push(batch.nrows())
+      None => break
+    }
+  }
+  assert_eq(kept, [1, 2, 2])
+  // A trailing sort blocks: the whole frame answers as one batch.
+  let sorted = @io.scan_parquet(path)
+    .sort([(@expr.col("i"), true, false)])
+    .collect_batches()
+  match sorted.next() {
+    Some(batch) =>
+      assert_eq(batch.get_column("i").to_scalars(), [
+        @types.Scalar::Int(6),
+        @types.Scalar::Int(5),
+        @types.Scalar::Int(4),
+        @types.Scalar::Int(3),
+        @types.Scalar::Int(2),
+        @types.Scalar::Int(1),
+      ])
+    None => fail("a sorted plan answers one batch")
+  }
+  assert_true(sorted.next() is None)
+}

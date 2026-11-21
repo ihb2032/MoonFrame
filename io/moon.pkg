@@ -18,6 +18,7 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/test",
   "moonbitlang/core/quickcheck" @gen,
+  "ihb2032/MoonFrame/expr",
 } for "test"
 
 // `core/compress/gzip` is still marked experimental upstream; the reader's

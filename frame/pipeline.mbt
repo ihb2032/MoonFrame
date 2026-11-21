@@ -54,7 +54,8 @@ priv struct Pipeline {
 /// Whether a unary verb is *flow-safe* — its per-row output depends only
 /// on its per-row input, so running it per batch equals running it over
 /// the whole frame. The row-local expression gates are the optimizer's
-/// own predicates (`all_row_stable` excludes the aggregations, and a
+/// own predicates (`row_stable` for a filter, `all_row_stable` for the
+/// expression-list verbs, and a
 /// selection that reads no column collapses its input to one row — a
 /// whole-frame verb however small); the value fence the optimizer adds
 /// to those gates is absent here by design — it guards error
@@ -63,7 +64,10 @@ priv struct Pipeline {
 /// the same batch order, either way.
 fn op_flows(op : FrameOp) -> Bool {
   match op {
-    Filter(_) => true
+    // A filter rides the flow only when its predicate is row-stable: a
+    // scope-dependent predicate (an aggregation, a window, a positional
+    // shift) has to see the whole frame, so it blocks.
+    Filter(predicate) => row_stable(predicate.node())
     Select(exprs) => all_row_stable(exprs) && preserves_row_count(exprs)
     WithColumns(exprs) => all_row_stable(exprs)
     Rename(_) | RenameWith(_) | Drop(_) => true

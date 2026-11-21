@@ -91,10 +91,12 @@
 ///   but the one shape that can, does: a filter sitting directly on a
 ///   join splits into the side its columns name (`split_filter_into_join`
 ///   below, with the per-join-kind soundness argument). The in-memory
-///   `Scan` is the floor. A **file source** goes one step further: the
-///   predicate is absorbed into the file scan source itself, so the
-///   driver prunes rows while reading and no `Filter` node remains above
-///   the leaf.
+///   `Scan` is the floor. A **file source** goes one step further: a
+///   row-stable predicate is absorbed into the file scan source itself, so
+///   the driver prunes rows while reading and no `Filter` node remains above
+///   the leaf. A scope-dependent predicate stays above the leaf — a driver
+///   may apply an absorbed predicate per batch, which would recompute the
+///   scope per batch rather than over the file.
 ///   Only the first predicate is absorbed — combining two would reorder
 ///   which operand's evaluation error surfaces first — so a second filter
 ///   stays a node above the scan.
@@ -288,7 +290,11 @@ fn LogicalPlan::place_filter(
   let mut result = match cur {
     // Only a file source with no absorbed predicate yet takes this one in;
     // struct-update keeps the driver and the pushed projection verbatim.
-    Scan(File(fs)) if fs.predicate is None =>
+    // The predicate must be row-stable: a driver may apply an absorbed
+    // predicate per batch (the parquet driver does, once per row group),
+    // so a scope-dependent predicate absorbed here would be recomputed
+    // per batch instead of over the whole file.
+    Scan(File(fs)) if fs.predicate is None && row_stable(predicate.node()) =>
       Scan(File({ ..fs, predicate: Some(predicate), }))
     // A filter sitting directly on a join may split into one side — the
     // crossing rules for that hop are `split_filter_into_join`'s; failing

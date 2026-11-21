@@ -143,7 +143,10 @@ release_shape='v?[0-9]+\.[0-9]+\.[0-9]+'
 #   - uses: — a pinned action line, deleted whole: an action pin carries
 #     its version in a SHA and a trailing comment, and nothing of this
 #     project's rides one
-#   - owner/pkg@ — a dependency
+#   - owner/pkg@ — a third-party dependency, by owner. The owners are listed
+#     explicitly: a self-coordinate pin (`ihb2032/MoonFrame@…`) is a release
+#     name wherever it appears, so the mask must not swallow every package.
+#   - vega / vega-lite / vega-embed @ — the chart runtime CDN pins
 #   - UCD version — the Unicode Character Database edition
 # `moon.mod`'s own `version = "…"` key needs no mask: the manifest is one of
 # the two homes and is excluded from the scan set below, so a `version =`
@@ -158,7 +161,8 @@ s/MOONBIT_INSTALL_VERSION[[:space:]:=]*"*[0-9][0-9a-zA-Z.+]*"*//g
 s/moonc[[:space:]]+[0-9][0-9a-zA-Z.+]*//g
 s/MoonBit[[:space:]]v[0-9.]+//g
 /uses:[[:space:]]/d
-s/[A-Za-z0-9_.-]+@[0-9.]+//g
+s#(moonbitlang|moonbit-community)/([A-Za-z0-9_.-]+)@[0-9][0-9a-zA-Z.+]*#\1/\2#g
+s/(vega|vega-lite|vega-embed)@[0-9][0-9a-zA-Z.+]*/\1/g
 s/UCD[[:space:]]version[[:space:]]*[0-9.]+//g
 s/Vega-Lite[[:space:]]+[0-9][0-9.]*//g
 '
@@ -168,10 +172,13 @@ prose=$(git ls-files '*.md' |
   grep -v '^\.github/scripts/' || true)
 # `moon.mod` itself is excluded from `config`: it is one of the two homes,
 # compared against the migration guide by this guard's first half — its own
-# `version =` line is the fact being checked, not a stray to scan for.
-config=$(git ls-files '*.yml' '*.yaml' 'moon.mod' '*moon.pkg' |
-  grep -v '^moon\.mod$' |
+# `version =` line is the fact being checked, not a stray to scan for. Every
+# *other* `moon.mod` (the facade fixture's nested manifest included) is a
+# tracked manifest and is scanned below, except its own `version =` key:
+# that key is a different module's version, not MoonFrame's release.
+config=$(git ls-files '*.yml' '*.yaml' '*moon.pkg' |
   grep -v '^\.github/scripts/' || true)
+nested_mods=$(git ls-files '*moon.mod' | grep -v '^moon\.mod$' || true)
 sources=$(git ls-files '*.mbt' | grep -v '^\.github/scripts/' || true)
 
 # `|| true` on every filter: a `grep` that matches nothing exits 1, which
@@ -182,15 +189,26 @@ scan() {
   printf '%s\n' "$1" | tr '\n' '\0' |
     xargs -0 grep -nE "$2" 2>/dev/null || true
 }
+# Nested manifests, file-prefixed, without each module's own `version =`
+# key. A dependency pin or a comment there still names a release; the
+# module's own version does not name MoonFrame's.
+scan_nested_mods() {
+  [ -n "$nested_mods" ] || return 0
+  printf '%s\n' "$nested_mods" | while IFS= read -r f; do
+    grep -nE "$release_shape" "$f" 2>/dev/null | sed "s|^|$f:|" || true
+  done | grep -vE '^[^:]+:[0-9]+:[[:space:]]*version[[:space:]]*=' || true
+}
 stray=$(
   {
     scan "$prose" "$release_shape"
     scan "$config" "$release_shape"
     scan "$sources" "^[[:space:]]*(///|//).*$release_shape"
+    scan_nested_mods
   } | grep . | grep -v 'doc-guard: historical' |
     sed -E -e "$third_party_masks" | grep -E "$release_shape" || true
 )
-scanned=$(printf '%s\n%s\n%s\n' "$prose" "$config" "$sources" | grep -c . || true)
+scanned=$(printf '%s\n%s\n%s\n%s\n' "$prose" "$config" "$sources" "$nested_mods" |
+  grep -c . || true)
 
 if [ -n "$stray" ]; then
   printf 'version identity: something other than the two homes names a release:\n'

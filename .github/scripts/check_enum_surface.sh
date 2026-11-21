@@ -89,4 +89,48 @@ if ! diff_out=$(printf '%s\n' "$current" | diff -u "$snapshot" - 2>&1); then
   exit 1
 fi
 
-printf 'enum surface: %s variants match the snapshot\n' "$(count "$current")"
+# A variant payload is a public field in every way that matters: a caller
+# can construct the variant with its own container and match it back out.
+# The facade-surface rule ("no public field may hold a mutable container")
+# therefore covers enum payloads too; the chart mirror's array-carrying
+# variants are listed, with their reason, in the allowlist — the builders
+# copy, and a direct variant construction is explicit AST ownership.
+container='(Array|FixedArray|ArrayView|MutArrayView|ReadOnlyArray|UninitializedArray|Map|HashMap|SortedMap|Set|HashSet|SortedSet|Deque|Queue|PriorityQueue|Ref)\[|(StringBuilder|Buffer)([^[:alnum:]_]|$)'
+array_payloads=$(printf '%s\n' "$current" | grep -E "$container" || true)
+array_keys=$(
+  printf '%s\n' "$array_payloads" |
+    awk -F' \\| ' 'NF == 3 { v=$3; sub(/\(.*/, "", v); print $1 "::" v }' |
+    LC_ALL=C sort -u
+)
+allowlist=".github/scripts/enum_array_payloads.allowlist"
+listed=$(
+  [ -f "$allowlist" ] &&
+    sed -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//' "$allowlist" |
+    grep -v '^$' | awk '{print $1}' | LC_ALL=C sort -u || true
+)
+unlisted=$(printf '%s\n' "$array_keys" | while IFS= read -r key; do
+  [ -n "$key" ] || continue
+  printf '%s\n' "$listed" | grep -qxF "$key" || printf '%s\n' "$key"
+done)
+stale=$(printf '%s\n' "$listed" | while IFS= read -r key; do
+  [ -n "$key" ] || continue
+  printf '%s\n' "$array_keys" | grep -qxF "$key" ||
+    printf '%s\n' "$key"
+done)
+if [ -n "$unlisted" ] || [ -n "$stale" ]; then
+  printf 'enum surface: an enum payload carries a mutable container.\n'
+  if [ -n "$unlisted" ]; then
+    printf '  unlisted (reading the variant hands the container to the caller):\n'
+    printf '%s\n' "$unlisted" | sed 's/^/    /'
+  fi
+  if [ -n "$stale" ]; then
+    printf '  stale allowlist entries (the variant is gone):\n'
+    printf '%s\n' "$stale" | sed 's/^/    /'
+  fi
+  printf '  Make the payload own its data, or list it in %s with a reason.\n' \
+    "$allowlist"
+  exit 1
+fi
+
+printf 'enum surface: %s variants match the snapshot (%s array payload(s) allowlisted)\n' \
+  "$(count "$current")" "$(printf '%s\n' "$listed" | grep -c . || true)"

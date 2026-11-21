@@ -121,7 +121,9 @@ the sweep to the push.
   the guides describe `main` and promise the facade surface, so a reader never
   has to reconcile two numbers, and prose never goes stale for saying which
   release it belongs to. Both halves are enforced — the two are compared, and
-  every other tracked piece of prose (Markdown, the workflow and manifests,
+  every other tracked piece of prose (Markdown, the workflow and every
+  manifest — a nested fixture manifest included, except that fixture module's
+  own `version` key, which is not MoonFrame's release — and
   comment lines in sources) is scanned for a release-shaped version, with
   third-party versions excluded by a list in the guard and a past release opting
   out through `doc-guard: historical`. (Per-release history is the GitHub
@@ -144,7 +146,13 @@ the sweep to the push.
   arm, unreachable while the variant set is closed and so uncoverable — which
   is why only an enum whose exhaustive matches all live in its own package
   can take it (`DataError` cannot: `suberror` rejects the attribute, and
-  `DataType` / `Scalar` are matched across the engine).
+  `DataType` / `Scalar` are matched across the engine). A variant payload is
+  a public field in every way that matters — a caller constructs it with its
+  own container and matches it back out — so the guard also refuses a
+  mutable container in a `pub(all)` variant unless the variant is listed in
+  `.github/scripts/enum_array_payloads.allowlist` with its reason (the chart
+  mirror's array-carrying variants are listed: the builders copy, and a
+  direct variant construction is explicit AST ownership).
 - **Facade surface** — the whole callable surface the facade promises is
   pinned in `.github/scripts/facade_surface.snapshot`, **with signatures**.
   Re-exporting a *type* carries everything callable on it — constructors,
@@ -333,7 +341,10 @@ right-hand side wrapped as `Some(values)` / `(values)`), a plain
 assignment whose branch expression names the parameter (`self.f = if c {
 values } else { other }`), or a method call whose argument is the parameter
 (`stash.push(values)`, `self.init(values)`) — all like the record
-literal it abbreviates. Being lexical, it is conservative: it can
+literal it abbreviates. A record field whose value is a `match` / `if`
+naming the parameter (`row: match row { Some(a) => Some(a.copy()) … }`) is
+read too: the match must show a visible `.copy()`, since the field
+otherwise keeps the caller's array. Being lexical, it is conservative: it can
 reject a shape that is actually safe — a read-only method handed the array is
 flagged too, because which callee keeps its argument is behaviour, not text —
 which is a prompt to make the copy visible

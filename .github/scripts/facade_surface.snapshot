@@ -69,7 +69,8 @@ ctor VegaRowColBool::VegaRowColBool(row? : Bool, column? : Bool) -> Self <- char
 ctor VegaRowColDouble::VegaRowColDouble(row? : Double, column? : Double) -> Self <- chart
 ctor VegaSampleTransform::VegaSampleTransform(sample~ : Double) -> Self <- chart
 ctor VegaScale::VegaScale(type_? : VegaScaleType, domain? : VegaDomain, domain_min? : Double, domain_max? : Double, domain_mid? : Double, range? : VegaRange, range_min? : VegaRangeBound, range_max? : VegaRangeBound, scheme? : VegaScheme, reverse? : Bool, round? : Bool, clamp? : Bool, zero? : Bool, exponent? : Double, base? : Double, constant? : Double, interpolate? : VegaInterpolate, nice? : VegaNice, align? : Double, padding? : Double, padding_inner? : Double, padding_outer? : Double, bins? : VegaBins) -> Self <- chart
-ctor VegaScaleConfig::VegaScaleConfig(animation_duration? : Double, band_padding_inner? : Double, band_padding_outer? : Double, band_with_nested_offset_padding_inner? : Double, band_with_nested_offset_padding_outer? : Double, bar_band_padding_inner? : Double, clamp? : Bool, continuous_padding? : Double, frames_per_second? : Double, invalid? : Bool, max_band_size? : Double, max_font_size? : Double, max_opacity? : Double, max_size? : Double, max_stroke_width? : Double, min_band_size? : Double, min_font_size? : Double, min_opacity? : Double, min_size? : Double, min_stroke_width? : Double, offset_band_padding_inner? : Double, offset_band_padding_outer? : Double, point_padding? : Double, quantile_count? : Double, quantize_count? : Double, rect_band_padding_inner? : Double, round? : Bool, tick_band_padding_inner? : Double, use_unaggregated_domain? : Bool, x_reverse? : Bool, zero? : Bool) -> Self <- chart
+ctor VegaScaleConfig::VegaScaleConfig(animation_duration? : Double, band_padding_inner? : Double, band_padding_outer? : Double, band_with_nested_offset_padding_inner? : Double, band_with_nested_offset_padding_outer? : Double, bar_band_padding_inner? : Double, clamp? : Bool, continuous_padding? : Double, frames_per_second? : Double, invalid? : VegaScaleInvalidDataConfig, max_band_size? : Double, max_font_size? : Double, max_opacity? : Double, max_size? : Double, max_stroke_width? : Double, min_band_size? : Double, min_font_size? : Double, min_opacity? : Double, min_size? : Double, min_stroke_width? : Double, offset_band_padding_inner? : Double, offset_band_padding_outer? : Double, point_padding? : Double, quantile_count? : Double, quantize_count? : Double, rect_band_padding_inner? : Double, round? : Bool, tick_band_padding_inner? : Double, use_unaggregated_domain? : Bool, x_reverse? : Bool, zero? : Bool) -> Self <- chart
+ctor VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(angle? : VegaScaleInvalidData, color? : VegaScaleInvalidData, fill? : VegaScaleInvalidData, fill_opacity? : VegaScaleInvalidData, opacity? : VegaScaleInvalidData, radius? : VegaScaleInvalidData, shape? : VegaScaleInvalidData, size? : VegaScaleInvalidData, stroke? : VegaScaleInvalidData, stroke_dash? : VegaScaleInvalidData, stroke_opacity? : VegaScaleInvalidData, stroke_width? : VegaScaleInvalidData, theta? : VegaScaleInvalidData, time? : VegaScaleInvalidData, x? : VegaScaleInvalidData, x_offset? : VegaScaleInvalidData, y? : VegaScaleInvalidData, y_offset? : VegaScaleInvalidData) -> Self <- chart
 ctor VegaScaleResolve::VegaScaleResolve(x? : VegaResolveMode, y? : VegaResolveMode, color? : VegaResolveMode, fill? : VegaResolveMode, stroke? : VegaResolveMode, opacity? : VegaResolveMode, fill_opacity? : VegaResolveMode, stroke_opacity? : VegaResolveMode, stroke_width? : VegaResolveMode, stroke_dash? : VegaResolveMode, size? : VegaResolveMode, shape? : VegaResolveMode, angle? : VegaResolveMode, theta? : VegaResolveMode, radius? : VegaResolveMode, x_offset? : VegaResolveMode, y_offset? : VegaResolveMode) -> Self <- chart
 ctor VegaSchemeParams::VegaSchemeParams(name~ : String, extent? : Array[Double], count? : Double) -> Self <- chart
 ctor VegaSelectionConfig::VegaSelectionConfig(point? : VegaPointSelect, interval? : VegaIntervalSelect) -> Self <- chart
@@ -809,7 +810,7 @@ field VegaScaleConfig.bar_band_padding_inner : Double? <- chart
 field VegaScaleConfig.clamp : Bool? <- chart
 field VegaScaleConfig.continuous_padding : Double? <- chart
 field VegaScaleConfig.frames_per_second : Double? <- chart
-field VegaScaleConfig.invalid : Bool? <- chart
+field VegaScaleConfig.invalid : VegaScaleInvalidDataConfig? <- chart
 field VegaScaleConfig.max_band_size : Double? <- chart
 field VegaScaleConfig.max_font_size : Double? <- chart
 field VegaScaleConfig.max_opacity : Double? <- chart
@@ -831,6 +832,24 @@ field VegaScaleConfig.tick_band_padding_inner : Double? <- chart
 field VegaScaleConfig.use_unaggregated_domain : Bool? <- chart
 field VegaScaleConfig.x_reverse : Bool? <- chart
 field VegaScaleConfig.zero : Bool? <- chart
+field VegaScaleInvalidDataConfig.angle : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.color : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.fill : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.fill_opacity : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.opacity : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.radius : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.shape : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.size : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.stroke : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.stroke_dash : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.stroke_opacity : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.stroke_width : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.theta : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.time : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.x : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.x_offset : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.y : VegaScaleInvalidData? <- chart
+field VegaScaleInvalidDataConfig.y_offset : VegaScaleInvalidData? <- chart
 field VegaScaleResolve.angle : VegaResolveMode? <- chart
 field VegaScaleResolve.color : VegaResolveMode? <- chart
 field VegaScaleResolve.fill : VegaResolveMode? <- chart
@@ -2162,6 +2181,8 @@ qualified VegaRowColDouble <- chart
 qualified VegaSampleTransform <- chart
 qualified VegaScale <- chart
 qualified VegaScaleConfig <- chart
+qualified VegaScaleInvalidData <- chart
+qualified VegaScaleInvalidDataConfig <- chart
 qualified VegaScaleRef <- chart
 qualified VegaScaleResolve <- chart
 qualified VegaScaleType <- chart

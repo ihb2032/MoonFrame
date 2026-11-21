@@ -369,7 +369,10 @@ test "every config leaf fires: view, scale, range, format, composites" {
         bar_band_padding_inner=0.5,
         continuous_padding=1,
         frames_per_second=60,
-        invalid=true,
+        invalid=@chart.VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(
+          color=@chart.VegaScaleInvalidData::ZeroOrMin,
+          x=@chart.VegaScaleInvalidData::Value(Json::number(0)),
+        ),
         max_band_size=100,
         max_opacity=1,
         max_size=200,
@@ -439,17 +442,18 @@ test "every config leaf fires: view, scale, range, format, composites" {
       "\"animationDuration\":500", "\"bandPaddingInner\":0.1", "\"bandPaddingOuter\":0.2",
       "\"bandWithNestedOffsetPaddingInner\":0.3", "\"bandWithNestedOffsetPaddingOuter\":0.4",
       "\"barBandPaddingInner\":0.5", "\"continuousPadding\":1", "\"framesPerSecond\":60",
-      "\"maxBandSize\":100", "\"maxOpacity\":1", "\"maxSize\":200", "\"maxStrokeWidth\":10",
-      "\"minBandSize\":1", "\"minFontSize\":8", "\"minOpacity\":0", "\"minSize\":1",
-      "\"minStrokeWidth\":0", "\"offsetBandPaddingInner\":0.6", "\"offsetBandPaddingOuter\":0.7",
-      "\"quantileCount\":10", "\"quantizeCount\":20", "\"rectBandPaddingInner\":0.8",
-      "\"round\":true", "\"tickBandPaddingInner\":0.9", "\"useUnaggregatedDomain\":true",
-      "\"xReverse\":true", "\"zero\":true", "\"point\":{\"nearest\":true}", "\"ordinal\":[\"o\"]",
-      "\"diverging\":[\"d\"]", "\"heatmap\":[\"h\"]", "\"symbol\":[\"s\"]", "\"box\":{}",
-      "\"outliers\":{}", "\"ticks\":{}", "\"extent\":1", "\"size\":9", "\"extent\":\"stdev\"",
-      "\"extent\":\"ci\"", "\"band\":{}", "\"borders\":{}", "\"tension\":0.9", "\"dateTime\":\"%A\"",
-      "\"numberFormatType\":\"currency\"", "\"normalizedNumberFormat\":\".0%\"",
-      "\"normalizedNumberFormatType\":\"currency\"", "\"timeFormat\":\"%Y\"", "\"timeFormatType\":\"time\"",
+      "\"invalid\":{\"color\":\"zero-or-min\",\"x\":{\"value\":0}}", "\"maxBandSize\":100",
+      "\"maxOpacity\":1", "\"maxSize\":200", "\"maxStrokeWidth\":10", "\"minBandSize\":1",
+      "\"minFontSize\":8", "\"minOpacity\":0", "\"minSize\":1", "\"minStrokeWidth\":0",
+      "\"offsetBandPaddingInner\":0.6", "\"offsetBandPaddingOuter\":0.7", "\"quantileCount\":10",
+      "\"quantizeCount\":20", "\"rectBandPaddingInner\":0.8", "\"round\":true", "\"tickBandPaddingInner\":0.9",
+      "\"useUnaggregatedDomain\":true", "\"xReverse\":true", "\"zero\":true", "\"point\":{\"nearest\":true}",
+      "\"ordinal\":[\"o\"]", "\"diverging\":[\"d\"]", "\"heatmap\":[\"h\"]", "\"symbol\":[\"s\"]",
+      "\"box\":{}", "\"outliers\":{}", "\"ticks\":{}", "\"extent\":1", "\"size\":9",
+      "\"extent\":\"stdev\"", "\"extent\":\"ci\"", "\"band\":{}", "\"borders\":{}",
+      "\"tension\":0.9", "\"dateTime\":\"%A\"", "\"numberFormatType\":\"currency\"",
+      "\"normalizedNumberFormat\":\".0%\"", "\"normalizedNumberFormatType\":\"currency\"",
+      "\"timeFormat\":\"%Y\"", "\"timeFormatType\":\"time\"",
     ] {
     assert_true(spec.contains(needle))
   }
@@ -742,6 +746,46 @@ test "a theme carries the per-orientation axis keys and the disable flag" {
       "\"axisXTemporal\":{\"format\":\"%Y\"}", "\"axisYBand\":{\"tickExtra\":true}",
       "\"axisYDiscrete\":{\"domain\":true}", "\"axisYPoint\":{\"position\":2}", "\"axisYQuantitative\":{\"minExtent\":10}",
       "\"axisYTemporal\":{\"orient\":\"right\"}",
+    ] {
+    assert_true(spec.contains(needle))
+  }
+}
+
+///|
+test "every scale invalid-data channel emits under its schema key" {
+  let invalid = @chart.VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(
+    angle=@chart.VegaScaleInvalidData::Value(Json::number(45)),
+    color=@chart.VegaScaleInvalidData::ZeroOrMin,
+    fill=@chart.VegaScaleInvalidData::ZeroOrMin,
+    fill_opacity=@chart.VegaScaleInvalidData::ZeroOrMin,
+    opacity=@chart.VegaScaleInvalidData::ZeroOrMin,
+    radius=@chart.VegaScaleInvalidData::ZeroOrMin,
+    shape=@chart.VegaScaleInvalidData::ZeroOrMin,
+    size=@chart.VegaScaleInvalidData::ZeroOrMin,
+    stroke=@chart.VegaScaleInvalidData::ZeroOrMin,
+    stroke_dash=@chart.VegaScaleInvalidData::ZeroOrMin,
+    stroke_opacity=@chart.VegaScaleInvalidData::ZeroOrMin,
+    stroke_width=@chart.VegaScaleInvalidData::ZeroOrMin,
+    theta=@chart.VegaScaleInvalidData::ZeroOrMin,
+    time=@chart.VegaScaleInvalidData::ZeroOrMin,
+    x=@chart.VegaScaleInvalidData::ZeroOrMin,
+    x_offset=@chart.VegaScaleInvalidData::ZeroOrMin,
+    y=@chart.VegaScaleInvalidData::ZeroOrMin,
+    y_offset=@chart.VegaScaleInvalidData::ZeroOrMin,
+  )
+  let spec = themed_spec(
+    @chart.VegaConfig::VegaConfig(
+      scale=@chart.VegaScaleConfig::VegaScaleConfig(invalid~),
+    ),
+  )
+  for
+    needle in [
+      "\"angle\":{\"value\":45}", "\"color\":\"zero-or-min\"", "\"fill\":\"zero-or-min\"",
+      "\"fillOpacity\":\"zero-or-min\"", "\"opacity\":\"zero-or-min\"", "\"radius\":\"zero-or-min\"",
+      "\"shape\":\"zero-or-min\"", "\"size\":\"zero-or-min\"", "\"stroke\":\"zero-or-min\"",
+      "\"strokeDash\":\"zero-or-min\"", "\"strokeOpacity\":\"zero-or-min\"", "\"strokeWidth\":\"zero-or-min\"",
+      "\"theta\":\"zero-or-min\"", "\"time\":\"zero-or-min\"", "\"x\":\"zero-or-min\"",
+      "\"xOffset\":\"zero-or-min\"", "\"y\":\"zero-or-min\"", "\"yOffset\":\"zero-or-min\"",
     ] {
     assert_true(spec.contains(needle))
   }

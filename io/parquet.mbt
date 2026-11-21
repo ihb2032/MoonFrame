@@ -117,22 +117,27 @@ pub fn parse_parquet(
 }
 
 ///|
-/// The parquet scan driver: read the bytes, decode the projected
-/// columns plus the predicate's own (never anything else), then apply
-/// the absorbed predicate and hand back only the projected columns —
-/// the row pruning happens after the decode, the column pruning inside
-/// it, which is exactly where a columnar source can prune. The
-/// predicate's columns ride the decode even when the projection omits
-/// them, the same key-column contract the text drivers' pruner
-/// honours: the optimizer's projection pass narrows a scan to what its
-/// consumers reference, so a pushed predicate reading a pruned column
-/// would otherwise filter a frame that no longer carries it. Served to the
-/// io layer's `scan_parquet` source, which hands the engine the driver
-/// record.
+/// The parquet scan driver: read the bytes once, then walk the file's
+/// row groups as its batches — one group per `next`, the decode
+/// carrying the projected columns plus the predicate's own (never
+/// anything else). An absorbed window resolves against the footer's own
+/// row count and skips the groups outside it outright (the one row
+/// pruning a columnar file without row-group statistics offers past the
+/// projection); a group the window only partly covers decodes and cuts
+/// to the overlap. The row pruning happens after the decode, the column
+/// pruning inside it, which is exactly where a columnar source can
+/// prune. The predicate's columns ride the decode even when the
+/// projection omits them, the same key-column contract the text
+/// drivers' pruner honours: the optimizer's projection pass narrows a
+/// scan to what its consumers reference, so a pushed predicate reading
+/// a pruned column would otherwise filter a frame that no longer
+/// carries it. Served to the io layer's `scan_parquet` source, which
+/// hands the engine the driver record.
 fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
   @scan.ScanDriver::driver(() => "PARQUET \"\{@text.escape_debug(path)}\"", (
     projection,
     predicate,
+    window,
   ) => {
     let bytes = @fs.read_file_to_bytes(path) catch {
       @fs.IOError(msg) => raise @types.DataError::IoError(msg)
@@ -153,21 +158,79 @@ fn parquet_scan_driver(path : String) -> @scan.ScanDriver {
       (Some(cols), None) => Some(cols)
       (None, _) => None
     }
-    let frame = match decoded {
-      Some(names) => parse_parquet(bytes, projection=names)
-      None => parse_parquet(bytes)
+    let reader = match decoded {
+      Some(names) =>
+        @parquet.ParquetGroupReader::group_reader(bytes, Some(names))
+      None => @parquet.ParquetGroupReader::group_reader(bytes, None)
     }
-    let kept = match predicate {
-      Some(pred) => frame.filter(pred)
-      None => frame
+    // The window as an absolute [start, start + len) row range against
+    // the file's declared rows — `resolve` saturates exactly as the
+    // eager window verbs do, and start + len stays inside the row count,
+    // so the Int32 arithmetic below cannot wrap.
+    let total = reader.total_rows()
+    let (w0, wlen) = match window {
+      Some(w) => w.resolve(total)
+      None => (0, total)
     }
-    // The projected columns in the file's own schema order (a name the
-    // file does not carry builds no column, and the batch's separately
-    // carried height keeps the rows — the `N×0` shape).
-    let columns : Array[@series.Series] = match projection {
-      Some(cols) => kept.column_series().filter(s => cols.contains(s.name()))
-      None => kept.column_series()
-    }
-    @scan.ScanBatch::batch(columns, kept.nrows())
+    // The cursor's place: the next group index, and the rows before that
+    // group — array cells, so the step closure sees its own earlier
+    // answers on every later call.
+    let place : Array[Int32] = [0, 0]
+    @scan.BatchCursor::cursor(() => {
+      let groups = reader.group_count()
+      let mut i = place[0]
+      let mut rows_before = place[1]
+      // Skip the groups that end at or before the window's start — their
+      // chunks are never asked for.
+      while i < groups {
+        let grows = reader.group_rows(i)
+        if rows_before + grows <= w0 {
+          i = i + 1
+          rows_before = rows_before + grows
+        } else {
+          break
+        }
+      }
+      // Past the last group, or the window entirely behind us: done.
+      if i >= groups || rows_before >= w0 + wlen {
+        return None
+      }
+      let (pairs, grows) = reader.decode_group(i)
+      place[0] = i + 1
+      place[1] = rows_before + grows
+      // The window's overlap with this group — a group the window cuts
+      // through keeps only the overlapping rows of every column.
+      let lo = if w0 > rows_before { w0 - rows_before } else { 0 }
+      let hi = if w0 + wlen - rows_before < grows {
+        w0 + wlen - rows_before
+      } else {
+        grows
+      }
+      let columns : Array[@series.Series] = []
+      let rows = if lo > 0 || hi < grows {
+        for pair in pairs {
+          columns.push(pair.1.slice_series(lo, hi - lo))
+        }
+        hi - lo
+      } else {
+        for pair in pairs {
+          columns.push(pair.1)
+        }
+        grows
+      }
+      let frame = @frame.DataFrame::from_parts(columns, rows)
+      let kept = match predicate {
+        Some(pred) => frame.filter(pred)
+        None => frame
+      }
+      // The projected columns in the file's own schema order (a name the
+      // file does not carry builds no column, and the batch's separately
+      // carried height keeps the rows — the `N×0` shape).
+      let out : Array[@series.Series] = match projection {
+        Some(cols) => kept.column_series().filter(s => cols.contains(s.name()))
+        None => kept.column_series()
+      }
+      Some(@scan.ScanBatch::batch(out, kept.nrows()))
+    })
   })
 }

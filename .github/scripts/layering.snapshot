@@ -30,6 +30,7 @@ internal/parquet -> internal/text
 internal/parquet -> series
 internal/parquet -> types
 internal/scan -> expr
+internal/scan -> internal/order
 internal/scan -> series
 internal/scan -> types
 io -> frame

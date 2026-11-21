@@ -12,6 +12,12 @@ import {
 // Errors
 
 // Types and methods
+pub struct BatchCursor {
+  // private fields
+}
+pub fn BatchCursor::cursor(() -> ScanBatch? raise @types.DataError) -> Self
+pub fn BatchCursor::next(Self) -> ScanBatch? raise @types.DataError
+
 pub struct ScanBatch {
   // private fields
 }
@@ -22,9 +28,16 @@ pub fn ScanBatch::height(Self) -> Int32
 pub struct ScanDriver {
   // private fields
 }
-pub fn ScanDriver::driver(() -> String, (Array[String]?, @expr.Expr?) -> ScanBatch raise @types.DataError) -> Self
+pub fn ScanDriver::batches(Self, projection? : Array[String]?, predicate? : @expr.Expr?, window? : ScanWindow?) -> BatchCursor raise @types.DataError
+pub fn ScanDriver::driver(() -> String, (Array[String]?, @expr.Expr?, ScanWindow?) -> BatchCursor raise @types.DataError) -> Self
 pub fn ScanDriver::label(Self) -> String
-pub fn ScanDriver::scan(Self, projection? : Array[String]?, predicate? : @expr.Expr?) -> ScanBatch raise @types.DataError
+
+pub(all) enum ScanWindow {
+  Head(Int32)
+  Tail(Int32)
+  Slice(Int32, Int32?)
+}
+pub fn ScanWindow::resolve(Self, Int32) -> (Int32, Int32)
 
 // Type aliases
 

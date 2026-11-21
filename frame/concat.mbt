@@ -12,6 +12,76 @@
 // gather's do, since the backend follows the assembled content.
 
 ///|
+/// The stacking kernel the public two-frame verb and the engine's batch
+/// assembly ride: `frames` stacked column-for-column by position — every
+/// frame must agree with the first on column count, name, and dtype per
+/// slot — one series built per column over all the frames' concatenated
+/// cells, so each row is copied once no matter how many frames stack.
+/// `verb` names the operation in the refusal messages (the two-frame
+/// spelling passes `"vstack"`, the engine's batch assembly its own).
+/// The stacked height is the plain sum; a sum past 2^31 would wrap, but
+/// every column below materialises that many cells first and allocation
+/// fails long before the count wraps — so there is deliberately no guard
+/// here, only the comment (a guard would be an untestable dead arm).
+fn stack_frames(
+  verb : String,
+  frames : Array[DataFrame],
+) -> DataFrame raise @types.DataError {
+  // An empty stack has nothing to disagree about — the 0×0 frame is the
+  // total answer (a cursor that yields no batches assembles to it).
+  match frames.get(0) {
+    None => return DataFrame::from_parts([], 0)
+    Some(seed) => {
+      let first = seed
+      let ncols = first.ncols()
+      let mut height = 0L
+      for frame in frames {
+        if frame.ncols() != ncols {
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "\{verb} needs equal column counts: \{ncols} vs \{frame.ncols()}",
+            ),
+          )
+        }
+        height = height + frame.nrows().to_int64()
+      }
+      let cols : Array[Series] = []
+      for i in 0..<ncols {
+        let top = first.get_column_at(i)
+        let name = top.name()
+        let dtype = top.dtype()
+        // The concatenated cells project through the shared series builder, so
+        // the output keeps the declared dtype and takes the gather-style backend
+        // canonicalisation — an all-valid numeric stack lands on `Numeric`.
+        let cells : Array[@types.Scalar] = []
+        for frame in frames {
+          let column = frame.get_column_at(i)
+          if column.name() != name {
+            raise @types.DataError::TypeMismatch(
+              @types.TypeMismatchDetail::Message(
+                "\{verb} column \{i} is \{name} but the stacked column is \{column.name()}",
+              ),
+            )
+          }
+          if column.dtype() != dtype {
+            raise @types.DataError::TypeMismatch(
+              @types.TypeMismatchDetail::Message(
+                "\{verb} column \{i} (\{name}) is \{dtype} but the stacked column is \{column.dtype()}",
+              ),
+            )
+          }
+          for c in column.to_scalars() {
+            cells.push(c)
+          }
+        }
+        cols.push(scalars_to_series(dtype, name, cells))
+      }
+      DataFrame::from_parts(cols, height.to_int())
+    }
+  }
+}
+
+///|
 /// The rows of `other` appended under `self`'s, as one frame.
 /// Raises `TypeMismatch` when the column counts
 /// differ, when any same-position pair of columns carries different names,
@@ -21,46 +91,5 @@ pub fn DataFrame::vstack(
   self : DataFrame,
   other : DataFrame,
 ) -> DataFrame raise @types.DataError {
-  if self.ncols() != other.ncols() {
-    raise @types.DataError::TypeMismatch(
-      @types.TypeMismatchDetail::Message(
-        "vstack needs equal column counts: \{self.ncols()} vs \{other.ncols()}",
-      ),
-    )
-  }
-  // The stacked height is the plain sum. A sum past 2^31 would wrap, but
-  // every column below materialises `self.nrows() + other.nrows()` cells
-  // first and allocation fails long before the count wraps — so there is
-  // deliberately no guard here, only the comment (a guard would be an
-  // untestable dead arm).
-  let height = self.nrows() + other.nrows()
-  let cols : Array[Series] = []
-  for i in 0..<self.ncols() {
-    let top = self.get_column_at(i)
-    let bottom = other.get_column_at(i)
-    if top.name() != bottom.name() {
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Message(
-          "vstack column \{i} is \{top.name()} but the stacked column is \{bottom.name()}",
-        ),
-      )
-    }
-    let dtype = top.dtype()
-    if dtype != bottom.dtype() {
-      raise @types.DataError::TypeMismatch(
-        @types.TypeMismatchDetail::Message(
-          "vstack column \{i} (\{top.name()}) is \{dtype} but the stacked column is \{bottom.dtype()}",
-        ),
-      )
-    }
-    // The concatenated cells project through the shared series builder, so
-    // the output keeps the declared dtype and takes the gather-style backend
-    // canonicalisation — an all-valid numeric stack lands on `Numeric`.
-    let cells = top.to_scalars()
-    for c in bottom.to_scalars() {
-      cells.push(c)
-    }
-    cols.push(scalars_to_series(dtype, top.name(), cells))
-  }
-  DataFrame::from_parts(cols, height)
+  stack_frames("vstack", [self, other])
 }

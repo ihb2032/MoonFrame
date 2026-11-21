@@ -76,8 +76,9 @@ libraries — not a derivative work of either codebase.
   full `how` set is carried — `Inner` / `Left` / `Right` / `Outer` /
   `Cross` / `Semi` / `Anti`, the last two the left-schema existence
   filters.
-- **`/` is always `Float`** — integer operands promote; division by zero is
-  IEEE `±inf` / `NaN`, never a trap.
+- **`Int` / `Float` division is always `Float`** — integer operands promote;
+  a `Decimal` pair stays `Decimal`. Division by zero is IEEE `±inf` / `NaN`,
+  never a trap.
 - **Whole-frame vs single-column reductions** — `df.sum()` returns a
   one-row frame (Polars' `df.sum()`); a scalar comes from
   `df.get_column(c).sum()` (Polars' `df[c].sum()`).
@@ -93,7 +94,8 @@ libraries — not a derivative work of either codebase.
 - **`unique(subset?, keep?)`** keeps first-appearance order
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).
-- **Lazy file sources** — `scan_csv` / `scan_ndjson` / `scan_json` with
+- **Lazy file sources** — `scan_csv` / `scan_ndjson` / `scan_json` (and the
+  columnar `scan_parquet`, covered below) with
   both projection and predicate pushdown into the reader. The pushdowns
   prune the *assembly* — only the consumed columns are built, and only the
   surviving rows' cells are parsed past the predicate's own columns. Two
@@ -101,8 +103,9 @@ libraries — not a derivative work of either codebase.
   tokenised whole (a text format cannot skip to a column without
   walking every record), while a cell's *value* is parsed only when a
   surviving column needs it — the level the other docs' "never parsed"
-  claims name. Every file
-  source, eager and lazy alike, is transparently gzip-aware: a file whose
+  claims name. Every text file
+  source (CSV / JSON / NDJSON), eager and lazy alike, is transparently
+  gzip-aware: a file whose
   bytes open with the gzip magic is decompressed before parsing, and the
   `write_*` entry points compress when the target path ends in `.gz`.
   (Polars has
@@ -232,8 +235,9 @@ here today:
   scans push projections, predicates, and row windows down into the
   reader, but the text formats still tokenise the whole file, and a
   blocking verb holds its whole input (no spilling). The columnar
-  side is native: `scan_parquet` skips unpicked chunks' bytes entirely,
-  and a sunk `head` / `tail` / `slice` skips the row groups outside its
+  side is native: `scan_parquet` skips decoding the unpicked chunks — the
+  file's bytes are still read whole, but only the projected chunks' pages
+  decode — and a sunk `head` / `tail` / `slice` skips the row groups outside its
   window outright (multi-row-group files read; a written file's layout
   is `write_parquet`'s `row_group_rows~`),
   over a module-internal reader / writer

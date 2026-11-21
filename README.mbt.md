@@ -155,9 +155,10 @@ same way.
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `df.to_lazy()` (or `LazyFrame::LazyFrame(df)`), or
-  `scan_csv` / `scan_ndjson` for a
+  `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` for a
   lazy file source (deferred execution with projection *and* predicate pushdown
-  into the reader, not streaming — the file still tokenizes at `collect()`),
+  into the reader — the text formats still tokenise at `collect()`, while the
+  columnar source decodes only the chunks and row groups it needs),
   builds a query plan you can `explain()`; `collect()` runs it through the
   optimizer, producing an equal frame for the cells it reads. What a
   push-down does *not* read, it does not parse — so a parse error confined to a
@@ -286,7 +287,8 @@ deliberate differences, and [`docs/performance.md`](docs/performance.md) for the
 columnar layout and per-operation complexity. A few things that surprise
 newcomers:
 
-- **`/` is always `Float`** (integer operands promote); dividing by zero gives
+- **`Int` / `Float` division is always `Float`** (integer operands promote);
+  a `Decimal` pair stays `Decimal` (see `Expr::div`). Dividing by zero gives
   IEEE `±inf` / `NaN`, never a trap.
 - **`to_x` never fails; `as_x` raises.** `Scalar::to_string` renders any cell
   for display (a null cell gives `""`); `Scalar::as_string` is a typed read
@@ -310,9 +312,11 @@ representation is tested from within, through `*_wbtest.mbt`, so that asserting
 it does not require making it public. Public packages are therefore mostly
 blackbox and `internal/` ones mostly whitebox — an internal package with a
 contract of its own (a parser, a renderer, a comparison) has blackbox tests too,
-and one whose whole surface is driven from a single caller has none of its own
-(`internal/kernel` is covered through `frame`'s expression evaluator, which is
-what exercises every kernel a caller can reach):
+and an internal package whose surface is driven from a single caller is
+exercised through that caller — but its coverage still lives in package-local
+tests: a cross-package call is not counted by `moon coverage analyze`
+(`internal/kernel` pairs `frame`'s expression path with its own `_wbtest` /
+`_test` pins):
 
 ```
 types/      value types, errors (DataError), schemas

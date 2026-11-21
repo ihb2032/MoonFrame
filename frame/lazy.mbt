@@ -172,8 +172,10 @@ pub fn LazyFrame::bottom_k(
 
 ///|
 /// Defer `DataFrame::drop`: remove the columns named by `exprs` (bare `col`
-/// references), keeping every other column. A name absent from the frame, or a
-/// non-`col` expression, surfaces as the eager `drop`'s error at collect time.
+/// references), keeping every other column. A key is resolved by
+/// `Expr::output_name` without evaluation — a computed expression resolves
+/// through its leftmost name, the eager verb's name-only contract — and a
+/// name absent from the frame surfaces as `ColumnNotFound` at collect time.
 pub fn LazyFrame::drop(
   self : LazyFrame,
   exprs : Array[@expr.Expr],
@@ -251,8 +253,9 @@ pub fn LazyFrame::drop_nulls(
 
 ///|
 /// Defer `DataFrame::fill_null`: replace every null cell, in every column,
-/// with `value`. A column whose dtype does not match `value` surfaces the
-/// eager verb's error at collect time.
+/// with `value`. Columns whose dtype differs from `value`'s are left
+/// untouched (not an error), exactly as the eager verb does; `Scalar::Null`
+/// fills nothing.
 pub fn LazyFrame::fill_null(
   self : LazyFrame,
   value : @types.Scalar,
@@ -624,9 +627,12 @@ pub fn LazyGroupBy::len(self : LazyGroupBy) -> LazyFrame {
 /// eager operator it defers, so the result equals running the same
 /// verbs eagerly in the same order. Errors match the eager operators'
 /// (`ColumnNotFound`, `TypeMismatch`, `IndexOutOfBounds`, …) with one
-/// carve-out: a `scan_csv` / `scan_ndjson` source absorbs projection and
+/// carve-out: a file source — `scan_csv` / `scan_ndjson` / `scan_json` /
+/// `scan_parquet` — absorbs projection and
 /// predicate pushdown, so it never parses a column no consumer reads, nor the
-/// non-predicate cells of a row the predicate drops — a `ParseError` confined
+/// non-predicate cells of a row the predicate drops; the columnar source also
+/// skips decoding the chunks and row groups outside the pushed projection and
+/// window — a `ParseError` confined
 /// there, which an eager read-then-filter would raise, does not surface; and
 /// in a file where several columns each hold a parse error, the pushed-down
 /// read (which builds its predicate key columns first) can name a different

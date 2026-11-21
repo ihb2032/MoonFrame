@@ -352,6 +352,8 @@ VegaResolveMode | enum | Independent
 VegaResolveMode | enum | Shared
 VegaRotate | enum | LonLat(Double, Double)
 VegaRotate | enum | LonLatRoll(Double, Double, Double)
+VegaScaleInvalidData | enum | Value(@json.Json)
+VegaScaleInvalidData | enum | ZeroOrMin
 VegaScaleRef | enum | Config(VegaScale)
 VegaScaleRef | enum | Off
 VegaScaleType | enum | Band

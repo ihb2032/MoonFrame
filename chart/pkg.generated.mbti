@@ -1991,7 +1991,7 @@ pub struct VegaScaleConfig {
   clamp : Bool?
   continuous_padding : Double?
   frames_per_second : Double?
-  invalid : Bool?
+  invalid : VegaScaleInvalidDataConfig?
   max_band_size : Double?
   max_font_size : Double?
   max_opacity : Double?
@@ -2014,10 +2014,39 @@ pub struct VegaScaleConfig {
   x_reverse : Bool?
   zero : Bool?
 }
-pub fn VegaScaleConfig::VegaScaleConfig(animation_duration? : Double, band_padding_inner? : Double, band_padding_outer? : Double, band_with_nested_offset_padding_inner? : Double, band_with_nested_offset_padding_outer? : Double, bar_band_padding_inner? : Double, clamp? : Bool, continuous_padding? : Double, frames_per_second? : Double, invalid? : Bool, max_band_size? : Double, max_font_size? : Double, max_opacity? : Double, max_size? : Double, max_stroke_width? : Double, min_band_size? : Double, min_font_size? : Double, min_opacity? : Double, min_size? : Double, min_stroke_width? : Double, offset_band_padding_inner? : Double, offset_band_padding_outer? : Double, point_padding? : Double, quantile_count? : Double, quantize_count? : Double, rect_band_padding_inner? : Double, round? : Bool, tick_band_padding_inner? : Double, use_unaggregated_domain? : Bool, x_reverse? : Bool, zero? : Bool) -> Self
+pub fn VegaScaleConfig::VegaScaleConfig(animation_duration? : Double, band_padding_inner? : Double, band_padding_outer? : Double, band_with_nested_offset_padding_inner? : Double, band_with_nested_offset_padding_outer? : Double, bar_band_padding_inner? : Double, clamp? : Bool, continuous_padding? : Double, frames_per_second? : Double, invalid? : VegaScaleInvalidDataConfig, max_band_size? : Double, max_font_size? : Double, max_opacity? : Double, max_size? : Double, max_stroke_width? : Double, min_band_size? : Double, min_font_size? : Double, min_opacity? : Double, min_size? : Double, min_stroke_width? : Double, offset_band_padding_inner? : Double, offset_band_padding_outer? : Double, point_padding? : Double, quantile_count? : Double, quantize_count? : Double, rect_band_padding_inner? : Double, round? : Bool, tick_band_padding_inner? : Double, use_unaggregated_domain? : Bool, x_reverse? : Bool, zero? : Bool) -> Self
 pub fn VegaScaleConfig::equal(Self, Self) -> Bool
 pub fn VegaScaleConfig::not_equal(Self, Self) -> Bool
 pub fn VegaScaleConfig::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum VegaScaleInvalidData {
+  ZeroOrMin
+  Value(@json.Json)
+}
+
+#derive(Eq, @debug.Debug)
+pub struct VegaScaleInvalidDataConfig {
+  angle : VegaScaleInvalidData?
+  color : VegaScaleInvalidData?
+  fill : VegaScaleInvalidData?
+  fill_opacity : VegaScaleInvalidData?
+  opacity : VegaScaleInvalidData?
+  radius : VegaScaleInvalidData?
+  shape : VegaScaleInvalidData?
+  size : VegaScaleInvalidData?
+  stroke : VegaScaleInvalidData?
+  stroke_dash : VegaScaleInvalidData?
+  stroke_opacity : VegaScaleInvalidData?
+  stroke_width : VegaScaleInvalidData?
+  theta : VegaScaleInvalidData?
+  time : VegaScaleInvalidData?
+  x : VegaScaleInvalidData?
+  x_offset : VegaScaleInvalidData?
+  y : VegaScaleInvalidData?
+  y_offset : VegaScaleInvalidData?
+}
+pub fn VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(angle? : VegaScaleInvalidData, color? : VegaScaleInvalidData, fill? : VegaScaleInvalidData, fill_opacity? : VegaScaleInvalidData, opacity? : VegaScaleInvalidData, radius? : VegaScaleInvalidData, shape? : VegaScaleInvalidData, size? : VegaScaleInvalidData, stroke? : VegaScaleInvalidData, stroke_dash? : VegaScaleInvalidData, stroke_opacity? : VegaScaleInvalidData, stroke_width? : VegaScaleInvalidData, theta? : VegaScaleInvalidData, time? : VegaScaleInvalidData, x? : VegaScaleInvalidData, x_offset? : VegaScaleInvalidData, y? : VegaScaleInvalidData, y_offset? : VegaScaleInvalidData) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum VegaScaleRef {

@@ -1,0 +1,15 @@
+# Public enum variants whose payload is a mutable container. Reading the
+# variant hands the container to the caller exactly as a public field
+# would, so the default rule is "make the payload own its data". These are
+# the chart mirror's explicit AST nodes: the builder functions copy their
+# input, and a caller that writes the variant directly is the owner of the
+# array it passes (the mirror's documented construction contract). Each
+# line is the variant's `Enum::Variant` key and the reason it stays.
+#
+VegaBins::Values — chart mirror: `values` builder copies; direct AST construction owns its array
+VegaChannelSort::Values — chart mirror: `values` builder copies; direct AST construction owns its array
+VegaDomain::Values — chart mirror: `values` builder copies; direct AST construction owns its array
+VegaPredicate::And — chart mirror: `all_of` copies; direct AST construction owns its array
+VegaPredicate::OneOf — chart mirror: `one_of` copies; direct AST construction owns its array
+VegaPredicate::Or — chart mirror: `any_of` copies; direct AST construction owns its array
+VegaRange::Values — chart mirror: `values` builder copies; direct AST construction owns its array

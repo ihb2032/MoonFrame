@@ -61,6 +61,34 @@ class ArrayCopyBoundaryTests(unittest.TestCase):
 }"""
         self.assertEqual(self.retained(source), ["values"])
 
+    def test_record_field_match_with_copy_is_safe(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  {
+    values: match values {
+      Some(a) => Some(a.copy())
+      None => None
+    },
+  }
+}"""
+        self.assertEqual(self.retained(source), [])
+
+    def test_record_field_match_without_copy_retains(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  {
+    values: match values {
+      Some(a) => Some(a)
+      None => None
+    },
+  }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
+    def test_record_field_if_without_copy_retains(self) -> None:
+        source = """pub fn Box::new(values : Array[Int]) -> Box {
+  { values: if flag { values } else { values } }
+}"""
+        self.assertEqual(self.retained(source), ["values"])
+
     def test_assignment_whose_rhs_is_the_parameter(self) -> None:
         # `=` is not `:` — a mut field or a global stash written through
         # plain assignment retains the array just like a record literal.

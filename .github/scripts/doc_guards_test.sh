@@ -183,9 +183,37 @@ mkfixture "$work/v_third_party" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
 addfile "$work/v_third_party" README.md 'MoonBit v0.10.4 changed the manifest.'
 addfile "$work/v_third_party" .github/workflows/ci.yml '  MOONBIT_INSTALL_VERSION: "0.10.4+2cc641edf"
       - uses: actions/checkout@fbc6f39 # v5.1.0'
-addfile "$work/v_third_party" moon.pkg '# depends on "owner/pkg@1.2.3"'
+addfile "$work/v_third_party" moon.pkg '# depends on "moonbitlang/x@0.5.6"'
 expect 0 'version: third-party versions are not this project'"'"'s release' \
   sh "$scripts/check_version_identity.sh" "$work/v_third_party"
+
+# The owner list is explicit: a self-coordinate pin is a release name, not a
+# third-party version, in prose and in a manifest alike.
+mkfixture "$work/v_self_pin" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
+addfile "$work/v_self_pin" README.md 'Run `moon add ihb2032/MoonFrame@0.9.0` to pin it.'
+expect_out 1 'names a release' 'version: a self-coordinate pin is not third party' \
+  sh "$scripts/check_version_identity.sh" "$work/v_self_pin"
+
+# Every manifest is scanned, nested fixtures included — a dependency pin or
+# a comment there is still a release name.
+mkfixture "$work/v_nested_mod" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
+addfile "$work/v_nested_mod" .github/fixtures/smoke/moon.mod \
+  'name = "smoke"
+version = "0.1.0"
+import {
+  "ihb2032/MoonFrame@0.7.0",
+}'
+expect_out 1 'names a release' 'version: a nested manifest is scanned' \
+  sh "$scripts/check_version_identity.sh" "$work/v_nested_mod"
+
+# A nested module's own `version =` key is that module's version, not this
+# project's release, so it is the one line the nested scan leaves out.
+mkfixture "$work/v_nested_version" 0.5.8 '## v0.5.8 → v0.6.0 (unreleased)'
+addfile "$work/v_nested_version" .github/fixtures/smoke/moon.mod \
+  'name = "smoke"
+version = "0.1.0"'
+expect 0 'version: a nested module own version is not this project'"'"'s' \
+  sh "$scripts/check_version_identity.sh" "$work/v_nested_version"
 
 # The escape hatch, shared with the stale-name guard: a line that must name a
 # past release says so.
@@ -344,6 +372,31 @@ mkenum "$work/e_opaque" types/pkg.generated.mbti 'pub enum Color {
 }' ''
 expect 0 'enum: a plain pub enum is not matchable, so not locked' \
   sh "$scripts/check_enum_surface.sh" "$work/e_opaque"
+
+# A variant payload can hand a mutable container to the caller just as a
+# public field can. The array-payload rule needs an explicit allowlist
+# entry, and a stale entry fails so the list cannot rot.
+mkenum "$work/e_array_ok" types/pkg.generated.mbti 'pub(all) enum Bag {
+  Values(Array[Int])
+}' 'Bag | enum | Values(Array[Int])'
+printf '%s\n' 'Bag::Values — test fixture' \
+  >"$work/e_array_ok/.github/scripts/enum_array_payloads.allowlist"
+expect 0 'enum: an allowlisted array payload passes' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_array_ok"
+
+mkenum "$work/e_array_unlisted" types/pkg.generated.mbti 'pub(all) enum Bag {
+  Values(Array[Int])
+}' 'Bag | enum | Values(Array[Int])'
+expect_out 1 'mutable container' 'enum: an unlisted array payload fails' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_array_unlisted"
+
+mkenum "$work/e_array_stale" types/pkg.generated.mbti 'pub(all) enum Bag {
+  Plain
+}' 'Bag | enum | Plain'
+printf '%s\n' 'Bag::Values — gone by now' \
+  >"$work/e_array_stale/.github/scripts/enum_array_payloads.allowlist"
+expect_out 1 'stale allowlist' 'enum: a stale array-payload entry fails' \
+  sh "$scripts/check_enum_surface.sh" "$work/e_array_stale"
 
 # ── facade surface ────────────────────────────────────────────────────────
 mkfacadesurface() {

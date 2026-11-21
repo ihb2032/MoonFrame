@@ -266,7 +266,7 @@ test "group rows past the count and hostile counts refuse" {
   let negative = hostile_group_file(
     ["v"],
     0L,
-    [("v", -5L, 0L), ("v", 5L, 0L)],
+    [("v", -5L, -5L), ("v", 5L, 5L)],
     Bytes::from_array([]),
   )
   let neg_reader = ParquetGroupReader::group_reader(negative, None)
@@ -282,7 +282,7 @@ test "group rows past the count and hostile counts refuse" {
   let huge = hostile_group_file(
     ["v"],
     3_000_000_000L,
-    [("v", 3_000_000_000L, 0L)],
+    [("v", 3_000_000_000L, 3_000_000_000L)],
     Bytes::from_array([]),
   )
   let huge_reader = ParquetGroupReader::group_reader(huge, None)
@@ -362,7 +362,7 @@ test "a file-wide row count past a frame's height refuses the total" {
   let file = hostile_group_file(
     ["v"],
     3_000_000_000L,
-    [("v", 3_000_000_000L, 0L)],
+    [("v", 3_000_000_000L, 3_000_000_000L)],
     Bytes::from_array([]),
   )
   let reader = ParquetGroupReader::group_reader(file, None)
@@ -396,4 +396,32 @@ test "a group row count cut off mid-varint refuses the walk" {
   let groups : Array[GroupRaw] = []
   assert_false(row_groups_read(r, groups))
   assert_eq(groups.length(), 0)
+}
+
+///|
+test "a chunk count disagreeing with its group refuses at the footer" {
+  // The whole-file read decodes by the chunk count; the batch read takes
+  // its height from the group count. A file where the two disagree would
+  // answer two different heights, so the footer walk refuses it before
+  // either engine decodes a page.
+  let file = hostile_group_file(
+    ["v"],
+    5L,
+    [("v", 5L, 3L)],
+    Bytes::from_array([]),
+  )
+  let whole = Ok(ignore(read_parquet_frame(file, None))) catch { e => Err(e) }
+  assert_true(
+    whole
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(msg))) &&
+    msg.contains("declares 3 values but the group declares 5 rows"),
+  )
+  let opened = Ok(ignore(ParquetGroupReader::group_reader(file, None))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    opened
+    is Err(@types.DataError::ParseError(@types.ParseErrorDetail::Message(gmsg))) &&
+    gmsg.contains("declares 3 values but the group declares 5 rows"),
+  )
 }

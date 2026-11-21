@@ -13,6 +13,11 @@ import {
 // Errors
 
 // Types and methods
+pub struct BatchStream {
+  // private fields
+}
+pub fn BatchStream::next(Self) -> DataFrame? raise @types.DataError
+
 #derive(Eq, @debug.Debug)
 pub struct DataFrame {
   // private fields
@@ -170,6 +175,7 @@ pub struct LazyFrame {
 pub fn LazyFrame::LazyFrame(DataFrame) -> Self
 pub fn LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self
 pub fn LazyFrame::collect(Self, optimizations? : Optimizations) -> DataFrame raise @types.DataError
+pub fn LazyFrame::collect_batches(Self, optimizations? : Optimizations) -> BatchStream raise @types.DataError
 pub fn LazyFrame::count(Self) -> Self
 pub fn LazyFrame::drop(Self, Array[@expr.Expr]) -> Self
 pub fn LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self

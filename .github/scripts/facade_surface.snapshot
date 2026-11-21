@@ -1053,6 +1053,7 @@ intermediate LazyGroupBy <- frame
 intermediate Plot <- chart
 intermediate WhenThen <- expr
 intermediate WhenThenElse <- expr
+method BatchStream::next(Self) -> DataFrame? raise @types.DataError <- frame
 method CellParseLocation::equal(Self, Self) -> Bool <- types
 method CellParseLocation::not_equal(Self, Self) -> Bool <- types
 method CellParseLocation::to_repr(Self) -> @debug.Repr <- types
@@ -1399,6 +1400,7 @@ method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
 method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- frame
 method LazyFrame::collect(Self, optimizations? : Optimizations) -> DataFrame raise @types.DataError <- frame
+method LazyFrame::collect_batches(Self, optimizations? : Optimizations) -> BatchStream raise @types.DataError <- frame
 method LazyFrame::count(Self) -> Self <- frame
 method LazyFrame::drop(Self, Array[@expr.Expr]) -> Self <- frame
 method LazyFrame::drop_nulls(Self, subset? : Array[@expr.Expr]) -> Self <- frame
@@ -2191,6 +2193,7 @@ qualified VegaWindowField <- chart
 qualified VegaWindowFieldOp <- chart
 qualified VegaWindowOnlyOp <- chart
 qualified VegaWindowTransform <- chart
+type BatchStream <- frame
 type CellParseLocation <- types
 type Chart <- chart
 type ChartKind <- chart

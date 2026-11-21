@@ -79,6 +79,8 @@ pub fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @ty
 // Types and methods
 
 // Type aliases
+pub using @frame {type BatchStream}
+
 pub using @types {type CellParseLocation}
 
 pub using @chart {type Chart}

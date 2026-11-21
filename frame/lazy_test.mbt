@@ -1158,3 +1158,103 @@ test "semi / anti joins defer and collect to their eager equivalents" {
     assert_true(plan.explain().contains(label))
   }
 }
+
+///|
+test "collect_batches answers collect's result in order" {
+  // The streaming contract's value half: stacking the batches in order
+  // yields exactly `collect`'s frame — same rows, same order — and the
+  // stream exhausts cleanly.
+  let lf = LazyFrame::LazyFrame(
+      DataFrame::DataFrame([
+        Series::from_int_options("v", [Some(1), None, Some(3), Some(2)]),
+        Series::from_string_options("s", [Some("a"), Some("b"), None, Some("a")]),
+      ]),
+    )
+    .filter(@expr.col("v").is_not_null())
+    .with_columns([(@expr.col("v") * @expr.lit_int(2)).with_alias("d")])
+  let stream = lf.collect_batches()
+  let collected = lf.collect()
+  let mut stacked = None
+  let mut count = 0
+  while true {
+    match stream.next() {
+      Some(batch) => {
+        count = count + 1
+        stacked = match stacked {
+          None => Some(batch)
+          Some(acc) => Some(acc.vstack(batch))
+        }
+      }
+      None => break
+    }
+  }
+  assert_true(count >= 1)
+  let answer = match stacked {
+    Some(acc) => acc
+    None => fail("the stream answered no batch")
+  }
+  assert_eq(answer.shape(), collected.shape())
+  assert_eq(answer.columns(), collected.columns())
+  for name in collected.columns() {
+    assert_eq(
+      answer.get_column(name).to_scalars(),
+      collected.get_column(name).to_scalars(),
+    )
+  }
+}
+
+///|
+test "a plan ending in a blocking verb answers one batch" {
+  // A sort reads every row before it answers any, so the streaming face
+  // of a sorted plan is its whole frame — one batch, then exhaustion.
+  let lf = LazyFrame::LazyFrame(
+    DataFrame::DataFrame([Series::from_ints("v", [3, 1, 2])]),
+  ).sort([(@expr.col("v"), false, false)])
+  let stream = lf.collect_batches()
+  let only = stream.next()
+  assert_true(only is Some(_))
+  match only {
+    Some(batch) =>
+      assert_eq(batch.get_column("v").to_scalars(), [
+        @types.Scalar::Int(1),
+        @types.Scalar::Int(2),
+        @types.Scalar::Int(3),
+      ])
+    None => fail("just asserted a batch")
+  }
+  assert_true(stream.next() is None)
+  assert_true(stream.next() is None)
+}
+
+///|
+test "a shared-subplan stream answers its whole frame once" {
+  // The DAG fallback keeps the interpreter's path, and its one batch is
+  // the whole frame — the stacked batches still equal `collect`.
+  let shared = LazyFrame::LazyFrame(
+    DataFrame::DataFrame([Series::from_ints("k", [1, 2])]),
+  ).filter(@expr.col("k").gt(@expr.lit_int(0)))
+  let dag = shared.join(shared, JoinOptions::on([@expr.col("k")]))
+  let stream = dag.collect_batches()
+  let first = stream.next()
+  assert_true(first is Some(_))
+  assert_true(stream.next() is None)
+  match first {
+    Some(batch) => assert_eq(batch.shape(), dag.collect().shape())
+    None => fail("just asserted a batch")
+  }
+}
+
+///|
+test "the first pull raises the read the builder never made" {
+  // Nothing reads until the first `next` — the missing column's error
+  // surfaces there, the same error `collect` raises.
+  let lf = LazyFrame::LazyFrame(
+    DataFrame::DataFrame([Series::from_ints("v", [1])]),
+  ).filter(@expr.col("nope").gt(@expr.lit_int(0)))
+  let pulled = Ok(ignore(lf.collect_batches().next())) catch { e => Err(e) }
+  let collected = Ok(ignore(lf.collect())) catch { e => Err(e) }
+  match (pulled, collected) {
+    (Err(p), Err(c)) => assert_eq(p.to_string(), c.to_string())
+    _ => fail("both entries were expected to fail")
+  }
+}

@@ -45,33 +45,74 @@
 // format files, package-private to `io`.
 
 ///|
-/// The one driver skeleton both format drivers ride: read the file, turn an
-/// absorbed predicate into the pruner contract (its key columns plus the
-/// row-selection callback — the single place that pairing is spelled), and
-/// wrap the format core's frame as a batch. A format driver is then its
-/// label and its projected / pruned core, nothing else.
+/// The one driver skeleton the three text formats ride: a cursor whose
+/// first — and only — step reads the file through the format's
+/// projected / pruned core, one batch over the whole read. The read
+/// happens at first `next`, not at open, so opening stays cheap and the
+/// read's failures surface exactly where an eager read's would. An
+/// absorbed window is applied after the read (`apply_scan_window` below
+/// — the one place a textual source can apply one, its read having no
+/// row granularity to skip). A format driver is then its label and its
+/// projected / pruned core, nothing else.
 fn file_scan_driver(
   path : String,
   label : String,
   read : (String, Array[String]?, RowPruner?) -> @frame.DataFrame raise @types.DataError,
 ) -> @scan.ScanDriver {
-  @scan.ScanDriver::driver(() => label, (projection, predicate) => {
-    let pruner : RowPruner? = predicate.map(pred => {
-      // The column names an absorbed predicate reads — all the reader core
-      // needs to build its key columns and prune. Order is irrelevant: the
-      // reader filters its own header order by membership.
-      let names : Array[String] = []
-      for name in pred.referenced_columns() {
-        names.push(name)
+  @scan.ScanDriver::driver(() => label, (projection, predicate, window) => {
+    // The cursor's spent flag — an array cell, so the step closure sees
+    // its own earlier answer on every later call.
+    let spent : Array[Bool] = [false]
+    @scan.BatchCursor::cursor(() => {
+      if spent[0] {
+        return None
       }
-      (names, df => df.filter_row_indices(pred))
+      spent[0] = true
+      let pruner : RowPruner? = predicate.map(pred => {
+        // The column names an absorbed predicate reads — all the reader
+        // core needs to build its key columns and prune. Order is
+        // irrelevant: the reader filters its own header order by
+        // membership.
+        let names : Array[String] = []
+        for name in pred.referenced_columns() {
+          names.push(name)
+        }
+        (names, df => df.filter_row_indices(pred))
+      })
+      let frame = apply_scan_window(
+        read(read_text(path), projection, pruner),
+        window,
+      )
+      // The batch wraps the frame's columns plus its height — the height
+      // rides separately so a projection matching no column keeps the
+      // file's rows (the `N×0` shape) rather than collapsing to zero.
+      Some(@scan.ScanBatch::batch(frame.column_series(), frame.nrows()))
     })
-    let frame = read(read_text(path), projection, pruner)
-    // The batch wraps the frame's columns plus its height — the height rides
-    // separately so a projection matching no column keeps the file's rows
-    // (the `N×0` shape) rather than collapsing to zero.
-    @scan.ScanBatch::batch(frame.column_series(), frame.nrows())
   })
+}
+
+///|
+/// Apply an absorbed window to an already-read frame — the textual
+/// sources' one way to honour one, by cutting the frame the read built.
+/// The eager window verbs themselves do the arithmetic, so the cut and
+/// the node the optimizer would have left in place spell one window.
+fn apply_scan_window(
+  frame : @frame.DataFrame,
+  window : @scan.ScanWindow?,
+) -> @frame.DataFrame {
+  match window {
+    None => frame
+    Some(w) =>
+      match w {
+        @scan.ScanWindow::Head(n) => frame.head(n)
+        @scan.ScanWindow::Tail(n) => frame.tail(n)
+        @scan.ScanWindow::Slice(offset, length) =>
+          match length {
+            Some(len) => frame.slice(offset, length=len)
+            None => frame.slice(offset)
+          }
+      }
+  }
 }
 
 ///|

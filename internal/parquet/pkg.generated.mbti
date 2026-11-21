@@ -9,7 +9,7 @@ import {
 // Values
 pub fn read_parquet_frame(Bytes, Array[String]?) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
 
-pub fn write_parquet_bytes(Array[@series.Series], Array[String], Codec) -> Bytes raise @types.DataError
+pub fn write_parquet_bytes(Array[@series.Series], Array[String], Codec, group_rows? : Int64) -> Bytes raise @types.DataError
 
 // Errors
 
@@ -19,6 +19,16 @@ pub(all) enum Codec {
   Snappy
   Gzip
 }
+
+pub struct ParquetGroupReader {
+  // private fields
+}
+pub fn ParquetGroupReader::decode_group(Self, Int32) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
+pub fn ParquetGroupReader::group_count(Self) -> Int32
+pub fn ParquetGroupReader::group_reader(Bytes, Array[String]?) -> Self raise @types.DataError
+pub fn ParquetGroupReader::group_rows(Self, Int32) -> Int32 raise @types.DataError
+pub fn ParquetGroupReader::schema_group(Self) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
+pub fn ParquetGroupReader::total_rows(Self) -> Int32 raise @types.DataError
 
 // Type aliases
 

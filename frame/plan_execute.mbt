@@ -69,24 +69,35 @@ fn LogicalPlan::execute(self : LogicalPlan) -> DataFrame raise @types.DataError 
 ///|
 /// Read one `ScanSource` into a frame — the `Scan` leaf's half of `execute`.
 /// An in-memory source returns its captured frame as-is (frames are
-/// immutable, so no defensive copy); a file source reads through its driver —
-/// the whole-file read for the as-built plan, the projected read once the
-/// optimizer filled a projection, the pruned read once it absorbed a
-/// predicate — then assembles the batch into a frame here: the engine, not
-/// the driver, owns assembly. A missing file (`IoError`) or a parse failure
-/// (`ParseError`) surfaces here too. One place to add a new scannable
-/// format's read.
+/// immutable, so no defensive copy); a file source opens through its
+/// driver — the whole-file read for the as-built plan, the projected read
+/// once the optimizer filled a projection, the pruned read once it
+/// absorbed a predicate — and walks the read's batches, assembling them
+/// into one frame here: the engine, not the driver, owns assembly, and a
+/// driver that yields a single batch (every textual source today)
+/// assembles to exactly the frame the single-batch read built. A missing
+/// file (`IoError`) or a parse failure (`ParseError`) surfaces here too.
+/// One place to add a new scannable format's read.
 fn ScanSource::execute_scan(
   self : ScanSource,
 ) -> DataFrame raise @types.DataError {
   match self {
     InMemory(df) => df
     File(fs) => {
-      let batch = fs.driver.scan(
+      let cursor = fs.driver.batches(
         projection=fs.projection,
         predicate=fs.predicate,
+        window=fs.window,
       )
-      DataFrame::from_parts(batch.columns(), batch.height())
+      let frames : Array[DataFrame] = []
+      while true {
+        match cursor.next() {
+          Some(batch) =>
+            frames.push(DataFrame::from_parts(batch.columns(), batch.height()))
+          None => break
+        }
+      }
+      stack_frames("scan assembly", frames)
     }
   }
 }

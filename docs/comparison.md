@@ -223,9 +223,13 @@ here today:
   present too — `pivot` / `unpivot` on both layers — with unpivot's value
   column requiring a
   unifying dtype (`Int` / `Float` widen; no stringly supertype).
-- **Lazy** — no streaming execution: a scan pushes projections and predicates
-  down into the reader, but still tokenises the whole file. The columnar
+- **Lazy** — no streaming execution: a scan pushes projections, predicates,
+  and row windows down into the reader, but the text formats still
+  tokenise the whole file. The columnar
   side is native: `scan_parquet` skips unpicked chunks' bytes entirely,
+  and a sunk `head` / `tail` / `slice` skips the row groups outside its
+  window outright (multi-row-group files read; a written file's layout
+  is `write_parquet`'s `row_group_rows~`),
   over a module-internal reader / writer
   (`read_parquet` / `write_parquet`) — a `FLOAT` column refuses on read
   rather than silently narrowing, and IPC has no reader.

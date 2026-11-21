@@ -135,6 +135,7 @@ fn ScanSource::write_scan_label(self : ScanSource, buf : StringBuilder) -> Unit 
         "SCAN_\{fs.driver.label()}",
         fs.projection,
         fs.predicate,
+        fs.window,
       )
   }
 }
@@ -348,14 +349,17 @@ fn join_label(options : JoinOptions) -> String {
 /// (the path is quoted and escaped there, like a string literal); the
 /// projection (when present) reuses the `SELECT` / `SORT` bracketed-list
 /// shape with each column quoted and escaped the same way — a header
-/// spelling with a break or a quote stays unambiguous on one line — and
-/// an absorbed predicate prints after it, so the leaf reads "which
-/// columns, then which rows". Total — never reads the file.
+/// spelling with a break or a quote stays unambiguous on one line —
+/// and an absorbed predicate prints after it, so the leaf reads "which
+/// columns, then which rows"; an absorbed window prints last, the
+/// window's own `FrameOp` spelling (`HEAD 5` and kin), so the leaf ends
+/// with the row range it reads. Total — never reads the file.
 fn render_scan_source(
   buf : StringBuilder,
   head : String,
   projection : Array[String]?,
   predicate : @expr.Expr?,
+  window : @scan.ScanWindow?,
 ) -> Unit {
   buf.write_string(head)
   match projection {
@@ -368,6 +372,15 @@ fn render_scan_source(
   match predicate {
     None => ()
     Some(pred) => buf <+ " WHERE \{pred}"
+  }
+  // The absorbed window prints last: the deepest push-down, the row
+  // range the read itself applies.
+  match window {
+    None => ()
+    Some(w) => {
+      buf <+ " WINDOW "
+      window_as_frame_op(w).write_frame_op_label(buf)
+    }
   }
 }
 

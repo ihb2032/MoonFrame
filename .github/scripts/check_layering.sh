@@ -99,7 +99,7 @@ allowed_internal_text=""
 allowed_internal_numeric=""
 allowed_internal_order=""
 allowed_internal_buffer="types"
-allowed_internal_scan="types series expr"
+allowed_internal_scan="types series expr internal/order"
 allowed_internal_parquet="types series internal/text"
 verb_packages="frame io"
 

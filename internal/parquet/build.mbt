@@ -94,26 +94,211 @@ fn build_series(
 /// named columns decoded (every column when the projection is `None`),
 /// and the file's declared row count — both answers off the same walk,
 /// so a lenient projection that matches no column reports its `N×0`
-/// height without a second footer parse. The projection is lenient like
-/// the text readers': a name the file does not carry simply builds no
-/// column, and whichever expression references it raises the same
-/// `ColumnNotFound` it would against a full read.
+/// height without a second footer parse. A multi-group file concatenates
+/// each column's cells across its groups — the first group's column
+/// order is the file's, a later group lacking one of those names
+/// refuses, and the per-chunk cell budget holds over the concatenation —
+/// and builds one series per column over the joined cells. The
+/// projection is lenient like the text readers': a name the file does
+/// not carry simply builds no column, and whichever expression
+/// references it raises the same `ColumnNotFound` it would against a
+/// full read.
 pub fn read_parquet_frame(
   bytes : Bytes,
   projection : Array[String]?,
 ) -> (Array[(String, @series.Series)], Int32) raise @types.DataError {
   let footer = read_footer(bytes)
   let picked : Array[(String, @series.Series)] = []
-  for column in footer.columns {
-    let wanted = match projection {
+  // The first group spells the file's column order; a file with no
+  // groups carries no columns (and its row count has already agreed
+  // with the empty sum), so the lenient `N×0` answer is every column it
+  // has.
+  match footer.groups.get(0) {
+    None => ()
+    Some(first) =>
+      for column in first.columns {
+        let wanted = match projection {
+          Some(names) => names.contains(column.chunk.name)
+          None => true
+        }
+        if wanted {
+          // The column's chunks across the groups, located first: the
+          // missing-name refusal and the joined-cell budget both land
+          // before any group's pages decode, on the footer's own counts
+          // alone.
+          let chunks : Array[ColumnRead] = [column]
+          for gi in 1..<footer.groups.length() {
+            let group = footer.groups[gi]
+            match group.find(column.chunk.name) {
+              Some(later) => chunks.push(later)
+              None =>
+                raise bad(
+                  "row group \{gi + 1} lacks the column \"\{column.chunk.name}\" the first group carries",
+                )
+            }
+          }
+          let mut joined = 0L
+          for c in chunks {
+            refuse_impossible_count(c.chunk, bytes.length().to_int64())
+            joined = joined + c.chunk.num_values
+          }
+          if joined > PARQUET_CELL_BUDGET {
+            raise @types.DataError::InvalidOperation(
+              "column \"\{column.chunk.name}\" carries \{joined} cells across its row groups, past the \{PARQUET_CELL_BUDGET}-cell budget a single column read accepts",
+            )
+          }
+          let cells : Array[@types.Scalar?] = []
+          for c in chunks {
+            for cell in decode_chunk_cells(bytes, c) {
+              cells.push(cell)
+            }
+          }
+          picked.push(
+            (
+              column.chunk.name,
+              build_series(column.chunk.name, column.map, cells),
+            ),
+          )
+        }
+      }
+  }
+  (picked, footer_num_rows(footer))
+}
+
+///|
+/// The batch face of a parquet file: the footer parsed once, every row
+/// group decodable on demand — the reader the io layer's scan driver
+/// rides, one group per batch. The projection is the same lenient one
+/// the whole-file entry takes (`None` = every column; a name no group's
+/// first spelling carried builds no column), and each group decodes its
+/// own chunks, so a group outside a pushed row window is simply never
+/// asked for.
+pub struct ParquetGroupReader {
+  priv bytes : Bytes
+  priv footer : ParquetFooter
+  priv projection : Array[String]?
+}
+
+///|
+/// Open a file's group reader: the one footer parse every later call
+/// rides. Raises the footer walk's own refusals here — a malformed file
+/// refuses at open, not per group.
+pub fn ParquetGroupReader::group_reader(
+  bytes : Bytes,
+  projection : Array[String]?,
+) -> ParquetGroupReader raise @types.DataError {
+  // The caller's array is copied at the boundary — the reader owns its
+  // own column list, so a later mutation of theirs cannot retarget it.
+  let own = projection.map(names => names.copy())
+  { bytes, footer: read_footer(bytes), projection: own, }
+}
+
+///|
+/// The file's declared row count as a frame height — the same Int32
+/// check the whole-file entry applies, the height a lenient projection
+/// that matches no column still reports.
+pub fn ParquetGroupReader::total_rows(
+  self : ParquetGroupReader,
+) -> Int32 raise @types.DataError {
+  footer_num_rows(self.footer)
+}
+
+///|
+/// How many row groups the source declares — the batch count a scan over
+/// the source walks.
+pub fn ParquetGroupReader::group_count(self : ParquetGroupReader) -> Int32 {
+  self.footer.groups.length()
+}
+
+///|
+/// One group's own row count as a batch height. A count outside the
+/// Int32 a frame's height rides (or a negative one — a hostile file
+/// whose per-group counts still sum to the file's total) refuses rather
+/// than truncating.
+pub fn ParquetGroupReader::group_rows(
+  self : ParquetGroupReader,
+  i : Int32,
+) -> Int32 raise @types.DataError {
+  if i < 0 || i >= self.footer.groups.length() {
+    raise bad(
+      "row group \{i + 1} is past the file's \{self.footer.groups.length()} groups",
+    )
+  }
+  let n = self.footer.groups[i].num_rows
+  if n < 0L || n > 2147483647L {
+    raise bad(
+      "row group \{i + 1} declares \{n} rows, past a frame's own height",
+    )
+  }
+  n.to_int()
+}
+
+///|
+/// The projected columns as zero-row series — the file's schema, no
+/// cells decoded. The empty-answer corner a window can paint itself
+/// into: a row range that selects nothing still answers the columns it
+/// selected none of, the `0×N` shape an eager read-then-window yields.
+/// A file with no groups carries no columns, so it answers `0×0`.
+pub fn ParquetGroupReader::schema_group(
+  self : ParquetGroupReader,
+) -> (Array[(String, @series.Series)], Int32) raise @types.DataError {
+  let picked : Array[(String, @series.Series)] = []
+  match self.footer.groups.get(0) {
+    None => ()
+    Some(first) =>
+      for column in first.columns {
+        let wanted = match self.projection {
+          Some(names) => names.contains(column.chunk.name)
+          None => true
+        }
+        if wanted {
+          picked.push(
+            (column.chunk.name, build_series(column.chunk.name, column.map, [])),
+          )
+        }
+      }
+  }
+  (picked, 0)
+}
+
+///|
+/// Decode one group's projected columns as series, under the file's own
+/// column order (the first group's spelling; a later group lacking one
+/// of those names refuses, the same whole-file rule). The answer carries
+/// the group's own row count, so a projection matching no column keeps
+/// the group's `N×0` shape.
+pub fn ParquetGroupReader::decode_group(
+  self : ParquetGroupReader,
+  i : Int32,
+) -> (Array[(String, @series.Series)], Int32) raise @types.DataError {
+  if i < 0 || i >= self.footer.groups.length() {
+    raise bad(
+      "row group \{i + 1} is past the file's \{self.footer.groups.length()} groups",
+    )
+  }
+  let group = self.footer.groups[i]
+  let picked : Array[(String, @series.Series)] = []
+  // The first group spells the file's column order; this group answers
+  // each of those names from its own chunks. The bounds check above
+  // already proved a group exists, so the first group's index is safe.
+  let first = self.footer.groups[0]
+  for column in first.columns {
+    let wanted = match self.projection {
       Some(names) => names.contains(column.chunk.name)
       None => true
     }
     if wanted {
-      picked.push((column.chunk.name, decode_column(bytes, column)))
+      match group.find(column.chunk.name) {
+        Some(found) =>
+          picked.push((column.chunk.name, decode_column(self.bytes, found)))
+        None =>
+          raise bad(
+            "row group \{i + 1} lacks the column \"\{column.chunk.name}\" the first group carries",
+          )
+      }
     }
   }
-  (picked, footer_num_rows(footer))
+  (picked, self.group_rows(i))
 }
 
 ///|

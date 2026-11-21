@@ -42,12 +42,48 @@ priv struct ColumnRead {
 }
 
 ///|
-/// The footer walk's result: the paired columns in chunk order, and
-/// the row count field 3 names — the height a lenient projection that
-/// matches no column still reports (the decoded column lengths are the
-/// count a reader can check against it).
-priv struct ParquetFooter {
+/// One row group as the footer walk collects it: its raw chunks and the
+/// row count the group's own field 3 names — the raw form the schema
+/// pairing then turns into a `ParquetGroup`.
+priv struct GroupRaw {
+  chunks : Array[RawChunk]
+  num_rows : Int64
+}
+
+///|
+/// One paired row group: its columns in chunk order, and the group's own
+/// row count. A file's groups are read in their declared order, and a
+/// column's cells across groups concatenate in that order — the row order
+/// a foreign writer's file-wide row sequence spells.
+priv struct ParquetGroup {
   columns : Array[ColumnRead]
+  num_rows : Int64
+}
+
+///|
+/// The group's chunk of a named column, when it carries one. A later
+/// group lacking a name the first group spelled refuses at the caller —
+/// the first group's column order is the file's, and a column that
+/// vanishes between groups leaves a concatenation with no knowable
+/// cells, not one the reader may guess at.
+fn ParquetGroup::find(self : ParquetGroup, name : String) -> ColumnRead? {
+  for column in self.columns {
+    if column.chunk.name == name {
+      return Some(column)
+    }
+  }
+  None
+}
+
+///|
+/// The footer walk's result: the paired row groups and the file-wide row
+/// count field 3 names — the height a lenient projection that matches no
+/// column still reports, and the count the groups' own row counts must
+/// sum to (a disagreement refuses: every boundary the batch reader walks
+/// is derived from the group counts, so a file whose totals disagree is
+/// not a file with a knowable row sequence).
+priv struct ParquetFooter {
+  groups : Array[ParquetGroup]
   num_rows : Int64
 }
 
@@ -92,7 +128,7 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
   // the pairing.
   let schema : Array[SchemaElem] = []
   let mut num_rows = 0L
-  let chunks : Array[RawChunk] = []
+  let groups : Array[GroupRaw] = []
   if !walk_fields_raise(r, (id, wire) => {
       match id {
         2 => {
@@ -107,7 +143,7 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
             None => raise bad("num_rows is malformed")
           }
         4 =>
-          if !row_groups_read(r, chunks) {
+          if !row_groups_read(r, groups) {
             raise bad("the row group list is malformed")
           }
         _ =>
@@ -118,51 +154,76 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
     }) {
     raise bad("the footer ends mid-field")
   }
-  // Pair each chunk with its schema element by column name; the root
-  // element (index 0) is the schema's own head, not a column.
-  let columns : Array[ColumnRead] = []
-  for chunk in chunks {
-    let mut paired : (DtypeMap, Bool)? = None
-    for i in 1..<schema.length() {
-      if schema[i].name == chunk.name {
-        if schema[i].repetition == 2 {
-          raise bad(
-            "column \"\{chunk.name}\" is REPEATED, a nested shape MoonFrame does not read",
-          )
-        }
-        // The chunk's own metadata names the physical type a second
-        // time, and the two spellings must agree: a chunk decoding
-        // INT64 bytes under an INT32 schema row (or any other
-        // disagreement) would decode confidently wrong cells, so the
-        // pairing refuses naming both tags.
-        if schema[i].physical != chunk.physical {
-          raise @types.DataError::InvalidOperation(
-            "column \"\{chunk.name}\" carries physical type \{chunk.physical} in its chunk metadata but physical type \{schema[i].physical} in its schema",
-          )
-        }
-        paired = match
-          map_from_schema(
-            schema[i].physical,
-            schema[i].converted,
-            schema[i].decimal_scale,
-            schema[i].decimal_precision,
-            schema[i].type_length,
-          ) {
-          Some(map) => Some((map, schema[i].repetition == 0))
-          None => None
-        }
-        break
-      }
+  // Pair each group's chunks with the schema elements by column name
+  // (the same pairing for every group — the schema is file-wide), and
+  // check the group counts against the file's own row count: every group
+  // boundary the batch reader walks is derived from the per-group counts,
+  // so the two spellings of the total must agree.
+  let paired : Array[ParquetGroup] = []
+  let mut summed = 0L
+  for group in groups {
+    let columns : Array[ColumnRead] = []
+    for chunk in group.chunks {
+      columns.push(pair_chunk(schema, chunk))
     }
-    match paired {
-      Some((map, required)) => columns.push({ chunk, map, required, })
-      None =>
-        raise @types.DataError::Unsupported(
-          "parquet column \"\{chunk.name}\" carries a dtype MoonFrame cannot map",
+    paired.push({ columns, num_rows: group.num_rows, })
+    summed = summed + group.num_rows
+  }
+  if summed != num_rows {
+    raise bad(
+      "the file declares \{num_rows} rows but its row groups spell \{summed}",
+    )
+  }
+  { groups: paired, num_rows, }
+}
+
+///|
+/// Pair one chunk with its schema element by column name; the root
+/// element (index 0) is the schema's own head, not a column. A REPEATED
+/// row refuses (a nested shape), and a chunk whose own metadata names a
+/// different physical type than its schema row refuses naming both tags:
+/// a chunk decoding INT64 bytes under an INT32 schema row would decode
+/// confidently wrong cells. A chunk whose dtype no mapping carries
+/// refuses as `Unsupported` — the reader's vocabulary, not a malformed
+/// file.
+fn pair_chunk(
+  schema : Array[SchemaElem],
+  chunk : RawChunk,
+) -> ColumnRead raise @types.DataError {
+  let mut paired : (DtypeMap, Bool)? = None
+  for i in 1..<schema.length() {
+    if schema[i].name == chunk.name {
+      if schema[i].repetition == 2 {
+        raise bad(
+          "column \"\{chunk.name}\" is REPEATED, a nested shape MoonFrame does not read",
         )
+      }
+      if schema[i].physical != chunk.physical {
+        raise @types.DataError::InvalidOperation(
+          "column \"\{chunk.name}\" carries physical type \{chunk.physical} in its chunk metadata but physical type \{schema[i].physical} in its schema",
+        )
+      }
+      paired = match
+        map_from_schema(
+          schema[i].physical,
+          schema[i].converted,
+          schema[i].decimal_scale,
+          schema[i].decimal_precision,
+          schema[i].type_length,
+        ) {
+        Some(map) => Some((map, schema[i].repetition == 0))
+        None => None
+      }
+      break
     }
   }
-  { columns, num_rows, }
+  match paired {
+    Some((map, required)) => { chunk, map, required, }
+    None =>
+      raise @types.DataError::Unsupported(
+        "parquet column \"\{chunk.name}\" carries a dtype MoonFrame cannot map",
+      )
+  }
 }
 
 ///|
@@ -383,34 +444,35 @@ fn walk_fields_raise(
 }
 
 ///|
-/// The row-group list (field 4's payload): every group's column chunks,
-/// concatenated in order — for the one group this reader walks. A file
-/// declaring more than one names a shape MoonFrame does not read yet:
-/// concatenating the groups' chunks would splice same-named columns
-/// into one file-wide chunk list, so the count refuses here instead.
-fn row_groups_read(
-  r : ThriftReader,
-  into : Array[RawChunk],
-) -> Bool raise @types.DataError {
+/// The row-group list (field 4's payload): one collected group per
+/// element — its column chunks (field 1) and its own row count (field 3).
+/// The groups land in their declared order, the order a column's cells
+/// concatenate across them.
+fn row_groups_read(r : ThriftReader, into : Array[GroupRaw]) -> Bool {
   let count = match list_header(r, 12) {
     Some(c) => c
     None => return false
   }
-  if count > 1 {
-    raise @types.DataError::Unsupported(
-      "multi-row-group parquet files are not supported yet: the file declares \{count} row groups",
-    )
-  }
   for _ in 0..<count {
+    let chunks : Array[RawChunk] = []
+    let mut rows = 0L
     if !walk_fields(r, (id, wire) => {
-        if id == 1 {
-          column_chunks_read(r, into)
-        } else {
-          r.skip(wire)
+        match id {
+          1 => column_chunks_read(r, chunks)
+          3 =>
+            match r.zigzag_i64() {
+              Some(v) => {
+                rows = v
+                true
+              }
+              None => false
+            }
+          _ => r.skip(wire)
         }
       }) {
       return false
     }
+    into.push({ chunks, num_rows: rows, })
   }
   true
 }
@@ -581,23 +643,41 @@ fn gzip_page_body_capped(
 /// MoonFrame writes reads back, and the foreign shapes the mapping
 /// accepts (PLAIN and RLE_DICTIONARY under V1 / V2) decode too; the
 /// rest refuse with the column named.
-fn decode_column(
+
+///|
+/// One chunk's declared value count against the file it lives in: a
+/// chunk cannot carry more values than its bytes could spell — eight
+/// one-bit cells to a byte is the densest parquet encoding — so the
+/// count rides an Int64 against the file's own length, and a
+/// hundred-byte file claiming two billion values refuses here, before
+/// any allocation the count would name. The whole-file multi-group read
+/// runs the same refusal over each group's chunk before any of them
+/// decodes, keeping the single-chunk precedence.
+fn refuse_impossible_count(
+  chunk : RawChunk,
+  file_len : Int64,
+) -> Unit raise @types.DataError {
+  if chunk.num_values < 0L || chunk.num_values > file_len * 8L {
+    raise bad(
+      "column \"\{chunk.name}\" claims \{chunk.num_values} values, beyond what its bytes could carry",
+    )
+  }
+}
+
+///|
+/// One chunk's cells — the page-walk half of a column read, split from
+/// the series build so a multi-group read can concatenate several
+/// chunks' cells and build one series over the concatenation (the row
+/// order a file's groups spell), while a single-group read builds
+/// straight off the one chunk's cells.
+fn decode_chunk_cells(
   bytes : Bytes,
   column : ColumnRead,
-) -> @series.Series raise @types.DataError {
+) -> Array[@types.Scalar?] raise @types.DataError {
   let chunk = column.chunk
   let map = column.map
   let total = chunk.num_values
-  // A chunk cannot carry more values than its bytes could spell —
-  // eight one-bit cells to a byte is the densest parquet encoding — so
-  // the value count rides an Int64 against the file's own length: a
-  // hundred-byte file claiming two billion values refuses here, before
-  // any allocation the count would name.
-  if total < 0L || total > bytes.length().to_int64() * 8L {
-    raise bad(
-      "column \"\{chunk.name}\" claims \{total} values, beyond what its bytes could carry",
-    )
-  }
+  refuse_impossible_count(chunk, bytes.length().to_int64())
   // The absolute cell budget: the file-length bound above still admits
   // a small file legally claiming an expansion-sized count, and every
   // cell the count names becomes a boxed value below — so a count past
@@ -973,7 +1053,18 @@ fn decode_column(
     }
     produced = produced + num_values.to_int64()
   }
-  build_series(chunk.name, map, values)
+  values
+}
+
+///|
+/// One column read as a series — a single chunk's cells built under its
+/// dtype map. The multi-group whole-file read concatenates cells itself
+/// and calls `build_series` directly; this is the single-chunk shape.
+fn decode_column(
+  bytes : Bytes,
+  column : ColumnRead,
+) -> @series.Series raise @types.DataError {
+  build_series(column.chunk.name, column.map, decode_chunk_cells(bytes, column))
 }
 
 ///|

@@ -23,16 +23,35 @@ fn codec_tag(c : Codec) -> Int32 {
 }
 
 ///|
+/// One written row group's chunk bookkeeping: the per-column offsets and
+/// sizes the footer names, and the group's own row count. A group's
+/// chunk for column *i* sits at `offsets[i]`, sized `compressed[i]` on
+/// disk and `uncompressed[i]` before the codec — the three facts a
+/// foreign reader cross-checks.
+priv struct WrittenGroup {
+  offsets : Array[Int64]
+  compressed : Array[Int64]
+  uncompressed : Array[Int64]
+  rows : Int64
+}
+
+///|
 /// Render one frame as a whole parquet file. Every column must map
 /// (`Null` refuses — a null column has no cells to name a dtype by) and
 /// share the frame's one height — a column of another length raises
 /// `LengthMismatch` instead of writing a file whose chunks disagree on
 /// their row count; a 0-row frame writes its schema with zero-value
 /// column chunks, the shape a reader rebuilds into the empty frame.
+/// `group_rows` spells the row-group layout: 0 (or a bound at or past
+/// the height) writes the historical single group, a smaller bound
+/// writes consecutive groups of that many rows with the last one the
+/// remainder — each group carrying one chunk per column over its own row
+/// window.
 pub fn write_parquet_bytes(
   columns : Array[@series.Series],
   names : Array[String],
   codec : Codec,
+  group_rows~ : Int64 = 0L,
 ) -> Bytes raise @types.DataError {
   let ncols = columns.length()
   // The maps first — they name the schema rows and the page encoders.
@@ -122,28 +141,61 @@ pub fn write_parquet_bytes(
   for b in b"PAR1" {
     out.push(b)
   }
-  // One column chunk per column: the dictionary page is not written
-  // (PLAIN only), so each chunk is one data page, its offset remembered
-  // for the footer.
-  let chunk_offsets : Array[Int64] = []
-  let chunk_compressed : Array[Int64] = []
-  let chunk_uncompressed : Array[Int64] = []
-  let chunk_counts : Array[Int64] = []
-  for i in 0..<ncols {
-    let (page, uncompressed) = encode_data_page(columns[i], maps[i], codec)
-    chunk_offsets.push(out.length().to_int64())
-    for b in page {
-      out.push(b)
+  // The row-group windows: a 0 or height-or-past bound is the historical
+  // single group; otherwise consecutive windows of that many rows, the
+  // last one the remainder. A 0-row frame keeps its one empty group —
+  // the shape the reader rebuilds into the empty frame.
+  let total = nrows.to_int()
+  let step : Int32 = if group_rows <= 0L || group_rows > 2147483647L {
+    total
+  } else {
+    group_rows.to_int()
+  }
+  let bounds : Array[(Int32, Int32)] = []
+  if total == 0 || step >= total {
+    bounds.push((0, total))
+  } else {
+    let mut start = 0
+    while start < total {
+      // The window end saturates at the height — spelled as a
+      // subtraction, since `start + step` could wrap past `Int32::MAX`
+      // for a window near the end of a height-large frame.
+      let end = if start > total - step { total } else { start + step }
+      bounds.push((start, end))
+      start = end
     }
-    chunk_compressed.push(page.length().to_int64())
-    chunk_uncompressed.push(uncompressed)
-    chunk_counts.push(nrows)
+  }
+  // One chunk per column per group: the dictionary page is not written
+  // (PLAIN only), so each chunk is one data page over the group's own
+  // row window, its offset remembered for the footer.
+  let written : Array[WrittenGroup] = []
+  for bound in bounds {
+    let (g0, g1) = bound
+    let offsets : Array[Int64] = []
+    let compressed : Array[Int64] = []
+    let uncompressed : Array[Int64] = []
+    for i in 0..<ncols {
+      let (page, plain) = encode_data_page(
+        columns[i].slice_series(g0, g1 - g0),
+        maps[i],
+        codec,
+      )
+      offsets.push(out.length().to_int64())
+      for b in page {
+        out.push(b)
+      }
+      compressed.push(page.length().to_int64())
+      uncompressed.push(plain)
+    }
+    written.push({
+      offsets,
+      compressed,
+      uncompressed,
+      rows: (g1 - g0).to_int64(),
+    })
   }
   // The footer: FileMetaData thrift, its length, and the trailing magic.
-  let footer = write_footer(
-    maps, names, chunk_offsets, chunk_compressed, chunk_uncompressed, chunk_counts,
-    nrows, codec,
-  )
+  let footer = write_footer(maps, names, written, nrows, codec)
   for b in footer {
     out.push(b)
   }
@@ -321,18 +373,15 @@ fn encode_plain_value(
 
 ///|
 /// The FileMetaData footer: the schema (a root element carrying the
-/// column children), one row group, its column chunks, and the created-by
-/// string. Each chunk names its compressed bytes (field 7) and its
-/// uncompressed ones (field 6) separately, and the row group's own
-/// total_byte_size is the uncompressed sum — the three sizes a foreign
-/// reader cross-checks, each naming the truth it measures.
+/// column children), the row groups with their column chunks, and the
+/// created-by string. Each chunk names its compressed bytes (field 7) and
+/// its uncompressed ones (field 6) separately, and each row group's own
+/// total_byte_size is its uncompressed sum — the sizes a foreign reader
+/// cross-checks, each naming the truth it measures.
 fn write_footer(
   maps : Array[DtypeMap],
   names : Array[String],
-  chunk_offsets : Array[Int64],
-  chunk_compressed : Array[Int64],
-  chunk_uncompressed : Array[Int64],
-  chunk_counts : Array[Int64],
+  groups : Array[WrittenGroup],
   nrows : Int64,
   codec : Codec,
 ) -> Bytes {
@@ -378,47 +427,50 @@ fn write_footer(
     }
     w.struct_end()
   }
-  // Field 3: num_rows.
+  // Field 3: num_rows — the file-wide total the groups' own counts sum
+  // to.
   w.i64_field(3, nrows)
-  // Field 4: the row group list — one group, its column chunks.
+  // Field 4: the row group list, one element per written group.
   w.field_header(4, 9)
-  w.list_header(1, 12)
-  w.struct_field_begin_list_elem()
-  // RowGroup field 1: columns (list of ColumnChunk).
-  w.field_header(1, 9)
-  w.list_header(maps.length(), 12)
-  let mut total_uncompressed = 0L
-  for i in 0..<maps.length() {
-    total_uncompressed = total_uncompressed + chunk_uncompressed[i]
+  w.list_header(groups.length(), 12)
+  for group in groups {
     w.struct_field_begin_list_elem()
-    // ColumnChunk field 2: file_offset; field 3: meta_data.
-    w.i64_field(2, chunk_offsets[i])
-    w.struct_field_begin(3)
-    w.i32_field(1, physical_tag(maps[i].physical))
-    // Field 2: encodings (PLAIN 0, RLE 3).
-    w.field_header(2, 9)
-    w.list_header(2, 5)
-    w.i32_list_elem(0)
-    w.i32_list_elem(3)
-    // Field 3: path_in_schema.
-    w.field_header(3, 9)
-    w.list_header(1, 8)
-    w.text_list_elem(names[i])
-    w.i32_field(4, codec_tag(codec))
-    w.i64_field(5, chunk_counts[i])
-    w.i64_field(6, chunk_uncompressed[i])
-    w.i64_field(7, chunk_compressed[i])
-    // Field 9: data_page_offset — the chunk's own offset (no
-    // dictionary page precedes it).
-    w.i64_field(9, chunk_offsets[i])
-    w.struct_end()
+    // RowGroup field 1: columns (list of ColumnChunk).
+    w.field_header(1, 9)
+    w.list_header(maps.length(), 12)
+    let mut total_uncompressed = 0L
+    for i in 0..<maps.length() {
+      total_uncompressed = total_uncompressed + group.uncompressed[i]
+      w.struct_field_begin_list_elem()
+      // ColumnChunk field 2: file_offset; field 3: meta_data.
+      w.i64_field(2, group.offsets[i])
+      w.struct_field_begin(3)
+      w.i32_field(1, physical_tag(maps[i].physical))
+      // Field 2: encodings (PLAIN 0, RLE 3).
+      w.field_header(2, 9)
+      w.list_header(2, 5)
+      w.i32_list_elem(0)
+      w.i32_list_elem(3)
+      // Field 3: path_in_schema.
+      w.field_header(3, 9)
+      w.list_header(1, 8)
+      w.text_list_elem(names[i])
+      w.i32_field(4, codec_tag(codec))
+      w.i64_field(5, group.rows)
+      w.i64_field(6, group.uncompressed[i])
+      w.i64_field(7, group.compressed[i])
+      // Field 9: data_page_offset — the chunk's own offset (no
+      // dictionary page precedes it).
+      w.i64_field(9, group.offsets[i])
+      w.struct_end()
+      w.struct_end()
+    }
+    // RowGroup field 2: total_byte_size — the row group's uncompressed
+    // total; field 3: num_rows, this group's own count.
+    w.i64_field(2, total_uncompressed)
+    w.i64_field(3, group.rows)
     w.struct_end()
   }
-  // RowGroup field 2: total_byte_size — the row group's uncompressed
-  // total; field 3: num_rows.
-  w.i64_field(2, total_uncompressed)
-  w.i64_field(3, nrows)
-  w.struct_end()
   // Field 6: created_by.
   w.text_field(6, "MoonFrame")
   w.struct_end()

@@ -147,7 +147,14 @@ pub fn scan_json(
 /// over the projected frame (the row pruning a columnar file without
 /// row-group statistics can offer); a `ParseError` in an unprojected
 /// column does not surface, exactly like the text scans' dropped
-/// columns. The dtypes come from the footer's schema, so a narrowed
+/// columns. The **window** push-down sinks a `head` / `tail` / `slice`
+/// into the read itself: the window resolves against the footer's row
+/// count and the row groups outside it are skipped outright — never
+/// decoded — while a group the window only partly covers decodes and
+/// cuts to the overlap. A page-level parse refusal confined to a
+/// skipped group therefore does not surface, the same skipping trade
+/// the projection push-down makes for columns; the surviving rows are
+/// exactly the eager read's. The dtypes come from the footer's schema, so a narrowed
 /// scan matches the eager read exactly — and the footer can name temporal
 /// columns no plan-time fact can rule out (reading it at build would break
 /// the builder's totality), so this source takes the temporal value-fence's

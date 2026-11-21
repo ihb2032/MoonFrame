@@ -74,7 +74,7 @@ fn Utf8Array::from_strings_capped(
   // true total, never a wrapped one.
   let mut total : Int64 = 0L
   for v in values {
-    total = total + encoded_len(v).to_int64()
+    total = total + encoded_len(v)
   }
   if total > cap {
     raise @types.DataError::InvalidOperation(
@@ -109,32 +109,34 @@ pub fn Utf8Array::from_string_options(
 
 ///|
 /// UTF-8 byte length of one string's encoding. Walks UTF-16 code units with
-/// `encode_into`'s exact rules, so the two never disagree on a length.
-fn encoded_len(s : String) -> Int32 {
+/// `encode_into`'s exact rules, so the two never disagree on a length. Rides
+/// `Int64`: one string can encode past `Int32::MAX` bytes, and a wrapped
+/// length would slip under the payload cap and reach a negative allocation.
+fn encoded_len(s : String) -> Int64 {
   let n = s.length()
-  let mut len = 0
+  let mut len : Int64 = 0L
   let mut i = 0
   while i < n {
     let u = s[i].to_int()
     if u < 0x80 {
-      len = len + 1
+      len = len + 1L
       i = i + 1
     } else if u < 0x800 {
-      len = len + 2
+      len = len + 2L
       i = i + 1
     } else if u >= 0xD800 && u <= 0xDBFF && i + 1 < n {
       let v = s[i + 1].to_int()
       if v >= 0xDC00 && v <= 0xDFFF {
-        len = len + 4
+        len = len + 4L
         i = i + 2
       } else {
         // High surrogate whose pair is missing or not a low surrogate: the
         // WTF-8 3-byte spelling, so the cell round-trips through `encode_into`.
-        len = len + 3
+        len = len + 3L
         i = i + 1
       }
     } else {
-      len = len + 3
+      len = len + 3L
       i = i + 1
     }
   }

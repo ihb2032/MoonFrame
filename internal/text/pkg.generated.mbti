@@ -2,6 +2,8 @@
 package "ihb2032/MoonFrame/internal/text"
 
 // Values
+pub fn char_count_wtf8(String) -> Int32
+
 pub fn compare_string_lex(String, String) -> Int32
 
 pub fn escape_debug(String) -> String

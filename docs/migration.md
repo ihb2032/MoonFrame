@@ -33,6 +33,11 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   answer): the same optimised plan, handed to the consumer batch by
   batch — stacking the batches equals `collect`, and stopping the stream
   stops the read.
+- Every pipeline's batches now pass a morsel row cap on their way out of
+  the source, so a source whose own batches run coarse (a textual
+  source's whole-read batch, a wide row group) answers in bounded
+  windows; the cap is an internal shape, and batch boundaries carry no
+  size promise.
 
 ## v0.8.1 → v0.9.0
 

@@ -164,8 +164,23 @@ fn LogicalPlan::build_pipeline(
     }
     memo.push((node, built))
   }
-  memo_result(memo, self)
+  // Every pipeline's batches pass one row cap on their way out of the
+  // source — a source whose own batches run coarser (a textual source's
+  // whole-read batch, a wide row group) answers in morsels of the cap
+  // instead, so the spans above see batches of a knowable size whatever
+  // the source's own granularity. The cap is an internal shape, not a
+  // promise: batch boundaries carry no size contract.
+  let built = memo_result(memo, self)
+  let raw = built.source
+  { ..built, source: () => raw().capped(MORSEL_ROWS), }
 }
+
+///|
+/// The row cap every pipeline's batches stay within — an upper bound on
+/// a morsel's height, sized so a batch frame stays a small structure
+/// next to the data it carries. Sources already inside the cap pass
+/// their batches through untouched.
+const MORSEL_ROWS : Int32 = 65_536
 
 ///|
 /// Run the pipeline: open the source, walk the spine — a `Flow` span

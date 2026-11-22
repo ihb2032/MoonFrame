@@ -282,3 +282,45 @@ test "a DAG over a convenience aggregation keeps the interpreter's verb" {
   assert_true(dag.has_shared_subplan())
   assert_agree(both_engines(dag))
 }
+
+///|
+test "a source coarser than the morsel cap answers in windows" {
+  // An in-memory frame taller than the engine's row cap reaches the
+  // spans in cap-sized batches — the stacked answer still equals
+  // `collect`, cell for cell.
+  let tall : Array[Int64?] = []
+  for i in 0..<70_000 {
+    tall.push(Some(i.to_int64()))
+  }
+  let frame = DataFrame::DataFrame([Series::from_int_options("v", tall)])
+  let lf = LazyFrame::LazyFrame(frame).filter(
+    @expr.col("v").gt(@expr.lit_int(-1)),
+  )
+  let stream = lf.collect_batches()
+  let heights : Array[Int32] = []
+  let mut stacked : DataFrame? = None
+  while true {
+    match stream.next() {
+      Some(batch) => {
+        heights.push(batch.nrows())
+        stacked = match stacked {
+          None => Some(batch)
+          Some(acc) => Some(acc.vstack(batch))
+        }
+      }
+      None => break
+    }
+  }
+  // 70_000 rows over the 65_536 cap: a full morsel and the remainder.
+  assert_eq(heights, [65_536, 4_464])
+  match stacked {
+    Some(acc) => {
+      assert_eq(acc.shape(), lf.collect().shape())
+      assert_eq(
+        acc.get_column("v").to_scalars().length(),
+        lf.collect().get_column("v").to_scalars().length(),
+      )
+    }
+    None => fail("the stream answered no batch")
+  }
+}

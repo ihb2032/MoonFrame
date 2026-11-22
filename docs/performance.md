@@ -111,8 +111,10 @@ on is an internal representation, and two equal frames may hold their cells
 differently.
 
 Execution is **batch-wise**: a tree-shaped plan becomes a source of batches
-(a scan's cursor — one batch per parquet row group, one per textual source —
-an in-memory frame, or a join's merged output) plus a spine of spans. A
+(a scan's cursor — one batch per parquet row group, one per textual
+source, every source capped at a morsel row bound so a coarse source
+answers in bounded windows — an in-memory frame, or a join's merged
+output) plus a spine of spans. A
 flow span rides its row-local verbs on each batch as it passes (a filter,
 a row-stable selection, renames and drops), so a plan whose verbs all flow
 answers without holding the whole result; a block span materialises what
@@ -122,8 +124,9 @@ DAG-shaped plan keeps the node-by-node interpreter instead — its memo runs
 each shared subplan exactly once, where a pipeline would re-execute it per
 occurrence. `LazyFrame::collect_batches` is the streaming face of the same
 plan: each batch answers as it is ready, and a consumer that stops asking
-stops the read. The batch boundaries are the source's own and carry no size
-promise; the memory promise is bounded — a blocking verb holds its whole
+stops the read. The batch boundaries carry no size promise beyond the cap;
+the memory promise is
+bounded — a blocking verb holds its whole
 input (there is no spilling), and everything below the first blocking verb
 flows.
 

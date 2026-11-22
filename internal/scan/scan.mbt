@@ -113,6 +113,60 @@ pub fn BatchCursor::next(
 }
 
 ///|
+/// A cursor over `self` whose batches never exceed `cap` rows — a
+/// source whose own batches run coarser (a textual source's whole-read
+/// batch, a wide row group) answers in row windows of `cap` instead,
+/// its rows' order untouched (the cap slices, it never re-orders or
+/// drops). A batch already inside the cap passes through as it was, and
+/// an empty batch answers as itself; the wrapping is one cursor per
+/// `capped` call, single-shot like the cursor it wraps.
+pub fn BatchCursor::capped(self : BatchCursor, cap : Int32) -> BatchCursor {
+  // The held batch and how many of its rows have left: array cells, so
+  // the step closure sees its own earlier answers on every later call.
+  let held : Array[ScanBatch?] = [None]
+  let at : Array[Int32] = [0]
+  BatchCursor::cursor(() => {
+    while true {
+      let batch = match held[0] {
+        None =>
+          match self.next() {
+            None => return None
+            Some(fresh) => {
+              held[0] = Some(fresh)
+              at[0] = 0
+              fresh
+            }
+          }
+        Some(kept) =>
+          if at[0] >= kept.height() {
+            held[0] = None
+            continue
+          } else {
+            kept
+          }
+      }
+      // A batch inside the cap passes through whole (its height rides
+      // unchanged, an `N×0` batch included — zero rows never slices).
+      if at[0] == 0 && batch.height() <= cap {
+        held[0] = None
+        return Some(batch)
+      }
+      let remaining = batch.height() - at[0]
+      let take = if remaining < cap { remaining } else { cap }
+      let window = batch.columns().map(c => c.slice_series(at[0], take))
+      at[0] = at[0] + take
+      if at[0] >= batch.height() {
+        held[0] = None
+      }
+      return Some(ScanBatch::batch(window, take))
+    }
+    // The loop answers on every path that reaches it; this is the
+    // shape the compiler needs after `while true`.
+    None
+  })
+}
+
+///|
 /// One readable source: a label for the plan renderer and the batched
 /// read itself. Implementations live beside the format they read (io's
 /// CSV / NDJSON / JSON / Parquet drivers); the lazy engine sees only

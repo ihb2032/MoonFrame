@@ -4,8 +4,9 @@
 // the one place compressed files change shape: a read whose bytes carry the
 // gzip magic is decompressed before the UTF-8 decode (under the output cap
 // below), and a write to a `.gz`-suffixed path compresses the encoded
-// bytes — every reader, writer, and lazy scan inherits both through the two
-// choke points below.
+// bytes — every text reader and writer, and the text lazy scans, inherit
+// both through the two choke points below. The parquet reader and writer
+// move raw bytes and are not in this path.
 //
 // The per-format suites and the surrogate-refusal corpus cover this shared
 // plumbing end to end (file-backed `read_csv` / `write_csv` / `write_json` /

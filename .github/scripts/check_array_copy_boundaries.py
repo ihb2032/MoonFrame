@@ -243,6 +243,39 @@ def record_shorthand_retains(block: str, parameter: str) -> int | None:
     return None
 
 
+def field_conditional_retains(block: str, parameter: str) -> int | None:
+    """Offset of a record field whose `match` / `if` value keeps `parameter`.
+
+    `{ row: match row { Some(a) => Some(a.copy()) … } }` is the shape a
+    record literal's conditional hand-off takes: the right-hand side is
+    not the bare parameter, so the field detector misses it, and the
+    `=`-based conditional detector misses it too. A match with no
+    `.copy()` anywhere in its arms hands the caller's array through;
+    one with a visible copy is the shape this guard asks for.
+    """
+    code = mask_strings_and_comments(block)
+    match_field = re.compile(
+        rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*match\s+"
+        rf"{wrapped_forms(parameter)}\s*\{{"
+    )
+    for found in match_field.finditer(code):
+        opening = code.find("{", found.start())
+        closing = matching_delimiter(code, opening)
+        if closing is None:
+            continue
+        if ".copy()" not in code[opening + 1 : closing]:
+            return found.start()
+    if_field = re.compile(
+        rf"\b[A-Za-z_][A-Za-z0-9_]*\s*:\s*if\b[^\n]*?"
+        rf"(?<![A-Za-z0-9_]){re.escape(parameter)}"
+        rf"(?![A-Za-z0-9_])(?!\s*\.\s*copy\s*\()"
+    )
+    found = if_field.search(code)
+    if found is not None:
+        return found.start()
+    return None
+
+
 def method_argument_retains(block: str, parameter: str) -> int | None:
     """Offset of the first method call loading `parameter` as an argument.
 
@@ -509,6 +542,9 @@ def retained_in(
             )
             if field_assignment is not None:
                 retained_via_name.append(field_assignment.start())
+            field_conditional = field_conditional_retains(code, name)
+            if field_conditional is not None:
+                retained_via_name.append(field_conditional)
             # A plain `=` write whose whole right-hand side is the parameter
             # (or a transparent wrapper of it): a `mut` field or a global
             # stash — assignment syntax, not the record literal the field

@@ -48,9 +48,12 @@ fn eval_over(
   }
   // A frame with no rows has no groups to evaluate; the inner still runs
   // once over the empty frame so the output column carries the dtype the
-  // windowed expression produces.
+  // windowed expression produces. The result is a zero-row column: a
+  // window is frame-tall, and an aggregation's empty-scope probe answers
+  // one cell, which is a dtype witness — not a row this frame has.
   if n == 0 {
-    return eval_expr(@expr.Expr::of_node(inner), df, identity)
+    let probe = eval_expr(@expr.Expr::of_node(inner), df, identity)
+    return scalars_to_series(probe.dtype(), probe.name(), [])
   }
   // The partition: one pass over the rows building each group's row list,
   // keyed by the row's key cells — the same key assembly `group_by` runs

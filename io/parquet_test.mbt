@@ -216,3 +216,14 @@ test "collect_batches walks a parquet file's row groups" {
   }
   assert_true(sorted.next() is None)
 }
+
+///|
+test "write_parquet keeps an N-by-0 frame's height" {
+  let df = @frame.DataFrame::from_rows(
+    @types.Schema::Schema([]),
+    Array::makei(3, _ => []),
+  )
+  let path = "_build/io_parquet_n_by_0.parquet"
+  @io.write_parquet(df, path)
+  assert_eq(@io.read_parquet(path).shape(), (3, 0))
+}

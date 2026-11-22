@@ -84,7 +84,7 @@ pub fn eval_str(
     @ir.StrOp::LenChars =>
       Series::from_int_options(
         name,
-        map_present(n, valid, i => data[i].char_length().to_int64()),
+        map_present(n, valid, i => @text.char_count_wtf8(data[i]).to_int64()),
       )
     @ir.StrOp::Contains(pattern) =>
       Series::from_bool_options(
@@ -129,7 +129,7 @@ pub fn eval_str(
         // `str_len_chars`).
         map_present(n, valid, i => {
           let s = data[i]
-          let len = s.char_length()
+          let len = @text.char_count_wtf8(s)
           if len >= width {
             s
           } else {
@@ -194,7 +194,7 @@ pub fn eval_str(
     @ir.StrOp::LenBytes =>
       Series::from_int_options(
         name,
-        map_present(n, valid, i => utf8_len_wtf8(data[i]).to_int64()),
+        map_present(n, valid, i => utf8_len_wtf8(data[i])),
       )
     @ir.StrOp::StripCharsCustom(chars) =>
       Series::from_string_options(
@@ -236,7 +236,7 @@ pub fn eval_str(
 /// is total. Character-based — `iter` walks codepoints, so a surrogate pair is
 /// never split — consistent with `char_length`.
 fn slice_chars(s : String, offset : Int32, length : Int32?) -> String {
-  let len = s.char_length()
+  let len = @text.char_count_wtf8(s)
   let start = if offset < 0 {
     let from_end = len + offset
     if from_end < 0 {
@@ -305,30 +305,31 @@ pub fn compile_regex(pattern : String) -> @string.Regex raise @types.DataError {
 /// 3-byte WTF-8 spelling, so every backend answers the same number for
 /// every value: core's encoder aborts on an unpaired half outside JS and
 /// replaces it with U+FFFD on JS — a replacement that happens to be 3
-/// bytes too, but only by accident.
-fn utf8_len_wtf8(s : String) -> Int32 {
+/// bytes too, but only by accident. Rides `Int64` so a single giant
+/// string cannot wrap the length before the column's payload cap sees it.
+fn utf8_len_wtf8(s : String) -> Int64 {
   let units = s.code_units()
   let n = units.length()
-  let mut len = 0
+  let mut len : Int64 = 0L
   let mut i = 0
   while i < n {
     let cu = units[i]
     if cu.is_leading_surrogate() &&
       i + 1 < n &&
       units[i + 1].is_trailing_surrogate() {
-      len += 4
+      len += 4L
       i += 2
     } else if cu.is_leading_surrogate() || cu.is_trailing_surrogate() {
-      len += 3
+      len += 3L
       i += 1
     } else if cu < 0x80 {
-      len += 1
+      len += 1L
       i += 1
     } else if cu < 0x800 {
-      len += 2
+      len += 2L
       i += 1
     } else {
-      len += 3
+      len += 3L
       i += 1
     }
   }
@@ -341,7 +342,7 @@ fn utf8_len_wtf8(s : String) -> Int32 {
 /// counting characters), so the width is consistent with `str_len_chars` —
 /// unlike `String::pad_start`, whose width counts UTF-16 units.
 fn pad_start_chars(s : String, width : Int32, fill : Char) -> String {
-  let len = s.char_length()
+  let len = @text.char_count_wtf8(s)
   if len >= width {
     s
   } else {

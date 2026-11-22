@@ -895,8 +895,9 @@ pub fn Expr::rolling_median(
 /// `span~` wins and `alpha~` is ignored (the builder reads `alpha~` only
 /// when no `span~` was given, so a double-set build is exactly the
 /// span-only tree). `adjust~` (default `true`)
-/// keeps the earlier samples' full weight (the recursive blend is the
-/// `adjust=false` form). A null cell nulls the output but the recurrence
+/// keeps the earlier samples' full weight; the `adjust=false` form is the
+/// recursive blend `y = (1 - alpha) * y + alpha * x`, and the variance is
+/// the recursive second raw moment minus `y^2`. A null cell nulls the output but the recurrence
 /// carries per `ignore_nulls~`: `true` (not the default) skips the cell
 /// entirely, `false` lets its weight decay as if a value had been seen.
 /// Cells stay null until `min_samples~` non-null values have occurred.
@@ -918,7 +919,11 @@ fn Expr::ewm_of(
   // keeps a defined winner rather than dropping both into the `0.0`
   // sentinel, where it would be indistinguishable from neither-given.
   let a = match (span, alpha) {
-    (Some(s), _) => Some(2.0 / (s + 1.0))
+    // `span` must exceed 1: 1 would decode to alpha 1, which is a legal
+    // `alpha~` but outside the span parameter's documented envelope. A
+    // negative sentinel keeps the builder total and lets evaluation
+    // raise the shared InvalidOperation.
+    (Some(s), _) => if s <= 1.0 { Some(-1.0) } else { Some(2.0 / (s + 1.0)) }
     (None, Some(a)) => Some(a)
     _ => None
   }

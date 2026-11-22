@@ -347,3 +347,29 @@ test "the writer refuses a lone-surrogate string cell" {
   }
   assert_true(result is Err(@types.DataError::InvalidOperation(_)))
 }
+
+///|
+test "the writer refuses a lone-surrogate column name" {
+  // The footer encodes names too, through the same core encoder. The
+  // refusal must happen before any page is written.
+  let name = StringBuilder()
+  name.write_char(Int32::unsafe_to_char(0xD800))
+  let col = @series.Series::from_ints(name.to_string(), [1L])
+  let result = Ok(
+    ignore(write_parquet_bytes([col], [name.to_string()], Uncompressed)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::InvalidOperation(_)))
+}
+
+///|
+test "the writer refuses a height that disagrees with its columns" {
+  let col = @series.Series::from_ints("s", [1L])
+  let result = Ok(
+    ignore(write_parquet_bytes([col], ["s"], Uncompressed, height=2)),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(result is Err(@types.DataError::LengthMismatch(1, 2)))
+}

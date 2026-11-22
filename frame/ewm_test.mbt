@@ -111,6 +111,8 @@ test "the parameter envelope refuses at evaluation" {
       @expr.col("v").ewm_mean(alpha=0.0),
       @expr.col("v").ewm_mean(alpha=1.5),
       @expr.col("v").ewm_mean(alpha=0.5, min_samples=0),
+      @expr.col("v").ewm_mean(span=1.0),
+      @expr.col("v").ewm_mean(span=0.5),
     ] {
     let result : Result[DataFrame, @types.DataError] = Ok(
       df.select([e.with_alias("m")]),
@@ -129,14 +131,8 @@ test "the parameter envelope refuses at evaluation" {
     both.get_column("m").to_scalars(),
     span_only.get_column("m").to_scalars(),
   )
-  // A span of 1 decodes to alpha 1 (accepted); a span below 1 decodes
-  // past the envelope and refuses.
-  assert_true(
-    (Ok(ignore(df.select([@expr.col("v").ewm_mean(span=1.0).with_alias("m")]))) catch {
-      err => Err(err)
-    })
-    is Ok(_),
-  )
+  // A span of 1 would decode to alpha 1; the span envelope is `> 1`, so
+  // it refuses with the rest. A span below 1 does too.
   assert_true(
     (Ok(ignore(df.select([@expr.col("v").ewm_mean(span=0.5).with_alias("m")]))) catch {
       err => Err(err)
@@ -189,4 +185,57 @@ test "a constant column's variance saturates at zero, never below" {
       assert_true(cell is @types.Scalar::Float(v) && v >= 0.0 && !v.is_nan())
     }
   }
+}
+
+///|
+test "adjust=false variance follows the recursive second moment" {
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1L, 2L, 3L])])
+  let out = df.select([
+    @expr.col("v").ewm_variance(alpha=0.5, adjust=false).with_alias("var"),
+    @expr.col("v").ewm_std(alpha=0.5, adjust=false).with_alias("sd"),
+  ])
+  // y: 1, 1.5, 2.25; q: 1, 2.5, 5.75; q - y^2: 0, 0.25, 0.6875.
+  assert_eq(out.get_column("var").to_scalars(), [
+    @types.Scalar::Float(0.0),
+    @types.Scalar::Float(0.25),
+    @types.Scalar::Float(0.6875),
+  ])
+  assert_eq(out.get_column("sd").to_scalars(), [
+    @types.Scalar::Float(0.0),
+    @types.Scalar::Float(0.5),
+    @types.Scalar::Float(0.6875.sqrt()),
+  ])
+}
+
+///|
+test "adjust=false variance decays through a null unless nulls are ignored" {
+  let df = DataFrame::DataFrame([
+    Series::from_int_options("v", [Some(1L), None, Some(3L)]),
+  ])
+  let decayed = df
+    .select([
+      @expr.col("v").ewm_variance(alpha=0.5, adjust=false).with_alias("var"),
+    ])
+    .get_column("var")
+    .to_scalars()
+  // 1 seeds y=1/q=1; the null halves both; 3 gives y=1.75, q=4.75.
+  assert_eq(decayed, [
+    @types.Scalar::Float(0.0),
+    @types.Scalar::Null,
+    @types.Scalar::Float(1.6875),
+  ])
+  let skipped = df
+    .select([
+      @expr.col("v")
+      .ewm_variance(alpha=0.5, adjust=false, ignore_nulls=true)
+      .with_alias("var"),
+    ])
+    .get_column("var")
+    .to_scalars()
+  // The null leaves the state untouched: y=2, q=5.
+  assert_eq(skipped, [
+    @types.Scalar::Float(0.0),
+    @types.Scalar::Null,
+    @types.Scalar::Float(1.0),
+  ])
 }

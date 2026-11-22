@@ -36,7 +36,7 @@ series | doc_hidden internal_engine | pub fn Series::mean_opt(self : Series) -> 
 series | doc_hidden internal_engine | pub fn Series::preserve_backend(self : Series, rebuilt : Series) -> Series | used by: frame
 series | doc_hidden internal_engine | pub fn Series::quantile_opt(self : Series, q : Double) -> Double? | used by: frame
 series | doc_hidden internal_engine | pub fn Series::reducer_for( self : Series, op : ReduceOp, ) -> ( (Int32, (Int32) -> Int32) -> @types.Scalar raise @types.DataError, @types.DataType, ) raise @types.DataError | used by: frame
-series | doc_hidden internal_engine | pub fn Series::slice_series( self : Series, start : Int32, len : Int32, ) -> Series | used by: frame,internal/parquet,io
+series | doc_hidden internal_engine | pub fn Series::slice_series( self : Series, start : Int32, len : Int32, ) -> Series | used by: frame,internal/parquet,internal/scan,io
 series | doc_hidden internal_engine | pub fn Series::storage(self : Series) -> @column.ColumnStorage | used by: internal/kernel
 series | doc_hidden internal_engine | pub fn Series::storage_kind(self : Series) -> @column.StorageKind | used by: (no production caller outside series)
 series | doc_hidden internal_engine | pub fn Series::try_column_to_numeric(self : Series) -> Series | used by: frame,internal/kernel

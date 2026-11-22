@@ -15,6 +15,7 @@ import {
 pub struct BatchCursor {
   // private fields
 }
+pub fn BatchCursor::capped(Self, Int32) -> Self
 pub fn BatchCursor::cursor(() -> ScanBatch? raise @types.DataError) -> Self
 pub fn BatchCursor::next(Self) -> ScanBatch? raise @types.DataError
 

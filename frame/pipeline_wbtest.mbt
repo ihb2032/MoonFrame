@@ -383,3 +383,17 @@ test "windowed shapes the eager path still owns" {
   assert_agree(both_engines(base.tail(-2).plan))
   assert_agree(both_engines(base.slice(-1).plan))
 }
+
+///|
+test "the windowed walks' private corners" {
+  // A verb the builder never routes to a walk still has one — the
+  // identity step, nothing to flush.
+  let idle = window_morph(Reverse)
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2])])
+  assert_eq((idle.step)(df).shape(), (2, 1))
+  assert_true((idle.flush)() is None)
+  // A trailing window that never saw a batch flushes nothing — the
+  // stream it would answer is empty.
+  let empty_tail = window_morph(Tail(3))
+  assert_true((empty_tail.flush)() is None)
+}

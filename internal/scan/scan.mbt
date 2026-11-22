@@ -137,13 +137,10 @@ pub fn BatchCursor::capped(self : BatchCursor, cap : Int32) -> BatchCursor {
               fresh
             }
           }
-        Some(kept) =>
-          if at[0] >= kept.height() {
-            held[0] = None
-            continue
-          } else {
-            kept
-          }
+        // A held batch always has rows left: every path that sets it
+        // either pairs it with a fresh `at` below its height or clears
+        // it as its last window leaves.
+        Some(kept) => kept
       }
       // A batch inside the cap passes through whole (its height rides
       // unchanged, an `N×0` batch included — zero rows never slices).

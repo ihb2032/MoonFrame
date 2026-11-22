@@ -60,6 +60,10 @@ pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_parquet(String) -> @frame.LazyFrame
 
+pub fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
+pub fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError

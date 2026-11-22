@@ -228,10 +228,15 @@ here today:
   unifying dtype (`Int` / `Float` widen; no stringly supertype).
 - **Lazy** — batch-wise execution, not Polars' parallel streaming engine:
   a tree-shaped plan walks a morsel pipeline where row-local verbs (a
-  filter, a row-stable selection) ride each batch in flight and
-  row-global verbs (a sort, an aggregation, a join) materialise —
-  `LazyFrame::collect_batches` hands the batches to the consumer as they
-  answer, so a plan ending in flow verbs runs in bounded memory. The
+  filter, a row-stable selection) ride each batch in flight, positional
+  windows (`head` / `tail` / `slice` with forward bounds,
+  `gather_every`, `with_row_index`) ride it too carrying their place
+  across the boundaries, and row-global verbs (a sort, an aggregation, a
+  join) materialise — `LazyFrame::collect_batches` hands the batches to
+  the consumer as they answer, and `sink_parquet` / `sink_csv` turn the
+  same stream to a file (one row group per batch / the exact
+  `format_csv` bytes), so a plan ending in flow verbs runs in bounded
+  memory. The
   scans push projections, predicates, and row windows down into the
   reader, but the text formats still tokenise the whole file, and a
   blocking verb holds its whole input (no spilling). The columnar

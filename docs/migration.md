@@ -33,6 +33,25 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   answer): the same optimised plan, handed to the consumer batch by
   batch — stacking the batches equals `collect`, and stopping the stream
   stops the read.
+- Every pipeline's batches now pass a morsel row cap on their way out of
+  the source, so a source whose own batches run coarse (a textual
+  source's whole-read batch, a wide row group) answers in bounded
+  windows; the cap is an internal shape, and batch boundaries carry no
+  size promise.
+- The positional windows stream: `head` / `tail` / `slice` (forward
+  bounds), `gather_every`, and `with_row_index` ride the flow carrying
+  their place across batch boundaries (a trailing window holds no more
+  than its own `n` rows), flushing their tail at the drain — cell for
+  cell and row for row the eager verbs' answers. The far-end shapes (a
+  negative bound, a negative offset, a stride under validation) keep the
+  whole-frame path.
+- `sink_parquet` / `sink_csv` join the facade: a plan's streaming face
+  turned to a file — the execution rides the pipeline batch by batch and
+  the encoded bytes land in one write (the platform's whole-file write,
+  not an incrementally flushed handle). `sink_csv` is byte-for-byte
+  `format_csv(collect())`; `sink_parquet` lays one row group per batch
+  (split inside a batch at `row_group_rows~`), with the schema and the
+  decimal interchange window fixed by the first batch.
 
 ## v0.8.1 → v0.9.0
 

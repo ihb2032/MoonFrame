@@ -425,3 +425,177 @@ test "a chunk count disagreeing with its group refuses at the footer" {
     gmsg.contains("declares 3 values but the group declares 5 rows"),
   )
 }
+
+///|
+test "the sink's schema and batch refusals" {
+  let ints = @series.Series::from_ints("v", [1, 2])
+  // The one-shot writer pins its names to the columns' own.
+  let mismatched = Ok(ignore(write_parquet_bytes([ints], ["w"], Uncompressed))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    mismatched is Err(@types.DataError::InvalidOperation(m)) &&
+    m.contains("disagrees with its column's own"),
+  )
+  let wrong_count = Ok(ignore(write_parquet_bytes([ints], [], Uncompressed))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    (
+      wrong_count is Err(@types.DataError::InvalidOperation(c)) &&
+      c.contains("1 names for 0 columns")
+    ) ||
+    (
+      wrong_count is Err(@types.DataError::InvalidOperation(c2)) &&
+      c2.contains("0 names for 1 columns")
+    ),
+  )
+  // A batch with no columns carries no height.
+  let sink = ParquetSink::sink(Uncompressed)
+  let bare = Ok(ignore(sink.push([]))) catch { e => Err(e) }
+  assert_true(
+    bare is Err(@types.DataError::InvalidOperation(b)) &&
+    b.contains("no columns"),
+  )
+  // A first batch with disagreeing column lengths refuses.
+  let ragged = ParquetSink::sink(Uncompressed)
+  let ragged_push = Ok(
+    ignore(ragged.push([ints, @series.Series::from_ints("w", [1])])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(ragged_push is Err(@types.DataError::LengthMismatch(2, 1)))
+  // A frameless push cannot follow a schema'd one.
+  let mixed = ParquetSink::sink(Uncompressed)
+  mixed.push([ints])
+  let after = Ok(ignore(mixed.push_frameless(3))) catch { e => Err(e) }
+  assert_true(
+    after is Err(@types.DataError::InvalidOperation(a)) &&
+    a.contains("frameless push cannot follow"),
+  )
+  // Later batches must agree with the schema: count, name, dtype.
+  let schema = ParquetSink::sink(Uncompressed)
+  schema.push([ints])
+  let count = Ok(
+    ignore(schema.push([ints, @series.Series::from_ints("w", [1, 2])])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    count
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(c)),
+    ) &&
+    c.contains("2 columns but the sink's schema has 1"),
+  )
+  let renamed = ParquetSink::sink(Uncompressed)
+  renamed.push([ints])
+  let name = Ok(ignore(renamed.push([@series.Series::from_ints("w", [1])]))) catch {
+    e => Err(e)
+  }
+  assert_true(
+    name
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(n)),
+    ) &&
+    n.contains("column 0 is w but the sink's schema spells v"),
+  )
+  let retyped = ParquetSink::sink(Uncompressed)
+  retyped.push([ints])
+  let dtype = Ok(
+    ignore(retyped.push([@series.Series::from_floats("v", [1.0])])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    dtype
+    is Err(
+      @types.DataError::TypeMismatch(@types.TypeMismatchDetail::Message(d)),
+    ) &&
+    d.contains("Float but the sink's schema spells Int"),
+  )
+}
+
+///|
+test "a later batch's decimal cells answer to the first batch's window" {
+  // The schema's window is the first batch's own; a later batch needing
+  // a wider scale or magnitude refuses rather than silently narrowing.
+  let first = @series.Series::from_decimals("d", [
+    Some(@types.Dec128::of_int64_scale(15L, scale=2)),
+  ])
+  let sink = ParquetSink::sink(Uncompressed)
+  sink.push([first])
+  let wider = Ok(
+    ignore(
+      sink.push([
+        @series.Series::from_decimals("d", [
+          Some(@types.Dec128::of_int64_scale(15L, scale=5)),
+        ]),
+      ]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    wider is Err(@types.DataError::InvalidOperation(w)) &&
+    w.contains("fraction digits, past the 2-digit scale"),
+  )
+  let big = Ok(
+    ignore(
+      sink.push([
+        @series.Series::from_decimals("d", [
+          Some(
+            @types.Dec128::of_int64_scale(9_000_000_000_000_000_000L, scale=0),
+          ),
+        ]),
+      ]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    big is Err(@types.DataError::InvalidOperation(g)) &&
+    g.contains("past the precision-18 window"),
+  )
+  // A NaN cell in a later batch refuses the same way the first's would.
+  let nan = @series.Series::from_decimals("d", [
+    Some(@types.Dec128::of_int64_scale(15L, scale=2)),
+    Some(@types.Dec128::nan()),
+  ])
+  let sink2 = ParquetSink::sink(Uncompressed)
+  let refused = Ok(ignore(sink2.push([nan]))) catch { e => Err(e) }
+  assert_true(
+    refused is Err(@types.DataError::InvalidOperation(r)) &&
+    r.contains("NaN or infinite decimal cell"),
+  )
+}
+
+///|
+test "a sink nothing was pushed to finishes as the empty file" {
+  let bytes = ParquetSink::sink(Uncompressed).finish()
+  let (picked, rows) = read_parquet_frame(bytes, None)
+  assert_eq(picked.length(), 0)
+  assert_eq(rows, 0)
+}
+
+///|
+test "a later batch's NaN cell refuses under the schema's window" {
+  let first = @series.Series::from_decimals("d", [
+    Some(@types.Dec128::of_int64_scale(15L, scale=2)),
+  ])
+  let sink = ParquetSink::sink(Uncompressed)
+  sink.push([first])
+  let later = Ok(
+    ignore(
+      sink.push([
+        @series.Series::from_decimals("d", [Some(@types.Dec128::nan())]),
+      ]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    later is Err(@types.DataError::InvalidOperation(r)) &&
+    r.contains("NaN or infinite decimal cell"),
+  )
+}

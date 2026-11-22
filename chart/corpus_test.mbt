@@ -1070,6 +1070,31 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
       ),
     ),
     (
+      "lookup_data_named.json",
+      @chart.Chart::of(
+        @chart.ChartSpec::of(
+          @chart.ChartKind::Bar,
+          x=@chart.field("cat"),
+          y=@chart.field("val"),
+          transform=[
+            // The Data-form lookup source: the schema's `LookupData.data`
+            // is a `Data` object, carried here as a named source.
+            @chart.VegaTransform::Lookup(
+              @chart.VegaLookupTransform::VegaLookupTransform(
+                lookup="cat",
+                from_=@chart.VegaLookupFrom::Data(
+                  @chart.VegaLookupData::VegaLookupData(
+                    data="regions",
+                    key="name",
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    (
       "config_selection.json",
       @chart.Chart::of(
         @chart.ChartSpec::of(
@@ -1107,7 +1132,13 @@ fn corpus_charts() -> Array[(String, @chart.Chart)] {
               interpolate=@chart.VegaMarkInterpolate::Monotone,
             ),
             bar=@chart.VegaMarkStyle::VegaMarkStyle(bin_spacing=2),
-            scale=@chart.VegaScaleConfig::VegaScaleConfig(clamp=true),
+            scale=@chart.VegaScaleConfig::VegaScaleConfig(
+              clamp=true,
+              invalid=@chart.VegaScaleInvalidDataConfig::VegaScaleInvalidDataConfig(
+                color=@chart.VegaScaleInvalidData::ZeroOrMin,
+                x=@chart.VegaScaleInvalidData::Value(Json::number(0)),
+              ),
+            ),
             axis=@chart.VegaAxis::VegaAxis(grid=false),
             legend=@chart.VegaLegendConfig::VegaLegendConfig(
               orient=@chart.VegaLegendOrient::Right,

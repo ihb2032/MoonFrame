@@ -283,7 +283,7 @@ test "VegaLookupTransform emits its every property under its schema keys" {
         ),
       ]),
     ),
-    "[{\"lookup\":\"cat\",\"from\":{\"data\":\"regions\",\"key\":\"name\",\"fields\":[\"pop\"]},\"as\":\"population\",\"default\":0}]",
+    "[{\"lookup\":\"cat\",\"from\":{\"data\":{\"name\":\"regions\"},\"key\":\"name\",\"fields\":[\"pop\"]},\"as\":\"population\",\"default\":0}]",
   )
 }
 

@@ -38,6 +38,10 @@ pub fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_parquet(String) -> @frame.LazyFrame
 
+pub fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
+pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError

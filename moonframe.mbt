@@ -158,6 +158,8 @@ pub using @io {
   scan_json,
   scan_ndjson,
   scan_parquet,
+  sink_csv,
+  sink_parquet,
   write_csv,
   write_json,
   write_ndjson,

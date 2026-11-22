@@ -54,45 +54,226 @@ pub fn write_parquet_bytes(
   group_rows~ : Int64 = 0L,
   height? : Int32,
 ) -> Bytes raise @types.DataError {
-  let ncols = columns.length()
-  // The footer spells every name through the core UTF-8 encoder, which
-  // aborts on an unpaired surrogate. Cell values are guarded at
-  // `encode_plain_value`; names need the same refusal, before any page
-  // is written, so the failure is the `InvalidOperation` the signature
-  // promises and never a half-written file.
-  for name in names {
-    match @text.find_unpaired_surrogate(name) {
-      Some(_) =>
-        raise @types.DataError::InvalidOperation(
-          "cannot write a parquet column name containing an unpaired UTF-16 surrogate: the UTF-8 encoding would not round-trip",
-        )
-      None => ()
+  // The caller's arrays are copied at the boundary — the write is a
+  // one-shot consumer, and the copy keeps that a fact of this body
+  // rather than of the callee it hands them to.
+  let columns = columns.copy()
+  let names = names.copy()
+  // The footer spells the caller's names; the sink spells the columns'
+  // own, so the two are pinned equal up front — a disagreement is a
+  // caller's bug, not a file the reader would rebuild under the wrong
+  // headings.
+  if names.length() != columns.length() {
+    raise @types.DataError::InvalidOperation(
+      "the parquet writer was handed \{names.length()} names for \{columns.length()} columns",
+    )
+  }
+  for i in 0..<names.length() {
+    if names[i] != columns[i].name() {
+      raise @types.DataError::InvalidOperation(
+        "the parquet writer's name \{i} (\{names[i]}) disagrees with its column's own (\{columns[i].name()})",
+      )
     }
   }
-  // The maps first — they name the schema rows and the page encoders.
-  let maps : Array[DtypeMap] = []
-  for i in 0..<ncols {
-    maps.push(map_or_refuse(columns[i].dtype(), names[i]))
+  let ncols = columns.length()
+  // A caller that knows the frame's height (the io layer always does)
+  // pins it even when there are no columns: a parquet row group can
+  // carry `num_rows` with zero column chunks, which is how an `N×0`
+  // frame survives the round-trip. Without a supplied height, derive
+  // it from the first column, and an empty column list is 0.
+  let derived = if ncols == 0 { 0 } else { columns[0].len() }
+  for i in 1..<ncols {
+    if columns[i].len() != derived {
+      raise @types.DataError::LengthMismatch(derived, columns[i].len())
+    }
   }
-  // The decimal columns' adaptive scale: the one scale every cell
-  // honours — the most fraction digits any cell carries — named in the
-  // annotation and exact per cell. A NaN or ±∞ cell refuses the write
-  // (the fixed-point interchange has no exceptional representation).
-  // The payload then follows the magnitudes: every lifted cell inside
-  // `Int64` rides the 18-digit INT64 interchange as before; a column
-  // only the 16-byte FIXED_LEN_BYTE_ARRAY payload holds (a scale past
-  // 18, or a magnitude past `Int64` at a scale that fits) rides
-  // precision 38 over 16 bytes — and a column past even that window
-  // (a scale past 38, or a magnitude past the 38 digits the 16-byte
-  // payload spells) refuses naming the window it leaves.
-  for i in 0..<ncols {
-    if maps[i].converted is Some(DecimalC) {
+  let pinned = match height {
+    Some(h) => h
+    None => derived
+  }
+  if ncols > 0 && pinned != derived {
+    raise @types.DataError::LengthMismatch(derived, pinned)
+  }
+  let sink = ParquetSink::sink(codec, group_rows~)
+  // The zero-column corner carries its pinned height as its own
+  // frameless push — an `N×0` frame round-trips the way the one-shot
+  // write spelled it.
+  if ncols == 0 {
+    sink.push_frameless(pinned)
+  } else {
+    sink.push(columns)
+  }
+  sink.finish()
+}
+
+///|
+/// An incrementally written parquet file: batches pushed in order, each
+/// landing as its own row groups (whole per batch by default, or split
+/// at `group_rows` inside a batch — a group never spans batches, so the
+/// layout follows the pipeline's own batch boundaries), the footer
+/// spelling schema and groups at `finish`. The schema is the first
+/// push's: a later push must agree column-for-column in name and dtype,
+/// the same agreement `vstack` demands. A decimal column's adaptive
+/// interchange window is the first push's too — a later batch whose
+/// cells need a wider window refuses rather than silently narrowing.
+pub struct ParquetSink {
+  priv codec : Codec
+  priv group_rows : Int64
+  // Empty until the first push names the schema.
+  priv maps : Array[DtypeMap]
+  priv mut names : Array[String]
+  priv out : Array[Byte]
+  priv groups : Array[WrittenGroup]
+  priv mut total_rows : Int64
+}
+
+///|
+/// Open a sink under a codec and a per-batch group bound (`0` = one
+/// group per batch, however small).
+pub fn ParquetSink::sink(
+  codec : Codec,
+  group_rows~ : Int64 = 0L,
+) -> ParquetSink {
+  {
+    codec,
+    group_rows,
+    maps: [],
+    names: [],
+    out: {
+      let magic : Array[Byte] = []
+      for b in b"PAR1" {
+        magic.push(b)
+      }
+      magic
+    },
+    groups: [],
+    total_rows: 0L,
+  }
+}
+
+///|
+/// The frameless corner: a height with no columns to carry it. The
+/// one-shot writer spelled it as one group of `rows` rows and no
+/// chunks; the sink takes it as its own push so an `N×0` result
+/// round-trips the same way.
+fn ParquetSink::push_frameless(
+  self : ParquetSink,
+  rows : Int32,
+) -> Unit raise @types.DataError {
+  if self.maps.length() > 0 {
+    raise @types.DataError::InvalidOperation(
+      "a frameless push cannot follow a schema'd one",
+    )
+  }
+  self.groups.push({
+    offsets: [],
+    compressed: [],
+    uncompressed: [],
+    rows: rows.to_int64(),
+  })
+  self.total_rows = self.total_rows + rows.to_int64()
+}
+
+///|
+/// Land one batch: the first names the schema (its names through the
+/// surrogate guard, its dtypes through the mapping, its decimal columns
+/// through the adaptive window); every batch lands as row groups.
+pub fn ParquetSink::push(
+  self : ParquetSink,
+  columns : Array[@series.Series],
+) -> Unit raise @types.DataError {
+  // The caller's array is copied at the boundary — the sink consumes
+  // this batch and holds none of it, but the copy keeps that a fact of
+  // the body rather than of every callee it hands the array to.
+  let columns = columns.copy()
+  let ncols = columns.length()
+  if ncols == 0 {
+    raise @types.DataError::InvalidOperation(
+      "a batch with no columns carries no height: the frameless corner has its own push",
+    )
+  }
+  let derived = columns[0].len()
+  for i in 1..<ncols {
+    if columns[i].len() != derived {
+      raise @types.DataError::LengthMismatch(derived, columns[i].len())
+    }
+  }
+  if self.maps.length() == 0 {
+    self.names = columns.map(c => c.name())
+    // The footer spells every name through the core UTF-8 encoder,
+    // which aborts on an unpaired surrogate. Cell values are guarded
+    // at `encode_plain_value`; names need the same refusal, before any
+    // page is written, so the failure is the `InvalidOperation` the
+    // signature promises and never a half-written file.
+    for name in self.names {
+      match @text.find_unpaired_surrogate(name) {
+        Some(_) =>
+          raise @types.DataError::InvalidOperation(
+            "cannot write a parquet column name containing an unpaired UTF-16 surrogate: the UTF-8 encoding would not round-trip",
+          )
+        None => ()
+      }
+    }
+    // The maps first — they name the schema rows and the page encoders.
+    for i in 0..<ncols {
+      self.maps.push(map_or_refuse(columns[i].dtype(), self.names[i]))
+    }
+    self.decide_decimal_windows(columns)
+  } else {
+    if ncols != self.maps.length() {
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "a pushed batch carries \{ncols} columns but the sink's schema has \{self.maps.length()}",
+        ),
+      )
+    }
+    for i in 0..<ncols {
+      if columns[i].name() != self.names[i] {
+        raise @types.DataError::TypeMismatch(
+          @types.TypeMismatchDetail::Message(
+            "a pushed batch's column \{i} is \{columns[i].name()} but the sink's schema spells \{self.names[i]}",
+          ),
+        )
+      }
+      if columns[i].dtype() != self.maps[i].dtype {
+        raise @types.DataError::TypeMismatch(
+          @types.TypeMismatchDetail::Message(
+            "a pushed batch's column \{i} (\{self.names[i]}) is \{columns[i].dtype()} but the sink's schema spells \{self.maps[i].dtype}",
+          ),
+        )
+      }
+    }
+    // A decimal column's window is the schema's own: a later batch
+    // needing a wider one refuses rather than silently narrowing.
+    self.check_decimal_windows(columns)
+  }
+  self.land_groups(columns)
+}
+
+///|
+/// The decimal columns' adaptive scale over the first batch: the one
+/// scale every cell honours — the most fraction digits any cell
+/// carries — named in the annotation and exact per cell. A NaN or ±∞
+/// cell refuses the write (the fixed-point interchange has no
+/// exceptional representation). The payload then follows the
+/// magnitudes: every lifted cell inside `Int64` rides the 18-digit
+/// INT64 interchange as before; a column only the 16-byte
+/// FIXED_LEN_BYTE_ARRAY payload holds (a scale past 18, or a magnitude
+/// past `Int64` at a scale that fits) rides precision 38 over 16
+/// bytes — and a column past even that window refuses naming the
+/// window it leaves.
+fn ParquetSink::decide_decimal_windows(
+  self : ParquetSink,
+  columns : Array[@series.Series],
+) -> Unit raise @types.DataError {
+  for i in 0..<columns.length() {
+    if self.maps[i].converted is Some(DecimalC) {
       let mut scale = 0
       for cell in columns[i].to_scalars() {
         if cell is @types.Scalar::Decimal(v) {
           if v.is_nan() || v.is_infinite() {
             raise @types.DataError::InvalidOperation(
-              "cannot write column \"\{names[i]}\": a NaN or infinite decimal cell has no fixed-point interchange spelling",
+              "cannot write column \"\{self.names[i]}\": a NaN or infinite decimal cell has no fixed-point interchange spelling",
             )
           }
           let e = v.canonical().exponent().unwrap_or(0)
@@ -126,55 +307,79 @@ pub fn write_parquet_bytes(
         }
       }
       if int64_window {
-        maps[i].decimal_scale = scale
-        maps[i].decimal_precision = 18
+        self.maps[i].decimal_scale = scale
+        self.maps[i].decimal_precision = 18
       } else if flba_window {
-        maps[i].decimal_scale = scale
-        maps[i].decimal_precision = 38
-        maps[i].physical = FlbaP
-        maps[i].flba_width = 16
+        self.maps[i].decimal_scale = scale
+        self.maps[i].decimal_precision = 38
+        self.maps[i].physical = FlbaP
+        self.maps[i].flba_width = 16
       } else {
         raise @types.DataError::InvalidOperation(
-          "cannot write column \"\{names[i]}\": its cells leave the decimal interchange's 38-digit window",
+          "cannot write column \"\{self.names[i]}\": its cells leave the decimal interchange's 38-digit window",
         )
       }
     }
   }
-  let nrows : Int64 = {
-    let derived = if ncols == 0 { 0 } else { columns[0].len() }
-    for i in 1..<ncols {
-      if columns[i].len() != derived {
-        raise @types.DataError::LengthMismatch(derived, columns[i].len())
+}
+
+///|
+/// A later batch against the schema's own decimal window: the scale is
+/// fixed, so a cell carrying more fraction digits than the schema
+/// chose — or a magnitude past the payload the schema picked — refuses
+/// naming the batch, rather than lifting to a scale that would
+/// silently misround.
+fn ParquetSink::check_decimal_windows(
+  self : ParquetSink,
+  columns : Array[@series.Series],
+) -> Unit raise @types.DataError {
+  for i in 0..<columns.length() {
+    if self.maps[i].converted is Some(DecimalC) {
+      let scale = self.maps[i].decimal_scale
+      let precision = self.maps[i].decimal_precision
+      for cell in columns[i].to_scalars() {
+        if cell is @types.Scalar::Decimal(v) {
+          if v.is_nan() || v.is_infinite() {
+            raise @types.DataError::InvalidOperation(
+              "cannot write column \"\{self.names[i]}\": a NaN or infinite decimal cell has no fixed-point interchange spelling",
+            )
+          }
+          let canon = v.canonical()
+          let e = canon.exponent().unwrap_or(0)
+          if -e > scale {
+            raise @types.DataError::InvalidOperation(
+              "a batch's decimal cell carries \{-e} fraction digits, past the \{scale}-digit scale the first batch's column \"\{self.names[i]}\" chose",
+            )
+          }
+          if !v.is_zero() {
+            let digits = canon.coefficient_digits().unwrap_or([]).length()
+            let lifted = digits + scale + e
+            if lifted > precision {
+              raise @types.DataError::InvalidOperation(
+                "a batch's decimal cell lifts to \{lifted} digits, past the precision-\{precision} window the first batch's column \"\{self.names[i]}\" chose",
+              )
+            }
+          }
+        }
       }
     }
-    // A caller that knows the frame's height (the io layer always does)
-    // pins it even when there are no columns: a parquet row group can
-    // carry `num_rows` with zero column chunks, which is how an `N×0`
-    // frame survives the round-trip. Without a supplied height, derive
-    // it from the first column, and an empty column list is 0.
-    let height = match height {
-      Some(h) => h
-      None => derived
-    }
-    if ncols > 0 && height != derived {
-      raise @types.DataError::LengthMismatch(derived, height)
-    }
-    height.to_int64()
   }
-  let out : Array[Byte] = []
-  // PAR1 magic.
-  for b in b"PAR1" {
-    out.push(b)
-  }
-  // The row-group windows: a 0 or height-or-past bound is the historical
-  // single group; otherwise consecutive windows of that many rows, the
-  // last one the remainder. A 0-row frame keeps its one empty group —
-  // the shape the reader rebuilds into the empty frame.
-  let total = nrows.to_int()
-  let step : Int32 = if group_rows <= 0L || group_rows > 2147483647L {
+}
+
+///|
+/// Land one batch as row groups: whole per batch (the `0` bound), or
+/// split inside the batch at `group_rows` — a group never spans
+/// batches, so the file's layout follows the pipeline's own batch
+/// boundaries.
+fn ParquetSink::land_groups(
+  self : ParquetSink,
+  columns : Array[@series.Series],
+) -> Unit raise @types.DataError {
+  let total = columns[0].len()
+  let step : Int32 = if self.group_rows <= 0L || self.group_rows > 2147483647L {
     total
   } else {
-    group_rows.to_int()
+    self.group_rows.to_int()
   }
   let bounds : Array[(Int32, Int32)] = []
   if total == 0 || step >= total {
@@ -183,8 +388,9 @@ pub fn write_parquet_bytes(
     let mut start = 0
     while start < total {
       // The window end saturates at the height — spelled as a
-      // subtraction, since `start + step` could wrap past `Int32::MAX`
-      // for a window near the end of a height-large frame.
+      // subtraction, since `start + step` could wrap past
+      // `Int32::MAX` for a window near the end of a height-large
+      // batch.
       let end = if start > total - step { total } else { start + step }
       bounds.push((start, end))
       start = end
@@ -193,42 +399,66 @@ pub fn write_parquet_bytes(
   // One chunk per column per group: the dictionary page is not written
   // (PLAIN only), so each chunk is one data page over the group's own
   // row window, its offset remembered for the footer.
-  let written : Array[WrittenGroup] = []
   for bound in bounds {
     let (g0, g1) = bound
     let offsets : Array[Int64] = []
     let compressed : Array[Int64] = []
     let uncompressed : Array[Int64] = []
-    for i in 0..<ncols {
+    for i in 0..<columns.length() {
       let (page, plain) = encode_data_page(
         columns[i].slice_series(g0, g1 - g0),
-        maps[i],
-        codec,
+        self.maps[i],
+        self.codec,
       )
-      offsets.push(out.length().to_int64())
+      offsets.push(self.out.length().to_int64())
       for b in page {
-        out.push(b)
+        self.out.push(b)
       }
       compressed.push(page.length().to_int64())
       uncompressed.push(plain)
     }
-    written.push({
+    self.groups.push({
       offsets,
       compressed,
       uncompressed,
       rows: (g1 - g0).to_int64(),
     })
+    self.total_rows = self.total_rows + (g1 - g0).to_int64()
   }
-  // The footer: FileMetaData thrift, its length, and the trailing magic.
-  let footer = write_footer(maps, names, written, nrows, codec)
+}
+
+///|
+/// Finish the file: the footer spelling schema and groups, its length,
+/// and the trailing magic. A sink nothing was pushed to is the
+/// zero-column empty file; a sink only the frameless corner reached
+/// carries its height in its own group.
+pub fn ParquetSink::finish(self : ParquetSink) -> Bytes {
+  // A zero-column write still spells one empty group — the shape the
+  // reader rebuilds into the empty frame (and the frameless pushes
+  // carry their own groups already).
+  if self.maps.length() == 0 && self.groups.length() == 0 {
+    self.groups.push({
+      offsets: [],
+      compressed: [],
+      uncompressed: [],
+      rows: 0L,
+    })
+  }
+  let footer = write_footer(
+    self.maps,
+    self.names,
+    self.groups,
+    self.total_rows,
+    self.codec,
+  )
   for b in footer {
-    out.push(b)
+    self.out.push(b)
   }
-  push_le_i32(out, footer.length())
+  push_le_i32(self.out, footer.length())
   for b in b"PAR1" {
-    out.push(b)
+    self.out.push(b)
   }
-  Bytes::from_array(out)
+  Bytes::from_array(self.out)
 }
 
 ///|

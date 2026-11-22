@@ -179,9 +179,8 @@ test "an all-constant selection blocks and still agrees" {
 
 ///|
 test "the span shapes the builder draws" {
-  // Flow-safe verbs fold into one `Flow`; a blocking verb opens a
-  // `Block` and consecutive blocking verbs join it; the kinds never
-  // merge.
+  // Same-kind verbs fold into one span; the kinds never merge — a
+  // flow pair, a blocking sort, a window pair, a flowing select.
   let built = LazyFrame::LazyFrame(pipeline_frame())
   .filter(@expr.col("v").gt(@expr.lit_int(0)))
   .rename([("k", "key")])
@@ -189,14 +188,16 @@ test "the span shapes the builder draws" {
   .head(2)
   .tail(1)
   .select([@expr.col("key")]).plan.build_pipeline()
-  assert_eq(built.spans.length(), 3)
+  assert_eq(built.spans.length(), 4)
   assert_true(built.spans[0] is Flow(_))
   assert_true(built.spans[1] is Block(_))
-  assert_true(built.spans[2] is Flow(_))
-  match (built.spans[0], built.spans[1]) {
-    (Flow(first), Block(second)) => {
+  assert_true(built.spans[2] is StateFlow(_))
+  assert_true(built.spans[3] is Flow(_))
+  match (built.spans[0], built.spans[1], built.spans[2]) {
+    (Flow(first), Block(second), StateFlow(windows)) => {
       assert_eq(first.length(), 2)
-      assert_eq(second.length(), 3)
+      assert_eq(second.length(), 1)
+      assert_eq(windows.length(), 2)
     }
     _ => fail("the span kinds were just asserted")
   }
@@ -208,16 +209,36 @@ test "the flow gate reads the verbs' own expressions" {
   // aggregating expression in a `WithColumns` blocks (its value is
   // frame-wide), a reading selection flows, a column-free selection
   // blocks (it collapses rows).
-  assert_true(op_flows(Filter(@expr.col("v").gt(@expr.lit_int(0)))))
-  assert_true(op_flows(Select([@expr.col("v")])))
-  assert_false(op_flows(Select([@expr.lit_int(1)])))
   assert_true(
-    op_flows(WithColumns([(@expr.col("v") * @expr.lit_int(2)).with_alias("d")])),
+    op_span_kind(Filter(@expr.col("v").gt(@expr.lit_int(0)))) is Flowing,
   )
-  assert_false(op_flows(WithColumns([@expr.col("v").sum().with_alias("t")])))
-  assert_true(op_flows(Rename([("k", "key")])))
-  assert_false(op_flows(Sort([(@expr.col("v"), true, false)])))
-  assert_false(op_flows(Reverse))
+  assert_true(op_span_kind(Select([@expr.col("v")])) is Flowing)
+  assert_true(op_span_kind(Select([@expr.lit_int(1)])) is Blocking)
+  assert_true(
+    op_span_kind(
+      WithColumns([(@expr.col("v") * @expr.lit_int(2)).with_alias("d")]),
+    )
+    is Flowing,
+  )
+  assert_true(
+    op_span_kind(WithColumns([@expr.col("v").sum().with_alias("t")]))
+    is Blocking,
+  )
+  assert_true(op_span_kind(Rename([("k", "key")])) is Flowing)
+  assert_true(op_span_kind(Sort([(@expr.col("v"), true, false)])) is Blocking)
+  assert_true(op_span_kind(Reverse) is Blocking)
+  // The positional windows with a running place ride their own span —
+  // forward bounds only; the far-end shapes keep the whole frame.
+  assert_true(op_span_kind(Head(3)) is Windowed)
+  assert_true(op_span_kind(Head(-3)) is Blocking)
+  assert_true(op_span_kind(Tail(3)) is Windowed)
+  assert_true(op_span_kind(Tail(-3)) is Blocking)
+  assert_true(op_span_kind(Slice(1, Some(2))) is Windowed)
+  assert_true(op_span_kind(Slice(-1, None)) is Blocking)
+  assert_true(op_span_kind(Slice(1, Some(-2))) is Blocking)
+  assert_true(op_span_kind(GatherEvery(2, 0)) is Windowed)
+  assert_true(op_span_kind(GatherEvery(0, 0)) is Blocking)
+  assert_true(op_span_kind(WithRowIndex("i", 0L)) is Windowed)
 }
 
 ///|
@@ -323,4 +344,56 @@ test "a source coarser than the morsel cap answers in windows" {
     }
     None => fail("the stream answered no batch")
   }
+}
+
+///|
+test "positional windows ride the flow across batch boundaries" {
+  // A source coarser than the cap answers in two batches, and every
+  // windowed verb keeps its place across the seam: the spans agree with
+  // the interpreter cell for cell (which agrees with the eager chain —
+  // the fuzz's own contract).
+  let tall : Array[Int64?] = []
+  for i in 0..<70_000 {
+    tall.push(Some(i.to_int64()))
+  }
+  let frame = DataFrame::DataFrame([Series::from_int_options("v", tall)])
+  let base = LazyFrame::LazyFrame(frame)
+  // A forward count that ends past the first batch's seam.
+  assert_agree(both_engines(base.head(66_000).plan))
+  // A trailing window wider than the whole source.
+  assert_agree(both_engines(base.tail(80_000).plan))
+  // A trailing window that keeps a straddling front in its buffer.
+  assert_agree(both_engines(base.tail(66_000).plan))
+  // A forward slice whose window crosses the seam.
+  assert_agree(both_engines(base.slice(65_530, length=12).plan))
+  // A stride whose points fall in both batches.
+  assert_agree(both_engines(base.gather_every(65_537, offset=3).plan))
+  // A row numbering across the seam, from a non-zero offset.
+  assert_agree(both_engines(base.with_row_index(name="idx", offset=41L).plan))
+  // Windowed verbs chained: a tail flushed into a head's budget.
+  assert_agree(both_engines(base.tail(66_500).head(100).plan))
+}
+
+///|
+test "windowed shapes the eager path still owns" {
+  // The far-end shapes keep the whole-frame path — the eager error and
+  // the eager rows — and still agree between the engines.
+  let base = LazyFrame::LazyFrame(pipeline_frame())
+  assert_agree(both_engines(base.head(-2).plan))
+  assert_agree(both_engines(base.tail(-2).plan))
+  assert_agree(both_engines(base.slice(-1).plan))
+}
+
+///|
+test "the windowed walks' private corners" {
+  // A verb the builder never routes to a walk still has one — the
+  // identity step, nothing to flush.
+  let idle = window_morph(Reverse)
+  let df = DataFrame::DataFrame([Series::from_ints("v", [1, 2])])
+  assert_eq((idle.step)(df).shape(), (2, 1))
+  assert_true((idle.flush)() is None)
+  // A trailing window that never saw a batch flushes nothing — the
+  // stream it would answer is empty.
+  let empty_tail = window_morph(Tail(3))
+  assert_true((empty_tail.flush)() is None)
 }

@@ -9,6 +9,7 @@ warnings = "+a-unnecessary_annotation-test_unqualified_package-unqualified_local
 import {
   "moonbitlang/x@0.5.6",
   "moonbit-community/NyaCSV@0.3.4",
+  "moonbitstack/moondb@0.3.1",
 }
 
 readme = "README.mbt.md"

@@ -5,6 +5,7 @@ import {
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/types",
   "moonbitlang/core/debug",
+  "moonbitstack/moondb",
 }
 
 // Values
@@ -29,6 +30,8 @@ pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @
 pub fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 

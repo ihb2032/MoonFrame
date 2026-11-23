@@ -154,6 +154,7 @@ pub using @io {
   read_json,
   read_ndjson,
   read_parquet,
+  read_sql,
   scan_csv,
   scan_json,
   scan_ndjson,

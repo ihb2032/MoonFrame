@@ -52,6 +52,16 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   `format_csv(collect())`; `sink_parquet` lays one row group per batch
   (split inside a batch at `row_group_rows~`), with the schema and the
   decimal interchange window fixed by the first batch.
+- `read_sql` joins the facade over the moondb contract: any moondb
+  driver (the in-memory `MockDriver` ships with moondb; moonsqlite /
+  moonpostgres / moondb's other drivers plug in the same way) answers a
+  query as a frame, the column dtypes following the cells (`Time` and
+  `Numeric` texts parse into `Timestamp` / `Decimal`; an integer cell
+  meeting a `Double` widens to `Float`; an all-null column answers
+  `String`). MoonFrame takes a dependency on the moondb interface
+  package only — no database backend of its own. The driver type in
+  `read_sql`'s signature is moondb's, so a caller brings their own
+  `moonbitstack/moondb` dependency.
 
 ## v0.8.1 → v0.9.0
 

@@ -106,7 +106,10 @@ pub fn DataFrame::from_parts(
 /// `raise Unsupported(...)` if any field carries `DataType::Null` — there is
 /// no concrete Null backend to materialise into. Only an explicitly built
 /// schema can carry it here: the readers never infer `Null`, and a probe
-/// window that is entirely null falls back to `String`.
+/// window that is entirely null falls back to `String`. A nested field
+/// builds its empty column (no cells, the element or field dtype kept);
+/// the one nested dtype that refuses is a struct with no field, which
+/// names no column to build.
 pub fn DataFrame::empty(
   schema : @types.Schema,
 ) -> DataFrame raise @types.DataError {
@@ -128,7 +131,7 @@ pub fn DataFrame::empty(
 /// anything else `raise`s `TypeMismatch(Expected(field.dtype(), got, name))`.
 /// Rows are visited in order, so the reported cell is the first offending one.
 ///
-/// The skeleton `from_rows`' four typed arms share: each supplies only the
+/// The scalar arms of `from_rows` share this: each supplies only the
 /// `Scalar` variant it reads and the constructor that consumes the result, so a
 /// dtype added later cannot quietly skip the null mapping or the mismatch
 /// error. `rows` is pre-validated to be `schema.len()` wide, so `row[column]`
@@ -177,7 +180,8 @@ fn[T] typed_column_cells(
 /// - `TypeMismatch(Expected(expected, got, column))` — a non-null cell's dtype doesn't
 ///   match the schema's dtype for that column (the pieces kept structured).
 /// - `Unsupported(...)` — schema declares a `Null`-dtype column (same
-///   reason as `empty`).
+///   reason as `empty`), or a struct with no field, which names no
+///   column to build.
 /// - `NullInNonNullable(name)` — a `Scalar::Null` lands in a column whose
 ///   field is declared `nullable = false`.
 pub fn DataFrame::from_rows(
@@ -301,8 +305,13 @@ pub fn DataFrame::from_rows(
           "cannot build DataFrame column of dtype Null: \{field.name()}",
         )
       @types.DataType::List(_) | @types.DataType::Struct(_) =>
-        raise @types.DataError::Unsupported(
-          "cannot build DataFrame column of nested dtype \{field.dtype()}: \{field.name()} (the nested column storage is not designed yet)",
+        // A nested cell is judged against the dtype's whole shape by the
+        // series constructor, which names the first cell that does not
+        // fit with the same `TypeMismatch` the arms above raise.
+        Series::from_scalars(
+          field.name(),
+          Array::makei(nrows, r => rows[r][i]),
+          dtype=field.dtype(),
         )
     }
     // Enforce the field's declared non-nullability: a `nullable = false`

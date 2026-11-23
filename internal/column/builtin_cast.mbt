@@ -74,6 +74,8 @@ fn BuiltinColumn::cast(
     Timestamp => raise @types.DataError::Unsupported("cast to Timestamp")
     Duration => raise @types.DataError::Unsupported("cast to Duration")
     Null => raise @types.DataError::Unsupported("cast to Null")
+    List(_) => raise @types.DataError::Unsupported("cast to List")
+    Struct(_) => raise @types.DataError::Unsupported("cast to Struct")
   }
 }
 

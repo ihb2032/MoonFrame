@@ -621,3 +621,26 @@ test "DataFrame::iter2 pairs each column with its name" {
   }
   assert_eq(pairs, [("a", 2), ("b", 2)])
 }
+
+///|
+test "a schema'd build refuses a nested field" {
+  // The nested dtypes exist for the IPC and JSON readers ahead; the
+  // row constructor refuses until their column storage is designed.
+  let schema = [
+    @types.Field::Field("i", @types.DataType::Int),
+    @types.Field::Field("l", @types.DataType::List(@types.DataType::Int)),
+  ]
+  let refused = Ok(
+    ignore(
+      DataFrame::from_rows(@types.Schema::Schema(schema), [
+        [@types.Scalar::Int(1), @types.Scalar::Null],
+      ]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    refused is Err(@types.DataError::Unsupported(m)) &&
+    m.contains("nested dtype List"),
+  )
+}

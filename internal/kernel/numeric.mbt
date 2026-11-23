@@ -644,7 +644,9 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::Date
     | @types.DataType::Timestamp
     | @types.DataType::Duration
-    | @types.DataType::Null =>
+    | @types.DataType::Null
+    | @types.DataType::List(_)
+    | @types.DataType::Struct(_) =>
       eval_unary_num(operand, "negate", a => -a, a => -a)
   }
 }
@@ -663,7 +665,9 @@ fn eval_abs(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::Date
     | @types.DataType::Timestamp
     | @types.DataType::Duration
-    | @types.DataType::Null =>
+    | @types.DataType::Null
+    | @types.DataType::List(_)
+    | @types.DataType::Struct(_) =>
       eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
         a.abs()
       })
@@ -728,7 +732,16 @@ fn eval_round(
 ) -> Series raise @types.DataError {
   match operand.dtype() {
     Decimal => decimal_round(operand, decimals)
-    Int | Float | Bool | String | Date | Timestamp | Duration | Null =>
+    Int
+    | Float
+    | Bool
+    | String
+    | Date
+    | Timestamp
+    | Duration
+    | Null
+    | List(_)
+    | Struct(_) =>
       eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
   }
 }

@@ -82,9 +82,10 @@ fn build_series(
     }
     // `Null` has no buffer to decode into and `Duration` never rides the
     // read mapping (a written Duration reads back through its bare INT64
-    // as an `Int`); the map produces neither, and a future dtype landing
-    // here fails this match at compile time instead.
-    Duration | Null =>
+    // as an `Int`); the map produces neither. The nested dtypes ride the
+    // mapping's target set just as little — and until the IPC reader
+    // speaks nested layouts, a map naming one is the same refusal.
+    Duration | Null | List(_) | Struct(_) =>
       raise bad("a column's dtype map names no series constructor")
   }
 }

@@ -212,7 +212,10 @@ pub fn BuiltinColumn::from_dec_options(
 /// diagnostic). The result is `Builtin`-backed; converging an all-valid
 /// numeric result onto `Numeric` stays with the caller, who owns the
 /// column's `Series` wrapping. Exhaustive over `DataType`, so a new dtype
-/// fails compilation here until its projection is written.
+/// fails compilation here until its projection is written. The nested
+/// dtypes (`List` / `Struct`) are such a dtype in waiting: their variant
+/// exists for the IPC and JSON readers ahead, and the projection refuses
+/// until their column storage is designed.
 pub fn BuiltinColumn::from_scalars(
   probe : @types.DataType,
   cells : Array[@types.Scalar],
@@ -297,6 +300,14 @@ pub fn BuiltinColumn::from_scalars(
     @types.DataType::Null =>
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
+      )
+    @types.DataType::List(_) =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype List: \{name} (the nested column storage is not designed yet)",
+      )
+    @types.DataType::Struct(_) =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype Struct: \{name} (the nested column storage is not designed yet)",
       )
   }
 }

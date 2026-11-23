@@ -45,8 +45,10 @@ DataType | enum | Decimal
 DataType | enum | Duration
 DataType | enum | Float
 DataType | enum | Int
+DataType | enum | List(DataType)
 DataType | enum | Null
 DataType | enum | String
+DataType | enum | Struct(Array[(String, DataType)])
 DataType | enum | Timestamp
 JoinType | enum | Anti
 JoinType | enum | Cross

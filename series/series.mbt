@@ -345,6 +345,14 @@ pub fn Series::from_scalars(
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
       )
+    @types.DataType::List(_) =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype List: \{name} (the nested column storage is not designed yet)",
+      )
+    @types.DataType::Struct(_) =>
+      raise @types.DataError::Unsupported(
+        "cannot build a column of dtype Struct: \{name} (the nested column storage is not designed yet)",
+      )
   }
 }
 

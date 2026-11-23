@@ -73,9 +73,9 @@ fn inferred_from_override(
     Date => RiderDate
     Timestamp => RiderTimestamp
     Decimal => RiderDecimal
-    Null | Duration =>
+    Null | Duration | List(_) | Struct(_) =>
       raise @types.DataError::InvalidOperation(
-        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses)",
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses, and the nested dtypes are reader-supplied, not parsed from cell text)",
       )
   }
 }

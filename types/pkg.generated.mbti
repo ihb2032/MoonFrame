@@ -63,6 +63,8 @@ pub(all) enum DataType {
   Decimal
   Duration
   Null
+  List(DataType)
+  Struct(Array[(String, DataType)])
 }
 pub fn DataType::equal(Self, Self) -> Bool
 pub fn DataType::is_numeric(Self) -> Bool

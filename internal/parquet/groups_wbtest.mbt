@@ -599,3 +599,25 @@ test "a later batch's NaN cell refuses under the schema's window" {
     r.contains("NaN or infinite decimal cell"),
   )
 }
+
+///|
+test "the nested dtypes ride no parquet mapping" {
+  // The parquet interchange has no nested annotation in its map: the
+  // writer refuses (dtype_map answers None) and the read-side scalar
+  // lift is the enum's totality arm, never a reachable read.
+  let map = dtype_map(@types.DataType::List(@types.DataType::Int))
+  assert_true(map is None)
+  let physical = scalar_of_physical(
+    {
+      dtype: @types.DataType::List(@types.DataType::Int),
+      physical: Int64P,
+      converted: None,
+      decimal_scale: -1,
+      decimal_precision: -1,
+      flba_width: -1,
+    },
+    0,
+    0.0,
+  )
+  assert_true(physical is @types.Scalar::Null)
+}

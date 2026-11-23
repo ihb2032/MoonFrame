@@ -146,6 +146,7 @@ fn dtype_map(dtype : @types.DataType) -> DtypeMap? {
         flba_width: -1,
       })
     Null => None
+    List(_) | Struct(_) => None
   }
 }
 

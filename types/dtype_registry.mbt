@@ -149,6 +149,28 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
         summable: false,
         orderable: false,
       }
+    List(_) =>
+      {
+        display: "List",
+        // The nested column's physical form — an element column plus
+        // offsets — is the storage design this dtype ships with; until
+        // that design lands, no column materialises on the dtype, which
+        // is exactly what `None` states.
+        physical: None,
+        numeric: false,
+        summable: false,
+        orderable: false,
+      }
+    Struct(_) =>
+      {
+        display: "Struct",
+        // Same story as `List`: a fields-plus-lengths layout, pending
+        // the storage design.
+        physical: None,
+        numeric: false,
+        summable: false,
+        orderable: false,
+      }
   }
 }
 
@@ -198,5 +220,7 @@ pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
     Bool => None
     String => None
     Null => None
+    List(_) => None // no I64 buffer to ride
+    Struct(_) => None // no I64 buffer to ride
   }
 }

@@ -300,6 +300,10 @@ pub fn DataFrame::from_rows(
         raise @types.DataError::Unsupported(
           "cannot build DataFrame column of dtype Null: \{field.name()}",
         )
+      @types.DataType::List(_) | @types.DataType::Struct(_) =>
+        raise @types.DataError::Unsupported(
+          "cannot build DataFrame column of nested dtype \{field.dtype()}: \{field.name()} (the nested column storage is not designed yet)",
+        )
     }
     // Enforce the field's declared non-nullability: a `nullable = false`
     // field must not carry nulls. `empty` builds 0-row columns and so can

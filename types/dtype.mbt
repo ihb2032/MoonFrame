@@ -71,6 +71,25 @@ pub(all) enum DataType {
   /// `String`, and a `dtypes` pin refuses it.
   Duration
   Null
+  /// A variable-length list of values, each cell one element dtype's
+  /// scalar (elements may be null — a `Scalar::Null` inside the list's
+  /// cells). The element dtype is the payload, itself possibly nested
+  /// (`List(List(Int))`). Not numeric, not orderable, not summable — a
+  /// list compares by structural equality (element-wise, nulls equal);
+  /// grouping and joins read that equality. `cast` refuses it as a
+  /// target. Builders do not infer it — the IPC reader and the JSON
+  /// reader supply it.
+  List(DataType)
+  /// A fixed set of named fields, each cell one struct value whose keys
+  /// and order are the dtype's own (values may be null — a
+  /// `Scalar::Null` inside the field cells). The fields are the
+  /// payload, elements themselves possibly nested (`Struct` of
+  /// `Struct`). Not numeric, not orderable, not summable — a struct
+  /// compares by structural equality (field-wise, keys by position,
+  /// nulls equal); grouping and joins read that equality. `cast`
+  /// refuses it as a target. Builders do not infer it — the IPC reader
+  /// and the JSON reader supply it.
+  Struct(Array[(String, DataType)])
 }
 
 ///|

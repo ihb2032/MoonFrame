@@ -88,6 +88,12 @@ fn binary_type_mismatch_error(
 /// on whatever backend its `Series::from_*` constructor picks — `Numeric` for
 /// `Int` / `Float`, `Builtin` for `Bool` / `String` / `Date` / `Timestamp`. `Scalar::Null` has no
 /// column representation (no Null-dtype backend), so it raises `Unsupported`.
+///
+/// A nested literal builds its column from the one cell, under the dtype
+/// the value names (`Scalar::named_dtype`, the one rule every "can this
+/// value name a column" question reads). A value that leaves a position
+/// of its shape unnamed — an empty list, a struct with a null field —
+/// names no dtype to build under, and raises `Unsupported`.
 pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError {
   match value {
     @types.Scalar::Int(v) => Series::from_ints("literal", [v])
@@ -100,6 +106,14 @@ pub fn singleton_series(value : @types.Scalar) -> Series raise @types.DataError 
     @types.Scalar::Duration(v) =>
       Series::from_duration_options("literal", [Some(v)])
     @types.Scalar::Decimal(v) => Series::from_decimals("literal", [Some(v)])
+    @types.Scalar::List(_) | @types.Scalar::Struct(_) =>
+      match value.named_dtype() {
+        Some(dtype) => Series::from_scalars("literal", [value], dtype~)
+        None =>
+          raise @types.DataError::Unsupported(
+            "cannot evaluate a nested literal: a position of its shape names no dtype (an empty list, a struct with a null field)",
+          )
+      }
     @types.Scalar::Null =>
       raise @types.DataError::Unsupported(
         "cannot evaluate a Null literal: no Null-dtype column backend",

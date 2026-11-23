@@ -75,28 +75,35 @@ fn Series::from_builtin(
 ///|
 /// An empty (0-row) `Series` of the given dtype — the physical dispatch behind
 /// `DataFrame::empty`, kept here in `series` (which owns the column) so `frame`
-/// need not match storage backends to build an empty column. A `Null` dtype has
-/// no physical backend, so it `raise`s `Unsupported`.
+/// need not match storage backends to build an empty column. A nested dtype
+/// has no buffer of its own: its empty body is laid out by the column layer's
+/// builder. A `Null` dtype has no physical backend, so it `raise`s
+/// `Unsupported`.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn Series::empty_of(
   name : String,
   dtype : @types.DataType,
 ) -> Series raise @types.DataError {
-  let storage = match dtype.physical() {
-    // The I64 riders share one buffer, so the dtype-carrying constructor
-    // serves both `Int` and its riders (`Date`) — no per-dtype branch.
-    Some(@types.PhysicalType::I64) =>
-      @column.BuiltinColumn::from_i64_options(dtype, [])
-    Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
-    Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
-    Some(@types.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
-    Some(@types.PhysicalType::Dec) =>
-      @column.BuiltinColumn::from_dec_options([])
-    None =>
-      raise @types.DataError::Unsupported(
-        "cannot build an empty column of dtype Null: \{name}",
-      )
+  let storage = if dtype is @types.DataType::List(_) ||
+    dtype is @types.DataType::Struct(_) {
+    @column.BuiltinColumn::from_scalars(dtype, [], name~)
+  } else {
+    match dtype.physical() {
+      // The I64 riders share one buffer, so the dtype-carrying constructor
+      // serves both `Int` and its riders (`Date`) — no per-dtype branch.
+      Some(@types.PhysicalType::I64) =>
+        @column.BuiltinColumn::from_i64_options(dtype, [])
+      Some(@types.PhysicalType::F64) => @column.BuiltinColumn::from_floats([])
+      Some(@types.PhysicalType::Bool) => @column.BuiltinColumn::from_bools([])
+      Some(@types.PhysicalType::Utf8) => @column.BuiltinColumn::from_strings([])
+      Some(@types.PhysicalType::Dec) =>
+        @column.BuiltinColumn::from_dec_options([])
+      None =>
+        raise @types.DataError::Unsupported(
+          "cannot build an empty column of dtype Null: \{name}",
+        )
+    }
   }
   Series::from_builtin(name, storage)
 }
@@ -247,7 +254,10 @@ pub fn Series::from_scalars(
     None => {
       let mut found : @types.DataType? = None
       for cell in cells {
-        if !(cell is @types.Scalar::Null) {
+        // A nested cell whose dtype names no type (an empty list, a
+        // struct of nulls) is passed over: it fits any dtype of its
+        // shape, so it is the first cell that *names* one that decides.
+        if !(cell is @types.Scalar::Null) && cell.dtype().names_types() {
           found = Some(cell.dtype())
           break
         }
@@ -256,7 +266,7 @@ pub fn Series::from_scalars(
         Some(d) => d
         None =>
           raise @types.DataError::InvalidOperation(
-            "cannot infer a dtype for column \"\{name}\": every cell is null, pass dtype~ to lock one",
+            "cannot infer a dtype for column \"\{name}\": every cell is null or names no dtype (an empty list, a struct of nulls); pass dtype~ to lock one",
           )
       }
     }
@@ -345,14 +355,22 @@ pub fn Series::from_scalars(
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
       )
-    @types.DataType::List(_) =>
-      raise @types.DataError::Unsupported(
-        "cannot build a column of dtype List: \{name} (the nested column storage is not designed yet)",
+    @types.DataType::List(_) | @types.DataType::Struct(_) => {
+      // The strict rule above, one level down: a present cell must fit
+      // the dtype's whole shape (its elements and fields included), and
+      // the first cell that does not names the refusal.
+      for cell in cells {
+        if !(cell is @types.Scalar::Null) && !target.fits_value(cell) {
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Expected(target, cell.dtype(), name),
+          )
+        }
+      }
+      Series::from_builtin(
+        name,
+        @column.BuiltinColumn::from_scalars(target, cells, name~),
       )
-    @types.DataType::Struct(_) =>
-      raise @types.DataError::Unsupported(
-        "cannot build a column of dtype Struct: \{name} (the nested column storage is not designed yet)",
-      )
+    }
   }
 }
 

@@ -64,11 +64,13 @@ pub(all) enum DataType {
   Duration
   Null
   List(DataType)
-  Struct(Array[(String, DataType)])
+  Struct(Schema)
 }
 pub fn DataType::equal(Self, Self) -> Bool
+pub fn DataType::fits_value(Self, Scalar) -> Bool
 pub fn DataType::is_numeric(Self) -> Bool
 pub fn DataType::is_summable(Self) -> Bool
+pub fn DataType::names_types(Self) -> Bool
 pub fn DataType::not_equal(Self, Self) -> Bool
 pub fn DataType::output(Self, &Logger) -> Unit
 pub fn DataType::to_repr(Self) -> @debug.Repr
@@ -136,6 +138,31 @@ pub fn Field::to_repr(Self) -> @debug.Repr
 pub fn Field::to_string(Self) -> String
 pub impl Show for Field
 
+#derive(Eq, @debug.Debug)
+pub struct FieldValue {
+  // private fields
+}
+pub fn FieldValue::FieldValue(String, Scalar) -> Self
+pub fn FieldValue::equal(Self, Self) -> Bool
+pub fn FieldValue::name(Self) -> String
+pub fn FieldValue::not_equal(Self, Self) -> Bool
+pub fn FieldValue::to_repr(Self) -> @debug.Repr
+pub fn FieldValue::value(Self) -> Scalar
+
+#derive(Eq, @debug.Debug)
+pub struct ListValue {
+  // private fields
+}
+pub fn ListValue::ListValue(Array[Scalar]) -> Self
+pub fn ListValue::cells(Self) -> Array[Scalar]
+pub fn ListValue::element_dtype(Self) -> DataType
+pub fn ListValue::equal(Self, Self) -> Bool
+pub fn ListValue::get(Self, Int32) -> Scalar raise DataError
+pub fn ListValue::is_empty(Self) -> Bool
+pub fn ListValue::len(Self) -> Int32
+pub fn ListValue::not_equal(Self, Self) -> Bool
+pub fn ListValue::to_repr(Self) -> @debug.Repr
+
 #non_exhaustive
 #derive(Eq, @debug.Debug)
 pub(all) enum ParseErrorDetail {
@@ -168,6 +195,8 @@ pub(all) enum Scalar {
   Timestamp(Int64)
   Decimal(Dec128)
   Duration(Int64)
+  List(ListValue)
+  Struct(StructValue)
   Null
 }
 pub fn Scalar::as_bool(Self) -> Bool raise DataError
@@ -177,6 +206,7 @@ pub fn Scalar::as_string(Self) -> String raise DataError
 pub fn Scalar::dtype(Self) -> DataType
 pub fn Scalar::equal(Self, Self) -> Bool
 pub fn Scalar::is_null(Self) -> Bool
+pub fn Scalar::named_dtype(Self) -> DataType?
 pub fn Scalar::not_equal(Self, Self) -> Bool
 pub fn Scalar::output(Self, &Logger) -> Unit
 pub fn Scalar::to_repr(Self) -> @debug.Repr
@@ -204,6 +234,21 @@ pub fn Schema::select(Self, Array[String]) -> Self raise DataError
 pub fn Schema::to_repr(Self) -> @debug.Repr
 pub fn Schema::to_string(Self) -> String
 pub impl Show for Schema
+
+#derive(Eq, @debug.Debug)
+pub struct StructValue {
+  // private fields
+}
+pub fn StructValue::StructValue(Array[FieldValue]) -> Self
+pub fn StructValue::equal(Self, Self) -> Bool
+pub fn StructValue::fields(Self) -> Array[FieldValue]
+pub fn StructValue::get(Self, Int32) -> FieldValue raise DataError
+pub fn StructValue::get_named(Self, String) -> Scalar?
+pub fn StructValue::len(Self) -> Int32
+pub fn StructValue::not_equal(Self, Self) -> Bool
+pub fn StructValue::schema(Self) -> Schema raise DataError
+pub fn StructValue::schema_opt(Self) -> Schema?
+pub fn StructValue::to_repr(Self) -> @debug.Repr
 
 #non_exhaustive
 #derive(Eq, @debug.Debug)

@@ -18,7 +18,8 @@
 /// (`1.0 / -0.0 = -inf`), so the sign is re-added from the sign bit;
 /// `NaN` / `Infinity` / `-Infinity` are non-finite and keep their own
 /// spelling. Display syntax, not the debug form `Scalar`'s own `Show`
-/// produces.
+/// produces. A nested value renders in its own value form — the
+/// JSON-shaped spelling `Scalar::to_string` gives a list or a struct.
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
 pub fn format_scalar(value : @types.Scalar) -> String {
@@ -43,6 +44,7 @@ pub fn format_scalar(value : @types.Scalar) -> String {
     Timestamp(_) => value.to_string()
     Duration(_) => value.to_string()
     Decimal(_) => value.to_string()
+    List(_) | Struct(_) => value.to_string()
     Null => "null"
   }
 }

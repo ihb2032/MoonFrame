@@ -113,6 +113,11 @@ fn BuiltinColumn::cast_date_to_timestamp(
     // of `cast` on a mismatched construction would see.
     F64(_) | Bool(_) | Utf8(_) | Dec(_) =>
       raise @types.DataError::Unsupported("cast from Date")
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }
 
@@ -135,6 +140,11 @@ fn BuiltinColumn::cast_timestamp_to_date(
     // The unreachable-buffer arm, as above.
     F64(_) | Bool(_) | Utf8(_) | Dec(_) =>
       raise @types.DataError::Unsupported("cast from Timestamp")
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }
 
@@ -287,6 +297,11 @@ fn BuiltinColumn::to_int(
         0,
         b => I64(b),
       )
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }
 
@@ -354,6 +369,11 @@ fn BuiltinColumn::to_float(
       self.cast_cells(@types.DataType::Float, i => a[i].to_double(), 0.0, b => {
         F64(b)
       })
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }
 
@@ -413,6 +433,11 @@ fn BuiltinColumn::to_decimal(
         @types.Dec128::nan(),
         b => Dec(b),
       )
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }
 
@@ -460,5 +485,10 @@ fn BuiltinColumn::to_string_column(
       ) raise @types.DataError {
         Utf8(@buffer.Utf8Array::from_strings(b))
       })
+    // A nested column casts nowhere: the dispatcher refuses it as a
+    // source (and as a target) before any conversion runs, so the arm
+    // answers that same refusal.
+    List(_) | Struct(_) =>
+      raise @types.DataError::Unsupported("cast from \{self.dtype()}")
   }
 }

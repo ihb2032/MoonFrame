@@ -16,7 +16,9 @@ fn int_cells(col : BuiltinColumn) -> (ArrayView[Int64], @buffer.Bitmap) {
     ColumnData::F64(_)
     | ColumnData::Bool(_)
     | ColumnData::Utf8(_)
-    | ColumnData::Dec(_) => ([], col.validity())
+    | ColumnData::Dec(_)
+    | ColumnData::List(_)
+    | ColumnData::Struct(_) => ([], col.validity())
   }
 }
 
@@ -28,7 +30,9 @@ fn float_cells(col : BuiltinColumn) -> (ArrayView[Double], @buffer.Bitmap) {
     ColumnData::I64(_)
     | ColumnData::Bool(_)
     | ColumnData::Utf8(_)
-    | ColumnData::Dec(_) => ([], col.validity())
+    | ColumnData::Dec(_)
+    | ColumnData::List(_)
+    | ColumnData::Struct(_) => ([], col.validity())
   }
 }
 
@@ -40,7 +44,9 @@ fn bool_cells(col : BuiltinColumn) -> (ArrayView[Bool], @buffer.Bitmap) {
     ColumnData::I64(_)
     | ColumnData::F64(_)
     | ColumnData::Utf8(_)
-    | ColumnData::Dec(_) => ([], col.validity())
+    | ColumnData::Dec(_)
+    | ColumnData::List(_)
+    | ColumnData::Struct(_) => ([], col.validity())
   }
 }
 
@@ -52,7 +58,9 @@ fn string_cells(col : BuiltinColumn) -> (Array[String], @buffer.Bitmap) {
     ColumnData::I64(_)
     | ColumnData::F64(_)
     | ColumnData::Bool(_)
-    | ColumnData::Dec(_) => ([], col.validity())
+    | ColumnData::Dec(_)
+    | ColumnData::List(_)
+    | ColumnData::Struct(_) => ([], col.validity())
   }
 }
 
@@ -64,7 +72,9 @@ fn dec_cells(col : BuiltinColumn) -> (ArrayView[@types.Dec128], @buffer.Bitmap) 
     ColumnData::I64(_)
     | ColumnData::F64(_)
     | ColumnData::Bool(_)
-    | ColumnData::Utf8(_) => ([], col.validity())
+    | ColumnData::Utf8(_)
+    | ColumnData::List(_)
+    | ColumnData::Struct(_) => ([], col.validity())
   }
 }
 
@@ -115,6 +125,31 @@ fn placeholders_normalized(col : BuiltinColumn) -> Bool {
       }
       ok
     }
+    // A nested body holds no placeholder of its own — a null cell is an
+    // empty offset run, or children whose row is null on every field — so
+    // what the invariant asks is that each child's own placeholders are
+    // normalized, recursively.
+    ColumnData::List(a) => child_normalized(a.child())
+    ColumnData::Struct(a) => {
+      let mut ok = true
+      for child in a.children() {
+        if !child_normalized(child) {
+          ok = false
+        }
+      }
+      ok
+    }
+  }
+}
+
+///|
+/// The placeholder invariant over a child column of a nested body: a
+/// `Builtin` child is asked directly, a `Numeric` one has no null slot to
+/// hold a placeholder.
+fn child_normalized(child : ColumnStorage) -> Bool {
+  match child {
+    Builtin(c) => placeholders_normalized(c)
+    Numeric(_) => true
   }
 }
 

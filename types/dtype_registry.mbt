@@ -66,8 +66,9 @@ priv struct DTypeProfile {
   /// Whether the whole-frame `min` / `max` reductions order the dtype —
   /// the orderable columns are the numerics and the temporal riders
   /// (whose raw `I64` counts order chronologically); a span or a scaled
-  /// magnitude orders like its count. `Bool` / `String` / `Null` have no
-  /// whole-frame extremum (the `Series`-level min / max still order them).
+  /// magnitude orders like its count, and a nested column by the total
+  /// order its sort reads. `Bool` / `String` / `Null` have no whole-frame
+  /// extremum (the `Series`-level min / max still order them).
   orderable : Bool
 }
 
@@ -152,24 +153,22 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
     List(_) =>
       {
         display: "List",
-        // The nested column's physical form — an element column plus
-        // offsets — is the storage design this dtype ships with; until
-        // that design lands, no column materialises on the dtype, which
-        // is exactly what `None` states.
+        // A nested column's body is not one buffer the registry could
+        // name: a list is an offsets column over a flattened child, laid
+        // out by the column layer for whatever element dtype this is.
         physical: None,
         numeric: false,
         summable: false,
-        orderable: false,
+        orderable: true,
       }
     Struct(_) =>
       {
         display: "Struct",
-        // Same story as `List`: a fields-plus-lengths layout, pending
-        // the storage design.
+        // As for a list: one child column per field, no buffer of its own.
         physical: None,
         numeric: false,
         summable: false,
-        orderable: false,
+        orderable: true,
       }
   }
 }

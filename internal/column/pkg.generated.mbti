@@ -10,6 +10,8 @@ import {
 // Values
 pub fn scalar_of(@types.DataType, ColumnData, Int32) -> @types.Scalar
 
+pub fn storage_get_total(ColumnStorage, Int32) -> @types.Scalar
+
 // Errors
 
 // Types and methods
@@ -37,6 +39,8 @@ pub(all) enum ColumnData {
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
   Dec(ArrayView[@types.Dec128])
+  List(ListArray)
+  Struct(StructArray)
 }
 pub fn ColumnData::to_repr(Self) -> @debug.Repr
 
@@ -61,6 +65,11 @@ pub fn ColumnStorage::take(Self, ArrayView[Int32]) -> Self raise @types.DataErro
 pub fn ColumnStorage::to_repr(Self) -> @debug.Repr
 pub fn ColumnStorage::validity(Self) -> @buffer.Bitmap
 pub impl Eq for ColumnStorage
+
+#derive(@debug.Debug)
+pub struct ListArray {
+  // private fields
+}
 
 #derive(@debug.Debug)
 pub struct NumericColumn {
@@ -90,6 +99,11 @@ pub(all) enum StorageKind {
 pub fn StorageKind::equal(Self, Self) -> Bool
 pub fn StorageKind::not_equal(Self, Self) -> Bool
 pub fn StorageKind::to_repr(Self) -> @debug.Repr
+
+#derive(@debug.Debug)
+pub struct StructArray {
+  // private fields
+}
 
 // Type aliases
 

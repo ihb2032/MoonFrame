@@ -49,6 +49,12 @@ pub fn eval_str(
   // Decoded once up front: the string ops read materialised Strings (the
   // regex engine and the String methods speak UTF-16), one decode per cell.
   let data = match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "string operation requires a String operand, got \{operand.dtype()}",
+        ),
+      )
     @column.ColumnData::Utf8(a) => a.to_strings()
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)

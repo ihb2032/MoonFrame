@@ -28,7 +28,11 @@
 /// `-0.0` to fold — both differ from `Scalar`'s IEEE-following `Eq` — and a
 /// key never needs `Scalar`'s numeric-promotion comparisons. `KNull` lets
 /// `group_by` give a null cell its own group; `join` rejects a null key
-/// before building the tuple.
+/// before building the tuple. A nested cell keys by its shape — a list as
+/// the key cells of its elements, a struct as its fields' names paired
+/// with their key cells — the same normalisation applied at every depth,
+/// so two lists that differ only in a `NaN` payload are one key exactly
+/// as two bare `NaN` floats are.
 #derive(Eq, Hash)
 #doc(hidden)
 #internal(engine, "MoonFrame execution engine API")
@@ -40,6 +44,8 @@ enum KeyCell {
   KBool(Bool)
   KStr(String)
   KDec(String)
+  KList(Array[KeyCell])
+  KStruct(Array[(String, KeyCell)])
 }
 
 ///|
@@ -131,6 +137,10 @@ pub fn Series::key_cells(self : Series) -> Array[KeyCell] {
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
     @column.ColumnData::Dec(a) => i => dec_key_cell(a[i])
+    // A nested cell is read back whole and keyed by its shape: the boxed
+    // read is the price of a structure whose key is its elements.
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      fn(i) { key_cell(@column.storage_get_total(storage, i)) }
   }
   Array::makei(n, i => if present(i) { key_of(i) } else { KNull })
 }
@@ -153,6 +163,9 @@ fn key_cell(sc : @types.Scalar) -> KeyCell {
     @types.Scalar::Decimal(v) => dec_key_cell(v)
     @types.Scalar::Duration(v) => KInt(v)
     @types.Scalar::Null => KNull
+    @types.Scalar::List(v) => KList(v.cells().map(key_cell))
+    @types.Scalar::Struct(v) =>
+      KStruct(v.fields().map(f => (f.name(), key_cell(f.value()))))
   }
 }
 

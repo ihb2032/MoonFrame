@@ -77,9 +77,13 @@ pub fn eval_positional(
   let valid = operand.validity_bools()
   match op {
     @ir.PositionalOp::Shift(k, fill) => {
-      // The fill must type like the operand it slots into; `Null` is the
-      // plain-gap spelling and passes untouched.
-      if !fill.is_null() && fill.dtype() != dtype {
+      // The fill must fit the operand it slots into; `Null` is the
+      // plain-gap spelling and passes untouched. The test is the dtype's
+      // shape rule rather than a dtype comparison: for a scalar column
+      // the two agree, and for a nested one an empty list is a list of
+      // any element dtype (its own dtype names `Null`), so comparing
+      // dtypes would refuse a fill the column accepts.
+      if !fill.is_null() && !dtype.fits_value(fill) {
         raise @types.DataError::TypeMismatch(
           @types.TypeMismatchDetail::Message(
             "shift fill \{fill} does not type like the \{dtype} operand",
@@ -119,6 +123,12 @@ pub fn eval_positional(
         "max"
       }
       match operand.storage().data() {
+        @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+          raise @types.DataError::TypeMismatch(
+            @types.TypeMismatchDetail::Message(
+              "cumulative \{label} requires a numeric operand, got \{dtype}",
+            ),
+          )
         // The dtype registry decides numericity, not the buffer: an `I64`
         // column without this guard is a non-numeric rider (`Date`), whose
         // day counts must not fold.
@@ -376,6 +386,11 @@ fn sorted_positions(operand : Series, descending : Bool) -> Array[Int32] {
 /// carries an order.
 fn value_comparator(operand : Series) -> (Int32, Int32) -> Int32 {
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => {
+      // A nested column orders by the same total order its sort key reads.
+      let cells = operand.to_scalars()
+      fn(i, j) { @series.cmp_scalar_total(cells[i], cells[j]) }
+    }
     @column.ColumnData::I64(a) =>
       (i, j) => if a[i] < a[j] { -1 } else if a[i] > a[j] { 1 } else { 0 }
     @column.ColumnData::F64(a) =>

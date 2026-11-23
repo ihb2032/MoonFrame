@@ -83,6 +83,11 @@ fn numeric_general_pair(
   let lv = left.validity_bools()
   let rv = right.validity_bools()
   match (left.storage().data(), right.storage().data()) {
+    (@column.ColumnData::List(_), _)
+    | (@column.ColumnData::Struct(_), _)
+    | (_, @column.ColumnData::List(_))
+    | (_, @column.ColumnData::Struct(_)) =>
+      raise binary_type_mismatch_error(verb, left, right)
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .is_numeric() &&
@@ -901,6 +906,10 @@ fn eval_unary_num(
   }
   let valid = operand.validity_bools()
   let out = match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
     // Dtype-gated: a Date column is I64-typed but is not a number.
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_int_options(
@@ -954,6 +963,10 @@ fn eval_unary_float(
   }
   let valid = operand.validity_bools()
   let out = match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
     // Dtype-gated: a Date column is I64-typed but is not a number.
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_float_options(
@@ -1141,6 +1154,12 @@ fn num_probe(
   }
   let valid = operand.validity_bools()
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "\{probe} requires a numeric operand, got \{operand.dtype()}",
+        ),
+      )
     @column.ColumnData::F64(a) =>
       Series::from_bool_options(
         operand.name(),

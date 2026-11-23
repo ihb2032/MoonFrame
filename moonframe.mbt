@@ -98,6 +98,9 @@ pub using @types {
   type Dec128,
   type Field,
   type Schema,
+  type ListValue,
+  type FieldValue,
+  type StructValue,
   type ClosedInterval,
   type RankMethod,
 }

@@ -70,6 +70,12 @@ fn eval_rolling(
   let back = if center { window / 2 } else { window - 1 }
   let forward = window - 1 - back
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "rolling \{roll_stat_label(stat)} requires a numeric operand, got \{dtype}",
+        ),
+      )
     // The dtype registry decides numericity, not the buffer — a
     // non-numeric `I64` rider (`Date`) raises, like every numeric
     // kernel.

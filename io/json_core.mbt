@@ -369,6 +369,19 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
     // have no parser for (a written-back column reads as `String`).
     @types.Scalar::Duration(_) => Json::string(s.to_string())
     @types.Scalar::Decimal(_) => Json::string(s.to_string())
+    // A nested value leaves as the JSON it is — an array for a list, an
+    // object for a struct — each element and field through this same
+    // mapping, so the reader rebuilds the column shape from it.
+    @types.Scalar::List(v) => Json::array(v.cells().map(scalar_to_json))
+    @types.Scalar::Struct(v) => {
+      // The object's keys go in the struct's own field order — the map
+      // keeps insertion order, as the record writer above relies on.
+      let obj : Map[String, Json] = Map([])
+      for field in v.fields() {
+        obj[field.name()] = scalar_to_json(field.value())
+      }
+      Json::object(obj)
+    }
   }
 }
 

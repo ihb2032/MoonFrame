@@ -54,6 +54,12 @@ pub fn eval_ternary(
     t1.gather_series(Array::make(c2.len(), 0))
   }
   let cond_cells = match c2.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "when condition must be Bool, got \{c2.dtype()}",
+        ),
+      )
     @column.ColumnData::Bool(a) => a
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
@@ -69,6 +75,37 @@ pub fn eval_ternary(
   let tv = t2.validity_bools()
   let ev = e2.validity_bools()
   let out = match (t2.storage().data(), e2.storage().data()) {
+    // Two nested branches of one dtype select cell by cell through the
+    // shared null gate — whole cells, since a nested body has no typed
+    // array to read one out of. Branches of different nested dtypes fall
+    // through to the refusal below, as does a nested branch beside a
+    // scalar one.
+    (@column.ColumnData::List(_), @column.ColumnData::List(_))
+    | (@column.ColumnData::Struct(_), @column.ColumnData::Struct(_)) if t2.dtype() ==
+      e2.dtype() => {
+      let tc = t2.to_scalars()
+      let ec = e2.to_scalars()
+      let chosen = select_cells(
+        cond_cells,
+        cv,
+        i => if tv[i] { Some(tc[i]) } else { None },
+        i => if ev[i] { Some(ec[i]) } else { None },
+      )
+      Series::from_scalars(
+        t2.name(),
+        chosen.map(cell => cell.unwrap_or(@types.Scalar::Null)),
+        dtype=t2.dtype(),
+      )
+    }
+    (@column.ColumnData::List(_), _)
+    | (@column.ColumnData::Struct(_), _)
+    | (_, @column.ColumnData::List(_))
+    | (_, @column.ColumnData::Struct(_)) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "when/then/otherwise branches do not unify: \{t2.dtype()} and \{e2.dtype()}",
+        ),
+      )
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if t2.dtype() ==
       e2.dtype() =>
       // Rebuilt through the dtype, not the variant: the branches may hold
@@ -312,6 +349,7 @@ fn try_clip_buffers(
   // silently clamped on raw day-counts or magnitudes.
   fn i64_bound(b : Series) -> ClipBound[Int64]? {
     match b.storage().data() {
+      @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => None
       @column.ColumnData::I64(buf) if b.dtype() == @types.DataType::Int &&
         (b.len() == n || b.len() == 1) =>
         Some({ buf, valid: b.validity_bools(), literal: b.len() == 1, })
@@ -324,6 +362,7 @@ fn try_clip_buffers(
   }
   fn f64_bound(b : Series) -> ClipBound[Double]? {
     match b.storage().data() {
+      @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => None
       @column.ColumnData::F64(buf) if b.dtype() == @types.DataType::Float &&
         (b.len() == n || b.len() == 1) =>
         Some({ buf, valid: b.validity_bools(), literal: b.len() == 1, })
@@ -335,6 +374,7 @@ fn try_clip_buffers(
     }
   }
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => None
     @column.ColumnData::I64(a) if operand.dtype() == @types.DataType::Int => {
       let lo : ClipBound[Int64]? = match lower.map(b => i64_bound(b)) {
         Some(Some(b)) => Some(b)

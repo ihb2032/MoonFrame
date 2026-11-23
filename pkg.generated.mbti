@@ -114,6 +114,8 @@ pub using @expr {type Expr}
 
 pub using @types {type Field}
 
+pub using @types {type FieldValue}
+
 pub using @frame {type HtmlOptions}
 
 pub using @frame {type JoinOptions}
@@ -125,6 +127,8 @@ pub using @io {type JsonReadOptions}
 pub using @frame {type KeepStrategy}
 
 pub using @frame {type LazyFrame}
+
+pub using @types {type ListValue}
 
 pub using @io {type OnParseError}
 
@@ -145,6 +149,8 @@ pub using @types {type Scalar}
 pub using @types {type Schema}
 
 pub using @series {type Series}
+
+pub using @types {type StructValue}
 
 pub using @types {type TypeMismatchDetail}
 

@@ -158,6 +158,30 @@ fn eval_compare(
   let lv = left.validity_bools()
   let rv = right.validity_bools()
   let cells = match (left.storage().data(), right.storage().data()) {
+    // Two nested columns of one dtype compare cell by cell: equal through
+    // `Scalar`'s own structural equality (a `NaN` element equals nothing,
+    // as a bare `NaN` does not), ordered through the total order the sort
+    // key and the extremum reducers read (a list lexicographically, a
+    // struct field by field) — so `lt` agrees with `sort` and `eq` with
+    // `group_by`. The whole-cell read is the price of a structure whose
+    // comparison is its elements.
+    (@column.ColumnData::List(_), @column.ColumnData::List(_))
+    | (@column.ColumnData::Struct(_), @column.ColumnData::Struct(_)) if left
+      .dtype()
+      .comparable_with(right.dtype()) => {
+      let a = left.to_scalars()
+      let b = right.to_scalars()
+      compare_cells(
+        a.length(),
+        left_valid=lv,
+        right_valid=rv,
+        get_left=i => a[i],
+        get_right=i => b[i],
+        less_than=(x, y) => @series.cmp_scalar_total(x, y) < 0,
+        equal=(x : @types.Scalar, y : @types.Scalar) => x == y,
+        verb~,
+      )
+    }
     // The dtype gates read `DataType::comparable_with`: the same dtype
     // compares, two numerics compare, and an I64 rider (Date) never compares
     // against a plain Int through the shared buffer.
@@ -247,14 +271,18 @@ fn eval_compare(
     | (
       @column.ColumnData::Bool(_)
       | @column.ColumnData::Utf8(_)
-      | @column.ColumnData::Dec(_),
+      | @column.ColumnData::Dec(_)
+      | @column.ColumnData::List(_)
+      | @column.ColumnData::Struct(_),
       _,
     )
     | (
       _,
       @column.ColumnData::Bool(_)
       | @column.ColumnData::Utf8(_)
-      | @column.ColumnData::Dec(_),
+      | @column.ColumnData::Dec(_)
+      | @column.ColumnData::List(_)
+      | @column.ColumnData::Struct(_),
     ) => raise binary_type_mismatch_error("compare", left, right)
   }
   Series::from_bool_options(left.name(), cells)

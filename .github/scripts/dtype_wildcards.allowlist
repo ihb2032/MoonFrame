@@ -5,6 +5,7 @@
 # below is a place a new variant falls into silently, and its reason says why
 # that was safe for the variants that existed when it was written. Re-read the
 # reason, not just the line, when the variant set grows.
+series/nested_order.mbt cmp_scalar_total documented invariant — two cells of one column share a dtype, so every same-shape pair hits a concrete arm; the wildcard is the cross-shape pair, ordered by dtype name so the order is total where a column never produces one
 frame/pivot.mbt widen_unpivot_cell documented invariant — the unify raised unless the cells pass through unchanged
 internal/column/builtin.mbt BuiltinColumn::from_scalars off-type cell projects to null; the outer DataType match is the compile-forced gate
 internal/kernel/date.mbt eval_dt_date_component the dtype gate above leaves only Date, Timestamp and Null cells; the wildcard is the null
@@ -126,6 +127,8 @@ internal/kernel/numeric.mbt decimal_unary the eval dispatch routes a Decimal dty
 internal/kernel/predicate.mbt try_fast_is_in the Bool member group's cross-dtype union — a member of any dtype other than Bool abandons the fast path, and Decimal joined the union with the reshape
 series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 623
 series/reduce.mbt reduce_arg_extremum the arg-extremum folds' union over every buffer — the Dec arm joined with the reshape — arm 627
+internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
+internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 chart/chart.mbt chart_data_values the column is Decimal-dtyped (checked above), so its cells are Decimal or Null; the wildcard is the remainder of the Scalar enum

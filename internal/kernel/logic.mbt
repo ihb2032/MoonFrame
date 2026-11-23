@@ -34,6 +34,15 @@ fn eval_logic(
   let lv = left.validity_bools()
   let rv = right.validity_bools()
   match (left.storage().data(), right.storage().data()) {
+    (@column.ColumnData::List(_), _)
+    | (@column.ColumnData::Struct(_), _)
+    | (_, @column.ColumnData::List(_))
+    | (_, @column.ColumnData::Struct(_)) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "logical '\{verb}' requires Bool operands, got \{left.dtype()} and \{right.dtype()}",
+        ),
+      )
     (@column.ColumnData::Bool(a), @column.ColumnData::Bool(b)) =>
       Series::from_bool_options(
         left.name(),
@@ -106,6 +115,12 @@ fn kleene_or(a : Bool?, b : Bool?) -> Bool? {
 fn eval_not(operand : Series) -> Series raise @types.DataError {
   let valid = operand.validity_bools()
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "logical 'not' requires a Bool operand, got \{operand.dtype()}",
+        ),
+      )
     @column.ColumnData::Bool(a) =>
       Series::from_bool_options(
         operand.name(),

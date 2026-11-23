@@ -28,6 +28,12 @@ impl Eq for ColumnData with fn equal(self, other) {
     // A different dtype is a different column, whatever the cells hold.
     (I64(_), _) | (F64(_), _) | (Bool(_), _) | (Utf8(_), _) | (Dec(_), _) =>
       false
+    // A nested body's equality is not a buffer's: its cells read back
+    // through the children and compare as whole values, which
+    // `ColumnStorage::equal` decides. At the buffer level a nested pair
+    // therefore never compares equal — an assertion over nested equality
+    // compares the storage, not the body.
+    (List(_), _) | (Struct(_), _) => false
   }
 }
 

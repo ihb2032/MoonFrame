@@ -141,6 +141,12 @@ same way.
   formula neutralisation for spreadsheet-facing exports, and transparent
   gzip (`.gz` sources decompress on read; `write_*` compresses a `.gz`
   path).
+- **Hold lists and structs** — a column of lists (`DataType::List`) or of
+  records (`DataType::Struct`), built with `Series::from_scalars` or read
+  from a JSON field of arrays / objects, and carried whole through the
+  row verbs, the comparisons, `sort`, `group_by`, `join`, and `unique`;
+  arithmetic, the statistics, and casts refuse one. The dtype's
+  docstring states which verbs read a nested column.
 - **Reshape** — `filter`, `select`, `drop`, `rename`, `with_columns`, multi-key
   `sort`, row dedup (`unique`), seeded row draws (`sample`, `shuffle`), and
   null handling (`drop_nulls`, `fill_null`).

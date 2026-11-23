@@ -76,9 +76,11 @@ inference's place:
   `YYYY-MM-DDTHH:MM:SS.ffffff` with an optional trailing `Z` and an
   optional shorter fraction, and the decimal value reader's forms —
   positional and scientific alike). A `Decimal` pin reads any decimal
-  spelling the engine's reader accepts. Pinning `Null` — the one dtype with no read parser — fails
-  the read with `InvalidOperation` at read time, loudly rather than as a
-  silent no-op.
+  spelling the engine's reader accepts. On the JSON and NDJSON readers
+  a `List` / `Struct` dtype pins a nested column (the last section).
+  Pinning `Null` or `Duration` — the two dtypes with no read parser —
+  fails the read with `InvalidOperation` at read time, loudly rather than
+  as a silent no-op.
 - A pin naming a column the input does not carry is refused with
   `InvalidOperation`, too: a pin is an assertion about the input, and a
   misspelt one should fail rather than silently do nothing.
@@ -92,6 +94,56 @@ inference's place:
 - The map is copied when the options are built, so mutating it afterwards
   cannot change what a deferred `scan_csv` / `scan_ndjson` / `scan_json`
   pins at collect time.
+
+## Nested columns in JSON / NDJSON
+
+A JSON field whose values are arrays or objects does not fall to `String`: it
+reads as a nested column — `DataType::List(element)` for arrays,
+`DataType::Struct(schema)` for objects — and `write_json` / `write_ndjson`
+write such a column back as the arrays and objects it came from, so a nested
+column round-trips. A CSV cell is one text field, so the CSV reader has no
+nested columns: `write_csv` writes a nested cell as its text, and a `dtypes=`
+pin to `List` / `Struct` is refused there.
+
+The rule is the scalar one applied at every position — the column's cells, a
+list's elements, a struct's fields — and the reference under `parse_json_str`
+states it in full. The shape of it, on this input:
+
+```
+[{"x": [1, 2, 3], "y": {"k": true}},
+ {"x": null,        "y": null},
+ {"x": [],          "y": {}}]
+```
+
+- `x` reads as `List(Int)`: every value in the window is an array, so the
+  position is a list of the dtype its elements together name. An empty array
+  fits any element dtype and has no say in which one.
+- `y` reads as `Struct(k: Bool)`: every value is an object, so the position is
+  a struct of the fields the objects name between them, in first-seen order.
+  An object that leaves a field out reads a null there, as a record that
+  leaves a column out does.
+- A position whose values no dtype but `String` accepts is `String` there,
+  and each value is kept as its text: a list holding a number beside a string
+  reads as `List(String)` (`[1, "a"]` → `["1", "a"]`), and a column holding
+  an array beside an object is a `String` column of their renderings — the
+  fallback a mixed scalar column takes.
+- A position with nothing to name a dtype — no elements, no fields, every
+  value null — takes the all-null default, `String`: `[[], []]` reads as
+  `List(String)`, and a column of only empty objects is a `String` column.
+
+The window and the two policies govern a nested column exactly as a scalar
+one: the dtype is read off the first `infer_schema_rows` records, a cell past
+the window that does not fit the inferred dtype is a `ParseError` (a null
+under `OnParseError::Null`), and under `allow_nonfinite_floats = false` an
+overflowing number inside a list makes its element dtype `String`. The JSON
+number caveats below reach into a cell the same way — an all-integral list of
+`Float`s reads back as a list of `Int`s, and a non-finite `Float` inside a
+list writes as a null element.
+
+A `dtypes=` pin names the dtype a nested column is read under, and it reaches
+into the cells: under `List(Date)` the elements parse from their text exactly
+as a top-level `Date` pin reads a column, and under a `Struct` pin an object
+is read by field name, in the dtype's order.
 
 ## Numeric forms
 

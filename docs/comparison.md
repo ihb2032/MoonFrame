@@ -114,7 +114,8 @@ libraries — not a derivative work of either codebase.
 - **I/O inference** — `infer_schema_rows = 0` scans every row (Polars'
   `infer_schema_length=None`); `on_parse_error = Null` downgrades a bad cell
   to null (Polars' `ignore_errors=True`); a non-finite `Float` writes as
-  JSON `null` (pandas' `to_json`).
+  JSON `null` (pandas' `to_json`); a JSON field of arrays or objects reads
+  as a `List` / `Struct` column, as Polars' JSON reader reads it.
 
 ## Deliberate differences
 
@@ -176,7 +177,9 @@ Where MoonFrame knowingly does something else than Polars.
   columns' own `Series::min` / `max` read; `Decimal` is the one wider
   dtype — `sum` folds the engine's value arithmetic (each addition
   rounds to 34 digits, so a large total can lose low digits), its `mean`
-  a `Null`; `Bool` / `String` columns null under all four.
+  a `Null`; `Bool` / `String` columns null under all four; a nested
+  column (`List` / `Struct`) nulls under `sum` / `mean` and answers under
+  `min` / `max` by the order its sort reads.
 
 For `NaN` everywhere — `sum` / `mean` / `median` / `quantile` / `sort` / `group_by` /
 `join` / comparisons — it is a value, as in Polars.
@@ -208,10 +211,14 @@ here today:
   and `Decimal` (an IEEE 754 decimal128 floating-point decimal:
   `+` / `-` / `*` / `/` and `sum` over the engine's exact-then-round
   arithmetic, `round` the quantize, a `Float` operand promoting to
-  `Float`). Still missing:
-  `List` / `Struct` / `Categorical` — the deferral the others hang off:
-  the list-returning `str.split` and the nested-typed expressions all
-  need a dtype before they can exist.
+  `Float`), and the two nested dtypes `List(element)` / `Struct(schema)`:
+  a column of lists or of records, built from values or read from JSON
+  and carried whole — sorted, compared, grouped, and joined by the rules
+  the dtype's docstring states — where Polars also computes into one.
+  Still missing: `Categorical`, and the expressions that build a nested
+  column from scalar cells (`str.split` into a list, a struct's field
+  access, the `list.*` namespace) — the verbs read a nested column; none
+  produces one.
 - **Expressions** — the window wrapper `over` is present: an aggregating
   inner broadcasts over its group, a group-length inner lands
   cell-for-cell (Polars' `over` semantics; nesting windows in windows or
@@ -268,7 +275,9 @@ here today:
   cell text, and the rider dtypes `Date` / `Timestamp` / `Decimal`
   parse the writers' own text forms (so a written-back rider column
   round-trips losslessly when pinned; `Duration` has no parser and
-  refuses). Inference itself never produces a rider. Columns not
+  refuses). On the JSON / NDJSON readers a `List` / `Struct` dtype pins
+  a nested column and reaches its elements and fields. Inference itself
+  never produces a rider. Columns not
   named keep their inferred dtype, and a name the input does not carry is
   refused. See
   [`type-inference.md`](type-inference.md).

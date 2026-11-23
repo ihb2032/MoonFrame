@@ -1060,7 +1060,7 @@ test "parse_csv_str: a Null pin is refused; a Decimal pin reads the engine parse
   match result {
     Err(@types.DataError::InvalidOperation(m)) =>
       assert_eq(
-        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses, and the nested dtypes are reader-supplied, not parsed from cell text)",
+        m, "dtypes override: column \"n\" cannot be pinned to Null; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses, and a CSV cell carries no list or struct to pin a nested dtype to)",
       )
     _ => fail("expected InvalidOperation for the Null pin")
   }

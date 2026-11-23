@@ -210,7 +210,9 @@ test "parse_ndjson_str: all-null column defaults to String dtype" {
 }
 
 ///|
-test "parse_ndjson_str: nested array / object cells fall back to String" {
+test "parse_ndjson_str: array and object cells in one column fall back to String" {
+  // Two nested shapes in one column agree on no dtype, so each cell is
+  // kept as its text.
   let content =
     #|{"x":[1,2,3]}
     #|{"x":{"k":1}}

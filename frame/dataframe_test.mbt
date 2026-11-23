@@ -621,3 +621,116 @@ test "DataFrame::iter2 pairs each column with its name" {
   }
   assert_eq(pairs, [("a", 2), ("b", 2)])
 }
+
+///|
+test "a frame builds from rows and from a schema with nested fields" {
+  let lists = @types.DataType::List(@types.DataType::Int)
+  let schema = @types.Schema::Schema([
+    @types.Field::Field("k", @types.DataType::String),
+    @types.Field::Field("l", lists),
+    @types.Field::Field("s", struct_dtype()),
+  ])
+  let rows : Array[Array[@types.Scalar]] = [
+    [
+      @types.Scalar::String("p"),
+      ints([1, 2]),
+      sv(@types.Scalar::Int(2), @types.Scalar::String("x")),
+    ],
+    [@types.Scalar::String("q"), @types.Scalar::Null, @types.Scalar::Null],
+    [
+      @types.Scalar::String("r"),
+      lv([]),
+      sv(@types.Scalar::Int(1), @types.Scalar::String("y")),
+    ],
+  ]
+  let df = DataFrame::from_rows(schema, rows)
+  assert_eq(df.shape(), (3, 3))
+  assert_eq(df.get_column("l").dtype(), lists)
+  assert_eq(df.get_column("l").to_scalars().copy(), [
+    ints([1, 2]),
+    @types.Scalar::Null,
+    lv([]),
+  ])
+  assert_eq(df.get_column("s").to_scalars().copy(), [
+    sv(@types.Scalar::Int(2), @types.Scalar::String("x")),
+    @types.Scalar::Null,
+    sv(@types.Scalar::Int(1), @types.Scalar::String("y")),
+  ])
+  // The empty frame of the same schema keeps the nested dtypes.
+  let empty = DataFrame::empty(schema)
+  assert_eq(empty.shape(), (0, 3))
+  assert_eq(empty.get_column("l").dtype(), lists)
+  assert_eq(empty.get_column("s").dtype(), struct_dtype())
+  // A cell that does not fit its field's whole shape is a type mismatch
+  // naming the field, its dtype, and the cell's — a struct where the
+  // field names a list, or a list whose element is of another dtype.
+  let struct_in_list = Ok(
+    ignore(
+      DataFrame::from_rows(schema, [
+        [
+          @types.Scalar::String("p"),
+          sv(@types.Scalar::Int(1), @types.Scalar::String("y")),
+          @types.Scalar::Null,
+        ],
+      ]),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    struct_in_list
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(want, got, column),
+      ),
+    ) &&
+    want == lists &&
+    got == struct_dtype() &&
+    column == "l",
+  )
+  let floats = @types.DataType::List(@types.DataType::Float)
+  let int_in_floats = Ok(
+    ignore(
+      DataFrame::from_rows(
+        @types.Schema::Schema([@types.Field::Field("f", floats)]),
+        [[ints([1])]],
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    int_in_floats
+    is Err(
+      @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Expected(want, got, column),
+      ),
+    ) &&
+    want == floats &&
+    got == lists &&
+    column == "f",
+  )
+  // A struct with no field names no column to build, from rows or empty.
+  let bare = @types.Schema::Schema([
+    @types.Field::Field("s", @types.DataType::Struct(@types.Schema::Schema([]))),
+  ])
+  let from_rows = Ok(
+    ignore(DataFrame::from_rows(bare, [[@types.Scalar::Null]])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(from_rows is Err(@types.DataError::Unsupported(_)))
+  let bare_empty = Ok(ignore(DataFrame::empty(bare))) catch { e => Err(e) }
+  assert_true(bare_empty is Err(@types.DataError::Unsupported(_)))
+  // A nested field declared non-nullable refuses a null cell like any
+  // other.
+  let strict = @types.Schema::Schema([
+    @types.Field::Field("l", lists, nullable=false),
+  ])
+  let null_cell = Ok(
+    ignore(DataFrame::from_rows(strict, [[@types.Scalar::Null]])),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(null_cell is Err(@types.DataError::NullInNonNullable("l")))
+}

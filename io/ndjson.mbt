@@ -35,7 +35,9 @@
 ///      which validates each is an object, collects headers in
 ///      first-seen order across all records (sparse records → null
 ///      cells), infers one dtype per column, and materialises the
-///      frame under per-column rules shared with `parse_json_str`.
+///      frame under per-column rules shared with `parse_json_str` —
+///      a field of arrays or objects included, which is a nested
+///      column by the rule `parse_json_str` states.
 ///
 /// Empty input — or input that is entirely blank lines — yields a 0×0
 /// frame, matching `parse_json_str`'s empty-array behaviour.

@@ -8,7 +8,9 @@
 // reader — Int → Float → Bool → String, with nulls passing through
 // transparently — so the round-trip `read_csv → write_json → read_json`
 // preserves dtypes for most frames whose JSON values stay within the four
-// concrete dtypes.
+// concrete dtypes. A field whose values are arrays or objects is a
+// nested column instead, decided and built by the nested-column reader
+// ahead of the scalar skeleton, by the rule `parse_json_str` states.
 //
 // Caveat 1 — integral-valued `Float`. JSON has a single number type and
 // `Double::to_string` drops the fractional part of a whole value
@@ -74,7 +76,11 @@
 ///      within them is skipped but still counts toward the window);
 ///      the first dtype that accepts every probed cell wins, and an
 ///      all-null column defaults to `String` (same convention as the
-///      CSV reader — no information to disambiguate).
+///      CSV reader — no information to disambiguate). A column whose
+///      window holds an array or an object is nested instead: its dtype
+///      is read position by position by the rule `parse_json_str`
+///      states, and a window whose composites agree on no nested dtype
+///      keeps every cell as its text.
 ///   4. Materialise each column into a typed `Series` and wrap through
 ///      `DataFrame::from_parts`, under the record count as the height.
 ///
@@ -176,12 +182,11 @@ fn frame_from_json_records(
     from : Array[Map[String, Json]],
     lines : Array[Int32]?,
   ) -> @series.Series raise @types.DataError {
-    let dt = match dtypes.get(name) {
-      Some(pinned) => inferred_from_override(name, pinned)
-      None =>
-        infer_json_column_dtype(objs, name, infer_schema_rows, allow_nonfinite~)
+    let kind = match dtypes.get(name) {
+      Some(pinned) => json_column_from_pin(name, pinned)
+      None => infer_json_column(objs, name, infer_schema_rows, allow_nonfinite~)
     }
-    build_json_column(name, dt, from, on_parse_error, lines, allow_nonfinite~)
+    build_json_column(name, kind, from, on_parse_error, lines, allow_nonfinite~)
   }
   // Build one column over the records `keep` selects (`None` = every record),
   // mapping each surviving record's original line through `keep` so a parse
@@ -369,6 +374,19 @@ fn scalar_to_json(s : @types.Scalar) -> Json {
     // have no parser for (a written-back column reads as `String`).
     @types.Scalar::Duration(_) => Json::string(s.to_string())
     @types.Scalar::Decimal(_) => Json::string(s.to_string())
+    // A nested value leaves as the JSON it is — an array for a list, an
+    // object for a struct — each element and field through this same
+    // mapping, so the reader rebuilds the column shape from it.
+    @types.Scalar::List(v) => Json::array(v.cells().map(scalar_to_json))
+    @types.Scalar::Struct(v) => {
+      // The object's keys go in the struct's own field order — the map
+      // keeps insertion order, as the record writer above relies on.
+      let obj : Map[String, Json] = Map([])
+      for field in v.fields() {
+        obj[field.name()] = scalar_to_json(field.value())
+      }
+      Json::object(obj)
+    }
   }
 }
 
@@ -541,13 +559,48 @@ fn json_cell_parse_location(
 }
 
 ///|
-/// Materialise one column from the record array using the dtype
-/// chosen by inference. Mirrors the CSV reader's `build_column`: each
-/// branch walks the records in row order and converts the cell into
-/// the typed array slot; a value past the inference window that fails
-/// to match the locked-in dtype is handled per `on_parse_error`
-/// (`Raise` → `ParseError(Cell(...))`, `Null` → a null cell).
+/// Materialise one column from the record array using the kind inference
+/// (or the pin) chose. Mirrors the CSV reader's `build_column`: each
+/// branch walks the records in row order and converts the cell into the
+/// typed array slot; a value past the inference window that fails to
+/// match the locked-in dtype is handled per `on_parse_error`
+/// (`Raise` → `ParseError(Cell(...))`, `Null` → a null cell). A nested
+/// column is built from whole cells by its own builder; every scalar
+/// kind goes through the skeleton the CSV reader shares.
 fn build_json_column(
+  name : String,
+  kind : JsonColumn,
+  objs : Array[Map[String, Json]],
+  on_parse_error : OnParseError,
+  source_lines : Array[Int32]?,
+  allow_nonfinite~ : Bool,
+) -> @series.Series raise @types.DataError {
+  match kind {
+    Nested(dtype) =>
+      build_json_nested_column(
+        name,
+        dtype,
+        objs,
+        on_parse_error,
+        source_lines,
+        allow_nonfinite~,
+      )
+    Flat(dtype) =>
+      build_json_scalar_column(
+        name,
+        dtype,
+        objs,
+        on_parse_error,
+        source_lines,
+        allow_nonfinite~,
+      )
+  }
+}
+
+///|
+/// The scalar kinds' share of `build_json_column`: the shared skeleton
+/// over the JSON cell accessors.
+fn build_json_scalar_column(
   name : String,
   dtype : InferredDtype,
   objs : Array[Map[String, Json]],

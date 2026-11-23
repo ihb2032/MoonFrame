@@ -51,6 +51,8 @@ pub(all) enum ColumnData {
   Bool(ArrayView[Bool])
   Utf8(@buffer.Utf8Array)
   Dec(ArrayView[@types.Dec128])
+  List(ListArray)
+  Struct(StructArray)
 }
 
 ///|
@@ -212,7 +214,10 @@ pub fn BuiltinColumn::from_dec_options(
 /// diagnostic). The result is `Builtin`-backed; converging an all-valid
 /// numeric result onto `Numeric` stays with the caller, who owns the
 /// column's `Series` wrapping. Exhaustive over `DataType`, so a new dtype
-/// fails compilation here until its projection is written.
+/// fails compilation here until its projection is written. The nested
+/// dtypes project through their own builders (`from_list_cells` /
+/// `from_struct_cells`), which lay the cells out as Arrow lays a nested
+/// column and call back here for each child.
 pub fn BuiltinColumn::from_scalars(
   probe : @types.DataType,
   cells : Array[@types.Scalar],
@@ -298,6 +303,153 @@ pub fn BuiltinColumn::from_scalars(
       raise @types.DataError::Unsupported(
         "cannot build a column of dtype Null: \{name}",
       )
+    @types.DataType::List(element) =>
+      BuiltinColumn::from_list_cells(element, cells, name~)
+    @types.DataType::Struct(fields) =>
+      BuiltinColumn::from_struct_cells(fields, cells, name~)
+  }
+}
+
+///|
+/// Build a list column of element dtype `element` from list cells — the
+/// nested twin of the projections above, laid out as Arrow lays a list
+/// out: every cell's elements concatenated into one child column, the
+/// offsets saying where each cell's run begins and ends. A `Null` or an
+/// off-type cell is a null *cell* (the outer validity says so, and its
+/// offset run is empty); inside a list cell an element that does not fit
+/// the element dtype's shape is a null *element* — the same "off-type
+/// reads as null" rule, one level down, judged by `fits_value` so an
+/// empty list still fits a nested element dtype (its own dtype names
+/// `Null`, but nothing in it disagrees with the element dtype). The child
+/// is built recursively, so the element dtype may itself be nested.
+fn BuiltinColumn::from_list_cells(
+  element : @types.DataType,
+  cells : Array[@types.Scalar],
+  name~ : String,
+) -> BuiltinColumn raise @types.DataError {
+  let offsets : Array[Int32] = []
+  let inner : Array[@types.Scalar] = []
+  let outer : Array[@types.Scalar?] = []
+  for cell in cells {
+    offsets.push(inner.length())
+    match cell {
+      @types.Scalar::List(v) => {
+        outer.push(Some(cell))
+        for element_cell in v.cells() {
+          inner.push(
+            if element.fits_value(element_cell) {
+              element_cell
+            } else {
+              @types.Scalar::Null
+            },
+          )
+        }
+      }
+      @types.Scalar::Int(_)
+      | @types.Scalar::Float(_)
+      | @types.Scalar::Bool(_)
+      | @types.Scalar::String(_)
+      | @types.Scalar::Date(_)
+      | @types.Scalar::Timestamp(_)
+      | @types.Scalar::Decimal(_)
+      | @types.Scalar::Duration(_)
+      | @types.Scalar::Struct(_)
+      | @types.Scalar::Null => outer.push(None)
+    }
+  }
+  offsets.push(inner.length())
+  let child = BuiltinColumn::from_scalars(element, inner, name~)
+  {
+    dtype: @types.DataType::List(element),
+    // The offsets were pushed in step with the child's cells, so the
+    // constructor's layout rules hold by construction; its refusal names
+    // the column all the same, for the caller that breaks the step.
+    data: List(
+      ListArray::from_parts(offsets, ColumnStorage::Builtin(child), name~),
+    ),
+    validity: @buffer.Bitmap::from_options(outer),
+  }
+}
+
+///|
+/// Build a struct column of the field set `fields` from struct cells —
+/// one child column per field, every cell contributing one row to each.
+/// A `Null` or an off-type cell is a null cell on every field; a cell
+/// whose field at a position carries another name than the dtype spells
+/// there, or a value that does not fit that field's dtype, contributes a
+/// null to that field (the same off-type rule, one level down, judged by
+/// `fits_value`). The children
+/// are built recursively, so a field may itself be nested. Raises
+/// `Unsupported` for a struct with no fields (a `0`-wide struct names
+/// no column to build).
+fn BuiltinColumn::from_struct_cells(
+  fields : @types.Schema,
+  cells : Array[@types.Scalar],
+  name~ : String,
+) -> BuiltinColumn raise @types.DataError {
+  let width = fields.len()
+  if width == 0 {
+    raise @types.DataError::Unsupported(
+      "cannot build a struct column with no fields: \{name}",
+    )
+  }
+  let schema_fields = fields.fields()
+  let outer : Array[@types.Scalar?] = []
+  // One column of cells per field, gathered positionally.
+  let per_field : Array[Array[@types.Scalar]] = Array::makei(width, _ => [])
+  for cell in cells {
+    match cell {
+      @types.Scalar::Struct(v) => {
+        outer.push(Some(cell))
+        let given = v.fields()
+        for fi in 0..<width {
+          let field = schema_fields[fi]
+          let placed : @types.Scalar = match given.get(fi) {
+            Some(entry) =>
+              if entry.name() == field.name() &&
+                field.dtype().fits_value(entry.value()) {
+                entry.value()
+              } else {
+                @types.Scalar::Null
+              }
+            None => @types.Scalar::Null
+          }
+          per_field[fi].push(placed)
+        }
+      }
+      @types.Scalar::Int(_)
+      | @types.Scalar::Float(_)
+      | @types.Scalar::Bool(_)
+      | @types.Scalar::String(_)
+      | @types.Scalar::Date(_)
+      | @types.Scalar::Timestamp(_)
+      | @types.Scalar::Decimal(_)
+      | @types.Scalar::Duration(_)
+      | @types.Scalar::List(_)
+      | @types.Scalar::Null => {
+        outer.push(None)
+        for fi in 0..<width {
+          per_field[fi].push(@types.Scalar::Null)
+        }
+      }
+    }
+  }
+  let children : Array[ColumnStorage] = []
+  for fi in 0..<width {
+    children.push(
+      ColumnStorage::Builtin(
+        BuiltinColumn::from_scalars(
+          schema_fields[fi].dtype(),
+          per_field[fi],
+          name~,
+        ),
+      ),
+    )
+  }
+  {
+    dtype: @types.DataType::Struct(fields),
+    data: Struct(StructArray::from_parts(children)),
+    validity: @buffer.Bitmap::from_options(outer),
   }
 }
 
@@ -340,6 +492,8 @@ fn BuiltinColumn::len(self : BuiltinColumn) -> Int32 {
     Bool(a) => a.length()
     Utf8(a) => a.len()
     Dec(a) => a.length()
+    List(a) => a.len()
+    Struct(a) => a.len()
   }
 }
 
@@ -403,6 +557,70 @@ pub fn scalar_of(
     Bool(a) => @types.Scalar::Bool(a[index])
     Utf8(a) => @types.Scalar::String(a.get(index))
     Dec(a) => @types.Scalar::Decimal(a[index])
+    // A nested cell reads its children's rows through the total reader,
+    // so an element's null is the child's `Null` and nothing leaks from
+    // a placeholder.
+    List(a) => {
+      let lo = a.offset(index)
+      let hi = a.offset(index + 1)
+      let cells : Array[@types.Scalar] = []
+      for j in lo..<hi {
+        cells.push(storage_get_total(a.child(), j))
+      }
+      @types.Scalar::List(@types.ListValue::ListValue(cells))
+    }
+    Struct(a) => {
+      // The field names are the dtype's: a cell is positional, and the
+      // dtype spells what each position is called.
+      // A `Struct` body only ever sits under a `Struct` dtype (the
+      // constructors pair them), so the dtype is the field names' home;
+      // a body that reached here under another dtype — a column built
+      // against its own dtype — reads as a struct whose fields carry no
+      // name, rather than indexing past the empty list.
+      let names = if dtype is @types.DataType::Struct(fields) {
+        fields.field_names()
+      } else {
+        []
+      }
+      // Every child contributes one value to the cell, in field order.
+      let values : Array[@types.FieldValue] = []
+      for fi, column in a.children() {
+        values.push(
+          @types.FieldValue::FieldValue(
+            names.get(fi).unwrap_or(""),
+            storage_get_total(column, index),
+          ),
+        )
+      }
+      @types.Scalar::Struct(@types.StructValue::StructValue(values))
+    }
+  }
+}
+
+///|
+/// Read one cell of a column as a `Scalar`, total: an out-of-range
+/// index and a null slot alike read as `Scalar::Null`. The raising `get`
+/// is for the verb layer, whose callers want the bounds diagnostic; the
+/// nested reads and the equality loop want an answer at every index
+/// (their windows are already in range, so the clamp only replaces an
+/// unreachable raise).
+pub fn storage_get_total(
+  column : ColumnStorage,
+  index : Int32,
+) -> @types.Scalar {
+  match column {
+    Builtin(c) =>
+      if c.validity().is_valid_total(index) {
+        scalar_of(c.dtype(), c.data(), index)
+      } else {
+        @types.Scalar::Null
+      }
+    Numeric(c) =>
+      if index < 0 || index >= c.len() {
+        @types.Scalar::Null
+      } else {
+        scalar_of(c.dtype(), c.data(), index)
+      }
   }
 }
 
@@ -426,6 +644,8 @@ fn BuiltinColumn::slice_unchecked(
     Bool(a) => Bool(Array::makei(n, i => a[start + i]))
     Utf8(a) => Utf8(a.slice_view(start, n))
     Dec(a) => Dec(Array::makei(n, i => a[start + i]))
+    List(a) => List(a.slice_view(start, n))
+    Struct(a) => Struct(a.slice_view(start, n))
   }
   {
     dtype: self.dtype,
@@ -450,6 +670,8 @@ fn BuiltinColumn::take(
     Bool(a) => Bool(indices.map(i => a[i]))
     Utf8(a) => Utf8(a.take_view(indices))
     Dec(a) => Dec(indices.map(i => a[i]))
+    List(a) => List(a.take_view(indices))
+    Struct(a) => Struct(a.take_view(indices))
   }
   // Indices are already validated against the same `len`, so gather the
   // validity bits through the unchecked `take_view` — no second O(n) bounds

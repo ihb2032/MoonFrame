@@ -61,6 +61,11 @@ fn copy_dtypes(
 /// refused loudly rather than silently ignored. A `Decimal` pin carries no
 /// scale parameter any more; its value reader accepts the writers' text
 /// forms and refuses at the first cell that is not one.
+///
+/// The nested dtypes do not reach here on the JSON readers, which read
+/// their arrays and objects as nested columns and take the pin before
+/// this decode; a CSV cell is one text field with no list or struct
+/// syntax, so on the CSV reader the pin is refused by the arm below.
 fn inferred_from_override(
   column : String,
   dt : @types.DataType,
@@ -73,9 +78,9 @@ fn inferred_from_override(
     Date => RiderDate
     Timestamp => RiderTimestamp
     Decimal => RiderDecimal
-    Null | Duration =>
+    Null | Duration | List(_) | Struct(_) =>
       raise @types.DataError::InvalidOperation(
-        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses)",
+        "dtypes override: column \"\{column}\" cannot be pinned to \{dt}; only Int / Float / Bool / String / Date / Timestamp / Decimal have a read parser (Duration writes text no reader parses, and a CSV cell carries no list or struct to pin a nested dtype to)",
       )
   }
 }

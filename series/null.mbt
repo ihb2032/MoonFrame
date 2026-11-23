@@ -145,6 +145,22 @@ pub fn Series::fill_null(
         }
         _ => raise fill_mismatch("Decimal", self.dtype())
       }
+    // A nested value fills a nested column of its own shape — gated on
+    // the column being nested and on the value fitting its dtype (the
+    // one shape rule `fits_value` spells), the Date rule one level up.
+    // The rebuild is cell by cell: the column's own present cells, the
+    // value in place of each null.
+    @types.Scalar::List(_) | @types.Scalar::Struct(_) => {
+      let nested = self.storage.data() is @column.ColumnData::List(_) ||
+        self.storage.data() is @column.ColumnData::Struct(_)
+      if !(nested && self.dtype().fits_value(value)) {
+        raise fill_mismatch(value.dtype().to_string(), self.dtype())
+      }
+      let filled = self
+        .to_scalars()
+        .map(cell => if cell is @types.Scalar::Null { value } else { cell })
+      Series::from_scalars(self.name, filled, dtype=self.dtype())
+    }
   }
   self.preserve_backend(filled)
 }

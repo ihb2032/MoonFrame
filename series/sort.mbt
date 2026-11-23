@@ -65,6 +65,16 @@ pub fn Series::build_sort_key(
         descending,
         nulls_last,
       )
+    // A nested column has no one typed buffer to compare out of: its key
+    // is the column's whole cells, ordered by the one total order the
+    // extremum reducers read too (`cmp_scalar_total`).
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      SortKey::Nested(
+        self.to_scalars(),
+        Array::makei(self.len(), i => !valid[i]),
+        descending,
+        nulls_last,
+      )
   }
 }
 
@@ -88,6 +98,7 @@ pub enum SortKey {
   Bool(ArrayView[Bool], Array[Bool], Bool, Bool)
   String(ArrayView[String], Array[Bool], Bool, Bool)
   Dec(ArrayView[@types.Dec128], Array[Bool], Bool, Bool)
+  Nested(Array[@types.Scalar], Array[Bool], Bool, Bool)
 }
 
 ///|
@@ -158,6 +169,13 @@ pub fn SortKey::compare_one_key(self : SortKey, i : Int32, j : Int32) -> Int32 {
       let mj = missing[j]
       compare_with_missing(mi, mj, nulls_last, descending, fn() {
         @text.compare_string_lex(data[i], data[j])
+      })
+    }
+    Nested(data, missing, descending, nulls_last) => {
+      let mi = missing[i]
+      let mj = missing[j]
+      compare_with_missing(mi, mj, nulls_last, descending, fn() {
+        cmp_scalar_total(data[i], data[j])
       })
     }
   }

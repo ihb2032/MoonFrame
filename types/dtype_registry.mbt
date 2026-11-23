@@ -66,8 +66,9 @@ priv struct DTypeProfile {
   /// Whether the whole-frame `min` / `max` reductions order the dtype —
   /// the orderable columns are the numerics and the temporal riders
   /// (whose raw `I64` counts order chronologically); a span or a scaled
-  /// magnitude orders like its count. `Bool` / `String` / `Null` have no
-  /// whole-frame extremum (the `Series`-level min / max still order them).
+  /// magnitude orders like its count, and a nested column by the total
+  /// order its sort reads. `Bool` / `String` / `Null` have no whole-frame
+  /// extremum (the `Series`-level min / max still order them).
   orderable : Bool
 }
 
@@ -149,6 +150,26 @@ fn DataType::dtype_profile(self : DataType) -> DTypeProfile {
         summable: false,
         orderable: false,
       }
+    List(_) =>
+      {
+        display: "List",
+        // A nested column's body is not one buffer the registry could
+        // name: a list is an offsets column over a flattened child, laid
+        // out by the column layer for whatever element dtype this is.
+        physical: None,
+        numeric: false,
+        summable: false,
+        orderable: true,
+      }
+    Struct(_) =>
+      {
+        display: "Struct",
+        // As for a list: one child column per field, no buffer of its own.
+        physical: None,
+        numeric: false,
+        summable: false,
+        orderable: true,
+      }
   }
 }
 
@@ -198,5 +219,7 @@ pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? {
     Bool => None
     String => None
     Null => None
+    List(_) => None // no I64 buffer to ride
+    Struct(_) => None // no I64 buffer to ride
   }
 }

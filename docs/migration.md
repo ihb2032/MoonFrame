@@ -9,7 +9,17 @@ and [GitHub Pages](https://ihb2032.github.io/MoonFrame/).
 
 ## v0.9.0 → v0.10.0 (unreleased)
 
-No source-level breaks so far. What changed on `main` since 0.9.0:
+Source-level note:
+
+- `DataType` gained `List(element)` and `Struct(schema)`, and `Scalar`
+  gained `List(ListValue)` and `Struct(StructValue)`, which makes an
+  exhaustive `match` over either enum fail to compile until the variants
+  are handled; a `match` whose other variants are handled by a catch-all
+  `_` arm needs no change. `ListValue`, `FieldValue`, and `StructValue`
+  — the payloads — are new public types on the facade. A struct's fields
+  are a `Schema`, and a struct with no field cannot be built.
+
+What changed on `main` since 0.9.0:
 
 - Parquet files with more than one row group now read (0.9 refused them
   with `Unsupported`); a column's cells concatenate across the groups in
@@ -62,6 +72,23 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   package only — no database backend of its own. The driver type in
   `read_sql`'s signature is moondb's, so a caller brings their own
   `moonbitstack/moondb` dependency.
+- A column can hold lists and structs. `Series::from_scalars` builds one
+  from nested values and infers its dtype from the first cell that names
+  one. A nested column is carried whole — through the row verbs, the
+  comparisons, `sort` / `rank` / `min` / `max` (one total order: a list
+  element by element, a struct field by field), and `group_by` / `join` /
+  `unique` / `n_unique` (by content) — while arithmetic, the statistics,
+  the logical and string verbs, and every cast refuse it. The dtype's
+  docstring states which verbs read a nested column.
+- `read_json` / `read_ndjson` read a field of arrays or objects as a
+  nested column, where 0.9 kept every such cell as its text: each
+  position (the cells, a list's elements, a struct's fields) takes the
+  narrowest dtype accepting every value in the inference window, and
+  `String` keeps each value as its text where none does. A `dtypes` pin
+  to `List` / `Struct` is read on these readers and reaches the elements
+  and fields; the CSV reader refuses such a pin, and `write_csv` writes a
+  nested cell as its text. The rule is stated on `parse_json_str` and
+  explained in [`type-inference.md`](type-inference.md).
 
 ## v0.8.1 → v0.9.0
 

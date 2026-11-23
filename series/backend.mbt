@@ -67,10 +67,13 @@ pub fn Series::try_column_to_numeric(self : Series) -> Series {
         @column.ColumnData::I64(_)
         | @column.ColumnData::F64(_)
         | @column.ColumnData::Bool(_)
-        | @column.ColumnData::Utf8(_) => self
+        | @column.ColumnData::Utf8(_)
         // The decimal buffer has no Numeric convergence — Decimal is
-        // not numeric — so the column stays as it is.
-        @column.ColumnData::Dec(_) => self
+        // not numeric — so the column stays as it is, as does a nested
+        // column: its body holds children, not one unboxed array.
+        | @column.ColumnData::Dec(_)
+        | @column.ColumnData::List(_)
+        | @column.ColumnData::Struct(_) => self
       }
   }
 }
@@ -194,7 +197,9 @@ pub fn Series::is_canonical(self : Series) -> Bool {
           @column.ColumnData::I64(_) | @column.ColumnData::F64(_) => false
           @column.ColumnData::Bool(_)
           | @column.ColumnData::Utf8(_)
-          | @column.ColumnData::Dec(_) => true
+          | @column.ColumnData::Dec(_)
+          | @column.ColumnData::List(_)
+          | @column.ColumnData::Struct(_) => true
         }
       }
   }

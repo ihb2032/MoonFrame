@@ -479,11 +479,11 @@ test "parse_json_str: Bool + Int mix collapses to String" {
 }
 
 ///|
-test "parse_json_str: nested array / object cells fall back to String" {
-  // Nested composites have no scalar dtype to slot under, so the
-  // inference pass strikes out on every candidate and falls back
-  // to `String`. The build pass then serialises the composites via
-  // `@json.stringify` so the cell still carries the original shape.
+test "parse_json_str: array and object cells in one column fall back to String" {
+  // An array and an object are two nested shapes with no dtype in common,
+  // so no one column dtype holds both cells: the column takes the String
+  // fallback, each cell as its text — the fallback a column mixing two
+  // scalar dtypes takes.
   let content =
     #|[{"x":[1,2,3]},{"x":{"k":1}}]
   let df = @io.parse_json_str(content)
@@ -1099,4 +1099,752 @@ test "brackets inside string literals do not count toward the depth" {
   let df = @io.parse_json_str("[{\"a\":\"\{brackets}\"}]")
   assert_eq(df.shape(), (1, 1))
   assert_eq(df.item(0, "a"), @types.Scalar::String(brackets))
+}
+
+///|
+test "JSON writes a nested cell as the array or object it is" {
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_scalars(
+      "l",
+      [
+        @types.Scalar::List(
+          @types.ListValue::ListValue([
+            @types.Scalar::Int(1),
+            @types.Scalar::Null,
+            @types.Scalar::Int(2),
+          ]),
+        ),
+        @types.Scalar::Null,
+        @types.Scalar::List(@types.ListValue::ListValue([])),
+      ],
+      dtype=@types.DataType::List(@types.DataType::Int),
+    ),
+    @series.Series::from_scalars(
+      "s",
+      [
+        @types.Scalar::Struct(
+          @types.StructValue::StructValue([
+            @types.FieldValue::FieldValue("a", @types.Scalar::Int(1)),
+            @types.FieldValue::FieldValue("b", @types.Scalar::Bool(true)),
+          ]),
+        ),
+        @types.Scalar::Struct(
+          @types.StructValue::StructValue([
+            @types.FieldValue::FieldValue("a", @types.Scalar::Null),
+            @types.FieldValue::FieldValue("b", @types.Scalar::Bool(false)),
+          ]),
+        ),
+        @types.Scalar::Null,
+      ],
+      dtype=@types.DataType::Struct(
+        @types.Schema::Schema([
+          @types.Field::Field("a", @types.DataType::Int),
+          @types.Field::Field("b", @types.DataType::Bool),
+        ]),
+      ),
+    ),
+  ])
+  let text = @io.format_json(df)
+  // Records in order; a nested cell is JSON of its own shape; a null
+  // cell is `null`.
+  assert_eq(
+    text, "[{\"l\":[1,null,2],\"s\":{\"a\":1,\"b\":true}},{\"l\":null,\"s\":{\"a\":null,\"b\":false}},{\"l\":[],\"s\":null}]",
+  )
+}
+
+///|
+fn lv(cells : Array[@types.Scalar]) -> @types.Scalar {
+  @types.Scalar::List(@types.ListValue::ListValue(cells))
+}
+
+///|
+fn fv(name : String, value : @types.Scalar) -> @types.FieldValue {
+  @types.FieldValue::FieldValue(name, value)
+}
+
+///|
+fn sv(fields : Array[@types.FieldValue]) -> @types.Scalar {
+  @types.Scalar::Struct(@types.StructValue::StructValue(fields))
+}
+
+///|
+fn int_list(cells : Array[Int64]) -> @types.Scalar {
+  lv(cells.map(i => @types.Scalar::Int(i)))
+}
+
+///|
+fn float_list(cells : Array[Double]) -> @types.Scalar {
+  lv(cells.map(v => @types.Scalar::Float(v)))
+}
+
+///|
+fn string_list(cells : Array[String]) -> @types.Scalar {
+  lv(cells.map(s => @types.Scalar::String(s)))
+}
+
+///|
+fn list_dtype(element : @types.DataType) -> @types.DataType {
+  @types.DataType::List(element)
+}
+
+///|
+fn one_field_struct(
+  name : String,
+  dtype : @types.DataType,
+) -> @types.DataType raise @types.DataError {
+  @types.DataType::Struct(
+    @types.Schema::Schema([@types.Field::Field(name, dtype)]),
+  )
+}
+
+///|
+fn struct_dtype(
+  a : @types.DataType,
+  b : @types.DataType,
+) -> @types.DataType raise @types.DataError {
+  @types.DataType::Struct(
+    @types.Schema::Schema([
+      @types.Field::Field("a", a),
+      @types.Field::Field("b", b),
+    ]),
+  )
+}
+
+// ── nested columns: arrays and objects ───────────────────────────────
+
+///|
+test "JSON reads an array as a list column and an object as a struct column" {
+  let content =
+    #|[{"x":[1,2,3],"y":{"k":true}},{"x":null,"y":null},{"x":[],"y":{}}]
+  let df = @io.parse_json_str(content)
+  assert_eq(df.shape(), (3, 2))
+  assert_eq(df.get_column("x").dtype(), list_dtype(@types.DataType::Int))
+  assert_eq(df.get_column("x").to_scalars().copy(), [
+    int_list([1, 2, 3]),
+    @types.Scalar::Null,
+    lv([]),
+  ])
+  // An object's fields follow the order the record spells them, and an
+  // object with no field reads as a struct whose fields are all null.
+  let one_bool = one_field_struct("k", @types.DataType::Bool)
+  assert_eq(df.get_column("y").dtype(), one_bool)
+  assert_eq(df.get_column("y").to_scalars().copy(), [
+    sv([fv("k", @types.Scalar::Bool(true))]),
+    @types.Scalar::Null,
+    sv([fv("k", @types.Scalar::Null)]),
+  ])
+}
+
+///|
+test "JSON nests lists and structs to any depth" {
+  let content =
+    #|[{"x":[[1],[2,3]],"y":{"a":{"b":[1.5]},"c":[null]}}]
+  let df = @io.parse_json_str(content)
+  assert_eq(
+    df.get_column("x").dtype(),
+    list_dtype(list_dtype(@types.DataType::Int)),
+  )
+  assert_eq(df.get_column("x").to_scalars().copy(), [
+    lv([int_list([1]), int_list([2, 3])]),
+  ])
+  assert_eq(
+    df.get_column("y").dtype(),
+    @types.DataType::Struct(
+      @types.Schema::Schema([
+        @types.Field::Field(
+          "a",
+          one_field_struct("b", list_dtype(@types.DataType::Float)),
+        ),
+        @types.Field::Field("c", list_dtype(@types.DataType::String)),
+      ]),
+    ),
+  )
+  assert_eq(
+    df.get_column("y").dtype().to_string(),
+    "Struct(a: Struct(b: List(Float)), c: List(String))",
+  )
+  assert_eq(df.get_column("y").to_scalars().copy(), [
+    sv([
+      fv("a", sv([fv("b", float_list([1.5]))])),
+      fv("c", lv([@types.Scalar::Null])),
+    ]),
+  ])
+}
+
+///|
+test "the element dtype is read off every element in the window" {
+  // An empty list and a list of nulls name nothing and are passed over,
+  // at the top of the column and inside a cell; the integers that follow
+  // name the element dtype, and the nameless lists fit it.
+  let content =
+    #|[{"x":[]},{"x":[null]},{"x":[4]},{"x":[5]}]
+  let df = @io.parse_json_str(content)
+  assert_eq(df.get_column("x").dtype(), list_dtype(@types.DataType::Int))
+  assert_eq(df.get_column("x").to_scalars().copy(), [
+    lv([]),
+    lv([@types.Scalar::Null]),
+    int_list([4]),
+    int_list([5]),
+  ])
+  let inner =
+    #|[{"x":[[],[7]]}]
+  let nested = @io.parse_json_str(inner)
+  assert_eq(
+    nested.get_column("x").dtype(),
+    list_dtype(list_dtype(@types.DataType::Int)),
+  )
+  assert_eq(nested.get_column("x").to_scalars().copy(), [
+    lv([lv([]), int_list([7])]),
+  ])
+}
+
+///|
+test "a struct's fields are the union of its objects' fields" {
+  // Each object names its fields; the column's struct takes them all, in
+  // first-seen order, and an object that leaves one out reads a null
+  // there — the rule the reader's own records follow. The last object
+  // spells its fields in the other order and is read by name.
+  let content =
+    #|[{"p":{"a":1}},{"p":{"b":1.5}},{"p":{"a":2,"b":2.5}},{"p":{"b":3,"a":4}}]
+  let df = @io.parse_json_str(content)
+  assert_eq(
+    df.get_column("p").dtype(),
+    struct_dtype(@types.DataType::Int, @types.DataType::Float),
+  )
+  assert_eq(df.get_column("p").to_scalars().copy(), [
+    sv([fv("a", @types.Scalar::Int(1)), fv("b", @types.Scalar::Null)]),
+    sv([fv("a", @types.Scalar::Null), fv("b", @types.Scalar::Float(1.5))]),
+    sv([fv("a", @types.Scalar::Int(2)), fv("b", @types.Scalar::Float(2.5))]),
+    sv([fv("a", @types.Scalar::Int(4)), fv("b", @types.Scalar::Float(3.0))]),
+  ])
+}
+
+///|
+test "JSON nested numbers follow the top-level number rules" {
+  // An integer-valued number is an `Int`, a fractional one a `Float`, a
+  // list of mixed numbers a list of `Float`s, and a large integer keeps
+  // its exact digits inside a list as it does at the top level.
+  let content =
+    #|[{"x":[1],"y":[1.5],"z":[1,2.5],"w":[9223372036854775807],"v":[1e2]}]
+  let df = @io.parse_json_str(content)
+  assert_eq(df.get_column("x").dtype(), list_dtype(@types.DataType::Int))
+  assert_eq(df.get_column("y").dtype(), list_dtype(@types.DataType::Float))
+  assert_eq(df.get_column("z").dtype(), list_dtype(@types.DataType::Float))
+  assert_eq(df.get_column("z").to_scalars().copy(), [float_list([1.0, 2.5])])
+  assert_eq(df.get_column("w").to_scalars().copy(), [
+    int_list([9_223_372_036_854_775_807L]),
+  ])
+  assert_eq(df.get_column("v").to_scalars().copy(), [int_list([100L])])
+  // Strings and booleans inside a list.
+  let kinds =
+    #|[{"x":["a","b"],"y":[true,false]}]
+  let typed = @io.parse_json_str(kinds)
+  assert_eq(typed.get_column("x").dtype(), list_dtype(@types.DataType::String))
+  assert_eq(typed.get_column("y").dtype(), list_dtype(@types.DataType::Bool))
+  assert_eq(typed.get_column("x").to_scalars().copy(), [string_list(["a", "b"])])
+  assert_eq(typed.get_column("y").to_scalars().copy(), [
+    lv([@types.Scalar::Bool(true), @types.Scalar::Bool(false)]),
+  ])
+}
+
+///|
+test "elements no one dtype accepts read as their text" {
+  // A list mixing numbers, strings, and booleans, or holding a list or an
+  // object beside a scalar, has no dtype but `String`: each element is
+  // kept as its text, the fallback a column mixing scalar dtypes takes.
+  let content =
+    #|[{"x":[1,"a"],"y":[true,1],"z":[1,[2]],"w":[{"k":1},"v"]}]
+  let df = @io.parse_json_str(content)
+  for name in ["x", "y", "z", "w"] {
+    assert_eq(df.get_column(name).dtype(), list_dtype(@types.DataType::String))
+  }
+  assert_eq(df.get_column("x").to_scalars().copy(), [string_list(["1", "a"])])
+  assert_eq(df.get_column("y").to_scalars().copy(), [string_list(["true", "1"])])
+  assert_eq(df.get_column("z").to_scalars().copy(), [string_list(["1", "[2]"])])
+  assert_eq(df.get_column("w").to_scalars().copy(), [
+    string_list(["{\"k\":1}", "v"]),
+  ])
+  // A struct's field is read the same way.
+  let field =
+    #|[{"p":{"a":1}},{"p":{"a":"x"}}]
+  let mixed = @io.parse_json_str(field)
+  assert_eq(
+    mixed.get_column("p").dtype(),
+    one_field_struct("a", @types.DataType::String),
+  )
+  assert_eq(mixed.get_column("p").to_scalars().copy(), [
+    sv([fv("a", @types.Scalar::String("1"))]),
+    sv([fv("a", @types.Scalar::String("x"))]),
+  ])
+}
+
+///|
+test "a non-finite number inside a nested cell follows the float gate" {
+  // A magnitude past the Double is an infinity: carried under the default
+  // gate, and under the strict gate not a Float at all — its position
+  // falls to text, as a scalar column of such tokens falls to `String`.
+  let content =
+    #|[{"x":[1.5,1e999]}]
+  let carried = @io.parse_json_str(content)
+  assert_eq(carried.get_column("x").dtype(), list_dtype(@types.DataType::Float))
+  let cells = carried.get_column("x").to_scalars().copy()
+  assert_true(cells[0] is @types.Scalar::List(v) && v.len() == 2)
+  assert_true(
+    cells[0] is @types.Scalar::List(v) &&
+    v.get(0) is @types.Scalar::Float(a) &&
+    a == 1.5,
+  )
+  assert_true(
+    cells[0] is @types.Scalar::List(v) &&
+    v.get(1) is @types.Scalar::Float(b) &&
+    b.is_inf(),
+  )
+  let gated = @io.parse_json_str(
+    content,
+    options=@io.JsonReadOptions::JsonReadOptions(allow_nonfinite_floats=false),
+  )
+  assert_eq(gated.get_column("x").dtype(), list_dtype(@types.DataType::String))
+  assert_eq(gated.get_column("x").to_scalars().copy(), [
+    string_list(["1.5", "1e999"]),
+  ])
+}
+
+///|
+test "a position with no value to name a dtype defaults to String" {
+  // No elements, no fields, every value null: the position has nothing to
+  // say which dtype it carries and takes the all-null default, so the
+  // list and the struct keep their shape.
+  let content =
+    #|[{"x":[],"y":{"a":null},"z":[null]},{"x":[],"y":{"a":null},"z":[null]}]
+  let df = @io.parse_json_str(content)
+  assert_eq(df.get_column("x").dtype(), list_dtype(@types.DataType::String))
+  assert_eq(df.get_column("x").to_scalars().copy(), [lv([]), lv([])])
+  assert_eq(
+    df.get_column("y").dtype(),
+    one_field_struct("a", @types.DataType::String),
+  )
+  assert_eq(df.get_column("y").to_scalars().copy(), [
+    sv([fv("a", @types.Scalar::Null)]),
+    sv([fv("a", @types.Scalar::Null)]),
+  ])
+  assert_eq(df.get_column("z").dtype(), list_dtype(@types.DataType::String))
+  assert_eq(df.get_column("z").to_scalars().copy(), [
+    lv([@types.Scalar::Null]),
+    lv([@types.Scalar::Null]),
+  ])
+  // An object with no field names no column to build, so a window of only
+  // those keeps each cell as its text.
+  let empty =
+    #|[{"x":{}},{"x":{}}]
+  let text = @io.parse_json_str(empty)
+  assert_eq(text.get_column("x").dtype(), @types.DataType::String)
+  assert_eq(text.get_column("x").to_scalars().copy(), [
+    @types.Scalar::String("{}"),
+    @types.Scalar::String("{}"),
+  ])
+  // A nested column whose cells are all null stays a null String column,
+  // like any other.
+  let nulls =
+    #|[{"x":null},{"x":null}]
+  let absent = @io.parse_json_str(nulls)
+  assert_eq(absent.get_column("x").dtype(), @types.DataType::String)
+  assert_eq(absent.get_column("x").null_count(), 2)
+}
+
+///|
+test "the inference window bounds a nested column's dtype" {
+  // Two empty lists in a window of two name no element dtype, so the
+  // column is a list of text, and the integer past the window is read as
+  // text too. A window that reaches the naming cell infers the list of
+  // integers, as the uncapped scan does.
+  let content =
+    #|[{"x":[]},{"x":[]},{"x":[1]}]
+  let windowed = @io.parse_json_str(
+    content,
+    options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
+  )
+  assert_eq(
+    windowed.get_column("x").dtype(),
+    list_dtype(@types.DataType::String),
+  )
+  assert_eq(windowed.get_column("x").to_scalars().copy(), [
+    lv([]),
+    lv([]),
+    string_list(["1"]),
+  ])
+  for rows in [3, 0] {
+    let df = @io.parse_json_str(
+      content,
+      options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=rows),
+    )
+    assert_eq(df.get_column("x").dtype(), list_dtype(@types.DataType::Int))
+    assert_eq(df.get_column("x").to_scalars().copy(), [
+      lv([]),
+      lv([]),
+      int_list([1]),
+    ])
+  }
+  // A value past the window that does not fit the inferred dtype is a
+  // parse failure at its record, under either policy.
+  let late =
+    #|[{"x":[1]},{"x":[2]},{"x":["a"]}]
+  let strict = Ok(
+    ignore(
+      @io.parse_json_str(
+        late,
+        options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    strict
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "x",
+          3,
+          @types.DataType::List(@types.DataType::Int),
+          "[\"a\"]",
+        ),
+      ),
+    ),
+  )
+  let lenient = @io.parse_json_str(
+    late,
+    options=@io.JsonReadOptions::JsonReadOptions(
+      infer_schema_rows=2,
+      on_parse_error=@io.OnParseError::Null,
+    ),
+  )
+  assert_eq(lenient.get_column("x").to_scalars().copy(), [
+    int_list([1]),
+    int_list([2]),
+    @types.Scalar::Null,
+  ])
+}
+
+///|
+test "a nested dtypes pin reads every cell under the named dtype" {
+  // Without a pin the column is a list of text, the mixed elements
+  // having no dtype but `String`.
+  let content =
+    #|[{"x":[1,"a"]}]
+  let inferred = @io.parse_json_str(content)
+  assert_eq(
+    inferred.get_column("x").dtype(),
+    list_dtype(@types.DataType::String),
+  )
+  // A `String` pin takes any element as its text, as a `String` column
+  // takes any cell.
+  let text = @io.parse_json_str(
+    content,
+    options=@io.JsonReadOptions::JsonReadOptions(
+      dtypes=Map([("x", list_dtype(@types.DataType::String))]),
+    ),
+  )
+  assert_eq(text.get_column("x").to_scalars().copy(), [string_list(["1", "a"])])
+  // An integer element widens under a `Float` element dtype, the way a
+  // top-level `Float` column reads an integer.
+  let numbers =
+    #|[{"x":[1,2]},{"x":[3]}]
+  let floats = @io.parse_json_str(
+    numbers,
+    options=@io.JsonReadOptions::JsonReadOptions(
+      dtypes=Map([("x", list_dtype(@types.DataType::Float))]),
+    ),
+  )
+  assert_eq(floats.get_column("x").to_scalars().copy(), [
+    float_list([1.0, 2.0]),
+    float_list([3.0]),
+  ])
+  // A cell that does not fit the pin is a parse failure at its record —
+  // an object where the pin names a list, or a JSON string where it names
+  // a number (JSON has strong types: text is not an integer).
+  let pinned = @io.JsonReadOptions::JsonReadOptions(
+    dtypes=Map([("x", list_dtype(@types.DataType::Int))]),
+  )
+  let object =
+    #|[{"x":[1]},{"x":{"k":1}}]
+  let quoted =
+    #|[{"x":[1]},{"x":["2"]}]
+  for misfit in [object, quoted] {
+    let strict = Ok(ignore(@io.parse_json_str(misfit, options=pinned))) catch {
+      e => Err(e)
+    }
+    assert_true(
+      strict
+      is Err(
+        @types.DataError::ParseError(
+          @types.ParseErrorDetail::Cell(
+            @types.CellParseLocation::Record,
+            "x",
+            2,
+            @types.DataType::List(@types.DataType::Int),
+            _,
+          ),
+        ),
+      ),
+    )
+    // Under the resilient policy that cell reads as null.
+    let lenient = @io.parse_json_str(
+      misfit,
+      options=@io.JsonReadOptions::JsonReadOptions(
+        dtypes=Map([("x", list_dtype(@types.DataType::Int))]),
+        on_parse_error=@io.OnParseError::Null,
+      ),
+    )
+    assert_eq(lenient.get_column("x").to_scalars().copy(), [
+      int_list([1]),
+      @types.Scalar::Null,
+    ])
+  }
+}
+
+///|
+test "a nested pin parses rider elements from the text the writer rendered" {
+  // Without a pin a rider keeps its text, as a top-level rider column
+  // does; with one the elements parse — the round trip a written-back
+  // nested column needs.
+  let content =
+    #|[{"x":["2024-01-01","2024-01-02"],"y":[{"d":"1970-01-01"}]}]
+  let text = @io.parse_json_str(content)
+  assert_eq(text.get_column("x").dtype(), list_dtype(@types.DataType::String))
+  let date_d = @types.DataType::Date
+  let pinned = @io.parse_json_str(
+    content,
+    options=@io.JsonReadOptions::JsonReadOptions(
+      dtypes=Map([
+        ("x", list_dtype(date_d)),
+        ("y", list_dtype(one_field_struct("d", date_d))),
+      ]),
+    ),
+  )
+  assert_eq(pinned.get_column("x").to_scalars().copy(), [
+    lv([@types.Scalar::Date(19723L), @types.Scalar::Date(19724L)]),
+  ])
+  assert_eq(pinned.get_column("y").to_scalars().copy(), [
+    lv([sv([fv("d", @types.Scalar::Date(0L))])]),
+  ])
+  // A timestamp and a decimal element parse the same way.
+  let riders =
+    #|[{"x":["2024-01-01T00:00:00.000000"],"y":["1.50"]}]
+  let parsed = @io.parse_json_str(
+    riders,
+    options=@io.JsonReadOptions::JsonReadOptions(
+      dtypes=Map([
+        ("x", list_dtype(@types.DataType::Timestamp)),
+        ("y", list_dtype(@types.DataType::Decimal)),
+      ]),
+    ),
+  )
+  assert_eq(parsed.get_column("x").to_scalars().copy(), [
+    lv([@types.Scalar::Timestamp(1_704_067_200_000_000L)]),
+  ])
+  assert_eq(parsed.get_column("y").to_scalars().copy(), [
+    lv([@types.Scalar::Decimal(@types.Dec128::of_int64_scale(150L, scale=2))]),
+  ])
+  // Text no rider parser accepts is a parse failure at its record, and a
+  // `Duration` element has no text parser and fits nothing.
+  let not_a_date =
+    #|[{"x":["not-a-date"]}]
+  let one_day =
+    #|[{"x":["P1D"]}]
+  let refused = Ok(
+    ignore(
+      @io.parse_json_str(
+        not_a_date,
+        options=@io.JsonReadOptions::JsonReadOptions(
+          dtypes=Map([("x", list_dtype(date_d))]),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    refused
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Record,
+          "x",
+          1,
+          @types.DataType::List(@types.DataType::Date),
+          "[\"not-a-date\"]",
+        ),
+      ),
+    ),
+  )
+  let duration = Ok(
+    ignore(
+      @io.parse_json_str(
+        one_day,
+        options=@io.JsonReadOptions::JsonReadOptions(
+          dtypes=Map([("x", list_dtype(@types.DataType::Duration))]),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(duration is Err(@types.DataError::ParseError(_)))
+}
+
+///|
+test "a struct pin reads its fields by name, in the dtype's order" {
+  // The object spells its fields in another order and carries one the
+  // dtype does not name: the cell reads the dtype's fields, in the
+  // dtype's order, and leaves the extra field behind. A field the object
+  // leaves out reads as null.
+  let dtype = struct_dtype(@types.DataType::Int, @types.DataType::String)
+  let options = @io.JsonReadOptions::JsonReadOptions(dtypes=Map([("p", dtype)]))
+  let content =
+    #|[{"p":{"b":"x","a":1,"z":true}},{"p":{"a":2}}]
+  let df = @io.parse_json_str(content, options~)
+  assert_eq(df.get_column("p").to_scalars().copy(), [
+    sv([fv("a", @types.Scalar::Int(1)), fv("b", @types.Scalar::String("x"))]),
+    sv([fv("a", @types.Scalar::Int(2)), fv("b", @types.Scalar::Null)]),
+  ])
+  // An array where the pin names a struct does not fit, and neither does
+  // an object whose field has a value of another dtype.
+  let array =
+    #|[{"p":[1]}]
+  let off_type =
+    #|[{"p":{"a":"x","b":"y"}}]
+  for misfit in [array, off_type] {
+    let strict = Ok(ignore(@io.parse_json_str(misfit, options~))) catch {
+      e => Err(e)
+    }
+    assert_true(strict is Err(@types.DataError::ParseError(_)))
+  }
+}
+
+///|
+test "JSON round-trips nested columns through write_json and read_json" {
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_scalars(
+      "l",
+      [int_list([1, 2]), @types.Scalar::Null, lv([])],
+      dtype=list_dtype(@types.DataType::Int),
+    ),
+    @series.Series::from_scalars(
+      "s",
+      [
+        sv([fv("a", @types.Scalar::Int(1)), fv("b", @types.Scalar::Bool(true))]),
+        @types.Scalar::Null,
+        sv([fv("a", @types.Scalar::Null), fv("b", @types.Scalar::Bool(false))]),
+      ],
+      dtype=struct_dtype(@types.DataType::Int, @types.DataType::Bool),
+    ),
+    @series.Series::from_ints("n", [1, 2, 3]),
+  ])
+  let path = "_build/io_json_nested_roundtrip.json"
+  @io.write_json(path, df)
+  assert_eq(@io.read_json(path), df)
+  // The scalar caveats reach into a cell: an all-integral list of Floats
+  // reads back as a list of Ints, a list of Dates as a list of their
+  // text, and a non-finite Float inside a list as a null element.
+  let caveats = @frame.DataFrame::DataFrame([
+    @series.Series::from_scalars(
+      "f",
+      [float_list([1.0, 2.0])],
+      dtype=list_dtype(@types.DataType::Float),
+    ),
+    @series.Series::from_scalars(
+      "d",
+      [lv([@types.Scalar::Date(0L)])],
+      dtype=list_dtype(@types.DataType::Date),
+    ),
+    @series.Series::from_scalars(
+      "i",
+      [float_list([1.0 / 0.0, 1.5])],
+      dtype=list_dtype(@types.DataType::Float),
+    ),
+  ])
+  @io.write_json(path, caveats)
+  let back = @io.read_json(path)
+  assert_eq(back.get_column("f").dtype(), list_dtype(@types.DataType::Int))
+  assert_eq(back.get_column("d").dtype(), list_dtype(@types.DataType::String))
+  assert_eq(back.get_column("i").to_scalars().copy(), [
+    lv([@types.Scalar::Null, @types.Scalar::Float(1.5)]),
+  ])
+}
+
+///|
+test "NDJSON reads nested columns line by line" {
+  let content =
+    #|{"x":[1,2],"y":{"k":1}}
+    #|{"x":null,"y":null}
+    #|{"x":[3],"y":{"k":2}}
+  let df = @io.parse_ndjson_str(content)
+  assert_eq(df.shape(), (3, 2))
+  assert_eq(df.get_column("x").to_scalars().copy(), [
+    int_list([1, 2]),
+    @types.Scalar::Null,
+    int_list([3]),
+  ])
+  assert_eq(df.get_column("y").to_scalars().copy(), [
+    sv([fv("k", @types.Scalar::Int(1))]),
+    @types.Scalar::Null,
+    sv([fv("k", @types.Scalar::Int(2))]),
+  ])
+  // A round trip on disk.
+  let path = "_build/io_ndjson_nested_roundtrip.ndjson"
+  @io.write_ndjson(path, df)
+  assert_eq(@io.read_ndjson(path), df)
+  // A misfit past the window is located at its file line.
+  let late =
+    #|{"x":[1]}
+    #|{"x":[2]}
+    #|{"x":["a"]}
+  let strict = Ok(
+    ignore(
+      @io.parse_ndjson_str(
+        late,
+        options=@io.JsonReadOptions::JsonReadOptions(infer_schema_rows=2),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    strict
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Cell(
+          @types.CellParseLocation::Line,
+          "x",
+          3,
+          @types.DataType::List(@types.DataType::Int),
+          "[\"a\"]",
+        ),
+      ),
+    ),
+  )
+}
+
+///|
+test "a CSV pin to a nested dtype is refused" {
+  // A CSV cell is one text field: there is no list or struct in it for
+  // the pin to name.
+  let refused = Ok(
+    ignore(
+      @io.parse_csv_str(
+        "x\n1\n",
+        options=@io.CsvReadOptions::CsvReadOptions(
+          dtypes=Map([("x", list_dtype(@types.DataType::Int))]),
+        ),
+      ),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(
+    refused is Err(@types.DataError::InvalidOperation(m)) &&
+    m.contains("cannot be pinned to List(Int)") &&
+    m.contains("a CSV cell carries no list or struct"),
+  )
 }

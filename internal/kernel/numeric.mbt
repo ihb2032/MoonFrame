@@ -83,6 +83,11 @@ fn numeric_general_pair(
   let lv = left.validity_bools()
   let rv = right.validity_bools()
   match (left.storage().data(), right.storage().data()) {
+    (@column.ColumnData::List(_), _)
+    | (@column.ColumnData::Struct(_), _)
+    | (_, @column.ColumnData::List(_))
+    | (_, @column.ColumnData::Struct(_)) =>
+      raise binary_type_mismatch_error(verb, left, right)
     (@column.ColumnData::I64(a), @column.ColumnData::I64(b)) if left
       .dtype()
       .is_numeric() &&
@@ -644,7 +649,9 @@ fn eval_neg(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::Date
     | @types.DataType::Timestamp
     | @types.DataType::Duration
-    | @types.DataType::Null =>
+    | @types.DataType::Null
+    | @types.DataType::List(_)
+    | @types.DataType::Struct(_) =>
       eval_unary_num(operand, "negate", a => -a, a => -a)
   }
 }
@@ -663,7 +670,9 @@ fn eval_abs(operand : Series) -> Series raise @types.DataError {
     | @types.DataType::Date
     | @types.DataType::Timestamp
     | @types.DataType::Duration
-    | @types.DataType::Null =>
+    | @types.DataType::Null
+    | @types.DataType::List(_)
+    | @types.DataType::Struct(_) =>
       eval_unary_num(operand, "take the absolute value of", a => a.abs(), a => {
         a.abs()
       })
@@ -728,7 +737,16 @@ fn eval_round(
 ) -> Series raise @types.DataError {
   match operand.dtype() {
     Decimal => decimal_round(operand, decimals)
-    Int | Float | Bool | String | Date | Timestamp | Duration | Null =>
+    Int
+    | Float
+    | Bool
+    | String
+    | Date
+    | Timestamp
+    | Duration
+    | Null
+    | List(_)
+    | Struct(_) =>
       eval_unary_num(operand, "round", a => a, v => round_places(v, decimals))
   }
 }
@@ -888,6 +906,10 @@ fn eval_unary_num(
   }
   let valid = operand.validity_bools()
   let out = match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
     // Dtype-gated: a Date column is I64-typed but is not a number.
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_int_options(
@@ -941,6 +963,10 @@ fn eval_unary_float(
   }
   let valid = operand.validity_bools()
   let out = match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message("cannot \{verb} \{operand.dtype()}"),
+      )
     // Dtype-gated: a Date column is I64-typed but is not a number.
     @column.ColumnData::I64(a) if operand.dtype().is_numeric() =>
       Series::from_float_options(
@@ -1128,6 +1154,12 @@ fn num_probe(
   }
   let valid = operand.validity_bools()
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::TypeMismatch(
+        @types.TypeMismatchDetail::Message(
+          "\{probe} requires a numeric operand, got \{operand.dtype()}",
+        ),
+      )
     @column.ColumnData::F64(a) =>
       Series::from_bool_options(
         operand.name(),

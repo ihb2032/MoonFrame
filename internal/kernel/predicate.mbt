@@ -79,6 +79,10 @@ fn try_fast_is_in(
   let valid = operand.validity_bools()
   let name = operand.name()
   match operand.storage().data() {
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      // A nested column takes the general path, whose cell comparison
+      // (`eval_compare`'s nested arms) is the membership test itself.
+      None
     // Decoded once per side: cell membership reads materialised Strings.
     @column.ColumnData::Utf8(buf) =>
       hash_set_is_in(name, buf.to_strings(), valid, members, m => {

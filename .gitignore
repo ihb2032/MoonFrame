@@ -26,3 +26,4 @@ coveralls.json
 # from catching it again.
 /_cov_extract.py
 _cov.txt
+uncovered.log

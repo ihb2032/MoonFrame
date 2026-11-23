@@ -8,11 +8,14 @@ ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer
 ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
+ctor FieldValue::FieldValue(String, Scalar) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor LazyFrame::LazyFrame(DataFrame) -> Self <- frame
+ctor ListValue::ListValue(Array[Scalar]) -> Self <- types
 ctor Optimizations::Optimizations() -> Self <- frame
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
+ctor StructValue::StructValue(Array[FieldValue]) -> Self <- types
 ctor VegaAggField::VegaAggField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self <- chart
 ctor VegaAggregateTransform::VegaAggregateTransform(aggregate~ : Array[VegaAggField], groupby? : Array[String]) -> Self <- chart
 ctor VegaAxis::VegaAxis(disable? : Bool, aria? : Bool, band_position? : Double, description? : String, domain? : Bool, domain_cap? : VegaCap, domain_color? : String, domain_dash? : Array[Double], domain_dash_offset? : Double, domain_opacity? : Double, domain_width? : Double, format? : String, format_type? : String, grid? : Bool, grid_cap? : VegaCap, grid_color? : String, grid_dash? : Array[Double], grid_dash_offset? : Double, grid_opacity? : Double, grid_width? : Double, label_align? : VegaAlign, label_angle? : Double, label_baseline? : VegaBaseline, label_bound? : VegaLabelBound, label_color? : String, label_expr? : String, label_flush? : VegaLabelFlush, label_flush_offset? : Double, label_font? : String, label_font_size? : Double, label_font_style? : String, label_font_weight? : VegaFontWeight, label_limit? : Double, label_line_height? : Double, label_offset? : Double, label_opacity? : Double, label_overlap? : VegaLabelOverlap, label_padding? : Double, label_separation? : Double, labels? : Bool, max_extent? : Double, min_extent? : Double, offset? : Double, orient? : VegaAxisOrient, position? : Double, style? : String, tick_band? : VegaTickBand, tick_cap? : VegaCap, tick_color? : String, tick_count? : VegaTickInterval, tick_dash? : Array[Double], tick_dash_offset? : Double, tick_extra? : Bool, tick_min_step? : Double, tick_offset? : Double, tick_opacity? : Double, tick_round? : Bool, tick_size? : Double, tick_width? : Double, ticks? : Bool, title? : String, title_align? : VegaAlign, title_anchor? : VegaAnchor, title_angle? : Double, title_baseline? : VegaBaseline, title_color? : String, title_font? : String, title_font_size? : Double, title_font_style? : String, title_font_weight? : VegaFontWeight, title_limit? : Double, title_line_height? : Double, title_opacity? : Double, title_padding? : Double, title_x? : Double, title_y? : Double, translate? : Double, values? : Array[@json.Json], zindex? : Double) -> Self <- chart
@@ -1197,8 +1200,10 @@ method DataFrame::vstack(Self, Self) -> Self raise @types.DataError <- frame
 method DataFrame::with_columns(Self, Array[@expr.Expr]) -> Self raise @types.DataError <- frame
 method DataFrame::with_row_index(Self, name? : String, offset? : Int64) -> Self raise @types.DataError <- frame
 method DataType::equal(Self, Self) -> Bool <- types
+method DataType::fits_value(Self, Scalar) -> Bool <- types
 method DataType::is_numeric(Self) -> Bool <- types
 method DataType::is_summable(Self) -> Bool <- types
+method DataType::names_types(Self) -> Bool <- types
 method DataType::not_equal(Self, Self) -> Bool <- types
 method DataType::output(Self, &Logger) -> Unit <- types
 method DataType::to_repr(Self) -> @debug.Repr <- types
@@ -1375,6 +1380,11 @@ method Field::output(Self, &Logger) -> Unit <- types
 method Field::rename(Self, String) -> Self <- types
 method Field::to_repr(Self) -> @debug.Repr <- types
 method Field::to_string(Self) -> String <- types
+method FieldValue::equal(Self, Self) -> Bool <- types
+method FieldValue::name(Self) -> String <- types
+method FieldValue::not_equal(Self, Self) -> Bool <- types
+method FieldValue::to_repr(Self) -> @debug.Repr <- types
+method FieldValue::value(Self) -> Scalar <- types
 method FramePlot::arc(Self, theta~ : String, color? : String, opacity? : String, tooltip? : String, radius? : String, radius2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
 method FramePlot::area(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
 method FramePlot::bar(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, x2? : String, y2? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
@@ -1478,6 +1488,14 @@ method LazyGroupBy::quantile(Self, Double, interpolation? : @series.QuantileInte
 method LazyGroupBy::std(Self) -> LazyFrame <- frame
 method LazyGroupBy::sum(Self) -> LazyFrame <- frame
 method LazyGroupBy::variance(Self) -> LazyFrame <- frame
+method ListValue::cells(Self) -> Array[Scalar] <- types
+method ListValue::element_dtype(Self) -> DataType <- types
+method ListValue::equal(Self, Self) -> Bool <- types
+method ListValue::get(Self, Int32) -> Scalar raise DataError <- types
+method ListValue::is_empty(Self) -> Bool <- types
+method ListValue::len(Self) -> Int32 <- types
+method ListValue::not_equal(Self, Self) -> Bool <- types
+method ListValue::to_repr(Self) -> @debug.Repr <- types
 method OnParseError::equal(Self, Self) -> Bool <- io
 method OnParseError::not_equal(Self, Self) -> Bool <- io
 method OnParseError::to_repr(Self) -> @debug.Repr <- io
@@ -1513,6 +1531,7 @@ method Scalar::as_string(Self) -> String raise DataError <- types
 method Scalar::dtype(Self) -> DataType <- types
 method Scalar::equal(Self, Self) -> Bool <- types
 method Scalar::is_null(Self) -> Bool <- types
+method Scalar::named_dtype(Self) -> DataType? <- types
 method Scalar::not_equal(Self, Self) -> Bool <- types
 method Scalar::output(Self, &Logger) -> Unit <- types
 method Scalar::to_repr(Self) -> @debug.Repr <- types
@@ -1573,6 +1592,15 @@ method Series::tail(Self, Int32) -> Self <- series
 method Series::to_repr(Self) -> @debug.Repr <- series
 method Series::to_scalars(Self) -> Array[@types.Scalar] <- series
 method Series::variance(Self) -> Double raise @types.DataError <- series
+method StructValue::equal(Self, Self) -> Bool <- types
+method StructValue::fields(Self) -> Array[FieldValue] <- types
+method StructValue::get(Self, Int32) -> FieldValue raise DataError <- types
+method StructValue::get_named(Self, String) -> Scalar? <- types
+method StructValue::len(Self) -> Int32 <- types
+method StructValue::not_equal(Self, Self) -> Bool <- types
+method StructValue::schema(Self) -> Schema raise DataError <- types
+method StructValue::schema_opt(Self) -> Schema? <- types
+method StructValue::to_repr(Self) -> @debug.Repr <- types
 method TypeMismatchDetail::equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::not_equal(Self, Self) -> Bool <- types
 method TypeMismatchDetail::to_repr(Self) -> @debug.Repr <- types
@@ -2234,12 +2262,14 @@ type DataType <- types
 type Dec128 <- types
 type Expr <- expr
 type Field <- types
+type FieldValue <- types
 type HtmlOptions <- frame
 type JoinOptions <- frame
 type JoinType <- frame
 type JsonReadOptions <- io
 type KeepStrategy <- frame
 type LazyFrame <- frame
+type ListValue <- types
 type OnParseError <- io
 type Optimizations <- frame
 type ParquetCodec <- io
@@ -2250,6 +2280,7 @@ type RankMethod <- types
 type Scalar <- types
 type Schema <- types
 type Series <- series
+type StructValue <- types
 type TypeMismatchDetail <- types
 type VegaAggregate <- chart
 type VegaAutoSize <- chart

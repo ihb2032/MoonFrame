@@ -26,6 +26,8 @@ fn read_like_ops(storage : ColumnStorage) -> (String, Array[Bool]) {
     ColumnData::Bool(a) => ("Bool", Array::makei(a.length(), i => !valid[i]))
     ColumnData::Utf8(a) => ("String", Array::makei(a.len(), i => !valid[i]))
     ColumnData::Dec(a) => ("Decimal", Array::makei(a.length(), i => !valid[i]))
+    ColumnData::List(_) | ColumnData::Struct(_) =>
+      ("Nested", Array::makei(storage.len(), i => !valid[i]))
   }
 }
 

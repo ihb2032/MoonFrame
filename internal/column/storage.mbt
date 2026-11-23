@@ -108,6 +108,15 @@ pub impl Eq for ColumnStorage with fn equal(self, other) {
       // Value equality — the Dec128 Eq's own: cohorts equal (1.0 with
       // 1.00), ±0 equal, NaN unequal to itself as `Double` is.
       storage_cells_equal(a.length(), self, other, i => a[i] == b[i])
+    // A nested cell reads back as one `Scalar` — its elements or fields
+    // gathered through the children's own total reader, nulls included —
+    // and `Scalar` equality is structural, so the same single-slot loop
+    // settles a nested column at any depth.
+    (ColumnData::List(_), ColumnData::List(_))
+    | (ColumnData::Struct(_), ColumnData::Struct(_)) =>
+      storage_cells_equal(self.len(), self, other, i => {
+        storage_get_total(self, i) == storage_get_total(other, i)
+      })
     // A mixed pair never reaches the value comparison: the dtype identity
     // check above already returned `false` (a column's dtype decides its
     // `ColumnData` variant, so same dtype implies same variant). The arm

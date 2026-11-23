@@ -71,6 +71,52 @@ pub(all) enum DataType {
   /// `String`, and a `dtypes` pin refuses it.
   Duration
   Null
+  /// A variable-length list of values, every cell holding the element
+  /// dtype's scalars (an element may be null — a `Scalar::Null` inside
+  /// the list). The element dtype is the payload, itself possibly
+  /// nested (`List(List(Int))`).
+  ///
+  /// Not numeric and not summable, so nothing that computes over a cell
+  /// reads one: arithmetic, the statistics (`sum` / `mean` / `std` /
+  /// `median` / the quantiles), the logical and string verbs, the running
+  /// and rolling arithmetic, and every cast refuse a nested column. What
+  /// moves, compares, or keys cells works on it whole:
+  ///
+  /// - the row verbs — selecting, renaming, filtering on another column,
+  ///   slicing, reversing, stacking;
+  /// - the comparisons — `eq` / `ne` by content (element by element, a
+  ///   null cell comparing unknown), and `lt` / `le` / `gt` / `ge` by the
+  ///   order the order verbs read, which `clip` bounds a column by too;
+  /// - the order verbs — `sort`, `rank`, `arg_sort`, `min` / `max`, and
+  ///   `arg_min` / `arg_max`, all reading one order: element by element
+  ///   through the order the element dtype sorts by, a shorter prefix
+  ///   first, and a null element before a present one;
+  /// - the keys — `group_by`, `join`, `unique`, `n_unique`, and `mode`
+  ///   read a list by its content, and `first` / `last` / `count` carry
+  ///   its cells;
+  /// - the positional verbs that move or count cells — `shift`,
+  ///   `forward_fill`, `cum_count`, `is_first_distinct`, and
+  ///   `unique_counts`.
+  ///
+  /// A nested literal (`lit` of a list value), `is_in`, and
+  /// `when(c).then(a).otherwise(b)` take part in comparing and selecting
+  /// cells. JSON writes a list cell as the array it is and infers a list
+  /// column on a read, and `Series::from_scalars` infers one from its
+  /// cells; a CSV cell is one text field, so `write_csv` writes the
+  /// cell's text and the CSV reader cannot read a list back.
+  List(DataType)
+  /// A fixed set of named fields, every cell holding one value per
+  /// field, in the fields' own order (a value may be null — a
+  /// `Scalar::Null` for that field). The payload is the struct's
+  /// schema: an immutable `Schema` whose fields name and type the
+  /// struct's members, themselves possibly nested (`Struct` of
+  /// `Struct`, `List` of `Struct`).
+  ///
+  /// The verbs and refusals stated on the `List` variant are a struct
+  /// column's too; its cells differ only in how they compare — by field,
+  /// in the fields' own order, where a list compares by element — and in
+  /// what JSON writes: a struct cell leaves as the object it is.
+  Struct(Schema)
 }
 
 ///|
@@ -126,8 +172,32 @@ pub fn DataType::comparable_with(self : DataType, other : DataType) -> Bool {
 }
 
 ///|
-/// The `Show` spelling renders the registry's display name — the name is
-/// registered per dtype, not matched here.
+/// The `Show` spelling: the registry's display name for a scalar dtype —
+/// the name is registered per dtype, not matched here — and, for a
+/// nested dtype, that name with its shape spelled out: `List(Int)`,
+/// `List(List(String))`, `Struct(a: Int, b: String)`. A bare `List` would
+/// name every list dtype alike, and an error message that reads
+/// "expected List, got List" says nothing; the element dtype and the
+/// fields are what tell two nested dtypes apart, so they ride the
+/// spelling. A struct's fields render in the struct's own order.
 pub impl Show for DataType with fn output(self, logger) {
-  logger.write_string(self.dtype_profile().display)
+  if self is List(element) {
+    logger.write_string("List(")
+    logger <+ "\{element}"
+    logger.write_string(")")
+  } else if self is Struct(fields) {
+    logger.write_string("Struct(")
+    let declared = fields.fields()
+    for i, field in declared {
+      if i > 0 {
+        logger.write_string(", ")
+      }
+      logger.write_string(field.name())
+      logger.write_string(": ")
+      logger <+ "\{field.dtype()}"
+    }
+    logger.write_string(")")
+  } else {
+    logger.write_string(self.dtype_profile().display)
+  }
 }

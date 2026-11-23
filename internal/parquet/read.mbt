@@ -1409,5 +1409,6 @@ fn scalar_of_physical(
     // decodes under is `Int` and its arm is the enum's completeness
     // fence.
     Int | Bool | String | Duration | Null => @types.Scalar::Int(int_value)
+    List(_) | Struct(_) => @types.Scalar::Null
   }
 }

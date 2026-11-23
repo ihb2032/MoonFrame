@@ -22,6 +22,14 @@ pub(all) enum Scalar {
   Timestamp(Int64)
   Decimal(Dec128)
   Duration(Int64)
+  /// A list value: its elements in order, each an element dtype's
+  /// scalar or `Null`. The payload owns its cells (`ListValue`). Which
+  /// verbs read a nested cell and which refuse one is stated on the
+  /// `List` variant of `DataType`.
+  List(ListValue)
+  /// A struct value: one value per field, in the struct dtype's field
+  /// order, each carrying its field's name (`StructValue`).
+  Struct(StructValue)
   Null
 }
 
@@ -46,6 +54,18 @@ pub fn Scalar::dtype(self : Scalar) -> DataType {
     Timestamp(_) => DataType::Timestamp
     Decimal(_) => DataType::Decimal
     Duration(_) => DataType::Duration
+    List(v) => DataType::List(v.element_dtype())
+    Struct(v) =>
+      // The value is self-describing; the one shape that names no
+      // dtype is a value whose field names repeat (two fields of one
+      // name spell no schema), which answers `Null` — the dtype of a
+      // missing value, the same fallback an all-null list takes for its
+      // element. A column's struct values never repeat a name: the
+      // column's dtype forbids it.
+      match v.schema_opt() {
+        Some(schema) => DataType::Struct(schema)
+        None => DataType::Null
+      }
     Null => DataType::Null
   }
 }
@@ -70,8 +90,62 @@ pub fn Scalar::to_string(self : Scalar) -> String {
     Timestamp(v) => timestamp_micros_to_iso(v)
     Decimal(v) => v.to_string()
     Duration(v) => duration_micros_to_iso(v)
+    List(v) => list_text(v)
+    Struct(v) => struct_text(v)
     Null => ""
   }
+}
+
+///|
+/// The rendering of a list value — its cells through the nested-cell
+/// spelling, comma-separated, in brackets.
+fn list_text(v : ListValue) -> String {
+  "[" + v.cells().map(nested_cell_text).join(", ") + "]"
+}
+
+///|
+/// The rendering of a struct value — its fields through the field
+/// spelling, comma-separated, in braces.
+fn struct_text(v : StructValue) -> String {
+  "{" + v.fields().map(struct_field_text).join(", ") + "}"
+}
+
+///|
+/// The text of one field of a struct rendering — its quoted name, a
+/// colon, and the value through the shared nested-cell spelling.
+fn struct_field_text(field : FieldValue) -> String {
+  quoted(field.name()) + ": " + nested_cell_text(field.value())
+}
+
+///|
+/// The JSON-shaped text of one nested cell — the spelling the list and
+/// struct renderings share, so a nested value renders the same at every
+/// depth. A string is quoted with its escapes (a bare string would read
+/// as a keyword next to `null`); a null reads `null`; every other
+/// scalar renders in its own value form, a nested one recursing through
+/// its own rendering.
+fn nested_cell_text(cell : Scalar) -> String {
+  match cell {
+    String(v) => quoted(v)
+    Null => "null"
+    Int(_)
+    | Float(_)
+    | Bool(_)
+    | Date(_)
+    | Timestamp(_)
+    | Decimal(_)
+    | Duration(_) => cell.to_string()
+    List(v) => list_text(v)
+    Struct(v) => struct_text(v)
+  }
+}
+
+///|
+/// Quote a string the way the nested renderings spell it: `"` on both
+/// ends, the escapes the debug renderer already knows (a quote, a
+/// backslash, a line break).
+fn quoted(s : String) -> String {
+  "\"" + @text.escape_debug(s) + "\""
 }
 
 ///|
@@ -137,6 +211,8 @@ pub impl Show for Scalar with fn output(self, logger) {
     Timestamp(v) => logger <+ "Timestamp(\{timestamp_micros_to_iso(v)})"
     Decimal(v) => logger <+ "Decimal(\{v.to_string()})"
     Duration(v) => logger <+ "Duration(\{duration_micros_to_iso(v)})"
+    List(v) => logger <+ "List(\{list_text(v)})"
+    Struct(v) => logger <+ "Struct(\{struct_text(v)})"
     Null => logger.write_string("Null")
   }
 }

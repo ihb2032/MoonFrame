@@ -36,17 +36,23 @@
 ///   `Float` holding `±Infinity`. When `false`, such a number is not
 ///   `Float` evidence — the column stays `String`, the CSV reader's
 ///   `allow_nonfinite_floats` rule, so a silent retype to `Float(∞)`
-///   cannot happen either way a file is read.
+///   cannot happen either way a file is read. Inside a list or a struct
+///   the gate decides the element's or the field's dtype the same way.
 /// - `dtypes` — per-column dtype overrides that pin a column's type
-///   instead of inferring it, as a name → `DataType` map. Only the seven
+///   instead of inferring it, as a name → `DataType` map. A pin names
+///   one of two kinds of column. A scalar column takes one of the seven
 ///   dtypes a reader can parse — the four inference picks (`Int` /
-///   `Float` / `Bool` / `String`) plus the three rider dtypes a pin
-///   carries (`Date` / `Timestamp` / `Decimal`, read back through
-///   the writers' exact text forms, so the cell must be a JSON `String`) —
-///   can be pinned; anything else is refused with `InvalidOperation` at
-///   read time, as is a name the input does not carry (a pin is an
-///   assertion about the input; a misspelt one fails rather than silently
-///   does nothing). Columns not named keep their inferred dtype. A pinned
+///   `Float` / `Bool` / `String`) plus the three rider dtypes
+///   (`Date` / `Timestamp` / `Decimal`, read back through the writers'
+///   exact text forms, so the cell must be a JSON `String`). A nested
+///   column (see `parse_json_str`) takes a `List` / `Struct` dtype, and
+///   the pin reaches its elements and fields as well — under
+///   `List(Date)` an element parses from its text exactly as a
+///   top-level `Date` pin reads a column. Anything else is refused with
+///   `InvalidOperation` at read time, as is a name the input does not
+///   carry (a pin is an assertion about the input; a misspelt one fails
+///   rather than silently does nothing). Columns not named keep their
+///   inferred dtype. A pinned
 ///   column skips inference entirely, and a cell that does not parse
 ///   under the pin — a JSON `String` in a column pinned `Int`, say, since
 ///   JSON has strong types and no `"1" → 1` coercion — is handled per
@@ -108,6 +114,23 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// infers one dtype per column, and materialises the frame. An empty
 /// array — like empty or whitespace-only input — yields a 0×0 frame.
 ///
+/// A field whose values are arrays or objects is a **nested column**,
+/// read cell by cell rather than as text. Each position — the column's
+/// cells, a list's elements, a struct's fields — takes the narrowest
+/// dtype that accepts every value the inference window holds there: a
+/// `List` of the dtype its elements together name where every value is
+/// an array, a `Struct` of the fields the objects name between them
+/// where every value is an object (in first-seen order; an object that
+/// leaves a field out reads a null there), and otherwise `Int`, then
+/// `Float`, then `Bool`. `String` is what a position takes when none of
+/// those accepts every value or when nothing names a dtype, and it keeps
+/// each value as its text — so a column holding an array beside an
+/// object is a `String` column of their renderings, and a list holding a
+/// number beside a string is a `List(String)`. `write_json` writes a
+/// nested cell as the array or object it is, so a nested column
+/// round-trips. The NDJSON reader reads nested columns by this same
+/// rule.
+///
 /// Raises:
 /// - `ParseError(Message(...))` — malformed JSON, a top-level value that is
 ///   not an array, a record that is not an object, or nesting deeper than
@@ -117,7 +140,7 @@ pub fn JsonReadOptions::JsonReadOptions(
 /// - `InvalidOperation` — `options.dtypes` names a column the input does
 ///   not carry, or pins a dtype that has no read parser (anything but
 ///   `Int` / `Float` / `Bool` / `String` / `Date` / `Timestamp` /
-///   `Decimal`).
+///   `Decimal`, and a `List` / `Struct`).
 /// - `ParseError(Cell(...))` — a non-null cell does not fit the column's
 ///   inferred dtype, unless `options.on_parse_error` is `Null`, which
 ///   downgrades that cell to a null instead.

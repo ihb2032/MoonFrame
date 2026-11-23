@@ -39,7 +39,9 @@ pub fn Series::mask_true_indices(self : Series) -> Array[Int32]? {
     @column.ColumnData::I64(_)
     | @column.ColumnData::F64(_)
     | @column.ColumnData::Utf8(_)
-    | @column.ColumnData::Dec(_) => return None
+    | @column.ColumnData::Dec(_)
+    | @column.ColumnData::List(_)
+    | @column.ColumnData::Struct(_) => return None
   }
   let valid = self.validity_bools()
   let kept : Array[Int32] = []
@@ -90,6 +92,22 @@ pub fn Series::coalesce_columns(
   }
   let base_valid = self.validity_bools()
   let fills = fill.to_scalars()
+  // A nested column merges cell by cell rather than buffer by buffer: its
+  // body is children and offsets, with no one typed array to read a
+  // coalesced cell out of, so each output cell takes one side's whole
+  // value and the column rebuilds from the cells.
+  if self.storage.data() is @column.ColumnData::List(_) ||
+    self.storage.data() is @column.ColumnData::Struct(_) {
+    let own = self.to_scalars()
+    let merged = Array::makei(self.len(), i => {
+      if base_valid[i] {
+        own[i]
+      } else {
+        fills[i]
+      }
+    })
+    return Series::from_scalars(name, merged, dtype=self.dtype())
+  }
   // The four closures differ only in the `Scalar` variant they read `fill` as.
   self.rebuild_options(
     name,
@@ -110,6 +128,8 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Bool(_)
           | @types.Scalar::String(_)
           | @types.Scalar::Decimal(_)
+          | @types.Scalar::List(_)
+          | @types.Scalar::Struct(_)
           | @types.Scalar::Null => None
         }
       }
@@ -127,6 +147,8 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Timestamp(_)
           | @types.Scalar::Decimal(_)
           | @types.Scalar::Duration(_)
+          | @types.Scalar::List(_)
+          | @types.Scalar::Struct(_)
           | @types.Scalar::Null => None
         }
       }
@@ -144,6 +166,8 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Timestamp(_)
           | @types.Scalar::Decimal(_)
           | @types.Scalar::Duration(_)
+          | @types.Scalar::List(_)
+          | @types.Scalar::Struct(_)
           | @types.Scalar::Null => None
         }
       }
@@ -161,6 +185,8 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Timestamp(_)
           | @types.Scalar::Decimal(_)
           | @types.Scalar::Duration(_)
+          | @types.Scalar::List(_)
+          | @types.Scalar::Struct(_)
           | @types.Scalar::Null => None
         }
       }
@@ -178,6 +204,8 @@ pub fn Series::coalesce_columns(
           | @types.Scalar::Date(_)
           | @types.Scalar::Timestamp(_)
           | @types.Scalar::Duration(_)
+          | @types.Scalar::List(_)
+          | @types.Scalar::Struct(_)
           | @types.Scalar::Null => None
         }
       }
@@ -265,8 +293,39 @@ fn Series::rebuild_options(
       Series::from_string_options(name, Array::makei(n, k => string_cell(a, k)))
     @column.ColumnData::Dec(a) =>
       Series::from_decimals(name, Array::makei(n, k => dec_cell(a, k)))
+    // A nested column has no typed array to read a cell out of: its
+    // rebuild is `rebuild_nested`'s, and every caller routes a nested
+    // source there before reaching this skeleton.
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      raise @types.DataError::InvalidOperation(
+        "the cell-wise rebuild does not take a nested column: \{name}",
+      )
   }
   rebuilt.try_column_to_numeric()
+}
+
+///|
+/// A nested column's rebuild: output cell `k` is the source's whole cell
+/// at `row_at(k)` when that answers a row, else a null cell; the column
+/// then builds from those cells under the source's own dtype. The nested
+/// twin of `rebuild_by_row` — the same `row_at` contract (it answers a
+/// row only when the cell there is present), spelled through whole cells
+/// because a nested body has no typed array to index.
+fn Series::rebuild_nested(
+  self : Series,
+  name : String,
+  n : Int32,
+  row_at : (Int32) -> Int32?,
+) -> Series raise @types.DataError {
+  let source = self.to_scalars()
+  let cells : Array[@types.Scalar] = Array::makei(n, k => {
+    let cell : @types.Scalar = match row_at(k) {
+      Some(j) => source[j]
+      None => @types.Scalar::Null
+    }
+    cell
+  })
+  Series::from_scalars(name, cells, dtype=self.dtype())
 }
 
 ///|
@@ -348,6 +407,11 @@ fn Series::rebuild_by_row(
   n : Int32,
   row_at : (Int32) -> Int32?,
 ) -> Series raise @types.DataError {
+  // A nested source takes its own rebuild: whole cells, not typed arrays.
+  if self.storage.data() is @column.ColumnData::List(_) ||
+    self.storage.data() is @column.ColumnData::Struct(_) {
+    return self.rebuild_nested(name, n, row_at)
+  }
   self.rebuild_options(
     name,
     n,
@@ -421,7 +485,9 @@ pub fn Series::gather_series_opt(
     | (
       @column.ColumnData::Bool(_)
       | @column.ColumnData::Utf8(_)
-      | @column.ColumnData::Dec(_),
+      | @column.ColumnData::Dec(_)
+      | @column.ColumnData::List(_)
+      | @column.ColumnData::Struct(_),
       _,
     ) => {
       let validity = self.storage.validity()

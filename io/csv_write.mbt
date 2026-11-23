@@ -242,6 +242,12 @@ fn render_csv_scalar(
     | @types.Scalar::Timestamp(_)
     | @types.Scalar::Duration(_)
     | @types.Scalar::Decimal(_) => scalar.to_string()
+    // A nested cell carries no CSV spelling of its own, so it leaves as
+    // its JSON-shaped text (a list in brackets, a struct in braces) — one
+    // field, quoted by the writer's rule when it holds a delimiter or a
+    // line break. CSV names no dtype for it, so a written-back nested
+    // column reads as `String`.
+    @types.Scalar::List(_) | @types.Scalar::Struct(_) => scalar.to_string()
   }
 }
 

@@ -160,7 +160,9 @@ fn reduce_arith(
       }
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
-    | @column.ColumnData::Utf8(_) => {
+    | @column.ColumnData::Utf8(_)
+    | @column.ColumnData::List(_)
+    | @column.ColumnData::Struct(_) => {
       let verb = if want_mean { "mean" } else { "sum" }
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
@@ -287,6 +289,29 @@ fn reduce_extremum(
           None => @types.Scalar::Null
         }
       }
+    // A nested column orders by the one total order its sort key reads
+    // (`cmp_scalar_total`): its extremum is the value a sort would place
+    // first (`min`) or last (`max`).
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => {
+      let data = storage.data()
+      let dtype = storage.dtype()
+      fn(n : Int32, at : (Int32) -> Int32) -> @types.Scalar {
+        let get = k => @column.scalar_of(dtype, data, at(k))
+        let skip = missing_skip(present, at)
+        let better = (x, y) => {
+          let c = cmp_scalar_total(x, y)
+          if want_min {
+            c < 0
+          } else {
+            c > 0
+          }
+        }
+        match @numeric.fold_extremum(n, get, skip, better) {
+          Some(b) => b
+          None => @types.Scalar::Null
+        }
+      }
+    }
   }
 }
 
@@ -329,7 +354,9 @@ fn numeric_double_reader(
     @column.ColumnData::I64(_)
     | @column.ColumnData::Bool(_)
     | @column.ColumnData::Utf8(_)
-    | @column.ColumnData::Dec(_) =>
+    | @column.ColumnData::Dec(_)
+    | @column.ColumnData::List(_)
+    | @column.ColumnData::Struct(_) =>
       raise @types.DataError::TypeMismatch(
         @types.TypeMismatchDetail::Message(
           "\{op} undefined for \{storage.dtype()}",
@@ -642,6 +669,26 @@ fn reduce_arg_extremum(
           }
         })
       }
+    // The nested arm reads `reduce_extremum`'s own order
+    // (`cmp_scalar_total`), so `arg_min` names the row `min` answers.
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) => {
+      let data = storage.data()
+      let dtype = storage.dtype()
+      // The reader and the comparator are named before the driver, so
+      // neither closure opens a line of its own inside the arm.
+      let better = (x, y) => {
+        let c = cmp_scalar_total(x, y)
+        if want_min {
+          c < 0
+        } else {
+          c > 0
+        }
+      }
+      fn(n : Int32, at : (Int32) -> Int32) -> @types.Scalar {
+        let read = k => @column.scalar_of(dtype, data, at(k))
+        arg_extremum_of(n, read, missing_skip(present, at), better)
+      }
+    }
   }
 }
 
@@ -705,6 +752,11 @@ fn count_distinct(
     @column.ColumnData::Bool(a) => i => KBool(a[i])
     @column.ColumnData::Utf8(a) => i => KStr(a.get(i))
     @column.ColumnData::Dec(a) => i => dec_key_cell(a[i])
+    // A nested cell keys by its shape — the same whole-cell key
+    // `Series::key_cells` builds, so a distinct nested value here is a
+    // distinct group there.
+    @column.ColumnData::List(_) | @column.ColumnData::Struct(_) =>
+      fn(i) { key_cell(@column.storage_get_total(storage, i)) }
   }
   fn(n : Int32, at : (Int32) -> Int32) -> Int32 {
     let seen : Map[KeyCell, Unit] = Map([])

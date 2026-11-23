@@ -38,6 +38,13 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   source's whole-read batch, a wide row group) answers in bounded
   windows; the cap is an internal shape, and batch boundaries carry no
   size promise.
+- The positional windows stream: `head` / `tail` / `slice` (forward
+  bounds), `gather_every`, and `with_row_index` ride the flow carrying
+  their place across batch boundaries (a trailing window holds no more
+  than its own `n` rows), flushing their tail at the drain — cell for
+  cell and row for row the eager verbs' answers. The far-end shapes (a
+  negative bound, a negative offset, a stride under validation) keep the
+  whole-frame path.
 
 ## v0.8.1 → v0.9.0
 

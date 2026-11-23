@@ -28,15 +28,29 @@
 priv struct Morph((DataFrame) -> DataFrame raise @types.DataError)
 
 ///|
-/// One stretch of the spine. `Flow` runs its verbs on each batch as it
-/// passes; `Block` runs its verbs on the whole frame the stretch's input
-/// drains to, and the frame re-enters the pipeline as one batch. Two
-/// spans of the same kind never sit adjacent — the builder folds runs of
-/// flow-safe verbs into one `Flow` and runs of blocking ones into one
-/// `Block`, so a chain of blocking verbs materialises once, not once
-/// per verb.
+/// One *stateful* verb's deferred execution — a positional window that
+/// rides the flow carrying its own place across batch boundaries: the
+/// step transforms one batch (updating the place it holds), and once
+/// the span's input has drained, the flush answers whatever tail the
+/// verb was holding back. The whole-frame verb and the batch-by-batch
+/// walk spell one result, cell for cell and row for row.
+priv struct StateMorph {
+  step : (DataFrame) -> DataFrame raise @types.DataError
+  flush : () -> DataFrame? raise @types.DataError
+}
+
+///|
+/// One stretch of the spine. `Flow` runs its stateless verbs on each
+/// batch as it passes; `StateFlow` runs its positional verbs the same
+/// way, each carrying its own place across the boundaries and flushing
+/// its tail at the drain; `Block` runs its verbs on the whole frame the
+/// stretch's input drains to, and the frame re-enters the pipeline as
+/// one batch. Two spans of the same kind never sit adjacent — the
+/// builder folds runs of same-kind verbs into one span, so a chain of
+/// blocking verbs materialises once, not once per verb.
 priv enum Span {
   Flow(Array[Morph])
+  StateFlow(Array[StateMorph])
   Block(Array[Morph])
 }
 
@@ -51,37 +65,246 @@ priv struct Pipeline {
 }
 
 ///|
-/// Whether a unary verb is *flow-safe* — its per-row output depends only
-/// on its per-row input, so running it per batch equals running it over
-/// the whole frame. The row-local expression gates are the optimizer's
-/// own predicates (`row_stable` for a filter, `all_row_stable` for the
-/// expression-list verbs, and a
-/// selection that reads no column collapses its input to one row — a
-/// whole-frame verb however small); the value fence the optimizer adds
-/// to those gates is absent here by design — it guards error
-/// faithfulness against *skipping rows* while sinking, and batching
-/// skips nothing: the first row a stage refuses on is the same row, in
-/// the same batch order, either way.
-fn op_flows(op : FrameOp) -> Bool {
+/// Which stretch a unary verb rides. `Flowing`: stateless per batch.
+/// `Windowed`: stateful per batch with a flushed tail. `Blocking`: the
+/// whole frame. The row-local expression gates are the optimizer's own
+/// predicates (`row_stable` for a filter, `all_row_stable` for the
+/// expression-list verbs, and a selection that reads no column collapses
+/// its input to one row — a whole-frame verb however small); the value
+/// fence the optimizer adds to those gates is absent here by design —
+/// it guards error faithfulness against *skipping rows* while sinking,
+/// and batching skips nothing: the first row a stage refuses on is the
+/// same row, in the same batch order, either way.
+priv enum VerbSpan {
+  Flowing
+  Windowed
+  Blocking
+}
+
+///|
+fn op_span_kind(op : FrameOp) -> VerbSpan {
   match op {
     // A filter rides the flow only when its predicate is row-stable: a
     // scope-dependent predicate (an aggregation, a window, a positional
     // shift) has to see the whole frame, so it blocks.
-    Filter(predicate) => row_stable(predicate.node())
-    Select(exprs) => all_row_stable(exprs) && preserves_row_count(exprs)
-    WithColumns(exprs) => all_row_stable(exprs)
-    Rename(_) | RenameWith(_) | Drop(_) => true
-    DropNulls(_) | FillNull(_) | FillNan(_) => true
-    _ => false
+    Filter(predicate) =>
+      if row_stable(predicate.node()) {
+        Flowing
+      } else {
+        Blocking
+      }
+    Select(exprs) =>
+      if all_row_stable(exprs) && preserves_row_count(exprs) {
+        Flowing
+      } else {
+        Blocking
+      }
+    WithColumns(exprs) => if all_row_stable(exprs) { Flowing } else { Blocking }
+    Rename(_) | RenameWith(_) | Drop(_) => Flowing
+    DropNulls(_) | FillNull(_) | FillNan(_) => Flowing
+    // The positional windows with a running place: a forward-count
+    // `head`, a trailing window, a forward `slice`, a stride, a row
+    // numbering. Each carries its place across the batches and flushes
+    // its tail at the drain (`window_morph` spells the walks). The
+    // shapes that read the whole frame's height *before* answering — a
+    // negative bound (its eager reading drops rows from the far end), a
+    // negative offset, a stride under validation — keep the whole-frame
+    // path, eager error and all.
+    Head(n) => if n >= 0 { Windowed } else { Blocking }
+    Tail(n) => if n >= 0 { Windowed } else { Blocking }
+    Slice(offset, length) =>
+      if offset >= 0 && nonnegative_len(length) {
+        Windowed
+      } else {
+        Blocking
+      }
+    GatherEvery(n, offset) =>
+      if n >= 1 && offset >= 0 {
+        Windowed
+      } else {
+        Blocking
+      }
+    WithRowIndex(_, _) => Windowed
     // The blocking rest: `Sort` / `TopK` / `Unique` / `Reverse` read
-    // every row before answering; `Head` / `Tail` / `Slice` /
-    // `GatherEvery` address rows by position across the whole frame;
-    // `WithRowIndex` numbers rows from the frame's own start; a
-    // directional fill carries its last value across row boundaries;
-    // `Pivot` / `Unpivot` / `Reduce` reshape rows against the frame's
-    // whole shape. One day the positional windows can flow with a
-    // running row budget — until the differential battery says so, they
-    // block.
+    // every row before answering; a directional fill carries its last
+    // value across row boundaries into frames the verbs below it never
+    // see whole; `Pivot` / `Unpivot` / `Reduce` reshape rows against
+    // the frame's whole shape.
+    _ => Blocking
+  }
+}
+
+///|
+/// A positional verb's stateful walk — the `Windowed` arms' deferred
+/// execution, each carrying its place across the batches. Every walk
+/// answers exactly the eager verb's rows, in the eager verb's order:
+/// the state is the verb's own arithmetic (a budget, a place, a
+/// kept-tail buffer), never a re-derivation.
+fn window_morph(op : FrameOp) -> StateMorph {
+  match op {
+    Head(n) => {
+      // The rows still owed: each batch pays what it can, the rest pay
+      // nothing.
+      let owed : Array[Int32] = [n]
+      {
+        step: b => {
+          if owed[0] <= 0 {
+            b.head(0)
+          } else if b.nrows() <= owed[0] {
+            owed[0] = owed[0] - b.nrows()
+            b
+          } else {
+            let kept = b.head(owed[0])
+            owed[0] = 0
+            kept
+          }
+        },
+        flush: () => None,
+      }
+    }
+    Tail(n) => {
+      // The kept tail: each batch joins a buffer never allowed past `n`
+      // rows — the rows that can no longer be part of the last `n` are
+      // declined on the spot (the step answers a zero-row batch, its
+      // schema intact), and the tail itself flushes at the drain. A
+      // zero-row whole input still answers its columns: the schema
+      // batch rides the first batch's shape.
+      let held : Array[DataFrame] = []
+      // The buffer's logical front: batches before it are declined
+      // already, their space left behind rather than shuffled down.
+      let front : Array[Int32] = [0]
+      let held_rows : Array[Int32] = [0]
+      let schema : Array[DataFrame] = []
+      let flushed : Array[Bool] = [false]
+      {
+        step: b => {
+          if schema.length() == 0 {
+            schema.push(b.head(0))
+          }
+          let schema_batch = b.head(0)
+          held.push(b)
+          held_rows[0] = held_rows[0] + b.nrows()
+          // Decline from the front until the buffer holds no more than
+          // the tail's `n` rows — whole batches off the front, a
+          // partial cut (the front's first `room` rows) when the front
+          // straddles the line.
+          while held_rows[0] > n && front[0] < held.length() {
+            let head = held[front[0]]
+            let room = held_rows[0] - n
+            if head.nrows() <= room {
+              held_rows[0] = held_rows[0] - head.nrows()
+              front[0] = front[0] + 1
+            } else {
+              held_rows[0] = held_rows[0] - room
+              held[front[0]] = head.slice(room)
+            }
+          }
+          schema_batch
+        },
+        flush: () => {
+          if flushed[0] {
+            return None
+          }
+          flushed[0] = true
+          if front[0] < held.length() {
+            let mut acc = held[front[0]]
+            for i in (front[0] + 1)..<held.length() {
+              acc = acc.vstack(held[i])
+            }
+            held.clear()
+            front[0] = 0
+            return Some(acc)
+          }
+          // Nothing was kept (`n` of zero, or a wholly empty input):
+          // the columns still answer, as the eager verb's zero-row
+          // frame.
+          match schema.get(0) {
+            Some(empty) => Some(empty)
+            None => None
+          }
+        },
+      }
+    }
+    Slice(offset, length) => {
+      // A forward window: `skip` rows declined, then `left` rows kept
+      // (forever, when no length was named).
+      let skip : Array[Int32] = [offset]
+      let left : Array[Int32] = [
+        match length {
+          Some(l) => l
+          None => 2147483647
+        },
+      ]
+      {
+        step: b => {
+          let mut frame = b
+          if skip[0] > 0 {
+            if frame.nrows() <= skip[0] {
+              skip[0] = skip[0] - frame.nrows()
+              frame = frame.head(0)
+            } else {
+              frame = frame.tail(frame.nrows() - skip[0])
+              skip[0] = 0
+            }
+          }
+          if left[0] < frame.nrows() {
+            frame = frame.head(left[0])
+          }
+          left[0] = left[0] - frame.nrows()
+          frame
+        },
+        flush: () => None,
+      }
+    }
+    GatherEvery(n, offset) => {
+      // A stride with a global place: the rows whose global positions
+      // land on `offset + k·n`, gathered batch by batch. The builder
+      // routes only `n >= 1` and `offset >= 0` here — the shapes under
+      // eager validation keep the whole-frame path, its error intact.
+      let place : Array[Int32] = [0]
+      {
+        step: b => {
+          let rows = b.nrows()
+          let indices : Array[Int32] = []
+          // The first stride point at or after the batch's start.
+          let start = place[0]
+          let mut at = if offset > start {
+            offset
+          } else {
+            start + (n - (start - offset) % n) % n
+          }
+          while at < start + rows {
+            indices.push(at - start)
+            at = at + n
+          }
+          place[0] = start + rows
+          if indices.length() == 0 {
+            b.head(0)
+          } else {
+            b.gather(indices)
+          }
+        },
+        flush: () => None,
+      }
+    }
+    WithRowIndex(name, offset) => {
+      // A running row number: each batch numbered from where the last
+      // one ended.
+      let next : Array[Int64] = [offset]
+      {
+        step: b => {
+          let numbered = b.with_row_index(name~, offset=next[0])
+          next[0] = next[0] + b.nrows().to_int64()
+          numbered
+        },
+        flush: () => None,
+      }
+    }
+    // The builder never asks a non-windowed verb for a walk.
+    _ => {
+      let idle : (DataFrame) -> DataFrame raise @types.DataError = b => b
+      { step: idle, flush: () => None, }
+    }
   }
 }
 
@@ -118,21 +341,34 @@ fn LogicalPlan::build_pipeline(
       }
       Unary(input, op) => {
         let below = memo_result(memo, input)
-        let morph : Morph = Morph(df => apply_frame_op(df, op))
-        // A flow-safe verb joins the trailing `Flow` (or opens one); a
-        // blocking verb joins the trailing `Block` (or opens one) — never
-        // merging across the kinds. The in-place push grows the tail
+        // Same-kind verbs join the trailing span of their kind (or open
+        // one); the kinds never merge. The in-place push grows the tail
         // span's own array; a new kind opens a new span.
-        let flows = op_flows(op)
-        match below.spans.get(below.spans.length() - 1) {
-          Some(Flow(runs)) if flows => runs.push(morph)
-          Some(Block(runs)) if !flows => runs.push(morph)
-          _ =>
-            if flows {
-              below.spans.push(Flow([morph]))
-            } else {
-              below.spans.push(Block([morph]))
-            }
+        let kind = op_span_kind(op)
+        let tail = below.spans.get(below.spans.length() - 1)
+        let joined = match (kind, tail) {
+          (Flowing, Some(Flow(runs))) => {
+            runs.push(Morph(df => apply_frame_op(df, op)))
+            true
+          }
+          (Windowed, Some(StateFlow(runs))) => {
+            runs.push(window_morph(op))
+            true
+          }
+          (Blocking, Some(Block(runs))) => {
+            runs.push(Morph(df => apply_frame_op(df, op)))
+            true
+          }
+          _ => false
+        }
+        if !joined {
+          match kind {
+            Flowing =>
+              below.spans.push(Flow([Morph(df => apply_frame_op(df, op))]))
+            Windowed => below.spans.push(StateFlow([window_morph(op)]))
+            Blocking =>
+              below.spans.push(Block([Morph(df => apply_frame_op(df, op))]))
+          }
         }
         below
       }
@@ -206,6 +442,7 @@ fn walk_span(
 ) -> @scan.BatchCursor raise @types.DataError {
   match span {
     Flow(runs) => map_batches(cursor, runs)
+    StateFlow(runs) => run_stateful(cursor, runs)
     Block(runs) => {
       let mut frame = drain_batches(cursor)
       for run in runs {
@@ -215,6 +452,58 @@ fn walk_span(
       single_source(frame)()
     }
   }
+}
+
+///|
+/// A stateful stretch's own cursor: each source batch walks the verbs'
+/// steps in order; once the source drains, the verbs flush in order —
+/// each flush's tail batches walk the *later* verbs' steps (they are
+/// that verb's input like any batch), and a verb flushes only after its
+/// own input has drained, which the order of the cascade guarantees.
+/// The state a verb holds never exceeds what its eager verb holds over
+/// the whole frame's tail.
+fn run_stateful(
+  cursor : @scan.BatchCursor,
+  runs : Array[StateMorph],
+) -> @scan.BatchCursor {
+  // The phase: 0 = still flowing from the source; `i + 1` = flushing
+  // `runs[i]`; past the last = done. An array cell, so the step closure
+  // sees its own earlier answers on every later call.
+  let phase : Array[Int32] = [0]
+  @scan.BatchCursor::cursor(() => {
+    if phase[0] == 0 {
+      match cursor.next() {
+        Some(batch) => {
+          let mut frame = DataFrame::from_parts(batch.columns(), batch.height())
+          for run in runs {
+            frame = (run.step)(frame)
+          }
+          return Some(
+            @scan.ScanBatch::batch(frame.column_series(), frame.nrows()),
+          )
+        }
+        None => phase[0] = 1
+      }
+    }
+    // Flushing: each verb's tail batches walk the later verbs' steps.
+    while phase[0] >= 1 && phase[0] <= runs.length() {
+      let at = phase[0] - 1
+      let current = runs[at]
+      match (current.flush)() {
+        Some(tail) => {
+          let mut frame = tail
+          for i in (at + 1)..<runs.length() {
+            frame = (runs[i].step)(frame)
+          }
+          return Some(
+            @scan.ScanBatch::batch(frame.column_series(), frame.nrows()),
+          )
+        }
+        None => phase[0] = phase[0] + 1
+      }
+    }
+    None
+  })
 }
 
 ///|

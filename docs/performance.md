@@ -116,10 +116,14 @@ source, every source capped at a morsel row bound so a coarse source
 answers in bounded windows — an in-memory frame, or a join's merged
 output) plus a spine of spans. A
 flow span rides its row-local verbs on each batch as it passes (a filter,
-a row-stable selection, renames and drops), so a plan whose verbs all flow
-answers without holding the whole result; a block span materialises what
-reaches it, runs its row-global verbs once (a sort, an aggregation, a join,
-a positional window), and re-emits the frame as a single batch. A
+a row-stable selection, renames and drops); a stateful flow rides its
+positional verbs the same way, each carrying its place across the batch
+boundaries and flushing its tail at the drain (a forward `head` / `slice`,
+a trailing window that never holds more than its own `n` rows, a stride,
+a row numbering) — so a plan whose verbs all ride flows answers
+without holding the whole result; a block span materialises what reaches
+it, runs its row-global verbs once (a sort, an aggregation, a join), and
+re-emits the frame as a single batch. A
 DAG-shaped plan keeps the node-by-node interpreter instead — its memo runs
 each shared subplan exactly once, where a pipeline would re-execute it per
 occurrence. `LazyFrame::collect_batches` is the streaming face of the same

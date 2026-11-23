@@ -234,7 +234,9 @@ here today:
   across the boundaries, and row-global verbs (a sort, an aggregation, a
   join) materialise —
   `LazyFrame::collect_batches` hands the batches to the consumer as they
-  answer, so a plan ending in flow verbs runs in bounded memory. The
+  answer, and `sink_parquet` / `sink_csv` turn the same stream to a file
+  (one row group per batch / the exact `format_csv` bytes), so a plan
+  ending in flow verbs runs in bounded memory. The
   scans push projections, predicates, and row windows down into the
   reader, but the text formats still tokenise the whole file, and a
   blocking verb holds its whole input (no spilling). The columnar

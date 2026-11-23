@@ -45,6 +45,13 @@ No source-level breaks so far. What changed on `main` since 0.9.0:
   cell and row for row the eager verbs' answers. The far-end shapes (a
   negative bound, a negative offset, a stride under validation) keep the
   whole-frame path.
+- `sink_parquet` / `sink_csv` join the facade: a plan's streaming face
+  turned to a file — the execution rides the pipeline batch by batch and
+  the encoded bytes land in one write (the platform's whole-file write,
+  not an incrementally flushed handle). `sink_csv` is byte-for-byte
+  `format_csv(collect())`; `sink_parquet` lays one row group per batch
+  (split inside a batch at `row_group_rows~`), with the schema and the
+  decimal interchange window fixed by the first batch.
 
 ## v0.8.1 → v0.9.0
 

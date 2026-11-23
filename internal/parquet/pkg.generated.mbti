@@ -30,6 +30,13 @@ pub fn ParquetGroupReader::group_rows(Self, Int32) -> Int32 raise @types.DataErr
 pub fn ParquetGroupReader::schema_group(Self) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
 pub fn ParquetGroupReader::total_rows(Self) -> Int32 raise @types.DataError
 
+pub struct ParquetSink {
+  // private fields
+}
+pub fn ParquetSink::finish(Self) -> Bytes
+pub fn ParquetSink::push(Self, Array[@series.Series]) -> Unit raise @types.DataError
+pub fn ParquetSink::sink(Codec, group_rows? : Int64) -> Self
+
 // Type aliases
 
 // Traits

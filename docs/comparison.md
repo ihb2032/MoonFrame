@@ -248,6 +248,14 @@ here today:
   over a module-internal reader / writer
   (`read_parquet` / `write_parquet`) — a `FLOAT` column refuses on read
   rather than silently narrowing, and IPC has no reader.
+- **SQL** — `read_sql` runs a query through the moondb contract (any
+  moondb driver: the contract's own in-memory `MockDriver`, moonsqlite,
+  moonpostgres, …) rather than through a database binding of MoonFrame's
+  own, the way Polars reaches for connectorx / ADBC and pandas for
+  SQLAlchemy / DBAPI2. The cell-to-dtype mapping is MoonFrame's own
+  (`Time` / `Numeric` texts parse into `Timestamp` / `Decimal`); a
+  streaming `scan_sql` over moondb's cursor is not built yet, where
+  pandas' `read_sql(chunksize=…)` streams.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

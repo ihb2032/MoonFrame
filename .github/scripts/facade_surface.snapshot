@@ -1027,6 +1027,8 @@ fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
+fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
 fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
 fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root

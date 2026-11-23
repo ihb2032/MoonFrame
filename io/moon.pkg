@@ -7,6 +7,7 @@ import {
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/types",
   "moonbit-community/NyaCSV" @nyacsv,
+  "moonbitstack/moondb",
   "moonbitlang/core/compress/gzip",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
@@ -19,6 +20,7 @@ import {
   "moonbitlang/core/test",
   "moonbitlang/core/quickcheck" @gen,
   "ihb2032/MoonFrame/expr",
+  "moonbitstack/moondb",
 } for "test"
 
 // `core/compress/gzip` is still marked experimental upstream; the reader's

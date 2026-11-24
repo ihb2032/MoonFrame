@@ -18,6 +18,9 @@ internal/column -> internal/buffer
 internal/column -> internal/numeric
 internal/column -> internal/text
 internal/column -> types
+internal/ipc -> internal/text
+internal/ipc -> series
+internal/ipc -> types
 internal/ir -> series
 internal/ir -> types
 internal/kernel -> internal/column

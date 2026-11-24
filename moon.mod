@@ -10,6 +10,8 @@ import {
   "moonbitlang/x@0.5.6",
   "moonbit-community/NyaCSV@0.3.4",
   "moonbitstack/moondb@0.3.1",
+  "gaato/lz4@0.1.1",
+  "gaato/zstd@0.6.1",
 }
 
 readme = "README.mbt.md"

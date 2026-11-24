@@ -1,0 +1,33 @@
+// The codec's dependencies: the value types its columns map to, the
+// series constructors it builds columns through, the shared UTF-16 guard
+// its string cells pass, and the LZ4 / Zstandard codecs a compressed
+// batch's buffers inflate and deflate through. The two codec packages
+// are reached from one place — the compression seam — so the codec behind
+// them can be swapped without touching a reader or a writer.
+import {
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/internal/text",
+  "moonbitlang/core/encoding/utf8",
+  "gaato/lz4",
+  "gaato/zstd",
+}
+
+// The LZ4 / Zstandard codecs declare the targets they build for, and the
+// build asks every package that depends on one to declare its own — the
+// advisory it prints for this package. The module names its targets once,
+// in `moon.mod`, and that is where they stay: a declaration here would
+// only pass the request on, to every package above this one in the module
+// and to every package that depends on the module.
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+import {
+  "moonbitlang/core/double",
+} for "wbtest"
+
+// The LZ4 / Zstandard codecs declare the targets they build for, and the
+// build asks every package that depends on one to declare its own.
+
+supported_targets = "js + native + wasm + wasm-gc"

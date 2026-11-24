@@ -100,6 +100,7 @@ allowed_internal_order=""
 allowed_internal_buffer="types"
 allowed_internal_scan="types series expr internal/order"
 allowed_internal_parquet="types series internal/text"
+allowed_internal_ipc="types series internal/text"
 verb_packages="frame io"
 
 fail=0

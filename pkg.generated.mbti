@@ -41,11 +41,15 @@ pub fn lit_str(String) -> @expr.Expr
 
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
 
+pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn plot(@frame.DataFrame) -> @chart.FramePlot
 
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -57,6 +61,8 @@ pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @fra
 
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame
 
+pub fn scan_ipc(String) -> @frame.LazyFrame
+
 pub fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
@@ -65,11 +71,15 @@ pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
+pub fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
 pub fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
 pub fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError
+
+pub fn write_ipc(@frame.DataFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -117,6 +127,10 @@ pub using @types {type Field}
 pub using @types {type FieldValue}
 
 pub using @frame {type HtmlOptions}
+
+pub using @io {type IpcCompression}
+
+pub using @io {type IpcFormat}
 
 pub using @frame {type JoinOptions}
 

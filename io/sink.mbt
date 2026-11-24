@@ -103,3 +103,43 @@ pub fn sink_csv(
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
 }
+
+///|
+/// Run a lazy plan and write its result as one Arrow IPC payload, batch
+/// by batch: each batch lands as its own record batch, so the payload's
+/// layout follows the pipeline's own batch boundaries. The columns are the
+/// first batch's — every batch agrees with them, name and dtype, the way
+/// `vstack` demands — and every decimal column's precision and scale are
+/// the first batch's too: a later batch whose decimal cells need a wider
+/// window refuses rather than narrowing. `format` picks the framing (the
+/// file format by default) and `compression` the codec every buffer is
+/// compressed with. A plan whose result is no batch at all writes a
+/// payload of an empty schema. Raises the read's own `DataError` — the
+/// same error, on the same first offending batch, `collect` would raise —
+/// plus the writer's own refusals and the file write's `IoError`. Nothing
+/// is read until the first batch is pulled.
+///
+/// `optimizations` defaults to the same every-stage-on pipeline
+/// `collect` runs.
+pub fn sink_ipc(
+  lf : @frame.LazyFrame,
+  path : String,
+  compression~ : IpcCompression = IpcCompression::Uncompressed,
+  format~ : IpcFormat = IpcFormat::File,
+  optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
+) -> Unit raise @types.DataError {
+  let sink = @ipc.IpcSink::sink(ipc_codec(compression), file=ipc_file(format))
+  let stream = lf.collect_batches(optimizations~)
+  while true {
+    match stream.next() {
+      Some(batch) => sink.push(batch.column_series(), height=batch.nrows())
+      None => break
+    }
+  }
+  // The payload is finished before the write is in sight: its own refusal
+  // is the writer's, and the catch below is for the write's alone.
+  let bytes = sink.finish()
+  @fs.write_bytes_to_file(path, bytes) catch {
+    @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+  }
+}

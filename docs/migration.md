@@ -18,6 +18,16 @@ Source-level note:
   `_` arm needs no change. `ListValue`, `FieldValue`, and `StructValue`
   — the payloads — are new public types on the facade. A struct's fields
   are a `Schema`, and a struct with no field cannot be built.
+- Arrow IPC joins the facade: `read_ipc` / `parse_ipc` / `write_ipc`,
+  `scan_ipc` / `sink_ipc`, and the option types `IpcCompression` /
+  `IpcFormat` their optional parameters take. No existing call changes.
+- MoonFrame depends on `gaato/lz4` and `gaato/zstd`, the LZ4 / Zstandard
+  codecs a compressed IPC buffer goes through. The two declare the
+  backends they build for, and `moon` asks a package that depends on one
+  declaring them to declare its own: MoonFrame's packages name the set
+  `moon.mod` already names, and a package importing the facade is asked
+  the same — one `supported_targets` line in its `moon.pkg` answers the
+  advisory.
 
 What changed on `main` since 0.9.0:
 
@@ -89,6 +99,21 @@ What changed on `main` since 0.9.0:
   and fields; the CSV reader refuses such a pin, and `write_csv` writes a
   nested cell as its text. The rule is stated on `parse_json_str` and
   explained in [`type-inference.md`](type-inference.md).
+- Arrow IPC reads and writes over a codec inside the module
+  (`internal/ipc`). `read_ipc` takes the file framing and the stream
+  framing, the metadata versions through V5, either endianness, LZ4 and
+  Zstandard buffers, dictionary batches (a delta batch among them), and
+  lists and structs, which read as the `List` / `Struct` dtypes.
+  `write_ipc` writes one schema message and one record batch, in the file
+  framing unless `format=IpcFormat::Stream` names the stream framing, and
+  compresses each buffer under `compression=` when the frame is the
+  shorter spelling. `scan_ipc` is the lazy source over a payload — the
+  projection names the columns that decode, and a sunk `head` / `tail` /
+  `slice` skips the record batches outside its window without decoding
+  them, so a refusal confined to a skipped batch does not surface — and
+  `sink_ipc` lands one record batch per batch, the schema and each
+  decimal's window fixed by the first. The mapping from Arrow types to
+  dtypes, and the types that refuse by name, are stated on `read_ipc`.
 
 ## v0.8.1 → v0.9.0
 

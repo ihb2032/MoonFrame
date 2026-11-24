@@ -1016,6 +1016,8 @@ fn lit_str(String) -> Expr <- expr
 fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr <- root
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
@@ -1024,6 +1026,8 @@ fn plot(@frame.DataFrame) -> @chart.FramePlot <- root
 fn plot(@frame.DataFrame) -> FramePlot <- chart
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
@@ -1034,6 +1038,8 @@ fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.D
 fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
 fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
+fn scan_ipc(String) -> @frame.LazyFrame <- io
+fn scan_ipc(String) -> @frame.LazyFrame <- root
 fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
 fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
@@ -1042,12 +1048,16 @@ fn scan_parquet(String) -> @frame.LazyFrame <- io
 fn scan_parquet(String) -> @frame.LazyFrame <- root
 fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
 fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
+fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
+fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
 fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
 fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
 fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError <- io
+fn write_ipc(@frame.DataFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat) -> Unit raise @types.DataError <- root
+fn write_ipc(@frame.DataFrame, String, compression? : IpcCompression, format? : IpcFormat) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
@@ -1419,6 +1429,12 @@ method GroupedDataFrame::variance(Self) -> DataFrame raise @types.DataError <- f
 method HtmlOptions::equal(Self, Self) -> Bool <- frame
 method HtmlOptions::not_equal(Self, Self) -> Bool <- frame
 method HtmlOptions::to_repr(Self) -> @debug.Repr <- frame
+method IpcCompression::equal(Self, Self) -> Bool <- io
+method IpcCompression::not_equal(Self, Self) -> Bool <- io
+method IpcCompression::to_repr(Self) -> @debug.Repr <- io
+method IpcFormat::equal(Self, Self) -> Bool <- io
+method IpcFormat::not_equal(Self, Self) -> Bool <- io
+method IpcFormat::to_repr(Self) -> @debug.Repr <- io
 method JoinOptions::cross(suffix? : String) -> Self <- frame
 method JoinOptions::left_keys(Self) -> Array[@expr.Expr] <- frame
 method JoinOptions::left_on(Array[@expr.Expr], right_on~ : Array[@expr.Expr], how? : JoinType, suffix? : String, coalesce? : Bool) -> Self <- frame
@@ -2264,6 +2280,8 @@ type Expr <- expr
 type Field <- types
 type FieldValue <- types
 type HtmlOptions <- frame
+type IpcCompression <- io
+type IpcFormat <- io
 type JoinOptions <- frame
 type JoinType <- frame
 type JsonReadOptions <- io

@@ -50,6 +50,11 @@ DataType | enum | Null
 DataType | enum | String
 DataType | enum | Struct(Schema)
 DataType | enum | Timestamp
+IpcCompression | enum | Lz4
+IpcCompression | enum | Uncompressed
+IpcCompression | enum | Zstd
+IpcFormat | enum | File
+IpcFormat | enum | Stream
 JoinType | enum | Anti
 JoinType | enum | Cross
 JoinType | enum | Inner

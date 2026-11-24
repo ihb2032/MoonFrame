@@ -14,7 +14,8 @@ read_csv("sales.csv")
   .to_markdown()
 ```
 
-It covers CSV / JSON / NDJSON / Parquet I/O, filtering, sorting, null handling,
+It covers CSV / JSON / NDJSON / Parquet / Arrow IPC I/O, filtering, sorting, null
+handling,
 group-by, joins, summary statistics, a composable expression engine, and a lazy
 query layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts —
 a focused foundation for everyday tabular work, not a full pandas clone.
@@ -141,6 +142,12 @@ same way.
   formula neutralisation for spreadsheet-facing exports, and transparent
   gzip (`.gz` sources decompress on read; `write_*` compresses a `.gz`
   path).
+- **Interchange with Arrow** — `read_ipc` / `write_ipc` (`parse_ipc` for
+  bytes already in memory) over the Arrow IPC file and stream framings:
+  lists, structs, and dictionary-encoded columns among what reads, LZ4 /
+  Zstandard buffer compression optional on a write, and a type with no
+  dtype to read as refusing by its column's name. `read_ipc`'s docstring
+  states the mapping and the refusals.
 - **Hold lists and structs** — a column of lists (`DataType::List`) or of
   records (`DataType::Struct`), built with `Series::from_scalars` or read
   from a JSON field of arrays / objects, and carried whole through the
@@ -161,10 +168,10 @@ same way.
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `df.to_lazy()` (or `LazyFrame::LazyFrame(df)`), or
-  `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` for a
-  lazy file source (deferred execution with projection *and* predicate pushdown
+  `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc`
+  for a lazy file source (deferred execution with projection *and* predicate pushdown
   into the reader — the text formats still tokenise at `collect()`, while the
-  columnar source decodes only the chunks and row groups it needs),
+  columnar sources decode only the columns and batches they need),
   builds a query plan you can `explain()`; `collect()` runs it through the
   optimizer, producing an equal frame for the cells it reads. What a
   push-down does *not* read, it does not parse — so a parse error confined to a
@@ -327,7 +334,7 @@ tests: a cross-package call is not counted by `moon coverage analyze`
 ```
 types/      value types, errors (DataError), schemas
 internal/buffer/   the raw buffer primitives — the Arrow validity bitmap and the UTF-8 (bytes + offsets) string buffer every columnar layout flattens from
-internal/scan/     the scan-driver seam — what one readable source (CSV, NDJSON, Parquet) implements so the lazy engine executes, narrows, and renders it format-agnostically
+internal/scan/     the scan-driver seam — what one readable source (CSV, NDJSON, Parquet, Arrow IPC) implements so the lazy engine executes, narrows, and renders it format-agnostically
 internal/column/   Arrow-style storage — validity bitmap + Builtin/Numeric backends; wrapped by Series and read by internal/kernel (which packages may name it is enforced by check_layering.sh)
 internal/kernel/   the vectorized expression kernels — Series broadcasting, arithmetic / logic / comparison / string ops, ternary, map, and the dtype inference behind a computed column; called by frame's evaluator
 internal/text/     shared text primitives — lexicographic compare, debug escaping, decimal literal parsing
@@ -335,10 +342,11 @@ internal/numeric/  shared numeric primitives — exact Int64/Double comparison a
 internal/order/    shared position primitives — the stable index sort behind every sort, and the row-count clamp behind every head / tail / limit
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 internal/parquet/  the native parquet codec — thrift compact metadata, RLE definition levels, PLAIN and dictionary values, snappy / gzip page bodies; wrapped by io's read / write / scan_parquet
+internal/ipc/      the native Arrow IPC codec — hand-written FlatBuffers metadata, the stream and file framings, dictionary batches, LZ4 / Zstandard buffer compression; wrapped by io's read / write / scan_ipc
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON read / write + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC read / write + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

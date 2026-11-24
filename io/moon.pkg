@@ -1,4 +1,5 @@
 import {
+  "ihb2032/MoonFrame/internal/ipc",
   "ihb2032/MoonFrame/internal/parquet",
   "ihb2032/MoonFrame/internal/scan",
   "ihb2032/MoonFrame/internal/numeric",
@@ -29,3 +30,9 @@ import {
 options(
   "allow-experimental-packages": [ "moonbitlang/core/compress/gzip" ],
 )
+
+// The backends the package builds for, named because a dependency of
+// the module names its own and the build asks the same of what depends
+// on it.
+
+supported_targets = "js + native + wasm + wasm-gc"

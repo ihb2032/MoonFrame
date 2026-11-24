@@ -149,6 +149,62 @@ test "io and error handling" {
 }
 
 ///|
+/// The nested value types and the Arrow IPC interchange, each named through
+/// the facade: a list and a struct built from their parts, written to a
+/// file, read back, scanned with a sunk window, and sunk again.
+test "nested values and arrow ipc" {
+  let list : @moonframe.ListValue = @moonframe.ListValue::ListValue([
+    @moonframe.Scalar::Int(1),
+    @moonframe.Scalar::Null,
+  ])
+  let field : @moonframe.FieldValue = @moonframe.FieldValue::FieldValue(
+    "a",
+    @moonframe.Scalar::String("x"),
+  )
+  let record : @moonframe.StructValue = @moonframe.StructValue::StructValue([
+    field,
+  ])
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_scalars(
+      "l",
+      [@moonframe.Scalar::List(list)],
+      dtype=@moonframe.DataType::List(@moonframe.DataType::Int),
+    ),
+    @moonframe.Series::from_scalars(
+      "s",
+      [@moonframe.Scalar::Struct(record)],
+      dtype=@moonframe.DataType::Struct(
+        @moonframe.Schema::Schema([
+          @moonframe.Field::Field("a", @moonframe.DataType::String),
+        ]),
+      ),
+    ),
+    @moonframe.Series::from_ints("i", [1]),
+  ])
+  let compression : @moonframe.IpcCompression = @moonframe.IpcCompression::Lz4
+  let format : @moonframe.IpcFormat = @moonframe.IpcFormat::Stream
+  @moonframe.write_ipc(df, "_build/smoke.arrow", compression~, format~)
+  assert_eq(@moonframe.read_ipc("_build/smoke.arrow").nrows(), 1)
+  // The binary counterpart of read_ipc takes the bytes themselves; on
+  // bytes that open no payload it raises the reader's own refusal.
+  let refused : Result[@moonframe.DataFrame, @moonframe.DataError] = Ok(
+    @moonframe.parse_ipc(b""),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(refused is Err(_))
+  let scanned = @moonframe.scan_ipc("_build/smoke.arrow").head(1).collect()
+  assert_eq(scanned.nrows(), 1)
+  @moonframe.sink_ipc(
+    @moonframe.scan_ipc("_build/smoke.arrow").tail(1),
+    "_build/smoke_sunk.arrow",
+    compression=@moonframe.IpcCompression::Zstd,
+    format=@moonframe.IpcFormat::File,
+  )
+  assert_eq(@moonframe.read_ipc("_build/smoke_sunk.arrow").nrows(), 1)
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

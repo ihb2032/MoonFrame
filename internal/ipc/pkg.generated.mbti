@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/ipc"
+
+import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn open_ipc(Bytes, Array[String]?) -> IpcReader raise @types.DataError
+
+pub fn read_ipc_frame(Bytes, Array[String]?) -> (Array[(String, @series.Series)], Int64) raise @types.DataError
+
+pub fn write_ipc_bytes(Array[@series.Series], BodyCodec?, file~ : Bool, height? : Int32) -> Bytes raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub(all) enum BodyCodec {
+  Lz4Frame
+  Zstd
+}
+
+pub struct IpcReader {
+  // private fields
+}
+pub fn IpcReader::batch_count(Self) -> Int32
+pub fn IpcReader::batch_rows(Self, Int32) -> Int32
+pub fn IpcReader::empty_columns(Self) -> Array[@series.Series] raise @types.DataError
+pub fn IpcReader::skip_batch(Self) -> Unit raise @types.DataError
+pub fn IpcReader::take_batch(Self) -> Array[@series.Series] raise @types.DataError
+pub fn IpcReader::total_rows(Self) -> Int64
+
+pub struct IpcSink {
+  // private fields
+}
+pub fn IpcSink::finish(Self) -> Bytes raise @types.DataError
+pub fn IpcSink::push(Self, Array[@series.Series], height? : Int32) -> Unit raise @types.DataError
+pub fn IpcSink::sink(BodyCodec?, file~ : Bool) -> Self
+
+// Type aliases
+
+// Traits

@@ -111,7 +111,8 @@ on is an internal representation, and two equal frames may hold their cells
 differently.
 
 Execution is **batch-wise**: a tree-shaped plan becomes a source of batches
-(a scan's cursor — one batch per parquet row group, one per textual source —
+(a scan's cursor — one batch per parquet row group, one per IPC record
+batch, one per textual source —
 an in-memory frame, or a join's merged output, every source capped at a
 morsel row bound so that a coarse source answers in bounded windows) plus
 a spine of spans. A
@@ -128,7 +129,8 @@ DAG-shaped plan keeps the node-by-node interpreter instead — its memo runs
 each shared subplan exactly once, where a pipeline would re-execute it per
 occurrence. `LazyFrame::collect_batches` is the streaming face of the same
 plan: each batch answers as it is ready, and a consumer that stops asking
-stops the read; `sink_parquet` / `sink_csv` are the same stream with an
+stops the read; `sink_parquet` / `sink_csv` / `sink_ipc` are the same
+stream with an
 encoder for a consumer, the encoded bytes landing in one write. The batch
 boundaries carry no size promise beyond the cap; the memory promise is
 bounded — a blocking verb holds its whole
@@ -151,7 +153,7 @@ file source's push-down can prune the data an error was hiding in — see below.
   as early as the operator provably commutes with the predicate.
 - **Projection pushdown** narrows each scan to the columns its consumers
   actually read. For a file source (`scan_csv` / `scan_ndjson` /
-  `scan_json` / `scan_parquet`) the column
+  `scan_json` / `scan_parquet` / `scan_ipc`) the column
   set is pushed into the reader, so a column no stage reads is **never
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
@@ -164,7 +166,8 @@ Because a pruned column is never parsed, a parse error confined to it — or to 
 row a pushed-down predicate drops, in a column the predicate does not read — is
 what an optimized plan will not surface that a full eager read would. That is
 the deliberate one, and it applies to every file source (`scan_csv` /
-`scan_ndjson` / `scan_json` / `scan_parquet`); `LazyFrame::collect`'s
+`scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc`);
+`LazyFrame::collect`'s
 docstring states both cases as the plan-level contract.
 
 See the operator docstrings (collected in the generated reference) for the

@@ -37,6 +37,7 @@ internal/scan -> internal/order
 internal/scan -> series
 internal/scan -> types
 io -> frame
+io -> internal/ipc
 io -> internal/numeric
 io -> internal/parquet
 io -> internal/scan

@@ -17,6 +17,8 @@ pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -24,6 +26,8 @@ pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -35,6 +39,8 @@ pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @fra
 
 pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 
+pub fn scan_ipc(String) -> @frame.LazyFrame
+
 pub fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame
@@ -43,9 +49,13 @@ pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
+pub fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
 pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
+
+pub fn write_ipc(@frame.DataFrame, String, compression? : IpcCompression, format? : IpcFormat) -> Unit raise @types.DataError
 
 pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 
@@ -78,6 +88,25 @@ pub struct CsvWriteOptions {
   line_terminator : String
 }
 pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum IpcCompression {
+  Uncompressed
+  Lz4
+  Zstd
+}
+pub fn IpcCompression::equal(Self, Self) -> Bool
+pub fn IpcCompression::not_equal(Self, Self) -> Bool
+pub fn IpcCompression::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum IpcFormat {
+  File
+  Stream
+}
+pub fn IpcFormat::equal(Self, Self) -> Bool
+pub fn IpcFormat::not_equal(Self, Self) -> Bool
+pub fn IpcFormat::to_repr(Self) -> @debug.Repr
 
 pub struct JsonReadOptions {
   infer_schema_rows : Int32

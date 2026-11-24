@@ -83,9 +83,9 @@
 // there is nothing to re-export for it. The lazy layer rides along with
 // `type LazyFrame` (and its constructor) from the frame block above — the
 // deferred plan is executed by the same engine that owns the eager verbs;
-// its `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` file sources
-// live in the io layer, listed there, beside the readers and drivers they
-// defer.
+// its `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` /
+// `scan_ipc` file sources live in the io layer, listed there, beside the
+// readers and drivers they defer.
 
 ///|
 pub using @types {
@@ -149,22 +149,29 @@ pub using @frame {
 pub using @io {
   type CsvReadOptions,
   type CsvWriteOptions,
+  type IpcCompression,
+  type IpcFormat,
   type JsonReadOptions,
   type OnParseError,
   type ParquetCodec,
+  parse_ipc,
   parse_parquet,
   read_csv,
+  read_ipc,
   read_json,
   read_ndjson,
   read_parquet,
   read_sql,
   scan_csv,
+  scan_ipc,
   scan_json,
   scan_ndjson,
   scan_parquet,
   sink_csv,
+  sink_ipc,
   sink_parquet,
   write_csv,
+  write_ipc,
   write_json,
   write_ndjson,
   write_parquet,

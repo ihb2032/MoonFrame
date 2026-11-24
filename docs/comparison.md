@@ -254,7 +254,12 @@ here today:
   is `write_parquet`'s `row_group_rows~`),
   over a module-internal reader / writer
   (`read_parquet` / `write_parquet`) — a `FLOAT` column refuses on read
-  rather than silently narrowing, and IPC has no reader.
+  rather than silently narrowing. Arrow IPC reads and writes over a
+  module-internal codec too (`read_ipc` / `write_ipc`, and `scan_ipc` /
+  `sink_ipc` with the same window skipping), where Polars builds on
+  Arrow's own implementation: a column whose type the mapping does not
+  carry — a union, an interval, a time of day, a view type — refuses by
+  name instead of reading approximately.
 - **SQL** — `read_sql` runs a query through the moondb contract (any
   moondb driver: the contract's own in-memory `MockDriver`, moonsqlite,
   moonpostgres, …) rather than through a database binding of MoonFrame's

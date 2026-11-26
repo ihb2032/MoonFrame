@@ -375,7 +375,7 @@ pub fn DataFrame::iter(self : DataFrame) -> Iter[Series] {
   let cols = self.columns
   let len = cols.length()
   let mut i = 0
-  Iter::new(
+  Iter(
     fn() {
       guard i < len else { None }
       let col = cols[i]

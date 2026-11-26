@@ -703,7 +703,7 @@ pub impl @shrink.Shrink for Dec128 with fn shrink(self : Dec128) -> Iter[Dec128]
   let trunc = self.trunc()
   let zero = Dec128::zero(neg=self.neg)
   let mut stage = if trunc.equal(self) || trunc.is_zero() { 0 } else { 1 }
-  Iter::new(() => {
+  Iter(() => {
     if stage == 0 {
       if self.equal(zero) {
         return None

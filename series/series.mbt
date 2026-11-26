@@ -597,7 +597,7 @@ pub fn Series::iter(self : Series) -> Iter[@types.Scalar] {
   let data = self.storage.data()
   let dtype = self.dtype()
   let mut i = 0
-  Iter::new(
+  Iter(
     fn() {
       guard i < len else { None }
       let cell = if valid[i] {

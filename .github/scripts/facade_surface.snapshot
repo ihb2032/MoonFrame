@@ -1036,6 +1036,8 @@ fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- root
+fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
 fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
 fn scan_ipc(String) -> @frame.LazyFrame <- io
@@ -1064,6 +1066,8 @@ fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
 fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError <- root
 fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError <- io
+fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : @io.SqlIfExists) -> Unit raise @types.DataError <- root
+fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfExists) -> Unit raise @types.DataError <- io
 fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
@@ -1608,6 +1612,9 @@ method Series::tail(Self, Int32) -> Self <- series
 method Series::to_repr(Self) -> @debug.Repr <- series
 method Series::to_scalars(Self) -> Array[@types.Scalar] <- series
 method Series::variance(Self) -> Double raise @types.DataError <- series
+method SqlIfExists::equal(Self, Self) -> Bool <- io
+method SqlIfExists::not_equal(Self, Self) -> Bool <- io
+method SqlIfExists::to_repr(Self) -> @debug.Repr <- io
 method StructValue::equal(Self, Self) -> Bool <- types
 method StructValue::fields(Self) -> Array[FieldValue] <- types
 method StructValue::get(Self, Int32) -> FieldValue raise DataError <- types
@@ -2298,6 +2305,7 @@ type RankMethod <- types
 type Scalar <- types
 type Schema <- types
 type Series <- series
+type SqlIfExists <- io
 type StructValue <- types
 type TypeMismatchDetail <- types
 type VegaAggregate <- chart

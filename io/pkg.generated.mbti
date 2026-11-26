@@ -37,6 +37,8 @@ pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame rai
 
 pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 
+pub fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 
 pub fn scan_ipc(String) -> @frame.LazyFrame
@@ -62,6 +64,8 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError
+
+pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfExists) -> Unit raise @types.DataError
 
 // Errors
 
@@ -136,6 +140,16 @@ pub(all) enum ParquetCodec {
 pub fn ParquetCodec::equal(Self, Self) -> Bool
 pub fn ParquetCodec::not_equal(Self, Self) -> Bool
 pub fn ParquetCodec::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum SqlIfExists {
+  Fail
+  Replace
+  Append
+}
+pub fn SqlIfExists::equal(Self, Self) -> Bool
+pub fn SqlIfExists::not_equal(Self, Self) -> Bool
+pub fn SqlIfExists::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -154,6 +154,7 @@ pub using @io {
   type JsonReadOptions,
   type OnParseError,
   type ParquetCodec,
+  type SqlIfExists,
   parse_ipc,
   parse_parquet,
   read_csv,
@@ -162,6 +163,7 @@ pub using @io {
   read_ndjson,
   read_parquet,
   read_sql,
+  read_sql_table,
   scan_csv,
   scan_ipc,
   scan_json,
@@ -175,6 +177,7 @@ pub using @io {
   write_json,
   write_ndjson,
   write_parquet,
+  write_sql,
 }
 
 ///|

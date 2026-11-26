@@ -21,6 +21,9 @@ Source-level note:
 - Arrow IPC joins the facade: `read_ipc` / `parse_ipc` / `write_ipc`,
   `scan_ipc` / `sink_ipc`, and the option types `IpcCompression` /
   `IpcFormat` their optional parameters take. No existing call changes.
+- `write_sql`, `read_sql_table`, and `scan_sql` join the facade, over the
+  moondb contract `read_sql` already rides, with the option enum
+  `SqlIfExists` that `write_sql` takes. No existing call changes.
 - MoonFrame depends on `gaato/lz4` and `gaato/zstd`, the LZ4 / Zstandard
   codecs a compressed IPC buffer goes through. The two declare the
   backends they build for, and `moon` asks a package that depends on one
@@ -82,6 +85,20 @@ What changed on `main` since 0.9.0:
   package only — no database backend of its own. The driver type in
   `read_sql`'s signature is moondb's, so a caller brings their own
   `moonbitstack/moondb` dependency.
+- `write_sql` writes a frame into a database table: the table is created
+  from the frame's columns, each typed and spelled for the driver's
+  dialect, and `if_exists~` says what meets a table already there —
+  `Fail` leaves it to the database's own error, `Replace` drops the table
+  first, `Append` only inserts. The rows go in by bound statement, at
+  most 999 values a statement, inside one transaction where the dialect
+  has one. `read_sql_table` reads one table whole. `scan_sql` is the lazy
+  source over a query: the answer is read through the driver's cursor in
+  batches, the projection naming the columns built, the first predicate
+  filtering each batch, and a sunk `head` or forward `slice` stopping the
+  read at the window's end. A stream holds every batch to its first
+  batch's dtypes, where `read_sql` widens: a later cell of another shape
+  refuses, naming the column. `write_sql`'s and `scan_sql`'s docstrings
+  state the two contracts.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

@@ -112,7 +112,7 @@ differently.
 
 Execution is **batch-wise**: a tree-shaped plan becomes a source of batches
 (a scan's cursor — one batch per parquet row group, one per IPC record
-batch, one per textual source —
+batch, one per textual source, 4096 rows of a SQL answer —
 an in-memory frame, or a join's merged output, every source capped at a
 morsel row bound so that a coarse source answers in bounded windows) plus
 a spine of spans. A
@@ -157,7 +157,15 @@ file source's push-down can prune the data an error was hiding in — see below.
   set is pushed into the reader, so a column no stage reads is **never
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
-  parses only those two columns.
+  parses only those two columns. For `scan_sql` the set names the columns
+  each batch builds, with the pushed predicate's own beside them.
+- **The SQL source** is the one source that stops a read without knowing
+  the row count: a sunk `head`, and a `slice` by forward bounds, pulls no
+  row past the window's end, while a `tail`, and a window counted from the
+  answer's end, reads the answer whole first to learn its row count. Each
+  column's dtype is settled by its first batch and every later batch is
+  held to it — a cell that would widen the column refuses — where the
+  eager `read_sql` reads the whole answer before typing a column.
 - **The rewrite rules** fold column-free expression subtrees to their
   literal values and merge adjacent `with_columns` stages that commute —
   plan shape only, never a cell's value.
@@ -173,6 +181,16 @@ docstring states both cases as the plan-level contract.
 See the operator docstrings (collected in the generated reference) for the
 per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.
+
+## Database writes
+
+`write_sql` sends a frame in `INSERT` statements of at most 999 bound
+values each — the narrowest per-statement bound among the dialects — so a
+frame of `r` rows and `c` columns is `⌈r / ⌊999 / c⌋⌉` statements, each one
+round trip, inside one transaction where the dialect has one. A frame of
+no row is the `CREATE TABLE` alone. The table's text and types are spelled
+once, before the first statement, so a dtype no SQL type holds refuses
+before anything is sent.
 
 ## Benchmarks
 

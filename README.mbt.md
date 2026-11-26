@@ -148,6 +148,14 @@ same way.
   Zstandard buffer compression optional on a write, and a type with no
   dtype to read as refusing by its column's name. `read_ipc`'s docstring
   states the mapping and the refusals.
+- **Read and write a database** — `read_sql(driver, sql, params~)` runs a
+  query through any moondb driver and answers a frame, `read_sql_table`
+  reads one table whole, `write_sql(df, driver, table, if_exists~)`
+  writes a frame into a table created from the frame's columns and
+  spelled for the driver's dialect, and `scan_sql` is the lazy source
+  over a query, read through the driver's cursor in batches. MoonFrame
+  takes the moondb contract and no database backend: the driver is the
+  caller's.
 - **Hold lists and structs** — a column of lists (`DataType::List`) or of
   records (`DataType::Struct`), built with `Series::from_scalars` or read
   from a JSON field of arrays / objects, and carried whole through the
@@ -169,9 +177,11 @@ same way.
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `df.to_lazy()` (or `LazyFrame::LazyFrame(df)`), or
   `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc`
-  for a lazy file source (deferred execution with projection *and* predicate pushdown
-  into the reader — the text formats still tokenise at `collect()`, while the
-  columnar sources decode only the columns and batches they need),
+  for a lazy file source and `scan_sql` for a query (deferred execution
+  with projection *and* predicate pushdown into the reader — the text
+  formats still tokenise at `collect()`, the columnar sources decode only
+  the columns and batches they need, and a SQL query stops at a sunk
+  window's end),
   builds a query plan you can `explain()`; `collect()` runs it through the
   optimizer, producing an equal frame for the cells it reads. What a
   push-down does *not* read, it does not parse — so a parse error confined to a
@@ -346,7 +356,7 @@ internal/ipc/      the native Arrow IPC codec — hand-written FlatBuffers metad
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC read / write + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC read / write + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

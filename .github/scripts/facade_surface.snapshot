@@ -7,6 +7,8 @@ alias Series::"_[_]" <- series
 ctor CsvReadOptions::CsvReadOptions(has_header? : Bool, delimiter? : Char, infer_schema_rows? : Int32, null_values? : Array[String], strict_column_count? : Bool, on_parse_error? : OnParseError, allow_nonfinite_floats? : Bool, strict_quotes? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError <- io
 ctor DataFrame::DataFrame(Array[@series.Series]) -> Self raise @types.DataError <- frame
+ctor ExcelReadOptions::ExcelReadOptions(sheet? : String, has_header? : Bool, dates? : Bool) -> Self <- io
+ctor ExcelWriteOptions::ExcelWriteOptions(sheet? : String, has_header? : Bool) -> Self <- io
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor FieldValue::FieldValue(String, Scalar) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
@@ -152,6 +154,11 @@ field CsvWriteOptions.header : Bool <- io
 field CsvWriteOptions.line_terminator : String <- io
 field CsvWriteOptions.null_value : String <- io
 field CsvWriteOptions.sanitize_formulas : Bool <- io
+field ExcelReadOptions.dates : Bool <- io
+field ExcelReadOptions.has_header : Bool <- io
+field ExcelReadOptions.sheet : String <- io
+field ExcelWriteOptions.has_header : Bool <- io
+field ExcelWriteOptions.sheet : String <- io
 field HtmlOptions.caption : String? <- frame
 field HtmlOptions.escape : Bool <- frame
 field HtmlOptions.max_rows : Int32? <- frame
@@ -992,6 +999,8 @@ fn constant(@json.Json) -> @chart.VegaChannel <- root
 fn constant(@json.Json) -> VegaChannel <- chart
 fn datum(@json.Json) -> @chart.VegaChannel <- root
 fn datum(@json.Json) -> VegaChannel <- chart
+fn excel_sheets(String) -> Array[String] raise @types.DataError <- io
+fn excel_sheets(String) -> Array[String] raise @types.DataError <- root
 fn field(String, aggregate? : @chart.VegaAggregate, bin? : @chart.VegaBin, time_unit? : @chart.VegaTimeUnit, sort? : @chart.VegaChannelSort, type_override? : @chart.VegaType, title? : String, format? : String, stack? : @chart.VegaStack, band_position? : Double, scale? : @chart.VegaScaleRef, axis? : @chart.VegaAxisRef, legend? : @chart.VegaLegendRef, condition? : @chart.VegaCondition) -> @chart.VegaChannel <- root
 fn field(String, aggregate? : VegaAggregate, bin? : VegaBin, time_unit? : VegaTimeUnit, sort? : VegaChannelSort, type_override? : VegaType, title? : String, format? : String, stack? : VegaStack, band_position? : Double, scale? : VegaScaleRef, axis? : VegaAxisRef, legend? : VegaLegendRef, condition? : VegaCondition) -> VegaChannel <- chart
 fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError <- io
@@ -1016,6 +1025,8 @@ fn lit_str(String) -> Expr <- expr
 fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr <- root
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
@@ -1026,6 +1037,8 @@ fn plot(@frame.DataFrame) -> @chart.FramePlot <- root
 fn plot(@frame.DataFrame) -> FramePlot <- chart
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
@@ -1060,6 +1073,8 @@ fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
 fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
 fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError <- io
+fn write_excel(@frame.DataFrame, String, options? : @io.ExcelWriteOptions) -> Unit raise @types.DataError <- root
+fn write_excel(@frame.DataFrame, String, options? : ExcelWriteOptions) -> Unit raise @types.DataError <- io
 fn write_ipc(@frame.DataFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat) -> Unit raise @types.DataError <- root
 fn write_ipc(@frame.DataFrame, String, compression? : IpcCompression, format? : IpcFormat) -> Unit raise @types.DataError <- io
 fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError <- io
@@ -2285,6 +2300,8 @@ type DataError <- types
 type DataFrame <- frame
 type DataType <- types
 type Dec128 <- types
+type ExcelReadOptions <- io
+type ExcelWriteOptions <- io
 type Expr <- expr
 type Field <- types
 type FieldValue <- types

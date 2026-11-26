@@ -225,6 +225,35 @@ test "sql write, table read, and scan" {
 }
 
 ///|
+/// The Excel entries, each named through the facade: a frame written as a
+/// workbook under a chosen sheet, the workbook's sheets listed, and the
+/// sheet read back by name and by its options.
+test "excel write and read" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1, 2]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  let options : @moonframe.ExcelWriteOptions = @moonframe.ExcelWriteOptions::ExcelWriteOptions(
+    sheet="Records",
+  )
+  @moonframe.write_excel(df, "_build/smoke.xlsx", options~)
+  assert_eq(@moonframe.excel_sheets("_build/smoke.xlsx"), ["Records"])
+  let read : @moonframe.ExcelReadOptions = @moonframe.ExcelReadOptions::ExcelReadOptions(
+    sheet="Records",
+  )
+  assert_eq(@moonframe.read_excel("_build/smoke.xlsx", options=read).nrows(), 2)
+  // The default options read the first sheet, which this is.
+  assert_eq(@moonframe.read_excel("_build/smoke.xlsx").shape(), (2, 2))
+  let flat : @moonframe.ExcelReadOptions = @moonframe.ExcelReadOptions::ExcelReadOptions(
+    has_header=false,
+  )
+  assert_eq(
+    @moonframe.read_excel("_build/smoke.xlsx", options=flat).shape(),
+    (3, 2),
+  )
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

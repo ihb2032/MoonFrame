@@ -169,6 +169,7 @@ pub using @io {
   scan_json,
   scan_ndjson,
   scan_parquet,
+  scan_sql,
   sink_csv,
   sink_ipc,
   sink_parquet,

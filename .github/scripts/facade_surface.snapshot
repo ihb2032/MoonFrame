@@ -1048,6 +1048,8 @@ fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- ro
 fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
 fn scan_parquet(String) -> @frame.LazyFrame <- io
 fn scan_parquet(String) -> @frame.LazyFrame <- root
+fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame <- io
+fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame <- root
 fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
 fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root

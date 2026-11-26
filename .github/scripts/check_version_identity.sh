@@ -161,7 +161,7 @@ s/MOONBIT_INSTALL_VERSION[[:space:]:=]*"*[0-9][0-9a-zA-Z.+]*"*//g
 s/moonc[[:space:]]+[0-9][0-9a-zA-Z.+]*//g
 s/MoonBit[[:space:]]v[0-9.]+//g
 /uses:[[:space:]]/d
-s#(moonbitlang|moonbit-community)/([A-Za-z0-9_.-]+)@[0-9][0-9a-zA-Z.+]*#\1/\2#g
+s#(moonbitlang|moonbit-community|moonbitstack)/([A-Za-z0-9_.-]+)@[0-9][0-9a-zA-Z.+]*#\1/\2#g
 s/(vega|vega-lite|vega-embed)@[0-9][0-9a-zA-Z.+]*/\1/g
 s/UCD[[:space:]]version[[:space:]]*[0-9.]+//g
 s/Vega-Lite[[:space:]]+[0-9][0-9.]*//g

@@ -205,6 +205,26 @@ test "nested values and arrow ipc" {
 }
 
 ///|
+/// The SQL entries over moondb's own in-memory driver, each named through
+/// the facade: a frame written into a table, the table read whole, and the
+/// query scanned with a sunk window.
+test "sql write, table read, and scan" {
+  let mock = @moondb.MockDriver::new()
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1, 2]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  let if_exists : @moonframe.SqlIfExists = @moonframe.SqlIfExists::Append
+  @moonframe.write_sql(df, mock, "items", if_exists~)
+  // The mock keeps a statement's values as one row, whatever the query,
+  // so the table holds the one statement the write bound its rows by.
+  let table = @moonframe.read_sql_table(mock, "items")
+  assert_eq(table.shape(), (1, 4))
+  let scanned = @moonframe.scan_sql(mock, "select").head(1).collect()
+  assert_eq(scanned.shape(), (1, 4))
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

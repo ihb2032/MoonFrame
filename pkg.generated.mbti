@@ -71,6 +71,8 @@ pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_parquet(String) -> @frame.LazyFrame
 
+pub fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame
+
 pub fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError

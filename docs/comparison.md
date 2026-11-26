@@ -265,9 +265,16 @@ here today:
   moonpostgres, …) rather than through a database binding of MoonFrame's
   own, the way Polars reaches for connectorx / ADBC and pandas for
   SQLAlchemy / DBAPI2. The cell-to-dtype mapping is MoonFrame's own
-  (`Time` / `Numeric` texts parse into `Timestamp` / `Decimal`); a
-  streaming `scan_sql` over moondb's cursor is not built yet, where
-  pandas' `read_sql(chunksize=…)` streams.
+  (`Time` / `Numeric` texts parse into `Timestamp` / `Decimal`).
+  `write_sql` is the other direction — pandas' `to_sql`, Polars'
+  `write_database` — over plain `CREATE TABLE` / `INSERT` statements
+  spelled for the driver's dialect, where the two reach for ADBC's and
+  SQLAlchemy's bulk paths; `read_sql_table` reads a table by name.
+  `scan_sql` streams a query through the driver's cursor, batch by batch,
+  with a sunk `head` stopping the read at its end — pandas'
+  `read_sql(chunksize=…)` streams by chunks the same way, each typed on
+  its own, where MoonFrame holds every batch to its first batch's dtypes
+  and refuses a column that would have widened.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

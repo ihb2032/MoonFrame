@@ -101,6 +101,9 @@ Scalar | enum | Null
 Scalar | enum | String(String)
 Scalar | enum | Struct(StructValue)
 Scalar | enum | Timestamp(Int64)
+SqlIfExists | enum | Append
+SqlIfExists | enum | Fail
+SqlIfExists | enum | Replace
 TypeMismatchDetail | enum | Expected(DataType, DataType, String)
 TypeMismatchDetail | enum | Message(String)
 TypeMismatchDetail | enum | Operation(String, DataType, DataType)

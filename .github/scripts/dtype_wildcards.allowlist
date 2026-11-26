@@ -132,3 +132,4 @@ internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 chart/chart.mbt chart_data_values the column is Decimal-dtyped (checked above), so its cells are Decimal or Null; the wildcard is the remainder of the Scalar enum
+io/sql_write.mbt sql_decimal_window the scrutinee is the decimal's coefficient digits and its exponent, both Some for every finite value — the wildcard is the loud raise for a NaN or infinite cell

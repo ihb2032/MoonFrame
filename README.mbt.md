@@ -195,7 +195,11 @@ same way.
   push-down does *not* read, it does not parse — so a parse error confined to a
   pruned column, or to a row the pushed-down predicate drops (in a column that
   predicate does not itself read), never surfaces. `LazyFrame::collect`'s
-  docstring states the contract in full.
+  docstring states the contract in full. The `sink_*` entries —
+  `sink_csv` / `sink_json` / `sink_ndjson` to the text formats,
+  `sink_parquet` / `sink_ipc` to the columnar ones — write a plan's result
+  straight from its batches without building the collected frame; a text
+  sink's file is byte-for-byte its `format_*` rendering of `collect()`.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` — or, for

@@ -143,3 +143,85 @@ pub fn sink_ipc(
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
   }
 }
+
+///|
+/// Run a lazy plan and write its result as one JSON records file, batch
+/// by batch: each batch's rows render as the record objects `format_json`
+/// spells — the same cells under the same cell conventions, keys in
+/// column order — and the batches' records share one top-level array, so
+/// the file is byte-for-byte `format_json(collect())`. A plan that answers
+/// no row writes `[]`. The text goes through the file writer `write_json`
+/// uses: a path ending in `.gz` receives the gzip-compressed encoding, and
+/// a string cell or column name holding an unpaired UTF-16 surrogate is
+/// refused with `InvalidOperation` rather than written as a file the UTF-8
+/// encoding would corrupt. Raises the read's own `DataError` — the same
+/// error, on the same first offending batch, `collect` would raise — and,
+/// the text being written only once the plan has answered in full, a read
+/// error always comes before that refusal; the file write's own failure
+/// is `IoError`. Nothing is read until the first batch is pulled.
+///
+/// `optimizations` defaults to the same every-stage-on pipeline
+/// `collect` runs.
+pub fn sink_json(
+  lf : @frame.LazyFrame,
+  path : String,
+  optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
+) -> Unit raise @types.DataError {
+  let stream = lf.collect_batches(optimizations~)
+  let text = StringBuilder()
+  // One array over every batch: a record is separated from the one before
+  // it by a single comma, whichever batch either came from — the framing
+  // `format_json` gets from stringifying the whole records array at once.
+  let mut first = true
+  text.write_char('[')
+  while true {
+    match stream.next() {
+      Some(batch) =>
+        for record in df_to_json_records(batch) {
+          if !first {
+            text.write_char(',')
+          }
+          first = false
+          text.write_string(record.stringify())
+        }
+      None => break
+    }
+  }
+  text.write_char(']')
+  write_text(path, text.to_string())
+}
+
+///|
+/// Run a lazy plan and write its result as one NDJSON file, batch by
+/// batch: each batch's rows render as the lines `format_ndjson` spells —
+/// one JSON object per row, keys in column order, each line terminated by
+/// a newline — and a line ends with its own newline whatever batch it came
+/// from, so the file is byte-for-byte `format_ndjson(collect())`. A plan
+/// that answers no row writes the empty file. The text goes through the
+/// file writer `write_ndjson` uses: a path ending in `.gz` receives the
+/// gzip-compressed encoding, and a string cell or column name holding an
+/// unpaired UTF-16 surrogate is refused with `InvalidOperation` rather
+/// than written as a file the UTF-8 encoding would corrupt. Raises the
+/// read's own `DataError` — the same error, on the same first offending
+/// batch, `collect` would raise — and, the text being written only once
+/// the plan has answered in full, a read error always comes before that
+/// refusal; the file write's own failure is `IoError`. Nothing is read
+/// until the first batch is pulled.
+///
+/// `optimizations` defaults to the same every-stage-on pipeline
+/// `collect` runs.
+pub fn sink_ndjson(
+  lf : @frame.LazyFrame,
+  path : String,
+  optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
+) -> Unit raise @types.DataError {
+  let stream = lf.collect_batches(optimizations~)
+  let text = StringBuilder()
+  while true {
+    match stream.next() {
+      Some(batch) => text.write_string(format_ndjson(batch))
+      None => break
+    }
+  }
+  write_text(path, text.to_string())
+}

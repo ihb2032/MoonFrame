@@ -79,6 +79,13 @@ What changed on `main` since 0.9.0:
   `format_csv(collect())`; `sink_parquet` lays one row group per batch
   (split inside a batch at `row_group_rows~`), with the schema and the
   decimal interchange window fixed by the first batch.
+- `sink_json` / `sink_ndjson` join the facade: the same streaming face
+  turned to a JSON records file or an NDJSON file. `sink_json` is
+  byte-for-byte `format_json(collect())`, the batches' records sharing one
+  top-level array; `sink_ndjson` is byte-for-byte
+  `format_ndjson(collect())`. Both write through the file writer
+  `write_json` / `write_ndjson` use, so a `.gz` path is compressed the same
+  way and an unpaired surrogate is refused with the same error.
 - `read_sql` joins the facade over the moondb contract: any moondb
   driver (the in-memory `MockDriver` ships with moondb; moonsqlite /
   moonpostgres / moondb's other drivers plug in the same way) answers a

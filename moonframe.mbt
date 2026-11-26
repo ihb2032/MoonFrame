@@ -177,6 +177,8 @@ pub using @io {
   scan_sql,
   sink_csv,
   sink_ipc,
+  sink_json,
+  sink_ndjson,
   sink_parquet,
   write_csv,
   write_excel,

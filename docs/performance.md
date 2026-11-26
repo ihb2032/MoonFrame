@@ -129,7 +129,8 @@ DAG-shaped plan keeps the node-by-node interpreter instead — its memo runs
 each shared subplan exactly once, where a pipeline would re-execute it per
 occurrence. `LazyFrame::collect_batches` is the streaming face of the same
 plan: each batch answers as it is ready, and a consumer that stops asking
-stops the read; `sink_parquet` / `sink_csv` / `sink_ipc` are the same
+stops the read; `sink_parquet` / `sink_csv` / `sink_ipc` / `sink_json` /
+`sink_ndjson` are the same
 stream with an
 encoder for a consumer, the encoded bytes landing in one write. The batch
 boundaries carry no size promise beyond the cap; the memory promise is

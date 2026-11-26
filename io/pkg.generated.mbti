@@ -61,6 +61,10 @@ pub fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizati
 
 pub fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
+pub fn sink_json(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
+pub fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+
 pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError

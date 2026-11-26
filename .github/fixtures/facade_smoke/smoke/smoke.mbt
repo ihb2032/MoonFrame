@@ -130,7 +130,8 @@ test "lazy pipeline" {
 }
 
 ///|
-/// IO round-trip and the error type, named on the recovery path.
+/// IO round-trips — the text pair, and the lazy sinks to JSON and NDJSON —
+/// and the error type, named on the recovery path.
 test "io and error handling" {
   let df = @moonframe.DataFrame::DataFrame([
     @moonframe.Series::from_ints("a", [1, 2]),
@@ -138,6 +139,12 @@ test "io and error handling" {
   let csv = @io.format_csv(df)
   let back = @io.parse_csv_str(csv)
   assert_eq(back.nrows(), 2)
+  // A plan's batches turned to a file, each read back by its reader.
+  let lf = @moonframe.LazyFrame::LazyFrame(df)
+  @moonframe.sink_json(lf, "_build/smoke.json")
+  assert_eq(@moonframe.read_json("_build/smoke.json").nrows(), 2)
+  @moonframe.sink_ndjson(lf, "_build/smoke.ndjson")
+  assert_eq(@moonframe.read_ndjson("_build/smoke.ndjson").nrows(), 2)
   // The error type is nameable on a recovery boundary — a missing column
   // raises `DataError`, re-wrapped here into a `Result`.
   let r : Result[@moonframe.DataFrame, @moonframe.DataError] = Ok(

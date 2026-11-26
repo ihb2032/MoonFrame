@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn excel_sheets(String) -> Array[String] raise @types.DataError
+
 pub fn format_csv(@frame.DataFrame, options? : CsvWriteOptions) -> String raise @types.DataError
 
 pub fn format_json(@frame.DataFrame) -> String
@@ -16,6 +18,8 @@ pub fn format_json(@frame.DataFrame) -> String
 pub fn format_ndjson(@frame.DataFrame) -> String
 
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
@@ -26,6 +30,8 @@ pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
@@ -58,6 +64,8 @@ pub fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format?
 pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
+
+pub fn write_excel(@frame.DataFrame, String, options? : ExcelWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_ipc(@frame.DataFrame, String, compression? : IpcCompression, format? : IpcFormat) -> Unit raise @types.DataError
 
@@ -94,6 +102,19 @@ pub struct CsvWriteOptions {
   line_terminator : String
 }
 pub fn CsvWriteOptions::CsvWriteOptions(header? : Bool, delimiter? : Char, null_value? : String, sanitize_formulas? : Bool, line_terminator? : String) -> Self raise @types.DataError
+
+pub struct ExcelReadOptions {
+  sheet : String
+  has_header : Bool
+  dates : Bool
+}
+pub fn ExcelReadOptions::ExcelReadOptions(sheet? : String, has_header? : Bool, dates? : Bool) -> Self
+
+pub struct ExcelWriteOptions {
+  sheet : String
+  has_header : Bool
+}
+pub fn ExcelWriteOptions::ExcelWriteOptions(sheet? : String, has_header? : Bool) -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum IpcCompression {

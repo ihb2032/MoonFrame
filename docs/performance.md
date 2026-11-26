@@ -182,6 +182,19 @@ See the operator docstrings (collected in the generated reference) for the
 per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.
 
+## Excel workbooks
+
+`read_excel` parses the whole workbook into memory — the workbook
+library's reader has no streaming face — and then lays the chosen
+sheet's values out by row and by column, from the sheet's first row
+carrying a value to its last and through its last column: a sheet whose
+values span `r` rows and `c` columns costs `O(r × c)` beyond the parse,
+empty cells included, so one value far down a sheet is a million rows of
+layout. Each column is then read in one pass for its dtype and one for
+its cells. `write_excel` writes its cells one by one into a workbook the
+library holds in memory and serialises whole at the end: `O(r × c)`
+cells, in memory until the file's one write.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

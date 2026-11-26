@@ -24,6 +24,10 @@ Source-level note:
 - `write_sql`, `read_sql_table`, and `scan_sql` join the facade, over the
   moondb contract `read_sql` already rides, with the option enum
   `SqlIfExists` that `write_sql` takes. No existing call changes.
+- Excel joins the facade: `read_excel` / `parse_excel` / `excel_sheets` /
+  `write_excel`, and the option types `ExcelReadOptions` /
+  `ExcelWriteOptions` their optional parameters take. No existing call
+  changes.
 - MoonFrame depends on `gaato/lz4` and `gaato/zstd`, the LZ4 / Zstandard
   codecs a compressed IPC buffer goes through. The two declare the
   backends they build for, and `moon` asks a package that depends on one
@@ -99,6 +103,20 @@ What changed on `main` since 0.9.0:
   batch's dtypes, where `read_sql` widens: a later cell of another shape
   refuses, naming the column. `write_sql`'s and `scan_sql`'s docstrings
   state the two contracts.
+- Excel workbooks read and write over `moonbitlang/mbtexcel`, the
+  workbook library the entries ride — which moves the tree's
+  `moonbitlang/async` to the version that library names. `read_excel`
+  takes one sheet — the first, or the one `ExcelReadOptions` names, and
+  `excel_sheets` lists them — into a frame whose columns take the
+  narrowest dtype holding every value. A number under a date format reads
+  as a `Date` or a `Timestamp`, under a time format as the time of day,
+  and under the formats a locale re-spells as the number it is; a cell
+  carrying an error and a formula with no cached value read null.
+  `write_excel` writes a frame as one sheet: an integer, a float, and a
+  boolean as the sheet keeps them, a `Date` and a `Timestamp` as date
+  serials under date formats, text as text whatever it spells, and a
+  `Duration`, a `Decimal`, a list, and a struct as their text forms.
+  `read_excel`'s and `write_excel`'s docstrings state the two contracts.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

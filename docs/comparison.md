@@ -275,6 +275,16 @@ here today:
   `read_sql(chunksize=…)` streams by chunks the same way, each typed on
   its own, where MoonFrame holds every batch to its first batch's dtypes
   and refuses a column that would have widened.
+- **Excel** — `read_excel` reads a sheet and `write_excel` writes one,
+  over the `mbtexcel` workbook library, where pandas reaches for openpyxl
+  and Polars for calamine. The sheet is taken by name
+  (`ExcelReadOptions`), the first by default, and `excel_sheets` names
+  them; pandas also takes one by position. A date is a number under a
+  date format in each: the formats every locale shares are read as dates
+  and times, and the formats a locale re-spells as the numbers they also
+  are, since the same format id is a date in one workbook and an
+  accounting format in another's. A column takes the narrowest dtype
+  holding every value in it, the CSV reader's rule.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

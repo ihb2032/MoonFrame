@@ -1,0 +1,70 @@
+{
+ "file": "messy.html",
+ "tables": [
+  {
+   "columns": [
+    {
+     "name": "name",
+     "dtype": "str",
+     "cells": [
+      "String a",
+      "String b"
+     ]
+    },
+    {
+     "name": "value",
+     "dtype": "float64",
+     "cells": [
+      "Float 3ff0000000000000",
+      "Null"
+     ]
+    }
+   ],
+   "rows": 2
+  },
+  {
+   "columns": [
+    {
+     "name": "Unnamed: 0",
+     "dtype": "str",
+     "cells": [
+      "String a",
+      "String b",
+      "String total"
+     ]
+    },
+    {
+     "name": "n",
+     "dtype": "float64",
+     "cells": [
+      "Float 3ff0000000000000",
+      "Null",
+      "Float 4008000000000000"
+     ]
+    },
+    {
+     "name": "Unnamed: 2",
+     "dtype": "str",
+     "cells": [
+      "String extra",
+      "Null",
+      "Null"
+     ]
+    }
+   ],
+   "rows": 3
+  },
+  {
+   "columns": [
+    {
+     "name": "0",
+     "dtype": "str",
+     "cells": [
+      "String only body"
+     ]
+    }
+   ],
+   "rows": 1
+  }
+ ]
+}

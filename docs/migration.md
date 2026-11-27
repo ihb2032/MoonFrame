@@ -33,6 +33,10 @@ Source-level note:
   changes.
 - Stata joins the facade: `read_stata` / `parse_stata` / `write_stata`,
   over packages the module already depends on. No existing call changes.
+- XML joins the facade: `read_xml` / `parse_xml` / `write_xml` /
+  `format_xml`. No existing call changes.
+- HTML tables join the facade: `read_html` / `parse_html`, which answer
+  a frame a table. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
   Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
@@ -162,6 +166,13 @@ What changed on `main` since 0.9.0:
   `write_xml` lays a frame out in the same shape, a missing cell an empty
   element. `parse_xml`'s and `format_xml`'s docstrings state the two
   contracts.
+- HTML tables read through a tokenizer inside `io` in `read_html` and
+  `parse_html`: every `table` a frame, the rows read in a `thead` — or
+  the leading rows of `th` cells — naming the columns, a cell's spans
+  saying how far it reaches, a cell's text decoded and its whitespace
+  runs folded, a missing-value spelling reading missing, and each column
+  typed by the CSV reader's rule. `parse_html`'s docstring states the
+  contract.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

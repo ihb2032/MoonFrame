@@ -43,6 +43,8 @@ pub fn lit_str(String) -> @expr.Expr
 
 pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr
 
+pub fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -50,6 +52,8 @@ pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn plot(@frame.DataFrame) -> @chart.FramePlot
+
+pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -91,6 +95,8 @@ pub fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_gro
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
+pub fn write_avro(@frame.DataFrame, String, codec? : @io.AvroCodec) -> Unit raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_excel(@frame.DataFrame, String, options? : @io.ExcelWriteOptions) -> Unit raise @types.DataError
@@ -114,6 +120,8 @@ pub fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @ty
 // Types and methods
 
 // Type aliases
+pub using @io {type AvroCodec}
+
 pub using @frame {type BatchStream}
 
 pub using @types {type CellParseLocation}

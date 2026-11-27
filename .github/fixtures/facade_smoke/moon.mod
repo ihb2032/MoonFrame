@@ -8,8 +8,10 @@ version = "0.1.0"
 // every manifest and this number is not MoonFrame's current release. The
 // driver in the SQL entries' signatures is moondb's own, so a caller
 // brings that dependency itself — the way this fixture does, to reach the
-// in-memory driver its SQL smoke test runs on.
+// in-memory driver its SQL smoke test runs on; so is the file reader the
+// byte-level parser's smoke test hands its bytes with.
 import {
   "ihb2032/MoonFrame@0.7.0", // doc-guard: historical: workspace member pin, resolved from source
   "moonbitstack/moondb@0.3.1",
+  "moonbitlang/x@0.5.7",
 }

@@ -5,11 +5,12 @@
 // typical pipelines; `moon check` here fails if the facade ever stops
 // re-exporting a symbol a downstream program needs to *name*.
 //
-// The one deliberate extra import is `@io` for the string-level serialisers
+// The two deliberate extra imports are `@io` for the string-level serialisers
 // (`format_csv` / `parse_csv_str`): the facade intentionally does not
 // re-export that family — building a frame from in-memory text is reached
 // through the `io` package directly — so this fixture mirrors the qualified
-// spelling a facade caller is expected to use for them.
+// spelling a facade caller is expected to use for them; and `@fs`, to hand
+// a written file's bytes to the byte-level parser the way a caller would.
 //
 // It deliberately chains through the fluent intermediates — `when().then()
 // .otherwise()`, `group_by().agg()`, and their lazy twins — without ever
@@ -257,6 +258,31 @@ test "excel write and read" {
   assert_eq(
     @moonframe.read_excel("_build/smoke.xlsx", options=flat).shape(),
     (3, 2),
+  )
+}
+
+///|
+/// The Avro entries, each named through the facade: a frame written as a
+/// file under a chosen codec, the codec enum named by its variants, and
+/// the file read back from a path and from bytes with a projection.
+test "avro write and read" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1, 2]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  let codec : @moonframe.AvroCodec = @moonframe.AvroCodec::Deflate
+  @moonframe.write_avro(df, "_build/smoke.avro", codec=codec)
+  assert_eq(@moonframe.read_avro("_build/smoke.avro").shape(), (2, 2))
+  // The default codec stores the blocks as encoded; the bytes already in
+  // memory parse with a projection, which keeps the named column and the
+  // rows.
+  @moonframe.write_avro(df, "_build/smoke_plain.avro")
+  let bytes = @fs.read_file_to_bytes("_build/smoke_plain.avro") catch {
+    _ => b""
+  }
+  assert_eq(
+    @moonframe.parse_avro(bytes, projection=["name"]).shape(),
+    (2, 1),
   )
 }
 

@@ -90,7 +90,7 @@ allowed_series="types internal/buffer internal/column internal/text internal/num
 allowed_expr="types series internal/ir internal/text"
 allowed_frame="types series expr internal/ir internal/kernel internal/order internal/scan internal/text"
 allowed_chart="types frame io"
-allowed_io="types series frame internal/ipc internal/parquet internal/scan internal/text internal/numeric"
+allowed_io="types series frame internal/avro internal/ipc internal/parquet internal/scan internal/text internal/numeric"
 allowed_internal_column="types internal/buffer internal/text internal/numeric"
 allowed_internal_kernel="types series internal/column internal/ir internal/text internal/numeric"
 allowed_internal_ir="types series"
@@ -101,6 +101,7 @@ allowed_internal_buffer="types"
 allowed_internal_scan="types series expr internal/order"
 allowed_internal_parquet="types series internal/text"
 allowed_internal_ipc="types series internal/text"
+allowed_internal_avro="types series internal/text"
 verb_packages="frame io"
 
 fail=0

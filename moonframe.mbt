@@ -147,6 +147,7 @@ pub using @frame {
 
 ///|
 pub using @io {
+  type AvroCodec,
   type CsvReadOptions,
   type CsvWriteOptions,
   type ExcelReadOptions,
@@ -158,9 +159,11 @@ pub using @io {
   type ParquetCodec,
   type SqlIfExists,
   excel_sheets,
+  parse_avro,
   parse_excel,
   parse_ipc,
   parse_parquet,
+  read_avro,
   read_csv,
   read_excel,
   read_ipc,
@@ -180,6 +183,7 @@ pub using @io {
   sink_json,
   sink_ndjson,
   sink_parquet,
+  write_avro,
   write_csv,
   write_excel,
   write_ipc,

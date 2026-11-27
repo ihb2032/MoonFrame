@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/avro"
+
+import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn read_avro_frame(Bytes, Array[String]?) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
+
+pub fn write_avro_bytes(Array[@series.Series], Array[String], Codec, height? : Int32) -> Bytes raise @types.DataError
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Codec {
+  Null
+  Deflate
+  Snappy
+  Zstd
+}
+pub fn Codec::equal(Self, Self) -> Bool
+pub fn Codec::not_equal(Self, Self) -> Bool
+pub fn Codec::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

@@ -1,3 +1,7 @@
+AvroCodec | enum | Deflate
+AvroCodec | enum | Null
+AvroCodec | enum | Snappy
+AvroCodec | enum | Zstd
 CellParseLocation | enum | Line
 CellParseLocation | enum | Record
 CellParseLocation | enum | Row

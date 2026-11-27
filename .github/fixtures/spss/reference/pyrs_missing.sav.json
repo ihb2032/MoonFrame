@@ -1,0 +1,22 @@
+{
+ "file": "pyrs_missing.sav",
+ "origin": "pyreadstat",
+ "note": "declared missing values: three values, a range, a range and a value, an open range, strings",
+ "bytes": 1118,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 5,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "m3", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Null","Null","Null","Float 4010000000000000","Float 4014000000000000"]},
+  {"name": "mrange", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Null","Null","Null","Float 4022000000000000"]},
+  {"name": "mrangev", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Null","Float 4022000000000000","Float 4024000000000000","Null"]},
+  {"name": "mopen", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Null","Null","Float 4012000000000000","Float 4022000000000000","Null"]},
+  {"name": "s3", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Null","String a","Null","String b","String "]},
+  {"name": "s12", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Null","String a","String zzzzzzzzzzzz","String b","String "]}
+ ],
+ "cells": 30
+}

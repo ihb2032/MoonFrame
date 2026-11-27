@@ -1,0 +1,32 @@
+{
+ "file": "pyrs_formats.sav",
+ "origin": "pyreadstat",
+ "note": "one column a date, datetime, time or date-component format",
+ "bytes": 1814,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 4,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "adate40", "dtype": "Date", "format": 23, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "date40", "dtype": "Date", "format": 20, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "edate40", "dtype": "Date", "format": 38, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "jdate40", "dtype": "Date", "format": 24, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "sdate10", "dtype": "Date", "format": 39, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "qyr20", "dtype": "Date", "format": 29, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "moyr20", "dtype": "Date", "format": 28, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "wkyr20", "dtype": "Date", "format": 30, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Date 18322","Date -141428","Date 0","Null"]},
+  {"name": "datetime40", "dtype": "Timestamp", "format": 22, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "datetime", "source": "reference", "cells": ["Timestamp 1583066096789000","Timestamp -12219379200000000","Timestamp -500000","Null"]},
+  {"name": "ymdhms40", "dtype": "Timestamp", "format": 41, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "datetime", "source": "reference", "cells": ["Timestamp 1583066096789000","Timestamp -12219379200000000","Timestamp -500000","Null"]},
+  {"name": "time8", "dtype": "Timestamp", "format": 21, "reference_truncates": 0, "reference_wraps": 1, "reference_converts": "time", "source": "reference", "cells": ["Timestamp 90000000","Timestamp 3600500000","Timestamp 259201250000","Null"]},
+  {"name": "dtime40", "dtype": "Timestamp", "format": 25, "reference_truncates": 0, "reference_wraps": 1, "reference_converts": "time", "source": "reference", "cells": ["Timestamp 90000000","Timestamp 3600500000","Timestamp 259201250000","Null"]},
+  {"name": "mtime40", "dtype": "Timestamp", "format": 40, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Timestamp 90000000","Timestamp 3600500000","Timestamp 259201250000","Null"]},
+  {"name": "wkday40", "dtype": "Float", "format": 26, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 4008000000000000","Float 3ff0000000000000","Float 401c000000000000","Null"]},
+  {"name": "month40", "dtype": "Float", "format": 27, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 4008000000000000","Float 3ff0000000000000","Float 401c000000000000","Null"]},
+  {"name": "f8_2", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff8000000000000","Float bfd0000000000000","Null","Float 7e37e43c8800759c"]}
+ ],
+ "cells": 64
+}

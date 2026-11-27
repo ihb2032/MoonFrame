@@ -1,0 +1,24 @@
+{
+ "file": "pyrs_zsav.zsav",
+ "origin": "pyreadstat",
+ "note": "strings of 1, 8, 12, 255 and 300 bytes, a long column name, non-ASCII text",
+ "bytes": 3362,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "zlib",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 5,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "num", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Float c004000000000000","Float 7e51eb2d66005835","Null","Float 0000000000000000"]},
+  {"name": "s8", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String 12345678","String a","String ","String ","String   pad"]},
+  {"name": "s12", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String 123456789012","String b","String ","String ","String x"]},
+  {"name": "s1", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String x","String ","String y","String ","String z"]},
+  {"name": "s255", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","String yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy","String ","String ","String z"]},
+  {"name": "s300", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","String bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccc","String ","String ","String dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]},
+  {"name": "a_very_long_column_name_here", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String u","String v","String ","String ","String w"]},
+  {"name": "ünïcödé_nâmé", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String é","String 日本","String ","String ","String ü"]}
+ ],
+ "cells": 40
+}

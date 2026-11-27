@@ -1,0 +1,13 @@
+{
+ "file": "pyrs_nocols.sav",
+ "origin": "pyreadstat",
+ "note": "no column and no row",
+ "bytes": 341,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": false,
+ "reference_error": "ReadstatError: Invalid file, or file has unsupported features",
+ "codec": "refuses",
+ "refusal": "ParseError"
+}

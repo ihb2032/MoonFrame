@@ -1,0 +1,18 @@
+{
+ "file": "synthetic_no_long_names.sav",
+ "origin": "synthetic",
+ "note": "no long variable names record: the names come from the eight-byte fields",
+ "bytes": 461,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 2,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "LOWER_CA", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Float 4000000000000000"]},
+  {"name": "ANOTHER_", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String a","String b"]}
+ ],
+ "cells": 4
+}

@@ -1,0 +1,201 @@
+[
+ {
+  "file": "pyrs_plain.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 5,
+  "cells": 40
+ },
+ {
+  "file": "pyrs_rows.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 5,
+  "cells": 40
+ },
+ {
+  "file": "pyrs_zsav.zsav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 5,
+  "cells": 40
+ },
+ {
+  "file": "pyrs_formats.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 64
+ },
+ {
+  "file": "pyrs_fractional.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 20
+ },
+ {
+  "file": "pyrs_missing.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 5,
+  "cells": 30
+ },
+ {
+  "file": "pyrs_labels.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 3,
+  "cells": 6
+ },
+ {
+  "file": "pyrs_extremes_rows.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 17,
+  "cells": 17
+ },
+ {
+  "file": "pyrs_allmissing.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 3,
+  "cells": 6
+ },
+ {
+  "file": "pyrs_norows.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 0,
+  "cells": 0
+ },
+ {
+  "file": "pyrs_norows.zsav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 0,
+  "cells": 0
+ },
+ {
+  "file": "pyrs_nocols.sav",
+  "origin": "pyreadstat",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "pyrs_four_rows.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 8
+ },
+ {
+  "file": "pyrs_vls.sav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 2,
+  "cells": 8
+ },
+ {
+  "file": "pyrs_many_rows.zsav",
+  "origin": "pyreadstat",
+  "codec": "reads",
+  "ncases": 300,
+  "cells": 1200
+ },
+ {
+  "file": "pyrs_ncases_unknown.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 8
+ },
+ {
+  "file": "pyrs_ncases_short.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 3,
+  "cells": 6
+ },
+ {
+  "file": "pyrs_ncases_long.sav",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "synthetic_windows1252.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 12
+ },
+ {
+  "file": "synthetic_windows1252_c1.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 12
+ },
+ {
+  "file": "synthetic_latin1.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 12
+ },
+ {
+  "file": "synthetic_codepage2.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 12
+ },
+ {
+  "file": "synthetic_cp1250.sav",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "synthetic_text_quirks.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 12
+ },
+ {
+  "file": "synthetic_big_endian.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 4,
+  "cells": 8
+ },
+ {
+  "file": "synthetic_big_endian_rows.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 17,
+  "cells": 17
+ },
+ {
+  "file": "synthetic_big_endian_zsav.zsav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 5,
+  "cells": 40
+ },
+ {
+  "file": "synthetic_no_long_names.sav",
+  "origin": "synthetic",
+  "codec": "reads",
+  "ncases": 2,
+  "cells": 4
+ },
+ {
+  "file": "synthetic_encrypted_wrapper.sav",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ }
+]

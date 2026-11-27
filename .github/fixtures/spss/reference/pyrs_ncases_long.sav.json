@@ -1,0 +1,13 @@
+{
+ "file": "pyrs_ncases_long.sav",
+ "origin": "synthetic",
+ "note": "the header declares 6 cases and the data holds 4",
+ "bytes": 516,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": false,
+ "reference_error": "ReadstatError: File did not contain the expected number of rows",
+ "codec": "refuses",
+ "refusal": "ParseError"
+}

@@ -1,0 +1,18 @@
+{
+ "file": "pyrs_allmissing.sav",
+ "origin": "pyreadstat",
+ "note": "a column of nothing but missing values, and one of blank strings",
+ "bytes": 518,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 3,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "allnan", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Null","Null","Null"]},
+  {"name": "blank", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String ","String ","String "]}
+ ],
+ "cells": 6
+}

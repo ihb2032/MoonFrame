@@ -1,0 +1,19 @@
+{
+ "file": "synthetic_latin1.sav",
+ "origin": "synthetic",
+ "note": "re-labelled ISO-8859-1 and its text re-encoded; two C1 bytes planted",
+ "bytes": 671,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 4,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "t8", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String é¥ÿð","String  x","String ü","String "]},
+  {"name": "t12", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String ß ab","String a","String ","String bb"]},
+  {"name": "n", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Null","Float 4008000000000000","Float 4010000000000000"]}
+ ],
+ "cells": 12
+}

@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_windows1252_c1.sav",
+ "origin": "synthetic",
+ "note": "as the windows-1252 file, with two bytes the code page leaves unassigned; the reference reader refuses it",
+ "bytes": 673,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": false,
+ "reference_error": "ReadstatError: Unable to convert string to the requested encoding (invalid byte sequence)",
+ "codec": "reads",
+ "ncases": 4,
+ "sidecar_source": "generator",
+ "columns": [
+  {"name": "t8", "dtype": "String", "format": 1, "source": "generator", "cells": ["String €€","String “”","String  x","String "]},
+  {"name": "t12", "dtype": "String", "format": 1, "source": "generator", "cells": ["String ™Ÿ x","String a","String ","String bb"]},
+  {"name": "n", "dtype": "Float", "format": 5, "source": "generator", "cells": ["Float 3ff0000000000000","Null","Float 4008000000000000","Float 4010000000000000"]}
+ ],
+ "cells": 12
+}

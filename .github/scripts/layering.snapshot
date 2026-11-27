@@ -13,6 +13,9 @@ frame -> internal/scan
 frame -> internal/text
 frame -> series
 frame -> types
+internal/avro -> internal/text
+internal/avro -> series
+internal/avro -> types
 internal/buffer -> types
 internal/column -> internal/buffer
 internal/column -> internal/numeric
@@ -37,6 +40,7 @@ internal/scan -> internal/order
 internal/scan -> series
 internal/scan -> types
 io -> frame
+io -> internal/avro
 io -> internal/ipc
 io -> internal/numeric
 io -> internal/parquet

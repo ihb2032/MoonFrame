@@ -23,10 +23,6 @@ import {
   "moonbitlang/x/fs",
 } for "test"
 
-import {
-  "moonbitlang/core/double",
-} for "wbtest"
-
 // The LZ4 / Zstandard codecs declare the targets they build for, and the
 // build asks every package that depends on one to declare its own.
 

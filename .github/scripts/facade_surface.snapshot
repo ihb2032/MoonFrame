@@ -1024,6 +1024,8 @@ fn lit_str(String) -> @expr.Expr <- root
 fn lit_str(String) -> Expr <- expr
 fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> @expr.Expr <- root
 fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scalar raise @types.DataError) -> Expr <- expr
+fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
@@ -1035,6 +1037,8 @@ fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn plot(@frame.DataFrame) -> @chart.FramePlot <- root
 fn plot(@frame.DataFrame) -> FramePlot <- chart
+fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
@@ -1075,6 +1079,8 @@ fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_r
 fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
+fn write_avro(@frame.DataFrame, String, codec? : @io.AvroCodec) -> Unit raise @types.DataError <- root
+fn write_avro(@frame.DataFrame, String, codec? : AvroCodec) -> Unit raise @types.DataError <- io
 fn write_csv(String, @frame.DataFrame, options? : @io.CsvWriteOptions) -> Unit raise @types.DataError <- root
 fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError <- io
 fn write_excel(@frame.DataFrame, String, options? : @io.ExcelWriteOptions) -> Unit raise @types.DataError <- root
@@ -1116,6 +1122,9 @@ intermediate LazyGroupBy <- frame
 intermediate Plot <- chart
 intermediate WhenThen <- expr
 intermediate WhenThenElse <- expr
+method AvroCodec::equal(Self, Self) -> Bool <- io
+method AvroCodec::not_equal(Self, Self) -> Bool <- io
+method AvroCodec::to_repr(Self) -> @debug.Repr <- io
 method BatchStream::next(Self) -> DataFrame? raise @types.DataError <- frame
 method CellParseLocation::equal(Self, Self) -> Bool <- types
 method CellParseLocation::not_equal(Self, Self) -> Bool <- types
@@ -2292,6 +2301,7 @@ qualified VegaWindowField <- chart
 qualified VegaWindowFieldOp <- chart
 qualified VegaWindowOnlyOp <- chart
 qualified VegaWindowTransform <- chart
+type AvroCodec <- io
 type BatchStream <- frame
 type CellParseLocation <- types
 type Chart <- chart

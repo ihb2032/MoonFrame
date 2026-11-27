@@ -1,3 +1,6 @@
+internal/avro/Codec::equal
+internal/avro/Codec::not_equal
+internal/avro/Codec::to_repr
 internal/buffer/Bitmap::to_repr
 internal/buffer/Utf8Array::to_repr
 internal/column/BuiltinColumn::to_repr

@@ -1,4 +1,5 @@
 import {
+  "ihb2032/MoonFrame/internal/avro",
   "ihb2032/MoonFrame/internal/ipc",
   "ihb2032/MoonFrame/internal/parquet",
   "ihb2032/MoonFrame/internal/scan",

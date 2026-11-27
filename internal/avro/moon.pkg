@@ -1,0 +1,25 @@
+// The codec's dependencies: the value types it maps to, the series
+// constructors it builds columns through, the JSON the schema is written
+// in, the shared UTF-16 guard its string cells pass before encoding, and
+// the block codecs the container rides.
+import {
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/internal/text",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbit-community/flate",
+  "gaato/snappy",
+  "gaato/zstd",
+  "gaato/crc",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+// The backends the package builds for, named because its compression
+// dependencies name their own and the build asks the same of what depends
+// on them.
+
+supported_targets = "js + native + wasm + wasm-gc"

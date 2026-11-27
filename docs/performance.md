@@ -196,6 +196,22 @@ its cells. `write_excel` writes its cells one by one into a workbook the
 library holds in memory and serialises whole at the end: `O(r × c)`
 cells, in memory until the file's one write.
 
+## Avro files
+
+`read_avro` takes the whole file into memory — the format has no footer
+a reader could start from — and then decodes it block by block: a block
+under deflate, snappy, or zstandard inflates into memory under a bound
+(the most a block may inflate to), and is held only as long as its
+records are decoded. Each record's kept fields are decoded cell by cell,
+and a field the projection leaves out is stepped over by its own framing,
+never built into a cell. A file of `r` rows and `c` kept columns costs
+`O(r × c)` cell decodings, plus one walk of every byte the file holds.
+The items of every collection in a file count against one budget, so a
+file cannot ask for a walk out of proportion to its size. `write_avro`
+encodes every cell into one buffer and writes it once: `O(r × c)`
+encodings, in memory until the file's one write, in blocks of ten
+thousand rows.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

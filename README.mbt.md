@@ -14,8 +14,8 @@ read_csv("sales.csv")
   .to_markdown()
 ```
 
-It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Excel I/O and SQL through
-the moondb contract, filtering, sorting, null handling,
+It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel I/O and SQL
+through the moondb contract, filtering, sorting, null handling,
 group-by, joins, summary statistics, a composable expression engine, and a lazy
 query layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts —
 a focused foundation for everyday tabular work, not a full pandas clone.
@@ -148,6 +148,13 @@ same way.
   Zstandard buffer compression optional on a write, and a type with no
   dtype to read as refusing by its column's name. `read_ipc`'s docstring
   states the mapping and the refusals.
+- **Read and write Avro** — `read_avro` reads a file's record as a frame
+  (`parse_avro` for bytes already in memory) and `write_avro` writes one,
+  its blocks stored as encoded or compressed by `AvroCodec` (deflate,
+  snappy, zstandard). A date, a timestamp, and a decimal ride the
+  format's logical types, an enum reads as its symbol, and a list or a
+  struct as the `List` / `Struct` dtypes. `parse_avro`'s docstring states
+  the mapping and the refusals.
 - **Read and write Excel** — `read_excel` reads one sheet of a workbook
   (the first, or the one `ExcelReadOptions` names; `excel_sheets` lists
   them) and `write_excel` writes a frame as one (`parse_excel` for bytes
@@ -365,10 +372,11 @@ internal/order/    shared position primitives — the stable index sort behind e
 internal/ir/       module-internal expression AST — ExprNode + the operator tags, walked by the engine
 internal/parquet/  the native parquet codec — thrift compact metadata, RLE definition levels, PLAIN and dictionary values, snappy / gzip page bodies; wrapped by io's read / write / scan_parquet
 internal/ipc/      the native Arrow IPC codec — hand-written FlatBuffers metadata, the stream and file framings, dictionary batches, LZ4 / Zstandard buffer compression; wrapped by io's read / write / scan_ipc
+internal/avro/     the native Avro codec — the JSON schema with its logical types, the zigzag binary encoding, and the file's blocks under null / deflate / snappy / zstandard; wrapped by io's read / write_avro
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Excel read / write + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel read / write + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

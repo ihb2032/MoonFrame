@@ -17,6 +17,8 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
+pub fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
@@ -28,6 +30,8 @@ pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame ra
 pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -67,6 +71,8 @@ pub fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizatio
 
 pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
+pub fn write_avro(@frame.DataFrame, String, codec? : AvroCodec) -> Unit raise @types.DataError
+
 pub fn write_csv(String, @frame.DataFrame, options? : CsvWriteOptions) -> Unit raise @types.DataError
 
 pub fn write_excel(@frame.DataFrame, String, options? : ExcelWriteOptions) -> Unit raise @types.DataError
@@ -84,6 +90,17 @@ pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfEx
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum AvroCodec {
+  Null
+  Deflate
+  Snappy
+  Zstd
+}
+pub fn AvroCodec::equal(Self, Self) -> Bool
+pub fn AvroCodec::not_equal(Self, Self) -> Bool
+pub fn AvroCodec::to_repr(Self) -> @debug.Repr
+
 pub struct CsvReadOptions {
   has_header : Bool
   delimiter : Char

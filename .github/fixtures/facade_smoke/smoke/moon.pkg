@@ -2,6 +2,7 @@ import {
   "ihb2032/MoonFrame" @moonframe,
   "ihb2032/MoonFrame/io" @io,
   "moonbitstack/moondb",
+  "moonbitlang/x/fs",
 }
 
 // The backends the package builds for, named because a dependency of

@@ -351,6 +351,18 @@ test "sas write and read" {
 }
 
 ///|
+/// The SPSS entries, each named through the facade: a system file of the
+/// reference corpus read from its path, and its bytes parsed in memory.
+test "spss read" {
+  let path = "../spss/reference/pyrs_four_rows.sav"
+  assert_eq(@moonframe.read_spss(path).shape(), (4, 2))
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    _ => b""
+  }
+  assert_eq(@moonframe.parse_spss(bytes).columns(), ["a", "s"])
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

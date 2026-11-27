@@ -1,0 +1,22 @@
+{
+ "file": "root_row.xml",
+ "xpath": "/row",
+ "reference_xpath": "/row",
+ "rows": 1,
+ "columns": [
+  {
+   "name": "id",
+   "dtype": "Int64",
+   "cells": [
+    "Int 1"
+   ]
+  },
+  {
+   "name": "v",
+   "dtype": "string",
+   "cells": [
+    "String a"
+   ]
+  }
+ ]
+}

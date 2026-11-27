@@ -1,0 +1,26 @@
+{
+ "file": "data_items.xml",
+ "xpath": "//item",
+ "reference_xpath": "//item",
+ "rows": 3,
+ "columns": [
+  {
+   "name": "k",
+   "dtype": "Int64",
+   "cells": [
+    "Int 1",
+    "Int 2",
+    "Int 3"
+   ]
+  },
+  {
+   "name": "v",
+   "dtype": "string",
+   "cells": [
+    "String a",
+    "String b",
+    "String c"
+   ]
+  }
+ ]
+}

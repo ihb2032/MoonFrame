@@ -1,0 +1,4 @@
+<records>
+  <row id="1">loose<a>alpha</a><b>beta</b><a>second</a><b></b><c>  </c><id>child-id</id></row>
+  <row id="2"><d>late</d></row>
+</records>

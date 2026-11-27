@@ -1,0 +1,56 @@
+{
+ "file": "mixed.xml",
+ "xpath": "/records/row",
+ "reference_xpath": "/records/row",
+ "rows": 2,
+ "columns": [
+  {
+   "name": "id",
+   "dtype": "string",
+   "cells": [
+    "String child-id",
+    "String 2"
+   ]
+  },
+  {
+   "name": "row",
+   "dtype": "string",
+   "cells": [
+    "String loose",
+    "Null"
+   ]
+  },
+  {
+   "name": "a",
+   "dtype": "string",
+   "cells": [
+    "String second",
+    "Null"
+   ]
+  },
+  {
+   "name": "b",
+   "dtype": "Int64",
+   "cells": [
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "c",
+   "dtype": "string",
+   "cells": [
+    "String   ",
+    "Null"
+   ]
+  },
+  {
+   "name": "d",
+   "dtype": "string",
+   "cells": [
+    "Null",
+    "String late"
+   ]
+  }
+ ]
+}

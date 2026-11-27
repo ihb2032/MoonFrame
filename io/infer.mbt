@@ -1,5 +1,7 @@
 // Shared per-column dtype inference and typed-column construction for the
-// CSV and JSON readers. Both readers walk an abstract "cell source" (a CSV
+// CSV and JSON readers, and — where no dtype can be pinned — for the
+// readers whose cells are text (the XML reader, through
+// `probed_text_column`). Both readers walk an abstract "cell source" (a CSV
 // row matrix indexed by column, or a JSON record array indexed by key) and
 // pick the narrowest dtype that accepts every non-null probe, in the same
 // priority order Int → Float → Bool → String. Factoring the skeleton here
@@ -16,7 +18,8 @@
 //
 // One-file-one-test exemption: this shared inference skeleton has no
 // dedicated test file of its own. (doc-guard: unresolved) It is covered
-// through the CSV / JSON / NDJSON reader blackbox tests that drive it.
+// through the CSV / JSON / NDJSON reader blackbox tests that drive it, and
+// through the XML reader's for `probed_text_column`.
 
 ///|
 const DEFAULT_INFER_SCHEMA_ROWS : Int32 = 100
@@ -476,4 +479,71 @@ fn[Cell] build_decimal_pin_column(
     }
   })
   @series.Series::from_decimals(name, values)
+}
+
+///|
+/// One column of text cells with no dtype pinned, typed by the narrowest
+/// of `Int`, `Float`, `Bool` and `String` that holds every present cell —
+/// the order `infer_dtype` probes in and the CSV reader's default rule (a
+/// `nan` / `inf` spelling is a `Float`), run over every cell at once with
+/// each probe's answer kept, so a cell is parsed once per dtype still in
+/// the running, and none is parsed again once the dtype is settled. An
+/// `Int` cell is held widened for `Float` too, so the column can fall
+/// back to `Float` without a second pass. A column whose cells are all
+/// null is a `String` column, as a probe window of nothing but null cells
+/// leaves `infer_dtype`.
+fn probed_text_column(
+  name : String,
+  cells : Array[String?],
+) -> @series.Series raise @types.DataError {
+  let n = cells.length()
+  let ints : Array[Int64?] = Array::make(n, None)
+  let floats : Array[Double?] = Array::make(n, None)
+  let bools : Array[Bool?] = Array::make(n, None)
+  let mut all_int = true
+  let mut all_float = true
+  let mut all_bool = true
+  let mut saw_any = false
+  for i in 0..<n {
+    let text = match cells[i] {
+      None => continue
+      Some(text) => text
+    }
+    saw_any = true
+    let as_int = if all_int { parse_int_opt(text) } else { None }
+    ints[i] = as_int
+    let int_cell = as_int is Some(_)
+    if all_bool {
+      match parse_bool_opt(text) {
+        Some(value) => bools[i] = Some(value)
+        None => all_bool = false
+      }
+    }
+    if all_float {
+      if int_cell {
+        // Every integer text is a float text too.
+        floats[i] = as_int.map(value => value.to_double())
+      } else {
+        floats[i] = parse_float_opt(text, true)
+        if floats[i] is None {
+          all_float = false
+        }
+      }
+    }
+    if all_int && !int_cell {
+      all_int = false
+    }
+    if !all_int && !all_float && !all_bool {
+      break
+    }
+  }
+  if !saw_any || (!all_int && !all_float && !all_bool) {
+    @series.Series::from_string_options(name, cells)
+  } else if all_int {
+    @series.Series::from_int_options(name, ints)
+  } else if all_float {
+    @series.Series::from_float_options(name, floats)
+  } else {
+    @series.Series::from_bool_options(name, bools)
+  }
 }

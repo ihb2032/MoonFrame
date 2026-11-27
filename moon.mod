@@ -16,6 +16,7 @@ import {
   "gaato/zstd@0.6.1",
   "gaato/snappy@0.1.1",
   "gaato/crc@0.1.1",
+  "Milky2018/xml@0.6.1",
 }
 
 readme = "README.mbt.md"

@@ -29,6 +29,8 @@ pub fn format_vega_html(@frame.DataFrame, @chart.Chart) -> String raise @types.D
 
 pub fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError
 
+pub fn format_xml(@frame.DataFrame, root_name? : String, row_name? : String) -> String raise @types.DataError
+
 pub fn lit(@types.Scalar) -> @expr.Expr
 
 pub fn lit_bool(Bool) -> @expr.Expr
@@ -53,6 +55,8 @@ pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame rai
 
 pub fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
+
 pub fn plot(@frame.DataFrame) -> @chart.FramePlot
 
 pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -74,6 +78,8 @@ pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @fra
 pub fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_stata(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame
 
@@ -120,6 +126,8 @@ pub fn write_stata(@frame.DataFrame, String) -> Unit raise @types.DataError
 pub fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
 
 pub fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
+
+pub fn write_xml(@frame.DataFrame, String, root_name? : String, row_name? : String) -> Unit raise @types.DataError
 
 // Errors
 

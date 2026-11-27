@@ -1,0 +1,89 @@
+{
+ "file": "norows_pandas_v114_le.dta",
+ "writer": "norows pandas v114 le",
+ "release": 114,
+ "byteorder": "LSF",
+ "synthetic": null,
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 0,
+ "columns": [
+  {
+   "name": "tbyte",
+   "storage": "byte",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "tint",
+   "storage": "int",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "tlong",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "tfloat",
+   "storage": "float",
+   "format": "%9.0g",
+   "dtype": "Float",
+   "cells": []
+  },
+  {
+   "name": "tdouble",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": []
+  },
+  {
+   "name": "strf",
+   "storage": "str1",
+   "format": "%1s",
+   "dtype": "String",
+   "cells": []
+  },
+  {
+   "name": "miss",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": []
+  },
+  {
+   "name": "date",
+   "storage": "double",
+   "format": "%tc",
+   "dtype": "Timestamp",
+   "cells": []
+  },
+  {
+   "name": "stamp",
+   "storage": "double",
+   "format": "%tc",
+   "dtype": "Timestamp",
+   "cells": []
+  },
+  {
+   "name": "labelled",
+   "storage": "byte",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "numfmt",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": []
+  }
+ ]
+}

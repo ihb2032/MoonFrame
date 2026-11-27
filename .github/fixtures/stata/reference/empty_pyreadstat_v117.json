@@ -1,0 +1,11 @@
+{
+ "file": "empty_pyreadstat_v117.dta",
+ "writer": "empty pyreadstat v117",
+ "release": 117,
+ "byteorder": "LSF",
+ "synthetic": null,
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 0,
+ "columns": []
+}

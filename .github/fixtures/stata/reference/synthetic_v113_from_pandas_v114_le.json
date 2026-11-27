@@ -1,0 +1,166 @@
+{
+ "file": "synthetic_v113_from_pandas_v114_le.dta",
+ "writer": "pandas_v114_le.dta relaid: release byte 113, twelve-byte format slots",
+ "release": 113,
+ "byteorder": "LSF",
+ "synthetic": "the release byte of the 114 file was rewritten to 113 and every display format slot narrowed from 49 bytes to the 12 release 113 gives it",
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 6,
+ "columns": [
+  {
+   "name": "tbyte",
+   "storage": "byte",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 1",
+    "Int -2",
+    "Int 100",
+    "Int -127",
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "tint",
+   "storage": "int",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 1000",
+    "Int -2000",
+    "Int 32000",
+    "Int -32767",
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "tlong",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 2000000000",
+    "Int -5",
+    "Int 2147483620",
+    "Int -2147483647",
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "tfloat",
+   "storage": "float",
+   "format": "%9.0g",
+   "dtype": "Float",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float c002000000000000",
+    "Float 400921fa00000000",
+    "Float 3bc79ca100000000",
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "tdouble",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Float 3fd5555555555555",
+    "Float c012000000000000",
+    "Float 7e37e43c8800759c",
+    "Float 0000000000000001",
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "strf",
+   "storage": "str13",
+   "format": "%13s",
+   "dtype": "String",
+   "cells": [
+    "String Zoë ñ Ünïcode",
+    "String ",
+    "String plain",
+    "String Zoë ñ Ünïcode",
+    "String x",
+    "String y"
+   ]
+  },
+  {
+   "name": "miss",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Null",
+    "Float 3ff8000000000000",
+    "Null",
+    "Null",
+    "Float 4004000000000000",
+    "Float 400c000000000000"
+   ]
+  },
+  {
+   "name": "date",
+   "storage": "double",
+   "format": "%td",
+   "dtype": "Date",
+   "cells": [
+    "Date -3653",
+    "Date 0",
+    "Date 19782",
+    "Date -25567",
+    "Date 10957",
+    "Date -3653"
+   ]
+  },
+  {
+   "name": "stamp",
+   "storage": "double",
+   "format": "%tc",
+   "dtype": "Timestamp",
+   "cells": [
+    "Timestamp -315619200000000",
+    "Timestamp 0",
+    "Timestamp 1709210096789000",
+    "Timestamp -2208902400001000",
+    "Timestamp 946684800000000",
+    "Timestamp -315619200000000"
+   ]
+  },
+  {
+   "name": "labelled",
+   "storage": "byte",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 1",
+    "Int 2",
+    "Int 1",
+    "Int 3",
+    "Int 2",
+    "Int 1"
+   ]
+  },
+  {
+   "name": "numfmt",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Float 3ff4000000000000",
+    "Float 4004000000000000",
+    "Float c00e000000000000",
+    "Float 4010000000000000",
+    "Float 3fb999999999999a",
+    "Float 3fc999999999999a"
+   ]
+  }
+ ]
+}

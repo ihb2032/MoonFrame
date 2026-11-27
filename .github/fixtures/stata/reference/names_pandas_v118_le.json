@@ -1,0 +1,42 @@
+{
+ "file": "names_pandas_v118_le.dta",
+ "writer": "pandas 3.1.1 DataFrame.to_stata(version=118)",
+ "release": 118,
+ "byteorder": "LSF",
+ "synthetic": null,
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 2,
+ "columns": [
+  {
+   "name": "café",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 1",
+    "Int 2"
+   ]
+  },
+  {
+   "name": "变量",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Float 400c000000000000",
+    "Float 4012000000000000"
+   ]
+  },
+  {
+   "name": "_x1",
+   "storage": "str1",
+   "format": "%1s",
+   "dtype": "String",
+   "cells": [
+    "String a",
+    "String b"
+   ]
+  }
+ ]
+}

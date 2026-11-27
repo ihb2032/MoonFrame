@@ -1,0 +1,62 @@
+{
+ "file": "reserved_pandas_v118_le.dta",
+ "writer": "pandas 3.1.1 DataFrame.to_stata(version=118)",
+ "release": 118,
+ "byteorder": "LSF",
+ "synthetic": "every cell was rewritten after the write: byte -128, int -32768, long -2147483648, float +inf and a plain NaN, double -inf and a plain NaN — each outside the valid range and no missing code",
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False, convert_categoricals=False)",
+ "pyreadstat_agrees": false,
+ "nobs": 2,
+ "columns": [
+  {
+   "name": "tbyte",
+   "storage": "byte",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": [
+    "Null",
+    "Int 0"
+   ]
+  },
+  {
+   "name": "tint",
+   "storage": "int",
+   "format": "%8.0g",
+   "dtype": "Int",
+   "cells": [
+    "Null",
+    "Int 0"
+   ]
+  },
+  {
+   "name": "tlong",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": [
+    "Null",
+    "Int 0"
+   ]
+  },
+  {
+   "name": "tfloat",
+   "storage": "float",
+   "format": "%9.0g",
+   "dtype": "Float",
+   "cells": [
+    "Null",
+    "Null"
+   ]
+  },
+  {
+   "name": "tdouble",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Null",
+    "Null"
+   ]
+  }
+ ]
+}

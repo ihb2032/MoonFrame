@@ -1,0 +1,23 @@
+{
+ "file": "synthetic_v118_latin1_in_utf8.dta",
+ "writer": "pandas 3.1.1 DataFrame.to_stata(version=118)",
+ "release": 118,
+ "byteorder": "LSF",
+ "synthetic": "the first cell of strf was rewritten after the write to Latin-1 bytes",
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False), through its own Latin-1 fallback for text that is not UTF-8",
+ "pyreadstat_agrees": null,
+ "nobs": 3,
+ "columns": [
+  {
+   "name": "strf",
+   "storage": "str11",
+   "format": "%11s",
+   "dtype": "String",
+   "cells": [
+    "String Zoë",
+    "String ",
+    "String plain"
+   ]
+  }
+ ]
+}

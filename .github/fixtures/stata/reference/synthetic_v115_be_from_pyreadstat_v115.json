@@ -1,0 +1,48 @@
+{
+ "file": "synthetic_v115_be_from_pyreadstat_v115.dta",
+ "writer": "pyreadstat_plain_v115.dta, byte-swapped",
+ "release": 115,
+ "byteorder": "MSF",
+ "synthetic": "every multi-byte field of the little-endian file (the variable count, the observation count and the data cells) was byte-swapped and its byte-order flag set to 1",
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 4,
+ "columns": [
+  {
+   "name": "l",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": [
+    "Int 1",
+    "Int -2",
+    "Int 2147483620",
+    "Int -2147483647"
+   ]
+  },
+  {
+   "name": "d",
+   "storage": "double",
+   "format": "%10.0g",
+   "dtype": "Float",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float c002000000000000",
+    "Float 7e37e43c8800759c",
+    "Float 0000000000000001"
+   ]
+  },
+  {
+   "name": "s",
+   "storage": "str16",
+   "format": "%-9s",
+   "dtype": "String",
+   "cells": [
+    "String plain ascii text",
+    "String ",
+    "String x",
+    "String y"
+   ]
+  }
+ ]
+}

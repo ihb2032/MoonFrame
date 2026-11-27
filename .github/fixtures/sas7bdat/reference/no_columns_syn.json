@@ -1,0 +1,1 @@
+{"file":"no_columns_syn.sas7bdat","source":"laid out from scratch by the generator (sas7bdat_build.py): a header and one MIX page of 4096 bytes; 32-bit, little-endian; no column and no row; refused: ParseError: the row length is 0","readable":false,"refusal":{"variant":"ParseError","contains":"the row length is 0"}}

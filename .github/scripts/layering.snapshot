@@ -42,6 +42,9 @@ internal/scan -> types
 internal/stata -> internal/text
 internal/stata -> series
 internal/stata -> types
+internal/xport -> internal/text
+internal/xport -> series
+internal/xport -> types
 io -> frame
 io -> internal/avro
 io -> internal/ipc
@@ -50,6 +53,7 @@ io -> internal/parquet
 io -> internal/scan
 io -> internal/stata
 io -> internal/text
+io -> internal/xport
 io -> series
 io -> types
 root -> chart

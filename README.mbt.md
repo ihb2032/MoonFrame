@@ -15,11 +15,11 @@ read_csv("sales.csv")
 ```
 
 It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
-XML / HTML I/O and SQL through the moondb contract, filtering, sorting,
-null handling, group-by, joins, summary statistics, a composable expression
-engine, and a lazy query layer, and exports to Markdown, HTML, JSON, NDJSON,
-and Vega-Lite charts — a focused foundation for everyday tabular work, not a
-full pandas clone.
+XML / HTML / SAS I/O and SQL through the moondb contract, filtering,
+sorting, null handling, group-by, joins, summary statistics, a composable
+expression engine, and a lazy query layer, and exports to Markdown, HTML,
+JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
+tabular work, not a full pandas clone.
 
 ## Install
 
@@ -182,6 +182,12 @@ same way.
   name the columns, a cell's `rowspan` and `colspan` say how far it
   reaches, and each column takes the narrowest dtype holding its values.
   `parse_html`'s docstring states the rules.
+- **Read and write SAS transport files** — `read_sas` reads a Version 5
+  transport file (XPORT) as a frame (`parse_sas` for bytes already in
+  memory) and `write_sas` writes one, over a codec inside the module. The
+  file's numbers read as `Float`, a variable under a date format as a
+  `Date` or a `Timestamp`, and the 28 missing spellings as nulls.
+  `parse_sas`'s docstring states the mapping and the refusals.
 - **Read and write a database** — `read_sql(driver, sql, params~)` runs a
   query through any moondb driver and answers a frame, `read_sql_table`
   reads one table whole, `write_sql(df, driver, table, if_exists~)`
@@ -393,10 +399,11 @@ internal/parquet/  the native parquet codec — thrift compact metadata, RLE def
 internal/ipc/      the native Arrow IPC codec — hand-written FlatBuffers metadata, the stream and file framings, dictionary batches, LZ4 / Zstandard buffer compression; wrapped by io's read / write / scan_ipc
 internal/avro/     the native Avro codec — the JSON schema with its logical types, the zigzag binary encoding, and the file's blocks under null / deflate / snappy / zstandard; wrapped by io's read / write_avro
 internal/stata/    the native Stata codec — the binary and tagged headers of releases 113 to 119, the row-major data block, and the long-string table; wrapped by io's read / write_stata
+internal/xport/   the native SAS transport codec — the Version 5 header records, the NAMESTR descriptors, the row-major observations, and the IBM floating point a numeric cell spells; wrapped by io's read / write_sas
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

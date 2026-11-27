@@ -72,12 +72,13 @@ pub fn sink_parquet(
 /// batch: the header (when `options.header`) rides the first batch and
 /// never repeats, and each batch's rows render through the same
 /// quoting / null / formula-sanitising rules `format_csv` spells — the
-/// file is byte-for-byte `format_csv(collect())` for the same options.
-/// A plan whose result is no batch at all (an empty read) writes the
-/// empty file. Raises the read's own `DataError` and the writer's own
-/// (the delimiter refusal, the rows-but-no-columns shape), plus the
-/// file write's `IoError`. Nothing is read until the first batch is
-/// pulled.
+/// file is byte-for-byte `format_csv(collect())` for the same options. A
+/// plan that answers no row writes the header alone — with no column at
+/// all, the header's bare line terminator — and nothing at all when
+/// `options.header` is off. Raises the read's own
+/// `DataError` and the writer's own (the delimiter refusal, the
+/// rows-but-no-columns shape), plus the file write's `IoError`. Nothing
+/// is read until the first batch is pulled.
 ///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
@@ -126,11 +127,12 @@ pub fn sink_csv(
 /// the first batch's too: a later batch whose decimal cells need a wider
 /// window refuses rather than narrowing. `format` picks the framing (the
 /// file format by default) and `compression` the codec every buffer is
-/// compressed with. A plan whose result is no batch at all writes a
-/// payload of an empty schema. Raises the read's own `DataError` — the
-/// same error, on the same first offending batch, `collect` would raise —
-/// plus the writer's own refusals and the file write's `IoError`. Nothing
-/// is read until the first batch is pulled.
+/// compressed with. A plan that answers no row writes the payload of its
+/// columns' schema, an empty schema when there is no column. Raises the
+/// read's own `DataError` — the same error, on the same first offending
+/// batch, `collect` would raise — plus the writer's own refusals and the
+/// file write's `IoError`. Nothing is read until the first batch is
+/// pulled.
 ///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.

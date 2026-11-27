@@ -344,6 +344,24 @@ here today:
   claims. `match`, `attrs`, `header`, `skiprows`, `converters`, and
   `extract_links` are not carried, and there is no `to_html` round trip:
   `to_html` renders a frame for display.
+
+- **SAS transport files** — `read_sas` reads a Version 5 transport file
+  (XPORT) as a frame and `write_sas` writes one, over a codec inside the
+  module, where pandas' `read_sas` reads a transport file or a `sas7bdat`
+  data set and has no writer; Polars' I/O reference carries no SAS entry.
+  A numeric variable reads as `Float` and the 28 missing spellings as
+  nulls in both. A variable under a date format reads as a `Date`, under
+  a time or a datetime format as a `Timestamp` — only while every present
+  cell is a whole number of the unit, one that is not leaving the column
+  `Float` — where pandas' transport reader leaves every numeric column a
+  float. The observations end at the last byte that is not a blank, where
+  pandas counts blank groups in the last record and can drop or invent
+  rows; a cell of eight zero bytes reads 0.0, where pandas reads 2^-260;
+  a 56-bit fraction is rounded to the nearest double, where pandas cuts
+  it. A name is written as spelled where the format's writers fold case,
+  and two that differ only in case are refused. Nothing but the columns
+  is carried: no label, no format other than the two the dates ride, no
+  informat, and a timestamp of constants.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

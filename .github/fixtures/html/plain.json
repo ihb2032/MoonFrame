@@ -1,0 +1,60 @@
+{
+ "file": "plain.html",
+ "tables": [
+  {
+   "columns": [
+    {
+     "name": "Item",
+     "dtype": "str",
+     "cells": [
+      "String apple",
+      "String café au lait",
+      "String pear",
+      "String <unit> €4 🍎"
+     ]
+    },
+    {
+     "name": "Qty",
+     "dtype": "float64",
+     "cells": [
+      "Float 4008000000000000",
+      "Float 4093480000000000",
+      "Null",
+      "Float 4340000000000000"
+     ]
+    },
+    {
+     "name": "Price",
+     "dtype": "float64",
+     "cells": [
+      "Float 3ff8000000000000",
+      "Float 3fd0000000000000",
+      "Float c01c000000000000",
+      "Float 408f400000000000"
+     ]
+    },
+    {
+     "name": "Note",
+     "dtype": "str",
+     "cells": [
+      "String fresh & crisp",
+      "String hot large",
+      "String spread over  three lines",
+      "String padded"
+     ]
+    },
+    {
+     "name": "Ok",
+     "dtype": "str",
+     "cells": [
+      "String yes",
+      "String no",
+      "Null",
+      "Null"
+     ]
+    }
+   ],
+   "rows": 4
+  }
+ ]
+}

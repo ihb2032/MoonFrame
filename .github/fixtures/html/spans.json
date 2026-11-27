@@ -1,0 +1,62 @@
+{
+ "file": "spans.html",
+ "tables": [
+  {
+   "columns": [
+    {
+     "name": [
+      "Region",
+      "Region"
+     ],
+     "dtype": "str",
+     "cells": [
+      "String north",
+      "String north",
+      "String north",
+      "String south"
+     ]
+    },
+    {
+     "name": [
+      "Q1",
+      "a"
+     ],
+     "dtype": "str",
+     "cells": [
+      "String 1",
+      "String 4",
+      "String wide cell",
+      "String 7"
+     ]
+    },
+    {
+     "name": [
+      "Q1",
+      "b"
+     ],
+     "dtype": "str",
+     "cells": [
+      "String 2",
+      "String 5",
+      "String wide cell",
+      "String 8"
+     ]
+    },
+    {
+     "name": [
+      "Q2",
+      "c"
+     ],
+     "dtype": "str",
+     "cells": [
+      "String 3",
+      "String 6",
+      "String wide cell",
+      "String 9"
+     ]
+    }
+   ],
+   "rows": 4
+  }
+ ]
+}

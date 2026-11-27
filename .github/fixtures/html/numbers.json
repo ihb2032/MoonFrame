@@ -1,0 +1,127 @@
+{
+ "file": "numbers.html",
+ "tables": [
+  {
+   "columns": [
+    {
+     "name": "thousands",
+     "dtype": "int64",
+     "cells": [
+      "Int 1234567",
+      "Int 1234",
+      "Int 123"
+     ]
+    },
+    {
+     "name": "float",
+     "dtype": "float64",
+     "cells": [
+      "Float 3ff8000000000000",
+      "Float bfd0000000000000",
+      "Float 3fe0000000000000"
+     ]
+    },
+    {
+     "name": "neg",
+     "dtype": "int64",
+     "cells": [
+      "Int -7",
+      "Int 2",
+      "Int 0"
+     ]
+    },
+    {
+     "name": "whole",
+     "dtype": "float64",
+     "cells": [
+      "Float 4008000000000000",
+      "Float 4010000000000000",
+      "Float 4014000000000000"
+     ]
+    },
+    {
+     "name": "blank",
+     "dtype": "str",
+     "cells": [
+      "Null",
+      "String x",
+      "String y"
+     ]
+    },
+    {
+     "name": "dash",
+     "dtype": "str",
+     "cells": [
+      "String -",
+      "String +",
+      "Null"
+     ]
+    },
+    {
+     "name": "truth",
+     "dtype": "bool",
+     "cells": [
+      "Bool true",
+      "Bool false",
+      "Bool true"
+     ]
+    },
+    {
+     "name": "padded",
+     "dtype": "int64",
+     "cells": [
+      "Int 12",
+      "Int 3",
+      "Int 5"
+     ]
+    },
+    {
+     "name": "signed",
+     "dtype": "int64",
+     "cells": [
+      "Int 12",
+      "Int -4",
+      "Int 6"
+     ]
+    },
+    {
+     "name": "exp",
+     "dtype": "float64",
+     "cells": [
+      "Float 40b3880000000000",
+      "Float 3f50624dd2f1a9fc",
+      "Float 4069000000000000"
+     ]
+    },
+    {
+     "name": "text",
+     "dtype": "str",
+     "cells": [
+      "String $5",
+      "String 50%",
+      "String (4)"
+     ]
+    },
+    {
+     "name": "missing",
+     "dtype": "float64",
+     "cells": [
+      "Null",
+      "Null",
+      "Null"
+     ]
+    },
+    {
+     "name": "nullish",
+     "dtype": "float64",
+     "cells": [
+      "Null",
+      "Null",
+      "Null"
+     ]
+    }
+   ],
+   "rows": 3
+  }
+ ]
+}

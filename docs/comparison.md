@@ -298,6 +298,18 @@ here today:
   (there is no binary column), a decimal past 34 significant digits. A
   time of day reads as the instant on the epoch day, the library having
   no time-of-day type. There is no lazy source: a file is read whole.
+- **Stata** — `read_stata` reads a dataset as a frame and `write_stata`
+  writes one, over a codec inside the module, where pandas carries its
+  own reader and writer; Polars' I/O reference carries no Stata entry.
+  Releases 113 to 119 read in either byte order and 118 is written. A
+  numeric cell outside its storage's valid range reads as missing, the
+  rule pandas' reader applies, and a variable under a date format reads
+  as a `Date` or a `Timestamp`. Value labels are not applied — there is
+  no categorical dtype — so a labelled variable reads as the numbers it
+  stores, where pandas' `convert_categoricals` builds one. A name is
+  never changed: a write refuses a name the format forbids (one to 32 of
+  letters, digits and `_`, not opening with a digit, not a reserved word,
+  not repeated). There is no chunked or iterated read.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

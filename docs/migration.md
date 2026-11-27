@@ -28,13 +28,17 @@ Source-level note:
   `write_excel`, and the option types `ExcelReadOptions` /
   `ExcelWriteOptions` their optional parameters take. No existing call
   changes.
-- MoonFrame depends on `gaato/lz4` and `gaato/zstd`, the LZ4 / Zstandard
-  codecs a compressed IPC buffer goes through. The two declare the
-  backends they build for, and `moon` asks a package that depends on one
-  declaring them to declare its own: MoonFrame's packages name the set
-  `moon.mod` already names, and a package importing the facade is asked
-  the same — one `supported_targets` line in its `moon.pkg` answers the
-  advisory.
+- Avro joins the facade: `read_avro` / `parse_avro` / `write_avro`, and
+  the option enum `AvroCodec` that `write_avro` takes. No existing call
+  changes.
+- MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
+  `gaato/crc`, and `moonbit-community/flate`: the LZ4 / Zstandard / snappy
+  codecs, the CRC-32 behind a snappy block's checksum, and the raw DEFLATE
+  an Avro block goes through. They declare the backends they build for,
+  and `moon` asks a package that depends on one declaring them to declare
+  its own: MoonFrame's packages name the set `moon.mod` already names,
+  and a package importing the facade is asked the same — one
+  `supported_targets` line in its `moon.pkg` answers the advisory.
 
 What changed on `main` since 0.9.0:
 
@@ -124,6 +128,15 @@ What changed on `main` since 0.9.0:
   serials under date formats, text as text whatever it spells, and a
   `Duration`, a `Decimal`, a list, and a struct as their text forms.
   `read_excel`'s and `write_excel`'s docstrings state the two contracts.
+- Avro files read and write over a codec inside the module
+  (`internal/avro`). `read_avro` takes the file's record as the frame's
+  columns, its blocks stored as encoded or compressed by deflate, snappy,
+  or zstandard; a date, a timestamp, and a decimal ride the format's
+  logical types, an enum reads as its symbol, and a list or a struct as
+  the `List` / `Struct` dtypes. `write_avro` writes every field as a
+  nullable union, in blocks of ten thousand rows, and the same frame
+  writes the same file. `parse_avro`'s docstring states the mapping and
+  the refusals.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

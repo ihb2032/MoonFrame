@@ -286,6 +286,18 @@ here today:
   are, since the same format id is a date in one workbook and an
   accounting format in another's. A column takes the narrowest dtype
   holding every value in it, the CSV reader's rule.
+- **Avro** — `read_avro` reads a file's record as a frame and
+  `write_avro` writes one, over a codec inside the module, as Polars'
+  `read_avro` / `write_avro` do; pandas' I/O reference carries no Avro
+  entry. A file's blocks are stored as encoded or compressed by deflate,
+  snappy, or zstandard, and under another codec the read refuses by the
+  codec's name. Where the format says more than a column holds, the
+  mapping refuses rather than reading approximately: a nanosecond
+  timestamp (a timestamp here holds microseconds), a union of more than a
+  null and one type, a `bytes` or fixed field that is not a decimal
+  (there is no binary column), a decimal past 34 significant digits. A
+  time of day reads as the instant on the epoch day, the library having
+  no time-of-day type. There is no lazy source: a file is read whole.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

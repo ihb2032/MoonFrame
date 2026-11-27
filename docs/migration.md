@@ -34,9 +34,11 @@ Source-level note:
 - Stata joins the facade: `read_stata` / `parse_stata` / `write_stata`,
   over packages the module already depends on. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
-  `gaato/crc`, and `moonbit-community/flate`: the LZ4 / Zstandard / snappy
-  codecs, the CRC-32 behind a snappy block's checksum, and the raw DEFLATE
-  an Avro block goes through. They declare the backends they build for,
+  `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
+  Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
+  the raw DEFLATE an Avro block goes through, and the event reader and
+  escaper the XML interchange rides — the last declaring no backends and
+  asking for none. The three codecs declare the backends they build for,
   and `moon` asks a package that depends on one declaring them to declare
   its own: MoonFrame's packages name the set `moon.mod` already names,
   and a package importing the facade is asked the same — one
@@ -150,6 +152,16 @@ What changed on `main` since 0.9.0:
   past the `long` storage as `Float`, a NaN as missing, a missing string
   cell as the empty string, and a `Null` column as an all-missing `Float`
   column. `parse_stata`'s docstring states the mapping and the refusals.
+
+- XML documents read and write over an event reader (`Milky2018/xml`) in
+  `read_xml` and `write_xml`. A path names the rows — from the document
+  element, from its children, or at any depth below it — and a row's
+  columns are its attributes, its own text, and its direct child elements;
+  each column takes the narrowest dtype holding its values. A document
+  declares its encoding, and UTF-8, UTF-16, and ISO-8859-1 read.
+  `write_xml` lays a frame out in the same shape, a missing cell an empty
+  element. `parse_xml`'s and `format_xml`'s docstrings state the two
+  contracts.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

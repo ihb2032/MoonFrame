@@ -310,6 +310,23 @@ here today:
   never changed: a write refuses a name the format forbids (one to 32 of
   letters, digits and `_`, not opening with a digit, not a reserved word,
   not repeated). There is no chunked or iterated read.
+
+- **XML** — `read_xml` reads the elements a path names as the rows of a
+  frame and `write_xml` writes one back, over an event reader, where
+  pandas' `read_xml` / `to_xml` ride lxml or ElementTree; Polars' I/O
+  reference carries no XML entry. A row's columns are its attributes, its
+  own text, and its direct child elements — the cells pandas takes — and
+  a path is element names and `*`, from the document element, from its
+  children, or at any depth below it, where pandas takes XPath. A cell's
+  text has the whitespace around it cut, where pandas keeps it; a column
+  takes the narrowest dtype holding its values by the CSV reader's rule,
+  where pandas infers its own (a `NaN` text is a missing cell there and a
+  `Float` cell here, and a column of nothing but missing cells is numeric
+  there and `String` here); and a path that selects nothing reads as a
+  frame of no row, where pandas raises. A document's declared encoding is
+  UTF-8, UTF-16, or ISO-8859-1, or it refuses by name, where pandas decodes
+  what its codecs carry. No stylesheet is applied and there is no iterated
+  read.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

@@ -1010,6 +1010,8 @@ fn format_vega_html(@frame.DataFrame, @chart.Chart) -> String raise @types.DataE
 fn format_vega_html(@frame.DataFrame, Chart) -> String raise @types.DataError <- chart
 fn format_vega_lite(@frame.DataFrame, @chart.Chart) -> String raise @types.DataError <- root
 fn format_vega_lite(@frame.DataFrame, Chart) -> String raise @types.DataError <- chart
+fn format_xml(@frame.DataFrame, root_name? : String, row_name? : String) -> String raise @types.DataError <- io
+fn format_xml(@frame.DataFrame, root_name? : String, row_name? : String) -> String raise @types.DataError <- root
 fn lit(@types.Scalar) -> @expr.Expr <- root
 fn lit(@types.Scalar) -> Expr <- expr
 fn lit_bool(Bool) -> @expr.Expr <- root
@@ -1033,6 +1035,8 @@ fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise 
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError <- root
 fn plot(@frame.DataFrame) -> @chart.FramePlot <- root
 fn plot(@frame.DataFrame) -> FramePlot <- chart
 fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- root
@@ -1051,6 +1055,8 @@ fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.D
 fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
+fn read_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError <- io
+fn read_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
 fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
 fn scan_ipc(String) -> @frame.LazyFrame <- io
@@ -1093,6 +1099,8 @@ fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.
 fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_lite(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
+fn write_xml(@frame.DataFrame, String, root_name? : String, row_name? : String) -> Unit raise @types.DataError <- io
+fn write_xml(@frame.DataFrame, String, root_name? : String, row_name? : String) -> Unit raise @types.DataError <- root
 impl @debug.Debug for Expr <- expr
 impl @shrink.Shrink for Dec128 <- types
 impl Add for Expr <- expr

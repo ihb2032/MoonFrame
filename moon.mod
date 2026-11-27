@@ -13,6 +13,7 @@ import {
   "moonbitlang/mbtexcel@0.3.2",
   "gaato/lz4@0.1.1",
   "gaato/zstd@0.6.1",
+  "Milky2018/xml@0.6.1",
 }
 
 readme = "README.mbt.md"

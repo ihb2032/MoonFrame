@@ -158,9 +158,11 @@ pub using @io {
   type ParquetCodec,
   type SqlIfExists,
   excel_sheets,
+  format_xml,
   parse_excel,
   parse_ipc,
   parse_parquet,
+  parse_xml,
   read_csv,
   read_excel,
   read_ipc,
@@ -169,6 +171,7 @@ pub using @io {
   read_parquet,
   read_sql,
   read_sql_table,
+  read_xml,
   scan_csv,
   scan_ipc,
   scan_json,
@@ -187,6 +190,7 @@ pub using @io {
   write_ndjson,
   write_parquet,
   write_sql,
+  write_xml,
 }
 
 ///|

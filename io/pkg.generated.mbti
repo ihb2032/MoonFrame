@@ -17,6 +17,8 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
+pub fn format_xml(@frame.DataFrame, root_name? : String, row_name? : String) -> String raise @types.DataError
+
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
@@ -28,6 +30,8 @@ pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame ra
 pub fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
@@ -44,6 +48,8 @@ pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame rai
 pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 
@@ -80,6 +86,8 @@ pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError
 
 pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfExists) -> Unit raise @types.DataError
+
+pub fn write_xml(@frame.DataFrame, String, root_name? : String, row_name? : String) -> Unit raise @types.DataError
 
 // Errors
 

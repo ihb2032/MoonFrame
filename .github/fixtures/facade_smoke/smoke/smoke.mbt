@@ -261,6 +261,21 @@ test "excel write and read" {
 }
 
 ///|
+/// The XML entries, each named through the facade: a frame written as a
+/// document, the document read back from a path, and its text parsed
+/// under a path of the caller's.
+test "xml write and read" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1, 2]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  @moonframe.write_xml(df, "_build/smoke.xml")
+  assert_eq(@moonframe.read_xml("_build/smoke.xml").shape(), (2, 2))
+  let text : String = @moonframe.format_xml(df)
+  assert_eq(@moonframe.parse_xml(text, xpath="/data/row").shape(), (2, 2))
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

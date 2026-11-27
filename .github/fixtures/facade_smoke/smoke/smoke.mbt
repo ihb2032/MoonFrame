@@ -276,6 +276,23 @@ test "xml write and read" {
 }
 
 ///|
+/// The HTML entries, each named through the facade: a page's two tables
+/// read from its text, a frame a table.
+test "html read" {
+  let page : String =
+    #|<html><body><p>a page</p>
+    #|<table><tr><th>id</th><th>name</th></tr><tr><td>1</td><td>a</td></tr></table>
+    #|<table><tr><td>x</td></tr><tr><td>y</td></tr></table>
+    #|</body></html>
+  let tables = @moonframe.parse_html(page)
+  assert_eq(tables.length(), 2)
+  assert_eq(tables[0].columns(), ["id", "name"])
+  assert_eq(tables[1].shape(), (2, 1))
+  let read : @moonframe.DataFrame = @moonframe.parse_html(page)[0]
+  assert_eq(read.shape(), (1, 2))
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

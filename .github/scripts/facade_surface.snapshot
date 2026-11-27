@@ -1029,6 +1029,8 @@ fn map_many(label~ : String, Array[Expr], (Array[@types.Scalar]) -> @types.Scala
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- io
+fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- root
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
@@ -1043,6 +1045,8 @@ fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @ty
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- io
+fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- root
 fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root

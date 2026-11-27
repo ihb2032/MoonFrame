@@ -47,6 +47,8 @@ pub fn map_many(label~ : String, Array[@expr.Expr], (Array[@types.Scalar]) -> @t
 
 pub fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
+
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -58,6 +60,8 @@ pub fn plot(@frame.DataFrame) -> @chart.FramePlot
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 

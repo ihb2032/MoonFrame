@@ -23,6 +23,8 @@ pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[Stri
 
 pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
+
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError
@@ -36,6 +38,8 @@ pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataE
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 

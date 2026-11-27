@@ -1,0 +1,12 @@
+{
+ "file": "badutf8_syn.xpt",
+ "writer": "this script",
+ "note": "a character cell holding 0xE9, which is not UTF-8",
+ "readable": false,
+ "refusal": {
+  "variant": "ParseError",
+  "contains": "not well-formed UTF-8"
+ },
+ "rows": 0,
+ "columns": []
+}

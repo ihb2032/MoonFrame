@@ -1,0 +1,12 @@
+{
+ "file": "v8_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=8)",
+ "note": "Version 8: its header records name it",
+ "readable": false,
+ "refusal": {
+  "variant": "Unsupported",
+  "contains": "a later version of the transport format"
+ },
+ "rows": 0,
+ "columns": []
+}

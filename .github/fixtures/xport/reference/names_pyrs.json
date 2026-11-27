@@ -1,0 +1,220 @@
+{
+ "file": "names_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=5)",
+ "note": "names as spelled, at eight characters and with every kind of character",
+ "readable": true,
+ "refusal": null,
+ "rows": 2,
+ "columns": [
+  {
+   "name": "Mixed",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "lower",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "UPPER9ch",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "a_1",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "_x",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "A1b2C3d4",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  },
+  {
+   "name": "x",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 0000000000000000",
+    "Float 0000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 2fb0000000000000",
+     "Float 2fb0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 2,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 2
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 2
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 2
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 2,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

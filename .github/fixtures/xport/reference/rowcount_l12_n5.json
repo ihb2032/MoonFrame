@@ -1,0 +1,90 @@
+{
+ "file": "rowcount_l12_n5.xpt",
+ "writer": "this script",
+ "note": "blank padding against blank cells: the file holds N rows, and the last row of blank character cells reads as padding",
+ "readable": true,
+ "refusal": null,
+ "rows": 5,
+ "columns": [
+  {
+   "name": "n",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 3ff0000000000000",
+    "Float 3ff0000000000000",
+    "Float 3ff0000000000000",
+    "Float 3ff0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 4,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 3ff0000000000000",
+     "Float 3ff0000000000000",
+     "Float 3ff0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 5
+   }
+  },
+  {
+   "name": "s",
+   "kind": "char",
+   "format": "",
+   "width": 4,
+   "dtype": "String",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "String a",
+    "String b",
+    "String c",
+    "String d",
+    "String "
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 4,
+    "cells": [
+     "String a",
+     "String b",
+     "String c",
+     "String d"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "String",
+    "rows": 5
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 4
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 5
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 1,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

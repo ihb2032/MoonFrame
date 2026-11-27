@@ -1,0 +1,96 @@
+{
+ "file": "datetimes_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=5)",
+ "note": "datetime64[us] under the DATETIME format: whole and fractional seconds, before 1970, a missing cell",
+ "readable": true,
+ "refusal": null,
+ "rows": 6,
+ "columns": [
+  {
+   "name": "t",
+   "kind": "num",
+   "format": "DATETIME",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 0",
+    "Timestamp 315619200789000",
+    "Timestamp 1709201696789000",
+    "Timestamp -1",
+    "Timestamp 315619200000000",
+    "Timestamp 16725225600000000"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 6,
+    "cells": [
+     "Float 41b2cff780000000",
+     "Float 41c2cff78064fdf4",
+     "Float 41de2c1428327efa",
+     "Float 41b2cff77fffffef",
+     "Float 41c2cff780000000",
+     "Float 420fbdb540000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 6
+   }
+  },
+  {
+   "name": "u",
+   "kind": "num",
+   "format": "DATETIME",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 1000000",
+    "Timestamp -1000000",
+    "Null",
+    "Timestamp 0",
+    "Timestamp 315619200000000",
+    "Timestamp 86400000000"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 6,
+    "cells": [
+     "Float 41b2cff781000000",
+     "Float 41b2cff77f000000",
+     "Float 7ff8000000000000",
+     "Float 41b2cff780000000",
+     "Float 41c2cff780000000",
+     "Float 41b2d14900000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 6
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 6
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 6
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

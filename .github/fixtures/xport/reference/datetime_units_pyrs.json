@@ -1,0 +1,105 @@
+{
+ "file": "datetime_units_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=5)",
+ "note": "datetime64[s] and [ms]; the reference writer spells a timedelta as character text",
+ "readable": true,
+ "refusal": null,
+ "rows": 2,
+ "columns": [
+  {
+   "name": "sec",
+   "kind": "num",
+   "format": "DATETIME",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 315619200000000",
+    "Timestamp 0"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 1,
+    "cells": [
+     "Float 41c2cff780000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 2
+   }
+  },
+  {
+   "name": "ms",
+   "kind": "num",
+   "format": "DATETIME",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 315619200000000",
+    "Timestamp 5000"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 1,
+    "cells": [
+     "Float 41c2cff780000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 2
+   }
+  },
+  {
+   "name": "span",
+   "kind": "char",
+   "format": "",
+   "width": 22,
+   "dtype": "String",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "String 0 days 00:00:01.500000",
+    "String "
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 1,
+    "cells": [
+     "String 0 days 00:00:01.500000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "String",
+    "rows": 2
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 1
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 2
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 1,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

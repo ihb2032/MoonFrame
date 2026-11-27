@@ -1,0 +1,62 @@
+{
+ "file": "text_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=5)",
+ "note": "UTF-8 text: two, three and four bytes a character, empty, outer blanks, 200 bytes",
+ "readable": true,
+ "refusal": null,
+ "rows": 7,
+ "columns": [
+  {
+   "name": "s",
+   "kind": "char",
+   "format": "",
+   "width": 200,
+   "dtype": "String",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "String é",
+    "String 日本語😀",
+    "String a",
+    "String ",
+    "String  leading",
+    "String trailing",
+    "String xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 7,
+    "cells": [
+     "String é",
+     "String 日本語😀",
+     "String a",
+     "String ",
+     "String  leading",
+     "String trailing",
+     "String xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "String",
+    "rows": 7
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 7
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 7
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

@@ -1,0 +1,326 @@
+{
+ "file": "formats_syn.xpt",
+ "writer": "this script",
+ "note": "display formats the reference writer does not attach: letter-suffixed names, a width inside the name, lower case, an unknown name",
+ "readable": true,
+ "refusal": null,
+ "rows": 3,
+ "columns": [
+  {
+   "name": "f_ddmmyy",
+   "kind": "num",
+   "format": "DDMMYYB",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "Date",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_date9",
+   "kind": "num",
+   "format": "DATE9",
+   "width": 8,
+   "dtype": "Date",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Date -3652",
+    "Date -3651",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Date",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_timex",
+   "kind": "num",
+   "format": "TIMEX",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_wkdatx",
+   "kind": "num",
+   "format": "WEEKDATE",
+   "width": 8,
+   "dtype": "Date",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Date -3652",
+    "Date -3651",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Date",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_e8601",
+   "kind": "num",
+   "format": "E8601DT",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp -315532800000000",
+    "Timestamp -315619198500000",
+    "Null"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 40f5180000000000",
+     "Float 3ff8000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_b8601",
+   "kind": "num",
+   "format": "B8601DN",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp -315619200000000",
+    "Timestamp -315619198000000",
+    "Null"
+   ],
+   "pandas_from": 315619200000000,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 2fb0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 1,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_hour",
+   "kind": "num",
+   "format": "HOUR",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 7200000000",
+    "Timestamp 1000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 40bc200000000000",
+     "Float 3ff0000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_tod",
+   "kind": "num",
+   "format": "TOD",
+   "width": 8,
+   "dtype": "Timestamp",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Timestamp 43200000000",
+    "Timestamp 1000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 40e5180000000000",
+     "Float 3ff0000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Timestamp",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_lower",
+   "kind": "num",
+   "format": "date",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f_unknow",
+   "kind": "num",
+   "format": "FOO",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000",
+    "Null"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000",
+     "Float 7ff8000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 3
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 3
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 1,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [
+   "f_ddmmyy"
+  ],
+  "pandas_disagreements": []
+ }
+}

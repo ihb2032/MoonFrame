@@ -1,0 +1,122 @@
+{
+ "file": "missing_syn.xpt",
+ "writer": "this script",
+ "note": "the 28 missing spellings, then lookalikes that are numbers: '.' with a nonzero tail, 0xC1, two unnormalized zeros, and the two spellings the reference writer uses for infinity",
+ "readable": true,
+ "refusal": null,
+ "rows": 35,
+ "columns": [
+  {
+   "name": "m",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Null",
+    "Float 37f0000000000000",
+    "Float 8000000000000000",
+    "Float 0000000000000000",
+    "Float 8000000000000000",
+    "Float 4fb0000000000000",
+    "Float cfb0000000000000",
+    "Float 3ff0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 35,
+    "cells": [
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 7ff8000000000000",
+     "Float 3b30000000000001",
+     "Float bff0000000000000",
+     "Float 3fb0000000000000",
+     "Float afb0000000000000",
+     "Float 4fafffffffffffff",
+     "Float cfafffffffffffff",
+     "Float 3ff0000000000000"
+    ],
+    "agrees": false,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "Float",
+    "rows": 35
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 35
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 35
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [
+   "m"
+  ],
+  "pandas_disagreements": [
+   "m"
+  ]
+ }
+}

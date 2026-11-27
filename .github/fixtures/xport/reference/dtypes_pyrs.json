@@ -1,0 +1,234 @@
+{
+ "file": "dtypes_pyrs.xpt",
+ "writer": "pyreadstat 1.3.8 write_xport(file_format_version=5)",
+ "note": "every integer width, float32 and bool; all reach the file as 8-byte numbers",
+ "readable": true,
+ "refusal": null,
+ "rows": 3,
+ "columns": [
+  {
+   "name": "i8",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float c000000000000000",
+    "Float 0000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float c000000000000000",
+     "Float 2fb0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 1,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "i16",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 4072c00000000000",
+    "Float c072c00000000000",
+    "Float 0000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 4072c00000000000",
+     "Float c072c00000000000",
+     "Float 2fb0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 1,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "i32",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 40f1170000000000",
+    "Float c0f1170000000000",
+    "Float 3ff0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 40f1170000000000",
+     "Float c0f1170000000000",
+     "Float 3ff0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "i64",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 4330000000000000",
+    "Float c330000000000000",
+    "Float 3ff0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 4330000000000000",
+     "Float c330000000000000",
+     "Float 3ff0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "u8",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 4069000000000000",
+    "Float 3ff0000000000000",
+    "Float 0000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 4069000000000000",
+     "Float 3ff0000000000000",
+     "Float 2fb0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 1,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "f32",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float c004000000000000",
+    "Float 3fe0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float c004000000000000",
+     "Float 3fe0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "b",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 0000000000000000",
+    "Float 3ff0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 2fb0000000000000",
+     "Float 3ff0000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 1,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 3
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 3
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 4,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

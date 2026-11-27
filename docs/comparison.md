@@ -370,6 +370,29 @@ here today:
   kept here. Nothing but the columns is carried out of a transport file:
   no label, no format other than the two the dates ride, no informat, and
   a timestamp of constants.
+- **SPSS system files** — `read_spss` reads a system file as a frame over
+  a codec inside the module, as pandas' `read_spss` does — which rides
+  pyreadstat; Polars' I/O reference carries no SPSS entry. The format is
+  read only here, as in both: pyreadstat's writer is not wrapped. The
+  file's three layouts read — plain, bytecode-compressed, and the
+  zlib-compressed `.zsav` — in either byte order. A numeric variable
+  reads as `Float`, the system-missing value and a declared missing value
+  as null, and a string variable as `String` in both; pandas also offers
+  `convert_categoricals`, which is not carried: a labelled variable reads
+  as the numbers it stores. A variable under a date format reads as a
+  `Date`, under a datetime or a time format as a `Timestamp` — only while
+  every present cell is a whole number of the unit, one that is not
+  leaving the column `Float` — where pandas converts cell by cell,
+  truncating or rounding, and leaves `QYR`, `MOYR`, `WKYR` and `MTIME` as
+  numbers. A time past one day pandas wraps into the day, and reads here
+  as the seconds since midnight; a HIGHEST, a LOWEST or a NaN cell pandas
+  reads as missing, and reads here as the number it is, the
+  system-missing value being the one number the format calls missing.
+  Text follows the encoding the file declares — UTF-8, Latin-1,
+  windows-1252 — and another refuses by name: pandas reads a file
+  declaring windows-1250 as long as its text is ASCII, and refuses
+  windows-1252's five unassigned bytes, which read here as the control
+  characters of their number. There is no chunked or iterated read.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

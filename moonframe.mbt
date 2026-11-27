@@ -163,6 +163,7 @@ pub using @io {
   parse_excel,
   parse_ipc,
   parse_parquet,
+  parse_stata,
   read_avro,
   read_csv,
   read_excel,
@@ -172,6 +173,7 @@ pub using @io {
   read_parquet,
   read_sql,
   read_sql_table,
+  read_stata,
   scan_csv,
   scan_ipc,
   scan_json,
@@ -191,6 +193,7 @@ pub using @io {
   write_ndjson,
   write_parquet,
   write_sql,
+  write_stata,
 }
 
 ///|

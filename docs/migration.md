@@ -28,8 +28,12 @@ Source-level note:
   `write_excel`, and the option types `ExcelReadOptions` /
   `ExcelWriteOptions` their optional parameters take. No existing call
   changes.
+- XML joins the facade: `read_xml` / `parse_xml` / `write_xml` /
+  `format_xml`. No existing call changes.
 - MoonFrame depends on `gaato/lz4` and `gaato/zstd`, the LZ4 / Zstandard
-  codecs a compressed IPC buffer goes through. The two declare the
+  codecs a compressed IPC buffer goes through, and on `Milky2018/xml`, the
+  event reader and escaper the XML interchange rides — which declares no
+  backends and asks for none. The two codecs declare the
   backends they build for, and `moon` asks a package that depends on one
   declaring them to declare its own: MoonFrame's packages name the set
   `moon.mod` already names, and a package importing the facade is asked
@@ -124,6 +128,15 @@ What changed on `main` since 0.9.0:
   serials under date formats, text as text whatever it spells, and a
   `Duration`, a `Decimal`, a list, and a struct as their text forms.
   `read_excel`'s and `write_excel`'s docstrings state the two contracts.
+- XML documents read and write over an event reader (`Milky2018/xml`) in
+  `read_xml` and `write_xml`. A path names the rows — from the document
+  element, from its children, or at any depth below it — and a row's
+  columns are its attributes, its own text, and its direct child elements;
+  each column takes the narrowest dtype holding its values. A document
+  declares its encoding, and UTF-8, UTF-16, and ISO-8859-1 read.
+  `write_xml` lays a frame out in the same shape, a missing cell an empty
+  element. `parse_xml`'s and `format_xml`'s docstrings state the two
+  contracts.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

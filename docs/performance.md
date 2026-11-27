@@ -196,6 +196,19 @@ its cells. `write_excel` writes its cells one by one into a workbook the
 library holds in memory and serialises whole at the end: `O(r × c)`
 cells, in memory until the file's one write.
 
+## XML documents
+
+`read_xml` holds the whole document in memory — the event reader keeps a
+second copy of it as characters — and pulls one event at a time, keeping
+only the elements still open: a document of `r` rows and `c` columns costs
+`O(r × c)` cells beyond the parse, and a row's cells are typed in one more
+pass each. The reader bounds what a document can make it do — entity
+references are counted against one budget — but checks an element's
+attributes against each other pairwise, so one element with tens of
+thousands of attributes costs time quadratic in their number.
+`format_xml` writes every cell into one buffer, once: `O(r × c)`, in memory
+until the file's one write.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

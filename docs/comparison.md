@@ -302,6 +302,23 @@ here today:
   UTF-8, UTF-16, or ISO-8859-1, or it refuses by name, where pandas decodes
   what its codecs carry. No stylesheet is applied and there is no iterated
   read.
+- **HTML tables** — `read_html` reads every table a page holds, a frame a
+  table in the order the page opens them, with a tokenizer of its own that
+  walks the document once, where pandas' `read_html` rides lxml, bs4, or
+  html5lib; Polars' I/O reference carries no HTML entry. The header rows,
+  the cells' spans, the text a cell holds, the missing-value spellings,
+  and the thousands separator follow the reference. A table with no header
+  names its columns `column1`, `column2`, … where the reference numbers
+  them, a header cell left empty the same way where the reference writes
+  `Unnamed: N`, and a header of several rows has its levels joined by a
+  space where the reference keeps a tuple. A span that is not a number is
+  one, where the reference raises; a header naming one column twice
+  raises here and is renamed there; a column takes the CSV reader's dtype
+  rule, so a `NaN` text is a missing cell in both and `inf` a float; and a
+  table's grid is bounded where the reference lays out whatever a span
+  claims. `match`, `attrs`, `header`, `skiprows`, `converters`, and
+  `extract_links` are not carried, and there is no `to_html` round trip:
+  `to_html` renders a frame for display.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

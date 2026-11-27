@@ -209,6 +209,19 @@ thousands of attributes costs time quadratic in their number.
 `format_xml` writes every cell into one buffer, once: `O(r × c)`, in memory
 until the file's one write.
 
+## HTML tables
+
+`read_html` holds the page in memory and its tokenizer walks it once,
+code unit by code unit, over a stack of the tables still open: the walk
+costs `O(n)` in the page's length, and nothing an element says makes it
+revisit what it passed. A run of text is copied once, into the cells it
+sits in; a table of `r` rows and `c` columns then lays its cells out over
+a grid in `O(r × c)`, and each column is typed in one pass. A cell's spans
+say how far it reaches, and the grid they lay out is bounded — a table
+whose spans would carry its grid past some thirty-three million positions
+refuses — so a document cannot ask for memory out of proportion to what
+it holds.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

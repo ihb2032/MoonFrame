@@ -182,10 +182,6 @@ same way.
   name the columns, a cell's `rowspan` and `colspan` say how far it
   reaches, and each column takes the narrowest dtype holding its values.
   `parse_html`'s docstring states the rules.
-- **Read and write SAS transport files** — `read_sas` reads a Version 5
-  transport file (XPORT) as a frame (`parse_sas` for bytes already in
-  memory) and `write_sas` writes one, over a codec inside the module. The
-  file's numbers read as `Float`, a variable under a date format as a
 - **Read SAS files, write transport files** — `read_sas` reads a SAS
   transport file (XPORT, Version 5) or a SAS data set (`sas7bdat`),
   whichever the file opens as (`parse_sas` for bytes already in memory),

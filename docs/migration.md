@@ -37,9 +37,8 @@ Source-level note:
   `format_xml`. No existing call changes.
 - HTML tables join the facade: `read_html` / `parse_html`, which answer
   a frame a table. No existing call changes.
-- SAS transport files join the facade: `read_sas` / `parse_sas` /
-  `write_sas`, over packages the module already depends on. No existing
-  call changes.
+- SAS joins the facade: `read_sas` / `parse_sas` / `write_sas`, over
+  packages the module already depends on. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
   Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
@@ -177,12 +176,15 @@ What changed on `main` since 0.9.0:
   typed by the CSV reader's rule. `parse_html`'s docstring states the
   contract.
 
-- SAS transport files (Version 5, XPORT) read and write over a codec
-  inside the module (`internal/xport`). A numeric variable reads as
-  `Float`, a character variable as `String`, the 28 missing spellings as
-  missing, and a variable under a date format as a `Date` or a
-  `Timestamp` while every present cell is a whole number of the unit.
-  `write_sas` writes every column under its own name — one to eight of
+- SAS files read, and the transport format writes, over codecs inside
+  the module (`internal/xport` for the transport format,
+  `internal/sas7bdat` for the data set). `read_sas` reads a Version 5
+  transport file (XPORT) or a SAS data set (`sas7bdat`), whichever the
+  file opens as. A numeric variable reads as `Float`, a character
+  variable as `String`, the 28 missing spellings as missing, and a
+  variable under a date format as a `Date` or a `Timestamp` while every
+  present cell is a whole number of the unit. `write_sas` writes the
+  transport format, every column under its own name — one to eight of
   ASCII letters, digits and `_`, opening on a letter or `_` — and refuses
   a name the format does not hold rather than changing it; the same frame
   writes the same file. A round trip is not the identity: an `Int` and a

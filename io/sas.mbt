@@ -1,15 +1,38 @@
-// The SAS transport interchange — a native reader and writer over the
-// codec in `internal/xport` (the Version 5 header records, the NAMESTR
-// descriptors, the row-major observations, and the IBM floating point a
-// numeric cell is spelled in).
+// The SAS interchange — a native reader and writer over two codecs inside
+// the module: the transport format (`internal/xport`: the Version 5
+// header records, the NAMESTR descriptors, the row-major observations, and
+// the IBM floating point a numeric cell is spelled in) and the data set
+// (`internal/sas7bdat`: the paged layout of Versions 7, 8 and 9, its
+// subheaders, and its two row compressions). A file reads as whichever it
+// opens as; only the transport format is written.
+
+///|
+/// The first record of a transport file: what tells one from a data set
+/// before either is read.
+const TRANSPORT_OPENING : Bytes = b"HEADER RECORD*******"
+
+///|
+/// The frame the columns of a SAS file lay out as: no column keeps the
+/// file's row count.
+fn sas_frame(
+  columns : Array[(String, @series.Series)],
+  nrows : Int32,
+) -> @frame.DataFrame raise @types.DataError {
+  if columns.length() == 0 {
+    @frame.DataFrame::from_parts([], nrows)
+  } else {
+    @frame.DataFrame::DataFrame(columns.map(pair => pair.1))
+  }
+}
 
 ///|
 /// Write a frame as one SAS transport file: Version 5, big-endian, every
-/// column under its own name. Raises `InvalidOperation` for a column whose
-/// name the format does not hold (one to eight of ASCII letters, digits
-/// and `_`, opening on a letter or `_`; two that differ only in case are
-/// one variable), and for a cell the format cannot carry — an integer past
-/// what a double holds exactly, an infinite float, a timestamp whose
+/// column under its own name. The transport format is the one SAS format
+/// written: a data set is read only. Raises `InvalidOperation` for a column
+/// whose name the format does not hold (one to eight of ASCII letters,
+/// digits and `_`, opening on a letter or `_`; two that differ only in case
+/// are one variable), and for a cell the format cannot carry — an integer
+/// past what a double holds exactly, an infinite float, a timestamp whose
 /// microseconds are not a multiple of 15625, a string cell past 200 bytes
 /// in UTF-8; `Unsupported` for a `Duration`, `Decimal`, `List` or `Struct`
 /// column; `IoError` for a path that cannot be written. A name is written
@@ -31,9 +54,10 @@ pub fn write_sas(
 }
 
 ///|
-/// Read a SAS transport file into a frame — the file's variables as the
-/// columns, in the file's order. Raises the errors `parse_sas` states; a
-/// path that cannot be read raises `IoError`.
+/// Read a SAS file into a frame — a transport file or a data set, whichever
+/// the file opens as, its variables as the columns in the file's order.
+/// Raises the errors `parse_sas` states; a path that cannot be read raises
+/// `IoError`.
 pub fn read_sas(path : String) -> @frame.DataFrame raise @types.DataError {
   let bytes = @fs.read_file_to_bytes(path) catch {
     @fs.IOError(msg) => raise @types.DataError::IoError(msg)
@@ -42,13 +66,14 @@ pub fn read_sas(path : String) -> @frame.DataFrame raise @types.DataError {
 }
 
 ///|
-/// Parse a SAS transport file's bytes into a frame — the string-level
-/// entry's binary counterpart (what `read_sas` hands the codec, exposed
-/// for in-memory bytes). A Version 5 transport file reads; a later
-/// version's, a CPORT file, and a file of another format refuse with
-/// `Unsupported`, naming what the first record says.
+/// Parse a SAS file's bytes into a frame — the string-level entry's binary
+/// counterpart (what `read_sas` hands the codecs, exposed for in-memory
+/// bytes). The first record tells the two formats apart: a transport file
+/// opens with its library header record and a data set (`sas7bdat`, Versions
+/// 7, 8 and 9) with a 32-byte signature; bytes that open with neither raise
+/// `Unsupported`.
 ///
-/// The columns a file's variables read as:
+/// The columns a transport file's variables read as:
 ///
 /// - A numeric variable → `Float`, its IEEE double bit for bit; a
 ///   character variable → `String`, trailing blanks cut, where an empty
@@ -61,22 +86,54 @@ pub fn read_sas(path : String) -> @frame.DataFrame raise @types.DataError {
 ///   `Float`, the raw numbers.
 /// - Text is UTF-8; bytes that are not well-formed UTF-8 refuse.
 ///
-/// A file holds one data set here: what follows its observations — a
-/// second data set's records included — reads as observations, and the
+/// A transport file holds one data set here: what follows its observations —
+/// a second data set's records included — reads as observations, and the
 /// observations end at the last byte that is not a blank, so trailing rows
 /// of blank character cells are the file's padding. A file of no variable
 /// reads as a frame of no column.
 ///
-/// Raises `ParseError` (`Message`) for bytes that contradict the layout —
-/// a record the file cuts short, a header record that is not the
-/// layout's, a count or a length the file cannot hold, observations that
-/// do not end on a record boundary — naming the byte; and `Unsupported`
-/// for a variable type that is neither numeric nor character.
+/// The columns a data set's variables read as:
+///
+/// - A numeric variable → `Float`, its IEEE double bit for bit, an infinity
+///   included; any NaN — the 28 missing spellings among them — reads
+///   missing. A character variable → `String`, trailing blanks cut, where
+///   an empty string is an empty cell and never a missing one.
+/// - A numeric variable under a date format reads as `Date`, under a
+///   time or a datetime format as `Timestamp` (a time of day as the
+///   instant on the epoch day) — only while every present cell is a whole
+///   number of the unit; one cell that is not leaves the whole column
+///   `Float`, the raw numbers. Days count from 1960-01-01.
+/// - Text follows the header's character set: UTF-8, or one of the 49
+///   single-byte code pages the format's table of character-set codes
+///   names — windows-1252, which SAS writes on Windows, among them.
+///   Another is `Unsupported` by name, and a byte the page leaves
+///   undefined is `ParseError`.
+/// - Value labels are not applied: a labelled variable reads as the
+///   numbers it stores.
+///
+/// A data set reads in either byte order, with 32-bit or 64-bit offsets,
+/// its rows plain or compressed; a data set of no variable, whose row
+/// length is zero, refuses.
+///
+/// Raises `ParseError` (`Message`) for bytes that contradict either layout
+/// — a record the file cuts short, a header record that is not the
+/// layout's, a count, a length, a page or a compressed stream the file
+/// cannot hold — naming the byte; and `Unsupported` for what a reader does
+/// not read: a later transport version, a CPORT file, a character set, a
+/// row compression, or a variable type that is neither numeric nor
+/// character.
 pub fn parse_sas(bytes : Bytes) -> @frame.DataFrame raise @types.DataError {
-  let (columns, nrows) = @xport.read_xport_frame(bytes)
-  if columns.length() == 0 {
-    @frame.DataFrame::from_parts([], nrows)
-  } else {
-    @frame.DataFrame::DataFrame(columns.map(pair => pair.1))
+  let transport = bytes.length() >= TRANSPORT_OPENING.length() &&
+    bytes[0:TRANSPORT_OPENING.length()] == TRANSPORT_OPENING
+  if transport {
+    let (columns, nrows) = @xport.read_xport_frame(bytes)
+    return sas_frame(columns, nrows)
   }
+  if @sas7bdat.opens_data_set(bytes) {
+    let (columns, nrows) = @sas7bdat.read_sas7bdat_frame(bytes)
+    return sas_frame(columns, nrows)
+  }
+  raise @types.DataError::Unsupported(
+    "sas: the bytes open with neither a transport file's library header record nor a data set's signature",
+  )
 }

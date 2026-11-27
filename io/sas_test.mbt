@@ -1,8 +1,9 @@
-// Blackbox tests for the SAS transport interchange at the io layer — the
-// file-level write/read round trip, the reference writer's file through
-// the entries, and the refusals a caller meets. (One-file-one-test
-// exemption: none — this is the format's only test file at this layer;
-// the codec's own tests sit beside it.)
+// Blackbox tests for the SAS interchange at the io layer — the
+// file-level write/read round trip of the transport format, the reference
+// writers' transport file and data sets through the entries, and the
+// refusals a caller meets. (One-file-one-test exemption: none — this is
+// the format's only test file at this layer; the codecs' own tests sit
+// in their packages.)
 
 ///|
 fn sas_frame() -> @frame.DataFrame raise @types.DataError {
@@ -134,6 +135,42 @@ test "the reference writer's file reads through the entries" {
 }
 
 ///|
+test "a data set reads through the entries, told from a transport file by its first bytes" {
+  // The reference writer's 32-bit table.
+  let path = ".github/fixtures/sas7bdat/reference/w32_pyrs.sas7bdat"
+  let written = @io.read_sas(path)
+  assert_eq(written.shape(), (2, 2))
+  assert_eq(written.columns(), ["a", "b"])
+  assert_eq(written.get_column("a").to_scalars(), [
+    @types.Scalar::Float(1.0),
+    @types.Scalar::Float(2.0),
+  ])
+  assert_eq(written.get_column("b").to_scalars(), [
+    @types.Scalar::String("x"),
+    @types.Scalar::String("yy"),
+  ])
+  // A data set SAS wrote, its text windows-1252 under a code that records
+  // no character set.
+  let cars = @io.read_sas(".github/fixtures/sas7bdat/reference/cars.sas7bdat")
+  assert_eq(cars.shape(), (392, 4))
+  assert_eq(cars.get_column("MPG").to_scalars()[0], @types.Scalar::Float(18.0))
+  // A 64-bit data set with a date column and a missing cell.
+  let dated = @io.read_sas(
+    ".github/fixtures/sas7bdat/reference/test16.sas7bdat",
+  )
+  assert_eq(dated.shape(), (10, 100))
+  assert_eq(dated.get_column("Column4").dtype(), @types.DataType::Date)
+  assert_eq(
+    dated.get_column("Column4").to_scalars()[0],
+    @types.Scalar::Date(-1483L),
+  )
+  assert_eq(dated.get_column("Column8").to_scalars()[0], @types.Scalar::Null)
+  // The bytes already in memory parse to the same frame.
+  let bytes = @fs.read_file_to_bytes(path) catch { _ => b"" }
+  assert_eq(@io.parse_sas(bytes).shape(), written.shape())
+}
+
+///|
 /// The error an entry raises; a frame answered instead fails the test.
 fn sas_raised(
   read : () -> @frame.DataFrame raise @types.DataError,
@@ -195,16 +232,45 @@ test "the SAS entries raise the errors a caller meets" {
       "xport: cannot write column \"span\": the transport format does not carry a column of dtype Duration",
     ),
   )
-  // Bytes that are no transport file.
+  // Bytes that open with neither a transport file's header record nor a
+  // data set's signature.
   let junk = sas_raised(() => {
     @io.parse_sas(b"not a sas file at all, just some bytes")
   })
   assert_eq(
     junk,
+    @types.DataError::Unsupported(
+      "sas: the bytes open with neither a transport file's library header record nor a data set's signature",
+    ),
+  )
+  // A transport file cut short inside its header record, a data set cut
+  // short inside its header, and a data set in a character set this reader
+  // does not decode.
+  let opening = sas_raised(() => {
+    @io.parse_sas(b"HEADER RECORD*******LIBRARY HEADER REC")
+  })
+  assert_eq(
+    opening,
     @types.DataError::ParseError(
       @types.ParseErrorDetail::Message(
         "xport: byte 0: the file ends at byte 38 inside the library header record (bytes 0 to 79)",
       ),
+    ),
+  )
+  let whole = @fs.read_file_to_bytes(
+    ".github/fixtures/sas7bdat/reference/w32_pyrs.sas7bdat",
+  ) catch {
+    _ => b""
+  }
+  let header_cut = sas_raised(() => @io.parse_sas(whole[0:100].to_owned()))
+  assert_true(header_cut is @types.DataError::ParseError(_))
+  let charset = sas_raised(() => {
+    @io.read_sas(".github/fixtures/sas7bdat/reference/shiftjis_syn.sas7bdat")
+  })
+  assert_eq(
+    charset,
+    @types.DataError::Unsupported(
+      "sas7bdat: byte 70: the character-set field names shift_jis (code 138), and this reader decodes UTF-8 (code 20) and the single-byte character sets",
     ),
   )
   // A file cut short inside its header records.

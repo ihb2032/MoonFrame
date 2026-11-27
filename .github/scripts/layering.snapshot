@@ -35,6 +35,8 @@ internal/kernel -> types
 internal/parquet -> internal/text
 internal/parquet -> series
 internal/parquet -> types
+internal/sas7bdat -> series
+internal/sas7bdat -> types
 internal/scan -> expr
 internal/scan -> internal/order
 internal/scan -> series
@@ -50,6 +52,7 @@ io -> internal/avro
 io -> internal/ipc
 io -> internal/numeric
 io -> internal/parquet
+io -> internal/sas7bdat
 io -> internal/scan
 io -> internal/stata
 io -> internal/text

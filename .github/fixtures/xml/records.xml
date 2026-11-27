@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<records>
+  <row id="7" code="a">
+    <qty>3</qty>
+    <price>1.5</price>
+    <ok>true</ok>
+    <name>apple</name>
+  </row>
+  <row id="8" code="b">
+    <qty>1200000000000</qty>
+    <price>1e5</price>
+    <ok>False</ok>
+    <name/>
+    <late>found</late>
+  </row>
+  <row id="9007199254740993" code="c">
+    <qty>
+      -1
+    </qty>
+    <price>-0.25</price>
+    <ok>TRUE</ok>
+    <name>café 日本語 😀</name>
+    <late>x</late>
+  </row>
+</records>

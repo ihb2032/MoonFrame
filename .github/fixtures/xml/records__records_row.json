@@ -1,0 +1,71 @@
+{
+ "file": "records.xml",
+ "xpath": "/records/row",
+ "reference_xpath": "/records/row",
+ "rows": 3,
+ "columns": [
+  {
+   "name": "id",
+   "dtype": "Int64",
+   "cells": [
+    "Int 7",
+    "Int 8",
+    "Int 9007199254740993"
+   ]
+  },
+  {
+   "name": "code",
+   "dtype": "string",
+   "cells": [
+    "String a",
+    "String b",
+    "String c"
+   ]
+  },
+  {
+   "name": "qty",
+   "dtype": "Int64",
+   "cells": [
+    "Int 3",
+    "Int 1200000000000",
+    "Int -1"
+   ]
+  },
+  {
+   "name": "price",
+   "dtype": "Float64",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float 40f86a0000000000",
+    "Float bfd0000000000000"
+   ]
+  },
+  {
+   "name": "ok",
+   "dtype": "boolean",
+   "cells": [
+    "Bool true",
+    "Bool false",
+    "Bool true"
+   ]
+  },
+  {
+   "name": "name",
+   "dtype": "string",
+   "cells": [
+    "String apple",
+    "Null",
+    "String café 日本語 😀"
+   ]
+  },
+  {
+   "name": "late",
+   "dtype": "string",
+   "cells": [
+    "Null",
+    "String found",
+    "String x"
+   ]
+  }
+ ]
+}

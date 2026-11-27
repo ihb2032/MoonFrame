@@ -1,0 +1,53 @@
+{
+ "file": "pandas_to_xml.xml",
+ "xpath": "/data/row",
+ "reference_xpath": "/data/row",
+ "rows": 3,
+ "columns": [
+  {
+   "name": "id",
+   "dtype": "Int64",
+   "cells": [
+    "Int 1",
+    "Int 2",
+    "Int 3"
+   ]
+  },
+  {
+   "name": "name",
+   "dtype": "string",
+   "cells": [
+    "String a",
+    "Null",
+    "String café"
+   ]
+  },
+  {
+   "name": "ok",
+   "dtype": "boolean",
+   "cells": [
+    "Bool true",
+    "Bool false",
+    "Bool true"
+   ]
+  },
+  {
+   "name": "price",
+   "dtype": "Float64",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float 3fd0000000000000",
+    "Float 4033fd70a3d70a3d"
+   ]
+  },
+  {
+   "name": "when",
+   "dtype": "string",
+   "cells": [
+    "String 2024-01-02 03:04:05",
+    "String 2024-03-04 05:06:07",
+    "Null"
+   ]
+  }
+ ]
+}

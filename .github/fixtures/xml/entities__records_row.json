@@ -1,0 +1,32 @@
+{
+ "file": "entities.xml",
+ "xpath": "/records/row",
+ "reference_xpath": "/records/row",
+ "rows": 2,
+ "columns": [
+  {
+   "name": "id",
+   "dtype": "Int64",
+   "cells": [
+    "Int 1",
+    "Int 2"
+   ]
+  },
+  {
+   "name": "name",
+   "dtype": "string",
+   "cells": [
+    "String Tom & \"Jerry\" <the 3rd> raw <b>",
+    "String plain"
+   ]
+  },
+  {
+   "name": "u",
+   "dtype": "string",
+   "cells": [
+    "String café 日本語 😀",
+    "String  "
+   ]
+  }
+ ]
+}

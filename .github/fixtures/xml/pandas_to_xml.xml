@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8'?>
+<data>
+  <row>
+    <id>1</id>
+    <name>a</name>
+    <ok>True</ok>
+    <price>1.5</price>
+    <when>2024-01-02 03:04:05</when>
+  </row>
+  <row>
+    <id>2</id>
+    <name/>
+    <ok>False</ok>
+    <price>0.25</price>
+    <when>2024-03-04 05:06:07</when>
+  </row>
+  <row>
+    <id>3</id>
+    <name>café</name>
+    <ok>True</ok>
+    <price>19.99</price>
+    <when/>
+  </row>
+</data>

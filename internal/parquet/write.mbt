@@ -155,8 +155,11 @@ pub fn ParquetSink::sink(
 /// The frameless corner: a height with no columns to carry it. The
 /// one-shot writer spelled it as one group of `rows` rows and no
 /// chunks; the sink takes it as its own push so an `N×0` result
-/// round-trips the same way.
-fn ParquetSink::push_frameless(
+/// round-trips the same way. It is the push for a batch that carries no
+/// column — `push` refuses one, since a column carries the height it
+/// would otherwise read — and a frameless push after a schema'd one
+/// refuses.
+pub fn ParquetSink::push_frameless(
   self : ParquetSink,
   rows : Int32,
 ) -> Unit raise @types.DataError {

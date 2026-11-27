@@ -35,6 +35,7 @@ pub struct ParquetSink {
 }
 pub fn ParquetSink::finish(Self) -> Bytes
 pub fn ParquetSink::push(Self, Array[@series.Series]) -> Unit raise @types.DataError
+pub fn ParquetSink::push_frameless(Self, Int32) -> Unit raise @types.DataError
 pub fn ParquetSink::sink(Codec, group_rows? : Int64) -> Self
 
 // Type aliases

@@ -17,11 +17,14 @@
 /// agrees with them, name and dtype, the way `vstack` demands; a
 /// decimal column's interchange window is the first batch's too, and a
 /// later batch needing a wider one refuses rather than silently
-/// narrowing. Raises the read's own `DataError` — the same error, on
-/// the same first offending batch, `collect` would raise — plus the
-/// writer's own refusals (a dtype the mapping does not carry, a decimal
-/// cell past the interchange window) and the file write's `IoError`.
-/// Nothing is read until the first batch is pulled.
+/// narrowing. A plan that answers no row writes the file of its
+/// columns' schema, and one with no column at all a file of no column —
+/// what `write_parquet` writes for the collected frame. Raises the
+/// read's own `DataError` — the same error, on the same first offending
+/// batch, `collect` would raise — plus the writer's own refusals (a
+/// dtype the mapping does not carry, a decimal cell past the interchange
+/// window) and the file write's `IoError`. Nothing is read until the
+/// first batch is pulled.
 ///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
@@ -45,7 +48,17 @@ pub fn sink_parquet(
   let stream = lf.collect_batches(optimizations~)
   while true {
     match stream.next() {
-      Some(batch) => sink.push(batch.column_series())
+      Some(batch) => {
+        let columns = batch.column_series()
+        // A batch with no column has no column to carry its height, so it
+        // goes in by the frameless push — the write `write_parquet` gives
+        // a frame with no column.
+        if columns.is_empty() {
+          sink.push_frameless(batch.nrows())
+        } else {
+          sink.push(columns)
+        }
+      }
       None => break
     }
   }

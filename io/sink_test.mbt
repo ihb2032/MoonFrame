@@ -344,3 +344,48 @@ test "the json sinks compress a .gz path as the writers do" {
   @io.sink_ndjson(lf, "_build/io_sink_out.ndjson.gz")
   assert_eq(@io.read_ndjson("_build/io_sink_out.ndjson.gz").shape(), (2, 1))
 }
+
+///|
+test "the columnar sinks and the csv sink write a plan that answers no row" {
+  // A filter nothing survives keeps its columns; a blank file and an
+  // empty frame have none. Either way each sink's file reads back as the
+  // collected frame does, and the CSV sink's file is the writers' bytes.
+  let df = @frame.DataFrame::DataFrame([
+    @series.Series::from_ints("v", [1, 2, 3]),
+  ])
+  let path_src = "_build/io_sink_source.parquet"
+  @io.write_parquet(df, path_src, row_group_rows=1)
+  @fs.write_string_to_file("_build/io_sink_blank.csv", "")
+  let empty : ReadOnlyArray[@frame.LazyFrame] = [
+    @io.scan_parquet(path_src).filter(@expr.col("v").gt(@expr.lit_int(10))),
+    @io.scan_csv("_build/io_sink_blank.csv"),
+    @frame.LazyFrame::LazyFrame(@frame.DataFrame::DataFrame([])),
+  ]
+  let bare = @io.CsvWriteOptions::CsvWriteOptions(header=false)
+  for lf in empty {
+    let collected = lf.collect()
+    assert_eq(collected.nrows(), 0)
+    let path_out = "_build/io_sink_out.bin"
+    @io.sink_parquet(lf, path_out)
+    let path_eager = "_build/io_sink_eager.parquet"
+    @io.write_parquet(collected, path_eager)
+    let sinked = @io.read_parquet(path_out)
+    assert_eq(sinked.shape(), collected.shape())
+    assert_eq(sinked.columns(), collected.columns())
+    assert_eq(@io.read_parquet(path_eager).shape(), collected.shape())
+    @io.sink_ipc(lf, path_out)
+    let payload = @io.read_ipc(path_out)
+    assert_eq(payload.shape(), collected.shape())
+    assert_eq(payload.columns(), collected.columns())
+    @io.sink_csv(lf, path_out)
+    assert_eq(sunk_text(path_out), @io.format_csv(collected))
+    @io.sink_csv(lf, path_out, options=bare)
+    assert_eq(sunk_text(path_out), "")
+  }
+  // The bytes themselves: a kept column is a header alone, and no column
+  // at all a bare line terminator.
+  @io.sink_csv(empty[0], "_build/io_sink_out.csv")
+  assert_eq(sunk_text("_build/io_sink_out.csv"), "v\n")
+  @io.sink_csv(empty[1], "_build/io_sink_out.csv")
+  assert_eq(sunk_text("_build/io_sink_out.csv"), "\n")
+}

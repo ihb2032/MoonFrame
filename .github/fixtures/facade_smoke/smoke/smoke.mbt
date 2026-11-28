@@ -435,3 +435,12 @@ test "error details match with a forward-compat arm" {
     "message: boom",
   )
 }
+
+///|
+/// The Iceberg entry, named through the facade: a table of the reference
+/// corpus read from its directory, its current snapshot's rows.
+test "iceberg read" {
+  let table = @moonframe.read_iceberg("../iceberg/reference/append_one")
+  assert_eq(table.shape(), (3, 2))
+  assert_eq(table.columns(), ["i", "s"])
+}

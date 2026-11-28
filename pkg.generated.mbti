@@ -79,6 +79,8 @@ pub fn read_fwf(String, options? : @io.FwfReadOptions) -> @frame.DataFrame raise
 
 pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
+pub fn read_iceberg(String) -> @frame.DataFrame raise @types.DataError
+
 pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError

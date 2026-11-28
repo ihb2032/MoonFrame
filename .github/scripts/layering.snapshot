@@ -22,6 +22,7 @@ internal/column -> internal/numeric
 internal/column -> internal/text
 internal/column -> types
 internal/fwf -> types
+internal/iceberg -> types
 internal/ipc -> internal/text
 internal/ipc -> series
 internal/ipc -> types
@@ -57,6 +58,7 @@ internal/xport -> types
 io -> frame
 io -> internal/avro
 io -> internal/fwf
+io -> internal/iceberg
 io -> internal/ipc
 io -> internal/numeric
 io -> internal/ods

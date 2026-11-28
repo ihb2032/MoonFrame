@@ -1,6 +1,6 @@
 // The parquet columnar interchange — a native reader and writer over
 // the codec in `internal/parquet` (thrift compact metadata, RLE
-// definition levels, PLAIN values, UNCOMPRESSED / SNAPPY / GZIP
+// definition levels, PLAIN values, UNCOMPRESSED / SNAPPY / GZIP / ZSTD
 // compression; the RLE_DICTIONARY encoding reads, the writer emits
 // PLAIN). One row group per write, projection pushed into the read.
 //
@@ -14,8 +14,9 @@
 // up to 9) and the legacy variable-width `BYTE_ARRAY`.
 
 ///|
-/// The compression a written parquet file carries (the reader takes
-/// every codec it can decode; this names the writer's).
+/// The compression a written parquet file carries. The reader inflates
+/// ZSTD pages too — a table format's writer compresses its data files
+/// with it — but the writer spells none of these three but its own.
 #derive(Eq, Debug)
 pub(all) enum ParquetCodec {
   Uncompressed

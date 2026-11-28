@@ -1316,3 +1316,82 @@ test "a binary decimal payload of zero or more than sixteen bytes refuses" {
     )
   }
 }
+
+///|
+/// A page body's bytes under the ZSTD frame codec, the way a writer that
+/// compresses with zstandard spells it.
+fn zstd_body(plain : Array[Byte]) -> Array[Byte] {
+  let packed = @zstd.compress(Bytes::from_array(plain))
+  let out : Array[Byte] = []
+  for b in packed {
+    out.push(b)
+  }
+  out
+}
+
+///|
+test "a ZSTD page body inflates and its values read" {
+  // Three INT64 values, PLAIN, under the codec a table format's writer
+  // compresses its data files with by default.
+  let plain : Array[Byte] = []
+  push_le_i64(plain, 10L)
+  push_le_i64(plain, 20L)
+  push_le_i64(plain, 30L)
+  let file = foreign_file({
+    physical: 2,
+    repetition: 0,
+    converted: None,
+    codec: 6,
+    pages: [
+      {
+        body: zstd_body(plain),
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 3,
+        def_len: 0,
+        page_type: 0,
+      },
+    ],
+  })
+  let read = read_parquet_columns(file, None)
+  assert_eq(read[0].1.to_scalars(), [
+    @types.Scalar::Int(10),
+    @types.Scalar::Int(20),
+    @types.Scalar::Int(30),
+  ])
+}
+
+///|
+test "a ZSTD page body that is no frame refuses, naming the column" {
+  let junk : Array[Byte] = []
+  push_le_i64(junk, 10L)
+  junk.push(b'\x01')
+  let file = foreign_file({
+    physical: 2,
+    repetition: 0,
+    converted: None,
+    codec: 6,
+    pages: [
+      {
+        body: junk,
+        encoding: 0,
+        dictionary_page: false,
+        v2: false,
+        num_values: 1,
+        def_len: 0,
+        page_type: 0,
+      },
+    ],
+  })
+  assert_true(
+    (Ok(ignore(read_parquet_columns(file, None))) catch { e => Err(e) })
+    is Err(
+      @types.DataError::ParseError(
+        @types.ParseErrorDetail::Message(
+          "parquet: a ZSTD page body does not decompress",
+        ),
+      ),
+    ),
+  )
+}

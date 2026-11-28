@@ -179,6 +179,7 @@ pub using @io {
   read_excel,
   read_fwf,
   read_html,
+  read_iceberg,
   read_ipc,
   read_json,
   read_ndjson,

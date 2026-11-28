@@ -1,13 +1,14 @@
 // The codec's dependencies: the value types it maps to, the series
 // constructors it builds columns through, the shared UTF-16 guard its
-// string cells pass before encoding, and the byte / gzip cores its
-// page work rides.
+// string cells pass before encoding, the byte / gzip cores its page work
+// rides, and the zstd frame codec a foreign writer's pages ride.
 import {
   "ihb2032/MoonFrame/types",
   "ihb2032/MoonFrame/series",
   "ihb2032/MoonFrame/internal/text",
   "moonbitlang/core/compress/gzip",
   "moonbitlang/core/encoding/utf8",
+  "gaato/zstd",
 }
 
 // `core/compress/gzip` is still marked experimental upstream; the parquet
@@ -16,3 +17,13 @@ import {
 options(
   "allow-experimental-packages": [ "moonbitlang/core/compress/gzip" ],
 )
+
+// The whitebox tests read the one file a foreign writer wrote.
+import {
+  "moonbitlang/x/fs",
+} for "wbtest"
+
+// The backends the package builds for, named because the zstd dependency
+// names its own and the build asks the same of what depends on it.
+
+supported_targets = "js + native + wasm + wasm-gc"

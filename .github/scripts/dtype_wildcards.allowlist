@@ -134,3 +134,10 @@ internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell
 internal/kernel/ternary.mbt eval_ternary closure-parameter lines inside the cell selectors (i =>), not match arms — the scanner is deliberately lexical
 chart/chart.mbt chart_data_values the column is Decimal-dtyped (checked above), so its cells are Decimal or Null; the wildcard is the remainder of the Scalar enum
 io/sql_write.mbt sql_decimal_window the scrutinee is the decimal's coefficient digits and its exponent, both Some for every finite value — the wildcard is the loud raise for a NaN or infinite cell
+internal/iceberg/avro_value.mbt scalar_of the scrutinee is the header's Avro type, not a dtype enum; the wildcard is the typed reading every type but EAny takes
+internal/iceberg/avro_value.mbt typed_scalar the wildcard is the loud malformed raise — a datum of another shape than its type and value give
+internal/iceberg/schema.mbt dtype_of the wildcard is the loud malformed raise — a type that is neither a name nor a definition
+internal/iceberg/schema.mbt dtype_of the wildcard is the loud malformed raise — a type that is neither a name nor a definition
+internal/iceberg/schema.mbt primitive_dtype the scrutinee is the type's spelling, a string; the wildcard takes the decimal spellings and raises Unsupported loudly for every other type
+io/iceberg.mbt iceberg_position_deletes the wildcard is the loud ParseError — a delete file's path cell that is not a string
+io/iceberg.mbt iceberg_position_deletes the wildcard is the loud ParseError — a delete file's position cell that is not a whole number

@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/iceberg"
+
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn iceberg_files(Bytes, manifest? : IcebergManifest) -> Array[IcebergFile] raise @types.DataError
+
+pub fn iceberg_manifests(Bytes, location? : String) -> Array[IcebergManifest] raise @types.DataError
+
+pub fn iceberg_metadata(Bytes) -> IcebergTable raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub struct IcebergFile {
+  // private fields
+}
+pub fn IcebergFile::equality_ids(Self) -> Array[Int64]
+pub fn IcebergFile::field_ids(Self) -> Array[Int64]
+pub fn IcebergFile::kind(Self) -> IcebergFileKind
+pub fn IcebergFile::partition(Self) -> Array[IcebergPartitionValue]
+pub fn IcebergFile::path(Self) -> String
+pub fn IcebergFile::record_count(Self) -> Int64
+pub fn IcebergFile::sequence_number(Self) -> Int64
+
+#derive(Eq, @debug.Debug)
+pub(all) enum IcebergFileKind {
+  Data
+  PositionDeletes
+  EqualityDeletes
+}
+pub fn IcebergFileKind::equal(Self, Self) -> Bool
+pub fn IcebergFileKind::not_equal(Self, Self) -> Bool
+pub fn IcebergFileKind::to_repr(Self) -> @debug.Repr
+
+pub struct IcebergManifest {
+  // private fields
+}
+pub fn IcebergManifest::path(Self) -> String
+
+pub struct IcebergPartitionValue {
+  // private fields
+}
+pub fn IcebergPartitionValue::name(Self) -> String
+pub fn IcebergPartitionValue::source_id(Self) -> Int64
+pub fn IcebergPartitionValue::transform(Self) -> IcebergTransform
+pub fn IcebergPartitionValue::value(Self) -> @types.Scalar
+
+pub struct IcebergTable {
+  // private fields
+}
+pub fn IcebergTable::field_ids(Self) -> Array[Int64]
+pub fn IcebergTable::location(Self) -> String
+pub fn IcebergTable::manifest_list(Self) -> String?
+pub fn IcebergTable::schema(Self) -> @types.Schema
+
+#derive(Eq, @debug.Debug)
+pub(all) enum IcebergTransform {
+  Identity
+  Bucket(Int64)
+  Truncate(Int64)
+  Year
+  Month
+  Day
+  Hour
+  Void
+  Unknown(String)
+}
+pub fn IcebergTransform::equal(Self, Self) -> Bool
+pub fn IcebergTransform::not_equal(Self, Self) -> Bool
+pub fn IcebergTransform::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

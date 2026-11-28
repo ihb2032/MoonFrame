@@ -133,7 +133,12 @@ plan: each batch answers as it is ready, and a consumer that stops asking
 stops the read; `sink_parquet` / `sink_csv` / `sink_ipc` / `sink_json` /
 `sink_ndjson` are the same
 stream with an
-encoder for a consumer, the encoded bytes landing in one write. The batch
+encoder for a consumer, the encoded bytes landing in one write — or, under
+a `PartitionBy`, one encoder a file: a file of `max_rows_per_file` rows
+is written as soon as it is full and another row comes, and a
+directory's one file when the plan has answered, so the open files'
+encoded bytes are what the sink holds, a row's directory found in one
+pass over the batch's key cells. The batch
 boundaries carry no size promise beyond the cap; the memory promise is
 bounded — a blocking verb holds its whole
 input (there is no spilling), and everything below the first blocking verb

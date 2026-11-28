@@ -244,7 +244,18 @@ here today:
   answer, and `sink_parquet` / `sink_csv` / `sink_json` / `sink_ndjson` turn
   the same stream to a file (one row group per batch; the exact
   `format_csv` / `format_json` / `format_ndjson` bytes), so a plan ending
-  in flow verbs runs in bounded memory. The
+  in flow verbs runs in bounded memory. `sink_parquet` / `sink_csv` /
+  `sink_ipc` / `sink_ndjson` take a `PartitionBy` beside the path, as
+  Polars' sinks take its partitioning configuration: the rows go to
+  files under a directory, one a distinct value of the key columns
+  (`region=Americas/year=2020/00000000.parquet`, a null
+  `__HIVE_DEFAULT_PARTITION__`, the key columns left out on request),
+  or so many rows a file. The layout is the reference's — eight-digit
+  file names, the format's extension — where the spelling of a value
+  differs: the characters a path cannot hold are percent-encoded here,
+  including the ones Windows forbids, where the reference leaves some
+  of them raw. A full file is written as soon as the next row comes,
+  the rest when the plan has answered. The
   scans push projections, predicates, and row windows down into the
   reader, but the text formats still tokenise the whole file, and a
   blocking verb holds its whole input (no spilling). The columnar
@@ -445,16 +456,15 @@ here today:
   Polars' carry beyond the entries above: HDF5 (pandas' `HDFStore`), whose
   `fixed` layout spells a frame as Python objects, a string column as a
   pickle stream, which a reader outside Python takes up only by
-  unpickling; LaTeX (`to_latex`), a formatting export; a fixed-width file
-  (`read_fwf`); pickle and the clipboard, a Python object serialisation and
-  an operating-system service; the OpenDocument and `.xls` workbook
-  flavours, which Polars takes through `read_ods` and its Excel reader; a
-  text file read as lines (Polars' `Lines`); the catalog-based table formats
-  Delta Lake, Iceberg and Lance; a cloud database (pandas' `read_gbq`) or a
-  remote file source (a path names a file on a local filesystem here); a
-  partitioned sink; and an encrypted Parquet file. A reader takes a file
-  whole: there is no chunked or iterated read, as pandas' `chunksize` and
-  its statistics formats' readers offer.
+  unpickling; a fixed-width file (`read_fwf`); pickle and the clipboard, a
+  Python object serialisation and an operating-system service; the
+  OpenDocument and `.xls` workbook flavours, which Polars takes through
+  `read_ods` and its Excel reader; a text file read as lines (Polars'
+  `Lines`); the catalog-based table formats Delta Lake, Iceberg and Lance;
+  a cloud database (pandas' `read_gbq`) or a remote file source (a path
+  names a file on a local filesystem here); and an encrypted Parquet file.
+  A reader takes a file whole: there is no chunked or iterated read, as
+  pandas' `chunksize` and its statistics formats' readers offer.
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

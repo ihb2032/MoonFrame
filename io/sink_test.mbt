@@ -16,12 +16,12 @@ test "sink_parquet answers the collected frame" {
       Some("f"),
     ]),
   ])
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_parquet.parquet"
   @io.write_parquet(df, path_src, row_group_rows=2)
   let lf = @io.scan_parquet(path_src).filter(
     @expr.col("i").gt(@expr.lit_int(1)),
   )
-  let path_out = "_build/io_sink_out.parquet"
+  let path_out = "_build/io_sink_out_parquet.parquet"
   @io.sink_parquet(lf, path_out)
   let written = @io.read_parquet(path_out)
   let collected = lf.collect()
@@ -55,12 +55,12 @@ test "sink_csv answers the formatted frame byte for byte" {
       Some("f"),
     ]),
   ])
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_csv.parquet"
   @io.write_parquet(df, path_src, row_group_rows=2)
   let lf = @io.scan_parquet(path_src).with_columns([
     (@expr.col("i") * @expr.lit_int(2)).with_alias("d"),
   ])
-  let path_out = "_build/io_sink_out.csv"
+  let path_out = "_build/io_sink_out_csv.csv"
   @io.sink_csv(lf, path_out)
   let expected = @io.format_csv(lf.collect())
   @fs.write_string_to_file("_build/io_sink_expected.csv", expected)
@@ -146,12 +146,12 @@ test "sink_json answers the formatted frame byte for byte" {
   // A multi-group source under a filter: the batches' records share one
   // top-level array, and the file is what format_json spells for the
   // collected frame.
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_json.parquet"
   @io.write_parquet(json_sink_frame(), path_src, row_group_rows=2)
   let lf = @io.scan_parquet(path_src).filter(
     @expr.col("i").gt(@expr.lit_int(1)),
   )
-  let path_out = "_build/io_sink_out.json"
+  let path_out = "_build/io_sink_out_json.json"
   @io.sink_json(lf, path_out)
   let expected = @io.format_json(lf.collect())
   @fs.write_string_to_file("_build/io_sink_expected.json", expected)
@@ -167,12 +167,12 @@ test "sink_json answers the formatted frame byte for byte" {
 
 ///|
 test "sink_ndjson answers the formatted frame byte for byte" {
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_ndjson.parquet"
   @io.write_parquet(json_sink_frame(), path_src, row_group_rows=2)
   let lf = @io.scan_parquet(path_src).with_columns([
     (@expr.col("i") * @expr.lit_int(2)).with_alias("d"),
   ])
-  let path_out = "_build/io_sink_out.ndjson"
+  let path_out = "_build/io_sink_out_ndjson.ndjson"
   @io.sink_ndjson(lf, path_out)
   let expected = @io.format_ndjson(lf.collect())
   assert_eq(sunk_text(path_out), expected)
@@ -188,7 +188,7 @@ test "the json sinks join the batches with the writers' own separators" {
     @series.Series::from_ints("i", [1, 2, 3]),
     @series.Series::from_string_options("s", [Some("a"), None, Some("c")]),
   ])
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_batches.parquet"
   @io.write_parquet(df, path_src, row_group_rows=1)
   let lf = @io.scan_parquet(path_src)
   let mut batches = 0
@@ -200,14 +200,14 @@ test "the json sinks join the batches with the writers' own separators" {
     }
   }
   assert_eq(batches, 3)
-  @io.sink_json(lf, "_build/io_sink_out.json")
+  @io.sink_json(lf, "_build/io_sink_out_batches.json")
   assert_eq(
-    sunk_text("_build/io_sink_out.json"),
+    sunk_text("_build/io_sink_out_batches.json"),
     "[{\"i\":1,\"s\":\"a\"},{\"i\":2,\"s\":null},{\"i\":3,\"s\":\"c\"}]",
   )
-  @io.sink_ndjson(lf, "_build/io_sink_out.ndjson")
+  @io.sink_ndjson(lf, "_build/io_sink_out_batches.ndjson")
   assert_eq(
-    sunk_text("_build/io_sink_out.ndjson"),
+    sunk_text("_build/io_sink_out_batches.ndjson"),
     "{\"i\":1,\"s\":\"a\"}\n{\"i\":2,\"s\":null}\n{\"i\":3,\"s\":\"c\"}\n",
   )
 }
@@ -220,7 +220,7 @@ test "the json sinks write an empty plan as the writers write an empty frame" {
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("v", [1, 2, 3]),
   ])
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_empty.parquet"
   @io.write_parquet(df, path_src, row_group_rows=1)
   let none = @io.scan_parquet(path_src).filter(
     @expr.col("v").gt(@expr.lit_int(10)),
@@ -228,19 +228,19 @@ test "the json sinks write an empty plan as the writers write an empty frame" {
   @fs.write_string_to_file("_build/io_sink_blank.csv", "")
   let blank = @io.scan_csv("_build/io_sink_blank.csv")
   for lf in [none, blank] {
-    @io.sink_json(lf, "_build/io_sink_out.json")
+    @io.sink_json(lf, "_build/io_sink_out_empty.json")
     assert_eq(
-      sunk_text("_build/io_sink_out.json"),
+      sunk_text("_build/io_sink_out_empty.json"),
       @io.format_json(lf.collect()),
     )
-    @io.sink_ndjson(lf, "_build/io_sink_out.ndjson")
+    @io.sink_ndjson(lf, "_build/io_sink_out_empty.ndjson")
     assert_eq(
-      sunk_text("_build/io_sink_out.ndjson"),
+      sunk_text("_build/io_sink_out_empty.ndjson"),
       @io.format_ndjson(lf.collect()),
     )
   }
-  assert_eq(sunk_text("_build/io_sink_out.json"), "[]")
-  assert_eq(sunk_text("_build/io_sink_out.ndjson"), "")
+  assert_eq(sunk_text("_build/io_sink_out_empty.json"), "[]")
+  assert_eq(sunk_text("_build/io_sink_out_empty.ndjson"), "")
 }
 
 ///|
@@ -339,10 +339,10 @@ test "the json sinks compress a .gz path as the writers do" {
   let lf = @frame.LazyFrame::LazyFrame(
     @frame.DataFrame::DataFrame([@series.Series::from_ints("v", [1, 2])]),
   )
-  @io.sink_json(lf, "_build/io_sink_out.json.gz")
-  assert_eq(@io.read_json("_build/io_sink_out.json.gz").shape(), (2, 1))
-  @io.sink_ndjson(lf, "_build/io_sink_out.ndjson.gz")
-  assert_eq(@io.read_ndjson("_build/io_sink_out.ndjson.gz").shape(), (2, 1))
+  @io.sink_json(lf, "_build/io_sink_out_gz.json.gz")
+  assert_eq(@io.read_json("_build/io_sink_out_gz.json.gz").shape(), (2, 1))
+  @io.sink_ndjson(lf, "_build/io_sink_out_gz.ndjson.gz")
+  assert_eq(@io.read_ndjson("_build/io_sink_out_gz.ndjson.gz").shape(), (2, 1))
 }
 
 ///|
@@ -353,7 +353,7 @@ test "the columnar sinks and the csv sink write a plan that answers no row" {
   let df = @frame.DataFrame::DataFrame([
     @series.Series::from_ints("v", [1, 2, 3]),
   ])
-  let path_src = "_build/io_sink_source.parquet"
+  let path_src = "_build/io_sink_source_nocolumn.parquet"
   @io.write_parquet(df, path_src, row_group_rows=1)
   @fs.write_string_to_file("_build/io_sink_blank.csv", "")
   let empty : ReadOnlyArray[@frame.LazyFrame] = [
@@ -365,7 +365,7 @@ test "the columnar sinks and the csv sink write a plan that answers no row" {
   for lf in empty {
     let collected = lf.collect()
     assert_eq(collected.nrows(), 0)
-    let path_out = "_build/io_sink_out.bin"
+    let path_out = "_build/io_sink_out_nocolumn.bin"
     @io.sink_parquet(lf, path_out)
     let path_eager = "_build/io_sink_eager.parquet"
     @io.write_parquet(collected, path_eager)
@@ -384,8 +384,8 @@ test "the columnar sinks and the csv sink write a plan that answers no row" {
   }
   // The bytes themselves: a kept column is a header alone, and no column
   // at all a bare line terminator.
-  @io.sink_csv(empty[0], "_build/io_sink_out.csv")
-  assert_eq(sunk_text("_build/io_sink_out.csv"), "v\n")
-  @io.sink_csv(empty[1], "_build/io_sink_out.csv")
-  assert_eq(sunk_text("_build/io_sink_out.csv"), "\n")
+  @io.sink_csv(empty[0], "_build/io_sink_out_nocolumn.csv")
+  assert_eq(sunk_text("_build/io_sink_out_nocolumn.csv"), "v\n")
+  @io.sink_csv(empty[1], "_build/io_sink_out_nocolumn.csv")
+  assert_eq(sunk_text("_build/io_sink_out_nocolumn.csv"), "\n")
 }

@@ -39,6 +39,9 @@ Source-level note:
   a frame a table. No existing call changes.
 - SAS joins the facade: `read_sas` / `parse_sas` / `write_sas`, over
   packages the module already depends on. No existing call changes.
+- SPSS system files join the facade: `read_spss` / `parse_spss`, read
+  only, over packages the module already depends on. No existing call
+  changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
   Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
@@ -191,6 +194,15 @@ What changed on `main` since 0.9.0:
   `Bool` column read back as `Float`, a NaN as missing, a missing string
   cell as the empty string. `parse_sas`'s and `write_sas`'s docstrings
   state the two contracts.
+- SPSS system files read over a codec inside the module
+  (`internal/spss`); nothing is written. `read_spss` reads a `.sav` file
+  or its zlib-compressed `.zsav` form, its cases plain or
+  bytecode-compressed, in either byte order. A numeric variable reads as
+  `Float`, a string variable as `String`, the system-missing value and a
+  declared missing value as missing, and a variable under a date,
+  datetime or time format as a `Date` or a `Timestamp` while every
+  present cell is a whole number of the unit. `parse_spss`'s docstring
+  states the mapping and the refusals.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

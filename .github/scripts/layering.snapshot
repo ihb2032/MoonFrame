@@ -41,6 +41,8 @@ internal/scan -> expr
 internal/scan -> internal/order
 internal/scan -> series
 internal/scan -> types
+internal/spss -> series
+internal/spss -> types
 internal/stata -> internal/text
 internal/stata -> series
 internal/stata -> types
@@ -54,6 +56,7 @@ io -> internal/numeric
 io -> internal/parquet
 io -> internal/sas7bdat
 io -> internal/scan
+io -> internal/spss
 io -> internal/stata
 io -> internal/text
 io -> internal/xport

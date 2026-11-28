@@ -57,6 +57,8 @@ pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame rai
 
 pub fn parse_sas(Bytes) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_spss(Bytes) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
@@ -80,6 +82,8 @@ pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame r
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_sas(String) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_spss(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 

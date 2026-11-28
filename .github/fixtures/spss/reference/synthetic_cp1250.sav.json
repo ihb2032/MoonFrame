@@ -1,0 +1,14 @@
+{
+ "file": "synthetic_cp1250.sav",
+ "origin": "synthetic",
+ "note": "re-labelled windows-1250 with ASCII text: refused by name",
+ "bytes": 673,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "reference_rows": 4,
+ "reference_columns": ["t8", "t12", "n"]
+}

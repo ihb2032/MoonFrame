@@ -1,0 +1,24 @@
+// The codec's dependencies: the value types its columns map to, the
+// series constructors it builds columns through, the UTF-8 decoder its
+// text passes through, and the zlib core the compressed data blocks
+// inflate with.
+import {
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/series",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/compress/zlib",
+}
+
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+  "moonbitlang/core/test",
+} for "test"
+
+// `core/compress/zlib` is still marked experimental upstream; the
+// zlib-compressed data blocks ride it, so the dependency is acknowledged
+// here.
+
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/compress/zlib" ],
+)

@@ -1,0 +1,18 @@
+{
+ "file": "pyrs_labels.sav",
+ "origin": "pyreadstat",
+ "note": "value labels, a file label, notes, column labels",
+ "bytes": 776,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 3,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "num", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Float 4000000000000000","Float 3ff0000000000000"]},
+  {"name": "s", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String a","String b","String a"]}
+ ],
+ "cells": 6
+}

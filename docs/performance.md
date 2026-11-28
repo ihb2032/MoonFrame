@@ -266,6 +266,18 @@ for the cells, each page's rows decompressed into a buffer no longer than
 a page and read column by column, `O(r × c)` beyond the walk, with the
 file and the frame both in memory.
 
+## SPSS system files
+
+`read_spss` takes the whole file into memory and reads its dictionary
+once — every record, with the variables' names, formats and declared
+missing values — and then the data record once: a zlib-compressed file
+inflates each block into memory under a bound (what the block declares,
+and about a thousand times its compressed size), and the cases then read
+from the file's bytes or from the inflated ones, each column's cells in
+one pass. A file of `r` rows and `c` columns costs `O(r × c)` cell reads
+beyond that, with the file, the inflated data and the frame all in
+memory. Nothing is written.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

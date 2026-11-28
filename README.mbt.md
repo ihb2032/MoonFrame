@@ -15,7 +15,7 @@ read_csv("sales.csv")
 ```
 
 It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
-XML / HTML / SAS I/O and SQL through the moondb contract, filtering,
+XML / HTML / SAS / SPSS I/O and SQL through the moondb contract, filtering,
 sorting, null handling, group-by, joins, summary statistics, a composable
 expression engine, and a lazy query layer, and exports to Markdown, HTML,
 JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
@@ -156,6 +156,14 @@ same way.
   format's logical types, an enum reads as its symbol, and a list or a
   struct as the `List` / `Struct` dtypes. `parse_avro`'s docstring states
   the mapping and the refusals.
+- **Read SPSS system files** — `read_spss` reads a `.sav` system file, or
+  its zlib-compressed `.zsav` form, as a frame (`parse_spss` for bytes
+  already in memory), over a codec inside the module: plain,
+  bytecode-compressed and zlib-compressed cases in either byte order. A
+  numeric variable reads as `Float`, one under a date, datetime or time
+  format as a `Date` or a `Timestamp`, a string variable as `String`, and
+  the system-missing value and the declared missing values as null.
+  `parse_spss`'s docstring states the mapping and the refusals.
 - **Read and write Excel** — `read_excel` reads one sheet of a workbook
   (the first, or the one `ExcelReadOptions` names; `excel_sheets` lists
   them) and `write_excel` writes a frame as one (`parse_excel` for bytes
@@ -405,7 +413,11 @@ internal/sas7bdat/ the native SAS data-set codec — the paged layout of Version
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
+series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
+expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
+frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

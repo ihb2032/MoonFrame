@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/spss"
+
+import {
+  "ihb2032/MoonFrame/series",
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn read_spss_frame(Bytes) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

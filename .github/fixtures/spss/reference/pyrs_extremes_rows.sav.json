@@ -1,0 +1,17 @@
+{
+ "file": "pyrs_extremes_rows.sav",
+ "origin": "pyreadstat",
+ "note": "the largest and smallest doubles, both zeros, the infinities, the numbers at the edge of the codes",
+ "bytes": 620,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "bytecode",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 17,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "v", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float c058c00000000000","Float 4062e00000000000","Float c059000000000000","Float 4063000000000000","Float 0000000000000000","Float 0000000000000000","Float 7ff0000000000000","Float fff0000000000000","Float 7fefffffffffffff","Float ffeffffffffffffe","Float 0000000000000001","Float 0010000000000000","Float 3ff8000000000000","Null","Float 4059000000000000","Float c008000000000000","Float 4340000000000000"]}
+ ],
+ "cells": 17
+}

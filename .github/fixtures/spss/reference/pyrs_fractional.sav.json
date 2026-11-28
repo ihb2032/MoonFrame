@@ -1,0 +1,21 @@
+{
+ "file": "pyrs_fractional.sav",
+ "origin": "pyreadstat",
+ "note": "a half day under a date format, sub-microsecond values, instants before the epoch",
+ "bytes": 825,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 4,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "half_day", "dtype": "Float", "format": 23, "reference_truncates": 3, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Float 4209b5848e000000","Float 4209b589d4000000","Float 4209b58c77000000","Null"]},
+  {"name": "submicro_d", "dtype": "Float", "format": 22, "reference_truncates": 3, "reference_wraps": 0, "reference_converts": "datetime", "source": "reference", "cells": ["Float 3e19c511dc3a41df","Float 3fb999999999999a","Float 410fa40000000000","Null"]},
+  {"name": "submicro_t", "dtype": "Float", "format": 21, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "time", "source": "reference", "cells": ["Float 3e19c511dc3a41df","Float 3fb999999999999a","Float c014000000000000","Null"]},
+  {"name": "neg_date", "dtype": "Date", "format": 39, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "date", "source": "reference", "cells": ["Date -141429","Date -141428","Date -141427","Null"]},
+  {"name": "neg_stamp", "dtype": "Timestamp", "format": 22, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": "datetime", "source": "reference", "cells": ["Timestamp -12219379200500000","Timestamp -12219379200000000","Timestamp -12219379199000000","Null"]}
+ ],
+ "cells": 20
+}

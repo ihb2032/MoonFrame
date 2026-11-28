@@ -1,0 +1,18 @@
+{
+ "file": "synthetic_big_endian.sav",
+ "origin": "synthetic",
+ "note": "byte-swapped: every number in big-endian order",
+ "bytes": 516,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "big",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 4,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "a", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["Float 3ff0000000000000","Float 4004000000000000","Float c008000000000000","Float 4010000000000000"]},
+  {"name": "s", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": ["String aa","String bb","String cc","String dd"]}
+ ],
+ "cells": 8
+}

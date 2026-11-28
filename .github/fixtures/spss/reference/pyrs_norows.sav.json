@@ -1,0 +1,18 @@
+{
+ "file": "pyrs_norows.sav",
+ "origin": "pyreadstat",
+ "note": "columns and no row",
+ "bytes": 452,
+ "writer": "@(#) SPSS DATA FILE - https://github.com/WizardMac/ReadStat",
+ "compression": "none",
+ "byte_order": "little",
+ "reference_opens": true,
+ "codec": "reads",
+ "ncases": 0,
+ "sidecar_source": "reference",
+ "columns": [
+  {"name": "a", "dtype": "Float", "format": 5, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": []},
+  {"name": "s", "dtype": "String", "format": 1, "reference_truncates": 0, "reference_wraps": 0, "reference_converts": null, "source": "reference", "cells": []}
+ ],
+ "cells": 0
+}

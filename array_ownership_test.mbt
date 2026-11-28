@@ -128,6 +128,19 @@ test "JoinOptions key accessors copy on the way out" {
 }
 
 ///|
+test "LatexOptions copies the caller's column selection in and out" {
+  let names = ["b", "a"]
+  let options = LatexOptions::LatexOptions(columns=names)
+  names[0] = "c"
+  names.clear()
+  assert_eq(options.columns(), Some(["b", "a"]))
+  // The accessor answers a copy: a mutation of it does not reach the options.
+  let back = options.columns().unwrap()
+  back[1] = "z"
+  assert_eq(options.columns(), Some(["b", "a"]))
+}
+
+///|
 /// The lazy builders keep their arrays alive inside the logical plan until
 /// `collect` runs, so they are the widest retention surface in the library.
 /// `drop_nulls` additionally carries its keys behind an optional parameter.

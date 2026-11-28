@@ -42,6 +42,19 @@ test "value types are reachable by name" {
 }
 
 ///|
+/// The LaTeX export, its options named through the facade: a frame rendered
+/// as a table under a caption the options carry.
+test "latex export" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("qty", [1, 2]),
+  ])
+  let options = @moonframe.LatexOptions::LatexOptions(caption="Quantity")
+  let rendered : String = df.to_latex(options~)
+  assert_eq(rendered.has_prefix("\\begin{table}\n\\caption{Quantity}\n"), true)
+  assert_eq(@moonframe.LatexOptions::LatexOptions().columns(), None)
+}
+
+///|
 /// Eager construction, expressions, operators, and the `when` conditional —
 /// the ternary chain threads `WhenThen` / `WhenThenElse` without naming them.
 test "eager expression pipeline" {

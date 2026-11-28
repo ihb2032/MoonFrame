@@ -13,6 +13,7 @@ ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor FieldValue::FieldValue(String, Scalar) -> Self <- types
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
+ctor LatexOptions::LatexOptions(columns? : Array[String], header? : Bool, index? : Bool, na_rep? : String, escape? : Bool, column_format? : String, longtable? : Bool, caption? : String, label? : String, position? : String, bold_rows? : Bool, decimal? : String) -> Self <- frame
 ctor LazyFrame::LazyFrame(DataFrame) -> Self <- frame
 ctor ListValue::ListValue(Array[Scalar]) -> Self <- types
 ctor Optimizations::Optimizations() -> Self <- frame
@@ -170,6 +171,17 @@ field JsonReadOptions.allow_nonfinite_floats : Bool <- io
 field JsonReadOptions.infer_schema_rows : Int32 <- io
 field JsonReadOptions.on_parse_error : OnParseError <- io
 field JsonReadOptions.reject_duplicate_keys : Bool <- io
+field LatexOptions.bold_rows : Bool <- frame
+field LatexOptions.caption : String? <- frame
+field LatexOptions.column_format : String? <- frame
+field LatexOptions.decimal : String <- frame
+field LatexOptions.escape : Bool <- frame
+field LatexOptions.header : Bool <- frame
+field LatexOptions.index : Bool <- frame
+field LatexOptions.label : String? <- frame
+field LatexOptions.longtable : Bool <- frame
+field LatexOptions.na_rep : String <- frame
+field LatexOptions.position : String? <- frame
 field Optimizations.cluster_with_columns : Bool <- frame
 field Optimizations.predicate_pushdown : Bool <- frame
 field Optimizations.projection_pushdown : Bool <- frame
@@ -1261,6 +1273,7 @@ method DataFrame::std(Self) -> Self raise @types.DataError <- frame
 method DataFrame::sum(Self) -> Self raise @types.DataError <- frame
 method DataFrame::tail(Self, Int32) -> Self <- frame
 method DataFrame::to_html(Self, options? : HtmlOptions) -> String <- frame
+method DataFrame::to_latex(Self, options? : LatexOptions) -> String raise @types.DataError <- frame
 method DataFrame::to_lazy(Self) -> LazyFrame <- frame
 method DataFrame::to_markdown(Self, max_rows? : Int32) -> String <- frame
 method DataFrame::to_repr(Self) -> @debug.Repr <- frame
@@ -1511,6 +1524,10 @@ method JsonReadOptions::dtypes(Self) -> Map[String, @types.DataType] <- io
 method KeepStrategy::equal(Self, Self) -> Bool <- frame
 method KeepStrategy::not_equal(Self, Self) -> Bool <- frame
 method KeepStrategy::to_repr(Self) -> @debug.Repr <- frame
+method LatexOptions::columns(Self) -> Array[String]? <- frame
+method LatexOptions::equal(Self, Self) -> Bool <- frame
+method LatexOptions::not_equal(Self, Self) -> Bool <- frame
+method LatexOptions::to_repr(Self) -> @debug.Repr <- frame
 method LazyFrame::bottom_k(Self, Int32, by~ : Array[@expr.Expr], reverse? : Bool) -> Self <- frame
 method LazyFrame::collect(Self, optimizations? : Optimizations) -> DataFrame raise @types.DataError <- frame
 method LazyFrame::collect_batches(Self, optimizations? : Optimizations) -> BatchStream raise @types.DataError <- frame
@@ -2354,6 +2371,7 @@ type JoinOptions <- frame
 type JoinType <- frame
 type JsonReadOptions <- io
 type KeepStrategy <- frame
+type LatexOptions <- frame
 type LazyFrame <- frame
 type ListValue <- types
 type OnParseError <- io

@@ -138,6 +138,7 @@ pub using @frame {
   type KeepStrategy,
   type JoinType,
   type JoinOptions,
+  type LatexOptions,
   type HtmlOptions,
   type PivotAgg,
   type LazyFrame,

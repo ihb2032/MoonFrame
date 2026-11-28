@@ -17,11 +17,15 @@ pub fn format_json(@frame.DataFrame) -> String
 
 pub fn format_ndjson(@frame.DataFrame) -> String
 
+pub fn format_xml(@frame.DataFrame, root_name? : String, row_name? : String) -> String raise @types.DataError
+
 pub fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
@@ -33,11 +37,15 @@ pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame rai
 
 pub fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
+
 pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
@@ -52,6 +60,8 @@ pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @fra
 pub fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_stata(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame
 
@@ -92,6 +102,8 @@ pub fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_
 pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfExists) -> Unit raise @types.DataError
 
 pub fn write_stata(@frame.DataFrame, String) -> Unit raise @types.DataError
+
+pub fn write_xml(@frame.DataFrame, String, root_name? : String, row_name? : String) -> Unit raise @types.DataError
 
 // Errors
 

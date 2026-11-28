@@ -14,7 +14,9 @@ import {
   "moonbitlang/mbtexcel/xlsx",
   "moonbitlang/core/compress/gzip",
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf16",
   "moonbitlang/core/encoding/utf8",
+  "Milky2018/xml",
   "moonbitlang/core/json",
   "moonbitlang/x/fs",
 }

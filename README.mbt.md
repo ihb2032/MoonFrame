@@ -14,11 +14,12 @@ read_csv("sales.csv")
   .to_markdown()
 ```
 
-It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata
-I/O and SQL through the moondb contract, filtering, sorting, null handling,
-group-by, joins, summary statistics, a composable expression engine, and a lazy
-query layer, and exports to Markdown, HTML, JSON, NDJSON, and Vega-Lite charts —
-a focused foundation for everyday tabular work, not a full pandas clone.
+It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
+XML / HTML I/O and SQL through the moondb contract, filtering, sorting,
+null handling, group-by, joins, summary statistics, a composable expression
+engine, and a lazy query layer, and exports to Markdown, HTML, JSON, NDJSON,
+and Vega-Lite charts — a focused foundation for everyday tabular work, not a
+full pandas clone.
 
 ## Install
 
@@ -169,6 +170,18 @@ same way.
   variable under a date format reads as a `Date` or a `Timestamp` and the
   27 missing codes as nulls; value labels are not applied.
   `parse_stata`'s docstring states the mapping and the refusals.
+- **Read and write XML** — `read_xml` reads the elements a path names as
+  the rows of a frame (`parse_xml` for a document already in memory) and
+  `write_xml` writes one back (`format_xml` for the document's text). A
+  row's columns are its attributes, its own text, and its direct child
+  elements, and each takes the narrowest dtype holding its values.
+  `parse_xml`'s docstring states the paths it takes and the cells' rules.
+- **Read HTML tables** — `read_html` reads every table a page holds, one
+  frame a table in the order the page opens them (`parse_html` for the
+  page's text). The rows in a `thead`, or the leading rows of `th` cells,
+  name the columns, a cell's `rowspan` and `colspan` say how far it
+  reaches, and each column takes the narrowest dtype holding its values.
+  `parse_html`'s docstring states the rules.
 - **Read and write a database** — `read_sql(driver, sql, params~)` runs a
   query through any moondb driver and answers a frame, `read_sql_table`
   reads one table whole, `write_sql(df, driver, table, if_exists~)`
@@ -383,7 +396,7 @@ internal/stata/    the native Stata codec — the binary and tagged headers of r
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

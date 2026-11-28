@@ -224,6 +224,32 @@ column in one pass — its cells encoded, a long-string column's records
 collected — and then lays the file out into one buffer and writes it
 once: `O(r × c)` cells, in memory until the file's one write.
 
+## XML documents
+
+`read_xml` holds the whole document in memory — the event reader keeps a
+second copy of it as characters — and pulls one event at a time, keeping
+only the elements still open: a document of `r` rows and `c` columns costs
+`O(r × c)` cells beyond the parse, and a row's cells are typed in one more
+pass each. The reader bounds what a document can make it do — entity
+references are counted against one budget — but checks an element's
+attributes against each other pairwise, so one element with tens of
+thousands of attributes costs time quadratic in their number.
+`format_xml` writes every cell into one buffer, once: `O(r × c)`, in memory
+until the file's one write.
+
+## HTML tables
+
+`read_html` holds the page in memory and its tokenizer walks it once,
+code unit by code unit, over a stack of the tables still open: the walk
+costs `O(n)` in the page's length, and nothing an element says makes it
+revisit what it passed. A run of text is copied once, into the cells it
+sits in; a table of `r` rows and `c` columns then lays its cells out over
+a grid in `O(r × c)`, and each column is typed in one pass. A cell's spans
+say how far it reaches, and the grid they lay out is bounded — a table
+whose spans would carry its grid past some thirty-three million positions
+refuses — so a document cannot ask for memory out of proportion to what
+it holds.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

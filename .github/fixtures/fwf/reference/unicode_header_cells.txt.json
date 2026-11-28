@@ -1,0 +1,58 @@
+{
+ "file": "unicode_header_cells.txt",
+ "family": "unicode",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a header and cells outside ASCII: CJK, Latin with diacritics, Greek, Cyrillic — the boundaries count characters",
+ "roundtrip": true,
+ "lines": ["名前       年齢   都市    ", "田中太郎     34   東京    ", "Ünicode  5    Zürich", "Ωμέγα    120  Θήβα  ", "Москва   7    Ялта  "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 7], [9, 12], [14, 20]],
+   "cut": [["名前", "年齢", "都市"], ["田中太郎", "34", "東京"], ["Ünicode", "5", "Zürich"], ["Ωμέγα", "120", "Θήβα"], ["Москва", "7", "Ялта"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["名前", "年齢", "都市"], ["田中太郎", "34", "東京"], ["Ünicode", "5", "Zürich"], ["Ωμέγα", "120", "Θήβα"], ["Москва", "7", "Ялта"]],
+   "table": {
+    "columns": ["名前", "年齢", "都市"],
+    "dtypes": ["str", "int64", "str"],
+    "cells": [["田中太郎", 34, "東京"], ["Ünicode", 5, "Zürich"], ["Ωμέγα", 120, "Θήβα"], ["Москва", 7, "Ялта"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [7, 5, 8],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 7], [7, 12], [12, 20]],
+   "cut": [["名前", "年齢", "都市"], ["田中太郎", "34", "東京"], ["Ünicode", "5", "Zürich"], ["Ωμέγα", "120", "Θήβα"], ["Москва", "7", "Ялта"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["名前", "年齢", "都市"], ["田中太郎", "34", "東京"], ["Ünicode", "5", "Zürich"], ["Ωμέγα", "120", "Θήβα"], ["Москва", "7", "Ялта"]],
+   "table": {
+    "columns": ["名前", "年齢", "都市"],
+    "dtypes": ["str", "int64", "str"],
+    "cells": [["田中太郎", 34, "東京"], ["Ünicode", 5, "Zürich"], ["Ωμέγα", 120, "Θήβα"], ["Москва", 7, "Ялта"]]
+   }
+  }
+ ]
+}

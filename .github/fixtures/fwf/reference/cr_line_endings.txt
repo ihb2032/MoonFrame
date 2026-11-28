@@ -1,0 +1,1 @@
+id  name   amount flag100 elm    71488  Y   101 pine   48835  N   102 oak    23989  N   103 cedar  44159  N   104 cedar  94127  N   105 spruce 32017  N   

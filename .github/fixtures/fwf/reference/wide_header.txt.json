@@ -1,0 +1,58 @@
+{
+ "file": "wide_header.txt",
+ "family": "wide",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a header far wider than every cell: the fields are the header's",
+ "roundtrip": true,
+ "lines": ["identifier  description  quantity", "7           bolt         12      ", "12          nut          340     ", "3           washer       5       "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [12, 23], [25, 33]],
+   "cut": [["identifier", "description", "quantity"], ["7", "bolt", "12"], ["12", "nut", "340"], ["3", "washer", "5"]],
+   "row_lines": [0, 1, 2, 3],
+   "rows": [["identifier", "description", "quantity"], ["7", "bolt", "12"], ["12", "nut", "340"], ["3", "washer", "5"]],
+   "table": {
+    "columns": ["identifier", "description", "quantity"],
+    "dtypes": ["int64", "str", "int64"],
+    "cells": [[7, "bolt", 12], [12, "nut", 340], [3, "washer", 5]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [10, 13, 10],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [10, 23], [23, 33]],
+   "cut": [["identifier", "description", "quantity"], ["7", "bolt", "12"], ["12", "nut", "340"], ["3", "washer", "5"]],
+   "row_lines": [0, 1, 2, 3],
+   "rows": [["identifier", "description", "quantity"], ["7", "bolt", "12"], ["12", "nut", "340"], ["3", "washer", "5"]],
+   "table": {
+    "columns": ["identifier", "description", "quantity"],
+    "dtypes": ["int64", "str", "int64"],
+    "cells": [[7, "bolt", 12], [12, "nut", 340], [3, "washer", 5]]
+   }
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+n  s               
+1  xy              
+2  ab              
+3  abcdefghijklmnop
+4  pq              

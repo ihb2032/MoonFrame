@@ -1,0 +1,58 @@
+{
+ "file": "short_line.txt",
+ "family": "short",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "lines shorter than the layout — four characters, one — beside a cell wider than the header",
+ "roundtrip": false,
+ "lines": ["label     amount", "small     5", "tiny", "m", "a-very-long-label-name 77", "medium   123"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 22], [23, 25]],
+   "cut": [["label     amount", ""], ["small     5", ""], ["tiny", ""], ["m", ""], ["a-very-long-label-name", "77"], ["medium   123", ""]],
+   "row_lines": [0, 1, 2, 3, 4, 5],
+   "rows": [["label     amount", ""], ["small     5", ""], ["tiny", ""], ["m", ""], ["a-very-long-label-name", "77"], ["medium   123", ""]],
+   "table": {
+    "columns": ["label     amount", "Unnamed: 1"],
+    "dtypes": ["str", "float64"],
+    "cells": [["small     5", null], ["tiny", null], ["m", null], ["a-very-long-label-name", 77.0], ["medium   123", null]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [22, 3],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 22], [22, 25]],
+   "cut": [["label     amount", ""], ["small     5", ""], ["tiny", ""], ["m", ""], ["a-very-long-label-name", "77"], ["medium   123", ""]],
+   "row_lines": [0, 1, 2, 3, 4, 5],
+   "rows": [["label     amount", ""], ["small     5", ""], ["tiny", ""], ["m", ""], ["a-very-long-label-name", "77"], ["medium   123", ""]],
+   "table": {
+    "columns": ["label     amount", "Unnamed: 1"],
+    "dtypes": ["str", "float64"],
+    "cells": [["small     5", null], ["tiny", null], ["m", null], ["a-very-long-label-name", 77.0], ["medium   123", null]]
+   }
+  }
+ ]
+}

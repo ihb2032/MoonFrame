@@ -1,0 +1,7 @@
+city            pop    area  density
+Oslo        4582077   53360     4868
+Reykjavik   4034439  932342         
+San-Marino  8373483  313894     1863
+Brussels             299288     4876
+Porto       4880610  509022     1853
+Xi'an       6704612  407218     2651

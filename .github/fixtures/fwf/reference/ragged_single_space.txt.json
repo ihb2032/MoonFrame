@@ -1,0 +1,58 @@
+{
+ "file": "ragged_single_space.txt",
+ "family": "ragged",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "one space between cells of different lengths, a cell with a space inside: columns whose content touches merge in the inference",
+ "roundtrip": false,
+ "lines": ["name age city", "Ada 31 Oslo", "Alan 5 Reykjavik", "Jo 250 Tokyo", "Anastasia 104 San Marino"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 17], [18, 24]],
+   "cut": [["name age city", ""], ["Ada 31 Oslo", ""], ["Alan 5 Reykjavik", ""], ["Jo 250 Tokyo", ""], ["Anastasia 104 San", "Marino"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["name age city", ""], ["Ada 31 Oslo", ""], ["Alan 5 Reykjavik", ""], ["Jo 250 Tokyo", ""], ["Anastasia 104 San", "Marino"]],
+   "table": {
+    "columns": ["name age city", "Unnamed: 1"],
+    "dtypes": ["str", "str"],
+    "cells": [["Ada 31 Oslo", null], ["Alan 5 Reykjavik", null], ["Jo 250 Tokyo", null], ["Anastasia 104 San", "Marino"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [17, 7],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 17], [17, 24]],
+   "cut": [["name age city", ""], ["Ada 31 Oslo", ""], ["Alan 5 Reykjavik", ""], ["Jo 250 Tokyo", ""], ["Anastasia 104 San", "Marino"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["name age city", ""], ["Ada 31 Oslo", ""], ["Alan 5 Reykjavik", ""], ["Jo 250 Tokyo", ""], ["Anastasia 104 San", "Marino"]],
+   "table": {
+    "columns": ["name age city", "Unnamed: 1"],
+    "dtypes": ["str", "str"],
+    "cells": [["Ada 31 Oslo", null], ["Alan 5 Reykjavik", null], ["Jo 250 Tokyo", null], ["Anastasia 104 San", "Marino"]]
+   }
+  }
+ ]
+}

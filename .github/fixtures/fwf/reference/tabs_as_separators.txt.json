@@ -1,0 +1,58 @@
+{
+ "file": "tabs_as_separators.txt",
+ "family": "tabs",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "tabs as separators: a tab between columns aligned across the lines, the last cell of the last line empty",
+ "roundtrip": true,
+ "lines": ["key  \tvalue\tunit", "a    \t12   \tkg  ", "ratio\t0.5  \t%   ", "b    \t340  \tm   ", "count\t7    \t    "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [6, 11], [12, 16]],
+   "cut": [["key", "value", "unit"], ["a", "12", "kg"], ["ratio", "0.5", "%"], ["b", "340", "m"], ["count", "7", ""]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["key", "value", "unit"], ["a", "12", "kg"], ["ratio", "0.5", "%"], ["b", "340", "m"], ["count", "7", ""]],
+   "table": {
+    "columns": ["key", "value", "unit"],
+    "dtypes": ["str", "float64", "str"],
+    "cells": [["a", 12.0, "kg"], ["ratio", 0.5, "%"], ["b", 340.0, "m"], ["count", 7.0, null]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [5, 6, 5],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [5, 11], [11, 16]],
+   "cut": [["key", "value", "unit"], ["a", "12", "kg"], ["ratio", "0.5", "%"], ["b", "340", "m"], ["count", "7", ""]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["key", "value", "unit"], ["a", "12", "kg"], ["ratio", "0.5", "%"], ["b", "340", "m"], ["count", "7", ""]],
+   "table": {
+    "columns": ["key", "value", "unit"],
+    "dtypes": ["str", "float64", "str"],
+    "cells": [["a", 12.0, "kg"], ["ratio", 0.5, "%"], ["b", 340.0, "m"], ["count", 7.0, null]]
+   }
+  }
+ ]
+}

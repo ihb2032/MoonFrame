@@ -1,0 +1,58 @@
+{
+ "file": "unicode_ascii_header.txt",
+ "family": "unicode",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "an ASCII header and cells that are not: CJK, full-width, Arabic-Indic and Gujarati digits, Greek, Cyrillic, Hebrew, Latin with diacritics",
+ "roundtrip": true,
+ "lines": ["col_a    col_b  col_c    ", "東京       １２３    naïve    ", "Αθήνα    ٤٥٦    façade   ", "Москва   七八九    žluťoučký", "ירושלים  ૭૮૯    Přímý    "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 7], [9, 14], [16, 25]],
+   "cut": [["col_a", "col_b", "col_c"], ["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["col_a", "col_b", "col_c"], ["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]],
+   "table": {
+    "columns": ["col_a", "col_b", "col_c"],
+    "dtypes": ["str", "str", "str"],
+    "cells": [["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [7, 7, 11],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 7], [7, 14], [14, 25]],
+   "cut": [["col_a", "col_b", "col_c"], ["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["col_a", "col_b", "col_c"], ["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]],
+   "table": {
+    "columns": ["col_a", "col_b", "col_c"],
+    "dtypes": ["str", "str", "str"],
+    "cells": [["東京", "１２３", "naïve"], ["Αθήνα", "٤٥٦", "façade"], ["Москва", "七八九", "žluťoučký"], ["ירושלים", "૭૮૯", "Přímý"]]
+   }
+  }
+ ]
+}

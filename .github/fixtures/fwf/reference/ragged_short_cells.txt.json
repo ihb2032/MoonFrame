@@ -1,0 +1,58 @@
+{
+ "file": "ragged_short_cells.txt",
+ "family": "ragged",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "columns of ragged widths: numbers right-aligned and text left-aligned, so cells fall short of their field at one side or the other; two cells empty",
+ "roundtrip": true,
+ "lines": ["city            pop    area  density", "Oslo        4582077   53360     4868", "Reykjavik   4034439  932342         ", "San-Marino  8373483  313894     1863", "Brussels             299288     4876", "Porto       4880610  509022     1853", "Xi'an       6704612  407218     2651"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [12, 19], [21, 27], [29, 36]],
+   "cut": [["city", "pop", "area", "density"], ["Oslo", "4582077", "53360", "4868"], ["Reykjavik", "4034439", "932342", ""], ["San-Marino", "8373483", "313894", "1863"], ["Brussels", "", "299288", "4876"], ["Porto", "4880610", "509022", "1853"], ["Xi'an", "6704612", "407218", "2651"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["city", "pop", "area", "density"], ["Oslo", "4582077", "53360", "4868"], ["Reykjavik", "4034439", "932342", ""], ["San-Marino", "8373483", "313894", "1863"], ["Brussels", "", "299288", "4876"], ["Porto", "4880610", "509022", "1853"], ["Xi'an", "6704612", "407218", "2651"]],
+   "table": {
+    "columns": ["city", "pop", "area", "density"],
+    "dtypes": ["str", "float64", "int64", "float64"],
+    "cells": [["Oslo", 4582077.0, 53360, 4868.0], ["Reykjavik", 4034439.0, 932342, null], ["San-Marino", 8373483.0, 313894, 1863.0], ["Brussels", null, 299288, 4876.0], ["Porto", 4880610.0, 509022, 1853.0], ["Xi'an", 6704612.0, 407218, 2651.0]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [10, 9, 8, 9],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [10, 19], [19, 27], [27, 36]],
+   "cut": [["city", "pop", "area", "density"], ["Oslo", "4582077", "53360", "4868"], ["Reykjavik", "4034439", "932342", ""], ["San-Marino", "8373483", "313894", "1863"], ["Brussels", "", "299288", "4876"], ["Porto", "4880610", "509022", "1853"], ["Xi'an", "6704612", "407218", "2651"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["city", "pop", "area", "density"], ["Oslo", "4582077", "53360", "4868"], ["Reykjavik", "4034439", "932342", ""], ["San-Marino", "8373483", "313894", "1863"], ["Brussels", "", "299288", "4876"], ["Porto", "4880610", "509022", "1853"], ["Xi'an", "6704612", "407218", "2651"]],
+   "table": {
+    "columns": ["city", "pop", "area", "density"],
+    "dtypes": ["str", "float64", "int64", "float64"],
+    "cells": [["Oslo", 4582077.0, 53360, 4868.0], ["Reykjavik", 4034439.0, 932342, null], ["San-Marino", 8373483.0, 313894, 1863.0], ["Brussels", null, 299288, 4876.0], ["Porto", 4880610.0, 509022, 1853.0], ["Xi'an", 6704612.0, 407218, 2651.0]]
+   }
+  }
+ ]
+}

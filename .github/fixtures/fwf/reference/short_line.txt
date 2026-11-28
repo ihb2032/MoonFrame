@@ -1,0 +1,6 @@
+label     amount
+small     5
+tiny
+m
+a-very-long-label-name 77
+medium   123

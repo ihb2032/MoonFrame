@@ -1,0 +1,7 @@
+id  name  amount flag
+100 ash   87731  Y     
+101 ash   76194  Y                 
+102 elm   74334  Y         
+103 birch 81892  Y    
+104 ash   42     N      
+105 elm   67452  N        

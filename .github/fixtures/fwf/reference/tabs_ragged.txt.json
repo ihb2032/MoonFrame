@@ -1,0 +1,58 @@
+{
+ "file": "tabs_ragged.txt",
+ "family": "tabs",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "single tabs between cells of ragged widths: as with single spaces, the columns merge in the inference and a cell keeps its tab",
+ "roundtrip": false,
+ "lines": ["key\tvalue\tunit", "a\t12\tkg", "ratio\t0.5\t%", "b\t340\tm", "count\t7\t"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 9], [10, 14]],
+   "cut": [["key\tvalue", "unit"], ["a\t12\tkg", ""], ["ratio\t0.5", "%"], ["b\t340\tm", ""], ["count\t7", ""]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["key\tvalue", "unit"], ["a\t12\tkg", ""], ["ratio\t0.5", "%"], ["b\t340\tm", ""], ["count\t7", ""]],
+   "table": {
+    "columns": ["key\tvalue", "unit"],
+    "dtypes": ["str", "str"],
+    "cells": [["a\t12\tkg", null], ["ratio\t0.5", "%"], ["b\t340\tm", null], ["count\t7", null]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [9, 5],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 9], [9, 14]],
+   "cut": [["key\tvalue", "unit"], ["a\t12\tkg", ""], ["ratio\t0.5", "%"], ["b\t340\tm", ""], ["count\t7", ""]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["key\tvalue", "unit"], ["a\t12\tkg", ""], ["ratio\t0.5", "%"], ["b\t340\tm", ""], ["count\t7", ""]],
+   "table": {
+    "columns": ["key\tvalue", "unit"],
+    "dtypes": ["str", "str"],
+    "cells": [["a\t12\tkg", null], ["ratio\t0.5", "%"], ["b\t340\tm", null], ["count\t7", null]]
+   }
+  }
+ ]
+}

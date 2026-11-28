@@ -95,6 +95,7 @@ Each row reuses the symbols in its own line — `k` is the surviving rows of a
 | `count` | `O(1)` on `Numeric`, `O(n)` bits on `Builtin` | `O(c)` | non-null count: a `Numeric` column has none, a `Builtin` one scans its packed bitmap (`n / 8` bytes) |
 | `format_*` (JSON / CSV / NDJSON) | — | `O(n · c)` | one whole-frame `to_scalar_matrix` read |
 | `to_markdown` / `to_html` | — | `O(shown · c)` | scalarises only the rows shown — a row cap touches `shown`, not `n` |
+| `to_latex` | — | `O(n · c)` | every row rendered — an export, not a preview |
 
 ## Lazy execution
 

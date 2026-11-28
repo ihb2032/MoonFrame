@@ -89,6 +89,7 @@ pub fn DataFrame::std(Self) -> Self raise @types.DataError
 pub fn DataFrame::sum(Self) -> Self raise @types.DataError
 pub fn DataFrame::tail(Self, Int32) -> Self
 pub fn DataFrame::to_html(Self, options? : HtmlOptions) -> String
+pub fn DataFrame::to_latex(Self, options? : LatexOptions) -> String raise @types.DataError
 pub fn DataFrame::to_lazy(Self) -> LazyFrame
 pub fn DataFrame::to_markdown(Self, max_rows? : Int32) -> String
 pub fn DataFrame::to_repr(Self) -> @debug.Repr
@@ -168,6 +169,27 @@ pub(all) enum KeepStrategy {
 pub fn KeepStrategy::equal(Self, Self) -> Bool
 pub fn KeepStrategy::not_equal(Self, Self) -> Bool
 pub fn KeepStrategy::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct LatexOptions {
+  header : Bool
+  index : Bool
+  na_rep : String
+  escape : Bool
+  column_format : String?
+  longtable : Bool
+  caption : String?
+  label : String?
+  position : String?
+  bold_rows : Bool
+  decimal : String
+  // private fields
+}
+pub fn LatexOptions::LatexOptions(columns? : Array[String], header? : Bool, index? : Bool, na_rep? : String, escape? : Bool, column_format? : String, longtable? : Bool, caption? : String, label? : String, position? : String, bold_rows? : Bool, decimal? : String) -> Self
+pub fn LatexOptions::columns(Self) -> Array[String]?
+pub fn LatexOptions::equal(Self, Self) -> Bool
+pub fn LatexOptions::not_equal(Self, Self) -> Bool
+pub fn LatexOptions::to_repr(Self) -> @debug.Repr
 
 pub struct LazyFrame {
   // private fields

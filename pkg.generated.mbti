@@ -198,6 +198,8 @@ pub using @io {type JsonReadOptions}
 
 pub using @frame {type KeepStrategy}
 
+pub using @frame {type LatexOptions}
+
 pub using @frame {type LazyFrame}
 
 pub using @types {type ListValue}

@@ -18,7 +18,7 @@ It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
 XML / HTML / SAS / SPSS I/O and SQL through the moondb contract, filtering,
 sorting, null handling, group-by, joins, summary statistics, a composable
 expression engine, and a lazy query layer, and exports to Markdown, HTML,
-JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
+LaTeX, JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
 tabular work, not a full pandas clone.
 
 ## Install
@@ -248,7 +248,7 @@ same way.
   `JoinOptions::left_on([col("customer_id")], right_on=[col("id")])`.
 - **Summarize** — `describe()` for a per-column summary, or single statistics
   (`sum` / `mean` / `min` / `max` / …).
-- **Export** — `to_markdown()` / `to_html()`, and charts: `plot(df)`
+- **Export** — `to_markdown()` / `to_html()` / `to_latex()`, and charts: `plot(df)`
   chains to a finished chart over plain column names
   (`plot(df).bar(x="region", y="revenue").write_html("out.html")`),
   backed by `format_vega_lite` (a

@@ -206,8 +206,9 @@ same way.
   the format's versions 0.11 and 0.12 under none, zlib, snappy, LZ4 or
   zstandard compression. Lists and structs read as the `List` / `Struct`
   dtypes, a decimal as `Decimal`, and a projection leaves a column it does
-  not name undecoded. `parse_orc`'s docstring states the mapping and the
-  refusals.
+  not name undecoded, and `scan_orc` reads lazily, a stripe a batch, a
+  pushed-down window skipping the stripes outside it. `parse_orc`'s
+  docstring states the mapping and the refusals.
 - **Read and write a database** — `read_sql(driver, sql, params~)` runs a
   query through any moondb driver and answers a frame, `read_sql_table`
   reads one table whole, `write_sql(df, driver, table, if_exists~)`
@@ -242,8 +243,9 @@ same way.
   `(col("revenue") - col("cost")).sum()`; `map_elements` / `map_many` drop to a
   host closure for anything past the built-in algebra.
 - **Defer & optimize** — `df.to_lazy()` (or `LazyFrame::LazyFrame(df)`), or
-  `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc`
-  for a lazy file source and `scan_sql` for a query (deferred execution
+  `scan_csv` / `scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc` /
+  `scan_orc` for a lazy file source and `scan_sql` for a query (deferred
+  execution
   with projection *and* predicate pushdown into the reader — the text
   formats still tokenise at `collect()`, the columnar sources decode only
   the columns and batches they need, and a SQL query stops at a sunk
@@ -430,7 +432,7 @@ internal/avro/     the native Avro codec — the JSON schema with its logical ty
 internal/stata/    the native Stata codec — the binary and tagged headers of releases 113 to 119, the row-major data block, and the long-string table; wrapped by io's read / write_stata
 internal/xport/   the native SAS transport codec — the Version 5 header records, the NAMESTR descriptors, the row-major observations, and the IBM floating point a numeric cell spells; wrapped by io's read / write_sas
 internal/sas7bdat/ the native SAS data-set codec — the paged layout of Versions 7, 8 and 9 with its subheaders, either byte order and word size, the two row compressions, and the single-byte character sets; wrapped by io's read_sas
-internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read_orc
+internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read / scan_orc
 internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
 internal/fwf/     the fixed-width column logic — where each line's fields start and end, inferred from the lines or named by widths and positions, and how a line is cut into them; wrapped by io's read_fwf
 internal/ods/      the native OpenDocument spreadsheet codec — the ZIP package with the mimetype and the root element that judge it, the content.xml event walk over tables, rows and cells, a cell's typed values (text, number, boolean, date, instant, time of day), and the repetition counts the desktop writers spell; read by io's read_excel
@@ -438,7 +440,7 @@ internal/xls/      the native Excel 97–2003 codec — the compound file's sect
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel (.xlsx read / write, .xlsm / .ods / .xls read), Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel (.xlsx read / write, .xlsm / .ods / .xls read), Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read / scan + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

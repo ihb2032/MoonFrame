@@ -160,8 +160,8 @@ file source's push-down can prune the data an error was hiding in — see below.
   as early as the operator provably commutes with the predicate.
 - **Projection pushdown** narrows each scan to the columns its consumers
   actually read. For a file source (`scan_csv` / `scan_ndjson` /
-  `scan_json` / `scan_parquet` / `scan_ipc`) the column
-  set is pushed into the reader, so a column no stage reads is **never
+  `scan_json` / `scan_parquet` / `scan_ipc` / `scan_orc`) the
+  column set is pushed into the reader, so a column no stage reads is **never
   parsed** —
   `scan_csv("sales.csv").select([col("region"), col("revenue")]).collect()`
   parses only those two columns. For `scan_sql` the set names the columns
@@ -181,7 +181,7 @@ Because a pruned column is never parsed, a parse error confined to it — or to 
 row a pushed-down predicate drops, in a column the predicate does not read — is
 what an optimized plan will not surface that a full eager read would. That is
 the deliberate one, and it applies to every file source (`scan_csv` /
-`scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc`);
+`scan_ndjson` / `scan_json` / `scan_parquet` / `scan_ipc` / `scan_orc`);
 `LazyFrame::collect`'s
 docstring states both cases as the plan-level contract.
 
@@ -320,7 +320,9 @@ projection leaves out costs nothing beyond locating its streams. A stripe
 that declares more rows than its streams can spell — denser than the
 format's densest encoding, 520 values to a byte — is refused before a cell
 is built for them, so a small file cannot ask for a large allocation.
-Nothing is written.
+`scan_orc` walks a file without holding more than a stripe: one batch a
+stripe, the stripes outside a sunk window never decoded, each kept
+column's cells cut to the window's overlap. Nothing is written.
 
 ## Database writes
 

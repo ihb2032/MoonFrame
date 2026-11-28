@@ -15,7 +15,7 @@ read_csv("sales.csv")
 ```
 
 It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
-XML / HTML / SAS / SPSS I/O and SQL through the moondb contract, filtering,
+XML / HTML / SAS / SPSS / ORC I/O and SQL through the moondb contract, filtering,
 sorting, null handling, group-by, joins, summary statistics, a composable
 expression engine, and a lazy query layer, and exports to Markdown, HTML,
 LaTeX, JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
@@ -197,6 +197,13 @@ same way.
   A file's numbers read as `Float`, a variable under a date format as a
   `Date` or a `Timestamp`, and the 28 missing spellings as nulls.
   `parse_sas`'s docstring states the mappings and the refusals.
+- **Read ORC files** — `read_orc` reads a file's top-level fields as a frame
+  (`parse_orc` for bytes already in memory), over a codec inside the module:
+  the format's versions 0.11 and 0.12 under none, zlib, snappy, LZ4 or
+  zstandard compression. Lists and structs read as the `List` / `Struct`
+  dtypes, a decimal as `Decimal`, and a projection leaves a column it does
+  not name undecoded. `parse_orc`'s docstring states the mapping and the
+  refusals.
 - **Read and write a database** — `read_sql(driver, sql, params~)` runs a
   query through any moondb driver and answers a frame, `read_sql_table`
   reads one table whole, `write_sql(df, driver, table, if_exists~)`
@@ -410,10 +417,11 @@ internal/avro/     the native Avro codec — the JSON schema with its logical ty
 internal/stata/    the native Stata codec — the binary and tagged headers of releases 113 to 119, the row-major data block, and the long-string table; wrapped by io's read / write_stata
 internal/xport/   the native SAS transport codec — the Version 5 header records, the NAMESTR descriptors, the row-major observations, and the IBM floating point a numeric cell spells; wrapped by io's read / write_sas
 internal/sas7bdat/ the native SAS data-set codec — the paged layout of Versions 7, 8 and 9 with its subheaders, either byte order and word size, the two row compressions, and the single-byte character sets; wrapped by io's read_sas
+internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read_orc
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering

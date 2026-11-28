@@ -406,6 +406,23 @@ here today:
   declaring windows-1250 as long as its text is ASCII, and refuses
   windows-1252's five unassigned bytes, which read here as the control
   characters of their number. There is no chunked or iterated read.
+- **ORC** — `read_orc` reads a file's top-level fields as a frame over a
+  codec inside the module, as pandas' `read_orc` does — which rides
+  pyarrow — and Polars' `read_orc` / `scan_orc`; neither writes ORC, and
+  nothing is written here. The format's versions 0.11 and 0.12 read under
+  none, zlib, snappy, LZ4 or zstandard compression, and a projection
+  leaves a column it does not name undecoded, so a file carrying a column
+  this reader refuses reads under a projection that leaves it out. A
+  boolean reads as `Bool`, an integer of any width as `Int`, a float as
+  `Float`, a string as `String`, a date as `Date`, a timestamp as
+  `Timestamp` in microseconds — the wall clock the writer stored, taken
+  for UTC, the writer's time zone not applied — a decimal as `Decimal`,
+  and a list or a struct as the `List` / `Struct` dtypes. A BINARY, MAP or
+  UNION column, an encrypted column, a nanosecond timestamp and a decimal
+  past what the library holds refuse by name, where pandas carries the
+  first three. Two top-level fields of one name reach the frame as they
+  are spelled, and the frame refuses them. There is no lazy source and no
+  iterated read: a file is read whole.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

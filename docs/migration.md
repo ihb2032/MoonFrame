@@ -42,6 +42,8 @@ Source-level note:
 - SPSS system files join the facade: `read_spss` / `parse_spss`, read
   only, over packages the module already depends on. No existing call
   changes.
+- ORC files join the facade: `read_orc` / `parse_orc`, read only, over
+  packages the module already depends on. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
   Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
@@ -208,6 +210,15 @@ What changed on `main` since 0.9.0:
   datetime or time format as a `Date` or a `Timestamp` while every
   present cell is a whole number of the unit. `parse_spss`'s docstring
   states the mapping and the refusals.
+- ORC files read over a codec inside the module (`internal/orc`); nothing
+  is written. `read_orc` reads the format's versions 0.11 and 0.12 under
+  none, zlib, snappy, LZ4 or zstandard compression; a boolean reads as
+  `Bool`, an integer as `Int`, a float as `Float`, a string as `String`, a
+  date as `Date`, a timestamp as `Timestamp` in microseconds, a decimal as
+  `Decimal`, and a list or a struct as the `List` / `Struct` dtypes. A
+  projection keeps only the top-level fields it names, and a field it
+  leaves out is never decoded. `parse_orc`'s docstring states the mapping
+  and the refusals.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

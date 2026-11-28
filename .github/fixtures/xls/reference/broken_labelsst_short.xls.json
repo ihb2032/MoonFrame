@@ -1,0 +1,15 @@
+{
+ "file": "broken_labelsst_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a LABELSST record of 6 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the LABELSST record is 6 bytes long, and its kind needs 10",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 10 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 10 bytes",
+ "compound_reader": "opens"
+}

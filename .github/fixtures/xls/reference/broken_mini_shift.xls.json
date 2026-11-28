@@ -1,0 +1,14 @@
+{
+ "file": "broken_mini_shift.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a compound file declaring 128-byte mini sectors",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 32: the compound file declares 2^7-byte mini sectors, and this reader reads 64-byte ones",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

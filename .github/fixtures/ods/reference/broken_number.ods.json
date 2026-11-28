@@ -1,0 +1,11 @@
+{
+ "file": "broken_number.ods",
+ "origin": "broken",
+ "note": "an office:value that spells no number",
+ "writer": "patched",
+ "bytes": 3413,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: could not convert string to float: 'abc'"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1170: the office:value attribute \"abc\" is not a number"
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_root_other.ods",
+ "origin": "broken",
+ "note": "no mimetype entry and a root that is the document-styles element",
+ "writer": "hand-built",
+ "bytes": 796,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 1}}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: content.xml's root element is \"office:document-styles\", not an OpenDocument document-content element"
+}

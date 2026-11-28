@@ -1,0 +1,15 @@
+{
+ "file": "broken_labelsst_index.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a LABELSST record naming shared string 5, where the table holds one",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 109 of the workbook stream: the LABELSST record at byte 99 names shared string 5, and the table holds 1",
+ "reference_opens": false,
+ "reference_error": "IndexError: list index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: list index out of range",
+ "compound_reader": "opens"
+}

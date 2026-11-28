@@ -1,0 +1,21 @@
+{
+ "file": "syn_getting_data.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: the eighth error code the format names, #GETTING_DATA, in a BOOLERR record and as a formula's cached value",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "generator",
+ "first_reader_differs": [["S", 0, 0], ["S", 1, 0]],
+ "deviations": "the reference reader has no text for error code 0x2B, which the format names #GETTING_DATA; the codec answers the format's text",
+ "sheets": ["S"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "S", "cells": [["E", 0, 0, "#GETTING_DATA"],["E", 1, 0, "#GETTING_DATA"],["T", 2, 0, "beside"]]}
+ ],
+ "cells": 3,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

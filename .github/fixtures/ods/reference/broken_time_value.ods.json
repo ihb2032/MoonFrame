@@ -1,0 +1,11 @@
+{
+ "file": "broken_time_value.ods",
+ "origin": "broken",
+ "note": "a time-value with a year in it: not a time of day",
+ "writer": "patched",
+ "bytes": 3405,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1617: the office:time-value attribute \"P1Y\" is not a time value"
+}

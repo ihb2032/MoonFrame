@@ -1,0 +1,19 @@
+{
+ "file": "syn_zero_sheets.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: a workbook of no sheet, which the reference writer cannot save",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": [],
+ "datemode": 0,
+ "out_of_range": [0, 1, -1],
+ "grids": [
+ ],
+ "cells": 0,
+ "second_reader_opens": false,
+ "second_reader_error": "ValueError: Sheet name is an empty list",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_zip_container.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a ZIP archive, as an .xlsx workbook is one, under an .xls name",
+ "bytes": 310,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: not an .xls workbook: the bytes do not open with a compound file's signature",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unknown ZIP file; not supported",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unknown ZIP file; not supported",
+ "compound_reader": "refuses"
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_encrypted.ods",
+ "origin": "broken",
+ "note": "content.xml's flags declare it encrypted; the reference reader raises on the package",
+ "writer": "patched",
+ "bytes": 1872,
+ "reference": {"opens": false, "error": "RuntimeError: File 'content.xml' is encrypted, password required for extraction", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: the package's entry \"content.xml\" is encrypted, which this reader does not decrypt"
+}

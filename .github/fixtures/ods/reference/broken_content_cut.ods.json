@@ -1,0 +1,11 @@
+{
+ "file": "broken_content_cut.ods",
+ "origin": "broken",
+ "note": "content.xml cut short after a cell's start tag; the reference reader answers the cells before the cut",
+ "writer": "patched",
+ "bytes": 2360,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 1}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 932 is not well-formed: InvalidSyntax(unclosed element: <table:table-cell>) at 2:894-2:939"
+}

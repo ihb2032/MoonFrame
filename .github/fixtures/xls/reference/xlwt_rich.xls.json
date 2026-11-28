@@ -1,0 +1,19 @@
+{
+ "file": "xlwt_rich.xls",
+ "origin": "xlwt",
+ "writer": "xlwt 1.3.0",
+ "note": "the reference writer: rich-text strings, compressed and UTF-16, in two and three runs",
+ "bytes": 5632,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["rich"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "rich", "cells": [["T", 0, 0, "plainred日本"],["T", 1, 0, "a stringin twostyles"],["T", 2, 0, "日本語の装飾"],["T", 3, 0, "after an empty run"],["T", 4, 0, "rich by a list too"]]}
+ ],
+ "cells": 5,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

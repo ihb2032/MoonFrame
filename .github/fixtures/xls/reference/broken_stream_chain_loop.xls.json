@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_chain_loop.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream's chain coming back to a sector it entered",
+ "bytes": 5632,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 4624: the Workbook stream enters sector 2 a second time, so its chain loops",
+ "reference_opens": false,
+ "reference_error": "CompDocError: Workbook corruption: seen[2] == 7",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: Workbook corruption: seen[2] == 7",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_text_bytes.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "plain text",
+ "bytes": 192,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: not an .xls workbook: the bytes do not open with a compound file's signature",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'This is '",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'This is '",
+ "compound_reader": "refuses"
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_root_mimetype.ods",
+ "origin": "broken",
+ "note": "no mimetype entry; the root's office:mimetype names a text document",
+ "writer": "hand-built",
+ "bytes": 821,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 1}}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: content.xml's office:mimetype is \"application/vnd.oasis.opendocument.text\", not an OpenDocument spreadsheet's"
+}

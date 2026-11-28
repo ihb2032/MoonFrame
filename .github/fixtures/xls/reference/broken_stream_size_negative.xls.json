@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_size_negative.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a version 4 compound file whose Workbook stream declares a size past 63 bits",
+ "bytes": 12800,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 8952: the Workbook stream declares 9223372036854775808 bytes, and the file holds 12288 past its header",
+ "reference_opens": false,
+ "reference_error": "CompDocError: OLE2 stream 'Workbook (from SSCS)': sector allocation table invalid entry (0)",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: OLE2 stream 'Workbook (from SSCS)': sector allocation table invalid entry (0)",
+ "compound_reader": "opens"
+}

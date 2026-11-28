@@ -1,0 +1,11 @@
+{
+ "file": "broken_clock.ods",
+ "origin": "broken",
+ "note": "a time cell whose text is a clock reading of 25 hours",
+ "writer": "patched",
+ "bytes": 3381,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "DateParseError: hour must be in 0..23: 25:02:03"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1574: the text of a time cell, \"25:02:03\", is not a clock reading"
+}

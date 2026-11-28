@@ -1,0 +1,15 @@
+{
+ "file": "broken_byte_order.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a compound file declaring the big-endian byte order",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 28: the compound file declares byte order 0xFEFF, and this reader reads the little-endian one, 0xFFFE",
+ "reference_opens": false,
+ "reference_error": "CompDocError: Expected \"little-endian\" marker, found b'\\xff\\xfe'",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: Expected \"little-endian\" marker, found b'\\xff\\xfe'",
+ "compound_reader": "opens"
+}

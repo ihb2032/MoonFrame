@@ -1,0 +1,15 @@
+{
+ "file": "broken_rk_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a RK record of 6 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the RK record is 6 bytes long, and its kind needs 10",
+ "reference_opens": false,
+ "reference_error": "IndexError: index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: index out of range",
+ "compound_reader": "opens"
+}

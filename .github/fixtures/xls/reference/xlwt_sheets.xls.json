@@ -1,0 +1,23 @@
+{
+ "file": "xlwt_sheets.xls",
+ "origin": "xlwt",
+ "writer": "xlwt 1.3.0",
+ "note": "the reference writer: five worksheets out of alphabetical order, one hidden, one very hidden, one named in Japanese, one named with the longest name a sheet holds, one empty",
+ "bytes": 5632,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["Zebra", "Hidden sheet", "日本語のシート", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Empty"],
+ "datemode": 0,
+ "out_of_range": [5, 6, -1],
+ "grids": [
+  {"sheet": "Zebra", "cells": [["T", 0, 0, "first"]]},
+  {"sheet": "Hidden sheet", "cells": [["N", 0, 0, "3ff0000000000000", 164, "General", 2],["T", 1, 0, "hidden text"]]},
+  {"sheet": "日本語のシート", "cells": [["T", 0, 0, "very hidden"]]},
+  {"sheet": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "cells": [["N", 0, 0, "4004000000000000", 164, "General", 2]]},
+  {"sheet": "Empty", "cells": []}
+ ],
+ "cells": 5,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

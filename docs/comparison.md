@@ -301,16 +301,22 @@ here today:
   numbers its; an empty text, or one of blank lines alone, answers the
   `0×0` frame where pandas raises. `skiprows`, `infer_nrows` and a
   transparently gzip path read as in CSV.
-- **Excel** — `read_excel` reads a sheet and `write_excel` writes one,
-  over the `mbtexcel` workbook library, where pandas reaches for openpyxl
-  and Polars for calamine. The sheet is taken by name
+- **Excel** — `read_excel` reads a sheet and `write_excel` writes one. A
+  file opens as whichever spreadsheet its bytes name: an Excel workbook
+  (`.xlsx`, and the macro-enabled `.xlsm`) over the `mbtexcel` workbook
+  library, an OpenDocument spreadsheet (`.ods`) and an Excel 97–2003
+  workbook (`.xls`) over codecs inside the module — where pandas reaches
+  for openpyxl, odfpy and xlrd / calamine, and Polars for calamine. Only
+  the Excel workbook is written, as pandas writes an `.xlsx` and an
+  `.ods` but no longer an `.xls`. The sheet is taken by name
   (`ExcelReadOptions`), the first by default, and `excel_sheets` names
-  them; pandas also takes one by position. A date is a number under a
-  date format in each: the formats every locale shares are read as dates
-  and times, and the formats a locale re-spells as the numbers they also
-  are, since the same format id is a date in one workbook and an
-  accounting format in another's. A column takes the narrowest dtype
-  holding every value in it, the CSV reader's rule.
+  them; pandas also takes one by position. In the two Excel layouts a
+  date is a number under a date format: the formats every locale shares
+  are read as dates and times, and the formats a locale re-spells as the
+  numbers they also are, since the same format id is a date in one
+  workbook and an accounting format in another's; an OpenDocument cell
+  carries its own type and reads as it. A column takes the narrowest
+  dtype holding every value in it, the CSV reader's rule.
 - **Avro** — `read_avro` reads a file's record as a frame and
   `write_avro` writes one, over a codec inside the module, as Polars'
   `read_avro` / `write_avro` do; pandas' I/O reference carries no Avro
@@ -471,14 +477,12 @@ here today:
   `fixed` layout spells a frame as Python objects, a string column as a
   pickle stream, which a reader outside Python takes up only by
   unpickling; pickle and the clipboard, a Python object serialisation and
-  an operating-system service; the OpenDocument and `.xls` workbook
-  flavours, which Polars takes through `read_ods` and its Excel reader; a
-  text file read as lines (Polars' `Lines`); the catalog-based table formats
-  Delta Lake, Iceberg and Lance; a cloud database (pandas' `read_gbq`) or a
-  remote file source (a path names a file on a local filesystem here); and
-  an encrypted Parquet file. A reader takes a file whole: there is no
-  chunked or iterated read, as pandas' `chunksize` and its statistics
-  formats' readers offer.
+  an operating-system service; a text file read as lines (Polars' `Lines`);
+  the catalog-based table formats Delta Lake, Iceberg and Lance; a cloud
+  database (pandas' `read_gbq`) or a remote file source (a path names a
+  file on a local filesystem here); and an encrypted Parquet file. A
+  reader takes a file whole: there is no chunked or iterated read, as
+  pandas' `chunksize` and its statistics formats' readers offer.
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

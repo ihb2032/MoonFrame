@@ -1,0 +1,19 @@
+{
+ "file": "syn_no_sst.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: numbers only, no shared string table",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["S"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "S", "cells": [["N", 0, 0, "4004000000000000", 0, "General", 2],["N", 0, 1, "4008000000000000", 0, "General", 2]]}
+ ],
+ "cells": 2,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

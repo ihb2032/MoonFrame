@@ -1,0 +1,14 @@
+{
+ "file": "broken_boolerr_value.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOOLERR record holding 2 as a boolean",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 103 of the workbook stream: the BOOLERR record at byte 93 holds 2 as a boolean, neither 0 nor 1",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

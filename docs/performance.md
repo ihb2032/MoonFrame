@@ -212,6 +212,18 @@ its cells. `write_excel` writes its cells one by one into a workbook the
 library holds in memory and serialises whole at the end: `O(r × c)`
 cells, in memory until the file's one write.
 
+The other two layouts `read_excel` opens are taken into memory whole as
+well. An OpenDocument spreadsheet's `content.xml` is inflated and walked
+once as events — `O(n)` in the document's bytes — holding the cells that
+carry a value, of every table, until the walk ends; a cell a count
+repeats costs the cells it stands for, under a budget of `65 536 + 8 ×`
+the package's bytes and never more than 2^25 to a sheet, so a count
+spelling millions of empty cells is refused instead of laid out. An
+Excel 97–2003 workbook's stream is gathered from the compound file's
+sectors and read once — `O(n)` in its bytes — holding the shared strings
+and the chosen sheet's cells. Both are then laid out into the frame by
+the `O(r × c)` above.
+
 ## Avro files
 
 `read_avro` takes the whole file into memory — the format has no footer

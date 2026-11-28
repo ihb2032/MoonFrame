@@ -1,0 +1,13 @@
+// The codec's dependencies: the error type its refusals raise, and the
+// UTF-16 decoder the workbook's text passes through.
+
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/encoding/utf16",
+}
+
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+  "moonbitlang/core/test",
+} for "test"

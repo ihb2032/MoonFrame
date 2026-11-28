@@ -1,0 +1,15 @@
+{
+ "file": "broken_continue_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a CONTINUE record after the shared string table, claiming more than the stream holds",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 76 of the workbook stream: the record claims 9999 bytes and the stream holds 74 after its header",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 4 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 4 bytes",
+ "compound_reader": "opens"
+}

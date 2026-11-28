@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_empty.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a Workbook stream of no byte",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 0 of the workbook stream: the stream ends inside a record header, which needs 4 bytes",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Can't find workbook in OLE2 compound document",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Can't find workbook in OLE2 compound document",
+ "compound_reader": "opens"
+}

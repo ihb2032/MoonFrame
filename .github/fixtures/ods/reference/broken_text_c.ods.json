@@ -1,0 +1,11 @@
+{
+ "file": "broken_text_c.ods",
+ "origin": "broken",
+ "note": "a text:c that spells no number; the reference reader raises on it",
+ "writer": "patched",
+ "bytes": 3495,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: invalid literal for int() with base 10: 'x'"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1855: the text:c attribute \"x\" is not a whole number"
+}

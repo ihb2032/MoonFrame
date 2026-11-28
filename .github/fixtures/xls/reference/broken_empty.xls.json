@@ -1,0 +1,15 @@
+{
+ "file": "broken_empty.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "no byte at all",
+ "bytes": 0,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: not an .xls workbook: the bytes do not open with a compound file's signature",
+ "reference_opens": false,
+ "reference_error": "TypeError: expected str, bytes or os.PathLike object, not NoneType",
+ "second_reader_opens": false,
+ "second_reader_error": "TypeError: expected str, bytes or os.PathLike object, not NoneType",
+ "compound_reader": "refuses"
+}

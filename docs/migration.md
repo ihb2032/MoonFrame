@@ -149,6 +149,16 @@ What changed on `main` since 0.9.0:
   serials under date formats, text as text whatever it spells, and a
   `Duration`, a `Decimal`, a list, and a struct as their text forms.
   `read_excel`'s and `write_excel`'s docstrings state the two contracts.
+- `read_excel`, `parse_excel` and `excel_sheets` open an OpenDocument
+  spreadsheet (`.ods`) and an Excel 97–2003 workbook (`.xls`) as they
+  open an Excel workbook — which a macro-enabled `.xlsm` is: the layout
+  is the one the file's bytes name, and a sheet reads into the same
+  frame by the same rules whichever it is. A column takes the narrowest
+  dtype holding every value; in the two Excel layouts a number under a
+  date format is a `Date` or a `Timestamp`, and a cell an OpenDocument
+  spreadsheet types as a date is that date whatever `dates` is. Both are
+  read only: `write_excel` writes an Excel workbook. No existing call
+  changes.
 - Avro files read and write over a codec inside the module
   (`internal/avro`). `read_avro` takes the file's record as the frame's
   columns, its blocks stored as encoded or compressed by deflate, snappy,

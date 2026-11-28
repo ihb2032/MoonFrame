@@ -1,0 +1,14 @@
+{
+ "file": "broken_entry_name_long.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a directory entry spelling its name in 66 bytes, past the 64 an entry holds, beside the workbook's",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2368: directory entry 2 spells its name in 66 bytes, neither an even count from 2 to 64 nor none",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

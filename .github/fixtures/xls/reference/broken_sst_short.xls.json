@@ -1,0 +1,15 @@
+{
+ "file": "broken_sst_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "an SST record holding one of its two counts",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 61 of the workbook stream: the shared string table ends inside its counts",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 4 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 4 bytes",
+ "compound_reader": "opens"
+}

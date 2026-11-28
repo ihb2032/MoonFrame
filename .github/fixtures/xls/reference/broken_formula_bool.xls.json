@@ -1,0 +1,14 @@
+{
+ "file": "broken_formula_bool.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a formula caching a boolean of 2",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 105 of the workbook stream: the FORMULA record at byte 93 caches a boolean of 2, neither 0 nor 1",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

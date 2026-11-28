@@ -1,0 +1,15 @@
+{
+ "file": "broken_biff2.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a stream opening with the BOF record id of BIFF2",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 0 of the workbook stream: the BOF record's id 0x0009 is BIFF2's, and this reader reads BIFF8's 0x0809",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Invalid length (2) for BOF record type 0x0009",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Invalid length (2) for BOF record type 0x0009",
+ "compound_reader": "opens"
+}

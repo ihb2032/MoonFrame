@@ -1,0 +1,15 @@
+{
+ "file": "broken_directory_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the header placing the directory at sector 99, in a file of 4 sectors",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 48: the header places the directory at sector 99, and the file holds 4",
+ "reference_opens": false,
+ "reference_error": "IndexError: array index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: array index out of range",
+ "compound_reader": "refuses"
+}

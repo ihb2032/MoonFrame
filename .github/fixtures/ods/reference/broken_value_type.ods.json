@@ -1,0 +1,11 @@
+{
+ "file": "broken_value_type.ods",
+ "origin": "broken",
+ "note": "a cell of a value type no spreadsheet carries; the reference reader raises on it",
+ "writer": "patched",
+ "bytes": 3412,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: Unrecognized type html"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: content.xml byte 888: the office:value-type \"html\" is not a value type this reader carries"
+}

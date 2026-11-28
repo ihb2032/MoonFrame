@@ -1,0 +1,15 @@
+{
+ "file": "broken_string_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a STRING record counting five characters and holding two",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 128 of the workbook stream: the STRING record at byte 119 ends inside its data",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Expected CONTINUE record; found record-type 0x000A",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Expected CONTINUE record; found record-type 0x000A",
+ "compound_reader": "opens"
+}

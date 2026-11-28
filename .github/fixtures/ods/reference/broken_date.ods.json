@@ -1,0 +1,11 @@
+{
+ "file": "broken_date.ods",
+ "origin": "broken",
+ "note": "a date-value that is not a date: February 30th",
+ "writer": "patched",
+ "bytes": 3413,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "DateParseError: day is out of range for month: 2020-02-30"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1059: the office:date-value attribute \"2020-02-30\" is not a date"
+}

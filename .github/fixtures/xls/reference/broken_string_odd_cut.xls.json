@@ -1,0 +1,15 @@
+{
+ "file": "broken_string_odd_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a UTF-16 STRING record cut by a CONTINUE record inside a character",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 126 of the workbook stream: the characters of the STRING record at byte 119 are cut inside a character at the record's end",
+ "reference_opens": false,
+ "reference_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x30 in position 0: truncated data",
+ "second_reader_opens": false,
+ "second_reader_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x30 in position 0: truncated data",
+ "compound_reader": "opens"
+}

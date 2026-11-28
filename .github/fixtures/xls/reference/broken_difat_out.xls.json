@@ -1,0 +1,15 @@
+{
+ "file": "broken_difat_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the DIFAT chain naming a sector the file does not hold",
+ "bytes": 61952,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 68: the file allocation table's chain names sector 9999, and the file holds 120",
+ "reference_opens": false,
+ "reference_error": "CompDocError: MSAT extension: accessing sector 9999 but only 120 in file",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: MSAT extension: accessing sector 9999 but only 120 in file",
+ "compound_reader": "refuses"
+}

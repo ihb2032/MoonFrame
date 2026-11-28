@@ -1,0 +1,11 @@
+{
+ "file": "broken_number_missing.ods",
+ "origin": "broken",
+ "note": "a float cell with no office:value",
+ "writer": "patched",
+ "bytes": 3394,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "TypeError: float() argument must be a string or a real number, not 'NoneType'"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1126: a float cell carries no office:value"
+}

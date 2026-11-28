@@ -1,0 +1,15 @@
+{
+ "file": "broken_filepass.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a FILEPASS record after the BOF record: an encrypted workbook",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 20 of the workbook stream: the workbook is encrypted (a FILEPASS record), and this reader decrypts nothing",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Workbook is encrypted",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Workbook is encrypted",
+ "compound_reader": "opens"
+}

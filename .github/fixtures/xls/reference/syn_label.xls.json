@@ -1,0 +1,19 @@
+{
+ "file": "syn_label.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: LABEL records — a cell's own string, compressed and UTF-16, with rich-text runs and with phonetic data, an empty one, control characters",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["labels"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "labels", "cells": [["T", 0, 0, "compressed"],["T", 0, 1, "日本語"],["T", 1, 0, "bold and plain"],["T", 1, 1, "日本語の表記"],["T", 2, 0, ""],["T", 2, 1, "line\nbreak\r\nand\ttab"],["T", 3, 0, "é"],["T", 3, 1, "\u0000\u0001ÿ"],["T", 3, 2, "😀 emoji"]]}
+ ],
+ "cells": 9,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

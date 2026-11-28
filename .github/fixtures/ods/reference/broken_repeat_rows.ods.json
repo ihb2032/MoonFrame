@@ -1,0 +1,11 @@
+{
+ "file": "broken_repeat_rows.ods",
+ "origin": "broken",
+ "note": "a row with a value, repeated a hundred thousand times; the reference reader lays every one of them out",
+ "writer": "patched",
+ "bytes": 3449,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 300008}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 870: the table:number-rows-repeated attribute \"100000\" would make sheet \"Small\" hold more cells than this reader grants a package of 3449 bytes (93128)"
+}

@@ -1,0 +1,12 @@
+{
+ "file": "synthetic_prefixed.ods",
+ "origin": "synthetic",
+ "note": "the three namespaces under the prefixes off:, tbl: and txt:",
+ "writer": "hand-built",
+ "bytes": 934,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 1}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "S", "source": "reference", "cells": [[0, 0, "Number", "3ff0000000000000"]]}
+ ]
+}

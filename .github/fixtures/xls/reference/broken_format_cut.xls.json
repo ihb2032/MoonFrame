@@ -1,0 +1,15 @@
+{
+ "file": "broken_format_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a FORMAT record whose UTF-16 code counts two characters and holds three bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 31 of the workbook stream: the characters of the FORMAT record at byte 20 are cut inside a character at the record's end",
+ "reference_opens": false,
+ "reference_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x00 in position 2: truncated data",
+ "second_reader_opens": false,
+ "second_reader_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x00 in position 2: truncated data",
+ "compound_reader": "opens"
+}

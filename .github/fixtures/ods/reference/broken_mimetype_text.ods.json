@@ -1,0 +1,11 @@
+{
+ "file": "broken_mimetype_text.ods",
+ "origin": "broken",
+ "note": "a package whose mimetype names a text document; the reference reader reads its tables all the same",
+ "writer": "patched",
+ "bytes": 1865,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: the package's mimetype is \"application/vnd.oasis.opendocument.text\", not an OpenDocument spreadsheet's"
+}

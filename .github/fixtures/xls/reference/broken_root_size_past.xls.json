@@ -1,0 +1,14 @@
+{
+ "file": "broken_root_size_past.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the root entry's stream declaring 999999 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2168: the root entry's stream declares 999999 bytes, and the file holds 2048 past its header",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

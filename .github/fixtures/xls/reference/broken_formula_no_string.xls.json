@@ -1,0 +1,15 @@
+{
+ "file": "broken_formula_no_string.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a formula whose cached value is a string, followed by a NUMBER record",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 119 of the workbook stream: record NUMBER follows the FORMULA record at byte 93, whose cached value is a string, where a STRING record should",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Expected SHRFMLA, ARRAY, TABLEOP* or STRING record; found 0x0203",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Expected SHRFMLA, ARRAY, TABLEOP* or STRING record; found 0x0203",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "broken_sst_phonetic_missing.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a shared string claiming ten bytes of phonetic data and holding none",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 77 of the workbook stream: the 1st string of the shared string table ends inside its data",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_record_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a Workbook stream of 30 bytes: cut inside a record's body",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 20 of the workbook stream: the record claims 20 bytes and the stream holds 6 after its header",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 20 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 20 bytes",
+ "compound_reader": "opens"
+}

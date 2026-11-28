@@ -1,0 +1,14 @@
+{
+ "file": "broken_format_count.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a FORMAT record whose code counts three characters and holds two",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 31 of the workbook stream: the FORMAT record at byte 20 ends inside its data",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

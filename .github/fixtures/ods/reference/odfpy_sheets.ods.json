@@ -1,0 +1,14 @@
+{
+ "file": "odfpy_sheets.ods",
+ "origin": "odfpy",
+ "note": "three sheets, the middle one empty; a name with non-ASCII text, spaces and an ampersand",
+ "writer": "odfpy",
+ "bytes": 1659,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 2}, "1": {"cells": 0}, "2": {"cells": 2}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "First", "source": "reference", "cells": [[0, 0, "Number", "3ff0000000000000"],[0, 1, "Text", "one"]]},
+  {"name": "An empty one", "source": "reference", "cells": []},
+  {"name": "É 日本 & <x>", "source": "reference", "cells": [[0, 0, "Number", "4008000000000000"],[1, 0, "Number", "4010000000000000"]]}
+ ]
+}

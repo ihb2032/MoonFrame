@@ -1,0 +1,15 @@
+{
+ "file": "broken_xf_index.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a cell naming XF 3, where the workbook holds one XF record",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 101 of the workbook stream: the NUMBER record at byte 93 names XF 3, and the workbook holds 1",
+ "reference_opens": false,
+ "reference_error": "KeyError: 3",
+ "second_reader_opens": false,
+ "second_reader_error": "KeyError: 3",
+ "compound_reader": "opens"
+}

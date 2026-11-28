@@ -1,0 +1,19 @@
+{
+ "file": "xlwt_overwrite.xls",
+ "origin": "xlwt",
+ "writer": "xlwt 1.3.0",
+ "note": "the reference writer: cells written twice keep their last record — a text by a number, a text by a text, a number by a text, a text by a blank; the shared string table counts one reference to its two strings",
+ "bytes": 5632,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["ow"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "ow", "cells": [["N", 0, 0, "401c000000000000", 2, "0.00", 2],["T", 0, 1, "second text"],["T", 1, 0, "now a text"],["T", 2, 0, "kept"]]}
+ ],
+ "cells": 4,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "broken_format_undefined.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "an XF record naming number format 200, which no FORMAT record defines",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 101 of the workbook stream: the RK record at byte 93 names number format 200, which no FORMAT record defines",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

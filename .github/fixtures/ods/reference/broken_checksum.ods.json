@@ -1,0 +1,11 @@
+{
+ "file": "broken_checksum.ods",
+ "origin": "broken",
+ "note": "a byte of a stored content.xml flipped after the archive was built: its CRC-32 no longer matches",
+ "writer": "patched",
+ "bytes": 3413,
+ "reference": {"opens": false, "error": "BadZipFile: Bad CRC-32 for file 'content.xml'", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: the package's entry \"content.xml\" is broken: zip: CRC-32 mismatch"
+}

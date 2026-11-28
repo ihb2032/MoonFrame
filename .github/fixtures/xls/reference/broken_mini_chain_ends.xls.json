@@ -1,0 +1,15 @@
+{
+ "file": "broken_mini_chain_ends.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream's mini chain ending after its first mini sector",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 1024: the Workbook stream needs 3 mini sectors and its chain ends after 1",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 4 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 4 bytes",
+ "compound_reader": "opens"
+}

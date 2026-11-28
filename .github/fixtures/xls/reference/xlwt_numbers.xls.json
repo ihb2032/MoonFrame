@@ -1,0 +1,19 @@
+{
+ "file": "xlwt_numbers.xls",
+ "origin": "xlwt",
+ "writer": "xlwt 1.3.0",
+ "note": "the reference writer: whole numbers at the RK edges and past them, fractions, negatives, the largest and smallest doubles, and three a sheet never holds — two infinities and a not-a-number — which a NUMBER record carries all the same",
+ "bytes": 5632,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["numbers"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "numbers", "cells": [["N", 0, 0, "0000000000000000", 164, "General", 2],["N", 0, 1, "3ff0000000000000", 164, "General", 2],["N", 0, 2, "bff0000000000000", 164, "General", 2],["N", 0, 3, "406fe00000000000", 164, "General", 2],["N", 0, 4, "40f0000000000000", 164, "General", 2],["N", 0, 5, "41bfffffff000000", 164, "General", 2],["N", 0, 6, "c1c0000000000000", 164, "General", 2],["N", 0, 7, "41c0000000000000", 164, "General", 2],["N", 1, 0, "41d0000000000000", 164, "General", 2],["N", 1, 1, "41e0000000000000", 164, "General", 2],["N", 1, 2, "4340000000000000", 164, "General", 2],["N", 1, 3, "4340000000000001", 164, "General", 2],["N", 1, 4, "c340000000000000", 164, "General", 2],["N", 1, 5, "3fb999999999999a", 164, "General", 2],["N", 1, 6, "3ff8000000000000", 164, "General", 2],["N", 1, 7, "c002000000000000", 164, "General", 2],["N", 2, 0, "400921fb54442d18", 164, "General", 2],["N", 2, 1, "3f747ae147ae147b", 164, "General", 2],["N", 2, 2, "bf747ae147ae147b", 164, "General", 2],["N", 2, 3, "419d6f34547df3b6", 164, "General", 2],["N", 2, 4, "3ddb7cdfd9d7bdbb", 164, "General", 2],["N", 2, 5, "4202a05f20000000", 164, "General", 2],["N", 2, 6, "54b249ad2594c37d", 164, "General", 2],["N", 2, 7, "7e37e43c8800759c", 164, "General", 2],["N", 3, 0, "7fefffffffffffff", 164, "General", 2],["N", 3, 1, "ffefffffffffffff", 164, "General", 2],["N", 3, 2, "0000000000000001", 164, "General", 2],["N", 3, 3, "0010000000000000", 164, "General", 2],["N", 3, 4, "7ff0000000000000", 164, "General", 2],["N", 3, 5, "fff0000000000000", 164, "General", 2],["N", 3, 6, "7ff8000000000000", 164, "General", 2]]}
+ ],
+ "cells": 31,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

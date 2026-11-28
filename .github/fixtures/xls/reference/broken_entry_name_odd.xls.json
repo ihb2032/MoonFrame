@@ -1,0 +1,15 @@
+{
+ "file": "broken_entry_name_odd.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a directory entry spelling its name in 7 bytes, beside the workbook's",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2368: directory entry 2 spells its name in 7 bytes, neither an even count from 2 to 64 nor none",
+ "reference_opens": false,
+ "reference_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x64 in position 4: truncated data",
+ "second_reader_opens": false,
+ "second_reader_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode byte 0x64 in position 4: truncated data",
+ "compound_reader": "opens"
+}

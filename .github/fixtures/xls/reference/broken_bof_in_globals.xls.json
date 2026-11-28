@@ -1,0 +1,15 @@
+{
+ "file": "broken_bof_in_globals.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a sheet's BOF record where the workbook globals' EOF record should be",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 44 of the workbook stream: a BOF record stands where the workbook globals' EOF record should end them",
+ "reference_opens": true,
+ "reference_sheets": [],
+ "second_reader_opens": false,
+ "second_reader_error": "ValueError: Sheet name is an empty list",
+ "compound_reader": "opens"
+}

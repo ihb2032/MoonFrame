@@ -1,0 +1,15 @@
+{
+ "file": "broken_fat_sector_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the header naming sector 99 as its file allocation table's, in a file of 4 sectors",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 76: the header names sector 99 as one of the file allocation table's, and the file holds 4",
+ "reference_opens": false,
+ "reference_error": "CompDocError: OLE2 stream 'directory': sector allocation table invalid entry (3)",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: OLE2 stream 'directory': sector allocation table invalid entry (3)",
+ "compound_reader": "refuses"
+}

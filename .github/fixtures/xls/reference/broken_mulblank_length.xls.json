@@ -1,0 +1,14 @@
+{
+ "file": "broken_mulblank_length.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a MULBLANK record of 9 bytes: one past its row, its first column and its two styles",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the MULBLANK record is 9 bytes long, and its kind needs 6 bytes and 2 more for every cell",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 8 bytes",
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

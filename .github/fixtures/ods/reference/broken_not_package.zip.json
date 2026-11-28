@@ -1,0 +1,11 @@
+{
+ "file": "broken_not_package.zip",
+ "origin": "broken",
+ "note": "a ZIP archive of neither format",
+ "writer": "hand-built",
+ "bytes": 123,
+ "reference": {"opens": false, "error": "KeyError: \"There is no item named 'META-INF/manifest.xml' in the archive\"", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: the package holds neither a mimetype nor a content.xml, so it is not an OpenDocument package"
+}

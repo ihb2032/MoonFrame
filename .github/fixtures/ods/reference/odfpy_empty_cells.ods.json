@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_empty_cells.ods",
+ "origin": "odfpy",
+ "note": "cells that hold nothing: #N/A, void, no value type, an empty string, text:s with c=0, a date with no value, string-value alone",
+ "writer": "odfpy",
+ "bytes": 1685,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: Unrecognized type void"}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Kinds of empty", "source": "generator", "reference_error": "ValueError: Unrecognized type void", "cells": [[0, 5, "Text", "kept"]]}
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_repeat_enormous.ods",
+ "origin": "broken",
+ "note": "a column repeat of two thousand million on a cell with a value",
+ "writer": "patched",
+ "bytes": 3456,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "MemoryError: "}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 931: the table:number-columns-repeated attribute \"2000000000\" would make sheet \"Small\" hold more cells than this reader grants a package of 3456 bytes (93184)"
+}

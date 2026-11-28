@@ -1,0 +1,15 @@
+{
+ "file": "broken_mulrk_col_256.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a MULRK run of three cells from column 254",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 99 of the workbook stream: the MULRK record at byte 93 places a cell in column 256, and a sheet holds 256",
+ "reference_opens": false,
+ "reference_error": "AssertionError: ",
+ "second_reader_opens": false,
+ "second_reader_error": "AssertionError: ",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "broken_biff5.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOF record declaring BIFF version 0x0500, as a BIFF5 file does",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 4 of the workbook stream: the BOF record at byte 0 declares BIFF version 0x0500, and this reader reads BIFF8's 0x0600",
+ "reference_opens": true,
+ "reference_sheets": ["\u0000"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

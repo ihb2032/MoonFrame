@@ -1,0 +1,22 @@
+{
+ "file": "syn_formula_tableop.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: a formula whose cached string follows a TABLEOP and a TABLEOP2 record, the pair a data table's formula carries",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Expected STRING record; found 0x0037",
+ "sidecar_source": "generator",
+ "deviations": "the reference reader allows one record between a formula and its string, and refuses the TABLEOP and TABLEOP2 pair; the codec reads past both",
+ "sheets": ["t"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "t", "cells": [["T", 0, 0, "after tableop"],["N", 1, 0, "4004000000000000", 0, "General"]]}
+ ],
+ "cells": 2,
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Expected STRING record; found 0x0037",
+ "compound_reader": "opens"
+}

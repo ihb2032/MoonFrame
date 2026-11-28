@@ -1,0 +1,11 @@
+{
+ "file": "broken_wont_inflate.ods",
+ "origin": "broken",
+ "note": "the first byte of the deflated content.xml made to name a reserved block type",
+ "writer": "patched",
+ "bytes": 1872,
+ "reference": {"opens": false, "error": "error: Error -3 while decompressing data: invalid block type", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: the package's entry \"content.xml\" is broken: corrupt: reserved block type"
+}

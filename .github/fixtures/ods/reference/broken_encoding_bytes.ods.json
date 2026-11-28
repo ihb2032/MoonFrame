@@ -1,0 +1,11 @@
+{
+ "file": "broken_encoding_bytes.ods",
+ "origin": "broken",
+ "note": "a content.xml in UTF-8 with one byte that is not UTF-8",
+ "writer": "hand-built",
+ "bytes": 935,
+ "reference": {"opens": false, "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 961: invalid continuation byte", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 961 is not valid UTF-8"
+}

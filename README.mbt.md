@@ -167,9 +167,13 @@ same way.
 - **Read and write Excel** — `read_excel` reads one sheet of a workbook
   (the first, or the one `ExcelReadOptions` names; `excel_sheets` lists
   them) and `write_excel` writes a frame as one (`parse_excel` for bytes
-  already in memory). Each column takes the narrowest dtype holding its
-  values, a number under a date format reads as a `Date` or a
-  `Timestamp`, and a `Date` or a `Timestamp` is written as a date a
+  already in memory). A file opens as whichever spreadsheet its bytes
+  name: an Excel workbook (`.xlsx`, or the macro-enabled `.xlsm`), an
+  OpenDocument spreadsheet (`.ods`), or an Excel 97–2003 workbook
+  (`.xls`) — all three into the same frame, by the same rules; only the
+  Excel workbook is written. Each column takes the narrowest dtype
+  holding its values, a number under a date format reads as a `Date` or
+  a `Timestamp`, and a `Date` or a `Timestamp` is written as a date a
   spreadsheet shows as one. `read_excel`'s docstring states the rules
   and the refusals.
 - **Read and write Stata** — `read_stata` reads a dataset of releases 113
@@ -429,10 +433,12 @@ internal/sas7bdat/ the native SAS data-set codec — the paged layout of Version
 internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read_orc
 internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
 internal/fwf/     the fixed-width column logic — where each line's fields start and end, inferred from the lines or named by widths and positions, and how a line is cut into them; wrapped by io's read_fwf
+internal/ods/      the native OpenDocument spreadsheet codec — the ZIP package with the mimetype and the root element that judge it, the content.xml event walk over tables, rows and cells, a cell's typed values (text, number, boolean, date, instant, time of day), and the repetition counts the desktop writers spell; read by io's read_excel
+internal/xls/      the native Excel 97–2003 codec — the compound file's sectors, FAT and mini stream, the BIFF8 records from the workbook globals to each sheet's cells, the shared string table across its continuations, and the number format a date is read by; read by io's read_excel
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel (.xlsx read / write, .xlsm / .ods / .xls read), Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

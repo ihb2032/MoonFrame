@@ -341,7 +341,7 @@ test "the library's own refusals are the entries' errors" {
   )
   // A sheet the workbook does not carry names the ones it does.
   assert_true(
-    (Ok(ignore(excel_sheet(workbook, "T"))) catch { e => Err(e) })
+    (Ok(ignore(excel_sheet_position(["S"], "T"))) catch { e => Err(e) })
     is Err(
       @types.DataError::InvalidOperation(
         "excel: the workbook carries no sheet named \"T\"; its sheets are \"S\"",
@@ -350,7 +350,7 @@ test "the library's own refusals are the entries' errors" {
   )
   // A workbook of no sheet at all.
   assert_true(
-    (Ok(ignore(excel_sheet(@xlsx.Workbook::new(), ""))) catch { e => Err(e) })
+    (Ok(ignore(excel_sheet_position([], ""))) catch { e => Err(e) })
     is Err(
       @types.DataError::InvalidOperation("excel: the workbook carries no sheet"),
     ),

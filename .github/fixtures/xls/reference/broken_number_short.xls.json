@@ -1,0 +1,15 @@
+{
+ "file": "broken_number_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a NUMBER record of 10 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the NUMBER record is 10 bytes long, and its kind needs 14",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 14 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 14 bytes",
+ "compound_reader": "opens"
+}

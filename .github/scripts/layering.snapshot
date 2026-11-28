@@ -33,6 +33,7 @@ internal/kernel -> internal/numeric
 internal/kernel -> internal/text
 internal/kernel -> series
 internal/kernel -> types
+internal/ods -> types
 internal/orc -> series
 internal/orc -> types
 internal/parquet -> internal/text
@@ -49,6 +50,7 @@ internal/spss -> types
 internal/stata -> internal/text
 internal/stata -> series
 internal/stata -> types
+internal/xls -> types
 internal/xport -> internal/text
 internal/xport -> series
 internal/xport -> types
@@ -57,6 +59,7 @@ io -> internal/avro
 io -> internal/fwf
 io -> internal/ipc
 io -> internal/numeric
+io -> internal/ods
 io -> internal/orc
 io -> internal/parquet
 io -> internal/sas7bdat
@@ -64,6 +67,7 @@ io -> internal/scan
 io -> internal/spss
 io -> internal/stata
 io -> internal/text
+io -> internal/xls
 io -> internal/xport
 io -> series
 io -> types

@@ -1,0 +1,15 @@
+{
+ "file": "broken_sheet_bof.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOUNDSHEET record placing its sheet at an XF record",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 20 of the workbook stream: record XF stands where a BOF record should",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'\\xe0\\x00\\x14\\x00\\x00\\x00\\x00\\x00'",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'\\xe0\\x00\\x14\\x00\\x00\\x00\\x00\\x00'",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_start_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream starting at sector 99, in a file of 10 sectors",
+ "bytes": 5632,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 5364: the Workbook stream names sector 99, and the file holds 10",
+ "reference_opens": false,
+ "reference_error": "IndexError: array index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: array index out of range",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_merged.ods",
+ "origin": "odfpy",
+ "note": "covered cells around a merged cell; a covered cell with a value; one with a date and no office:value",
+ "writer": "odfpy",
+ "bytes": 1685,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 6}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Merged", "source": "reference", "cells": [[0, 0, "Text", "M"],[0, 2, "Number", "4008000000000000"],[1, 2, "Number", "4010000000000000"],[2, 2, "Number", "4014000000000000"],[3, 0, "Number", "4018000000000000"],[3, 2, "Number", "4020000000000000"]]}
+ ]
+}

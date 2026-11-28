@@ -1,0 +1,14 @@
+{
+ "file": "broken_label_flags_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a LABEL record naming rich-text runs and holding no count of them",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 106 of the workbook stream: the LABEL record at byte 93 ends inside its rich-text run count",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

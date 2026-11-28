@@ -1,0 +1,15 @@
+{
+ "file": "broken_unknown_bof.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a stream opening with a record of an id the format does not give the workbook globals",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 0 of the workbook stream: record 0x1234 stands where a BOF record should",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'4\\x12\\x02\\x00\\x00\\x00\\t\\x08'",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; found b'4\\x12\\x02\\x00\\x00\\x00\\t\\x08'",
+ "compound_reader": "opens"
+}

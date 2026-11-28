@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/xls"
+
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn xls_open(Bytes) -> XlsBook raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub struct XlsBook {
+  // private fields
+}
+pub fn XlsBook::grid(Self, sheet? : Int32) -> XlsGrid raise @types.DataError
+pub fn XlsBook::sheets(Self) -> Array[String]
+
+pub struct XlsCell {
+  // private fields
+}
+pub fn XlsCell::col(Self) -> Int32
+pub fn XlsCell::row(Self) -> Int32
+pub fn XlsCell::value(Self) -> XlsValue
+
+pub(all) enum XlsFormat {
+  Builtin(Int32)
+  Custom(String)
+}
+
+pub struct XlsGrid {
+  // private fields
+}
+pub fn XlsGrid::cells(Self) -> Array[XlsCell]
+pub fn XlsGrid::date_1904(Self) -> Bool
+
+pub(all) enum XlsValue {
+  Text(String)
+  Boolean(Bool)
+  Number(Double, XlsFormat)
+  Error(String)
+}
+
+// Type aliases
+
+// Traits

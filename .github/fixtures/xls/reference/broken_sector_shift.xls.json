@@ -1,0 +1,15 @@
+{
+ "file": "broken_sector_shift.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a version 3 compound file declaring 4096-byte sectors",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 26: the compound file declares version 3 with 2^12-byte sectors, and this reader reads version 3 with 512-byte sectors and version 4 with 4096-byte ones",
+ "reference_opens": false,
+ "reference_error": "IndexError: array index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: array index out of range",
+ "compound_reader": "refuses"
+}

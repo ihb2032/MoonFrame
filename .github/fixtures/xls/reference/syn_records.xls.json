@@ -1,0 +1,19 @@
+{
+ "file": "syn_records.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: INDEX, DBCELL, DIMENSIONS and ROW records, an unknown record with a CONTINUE after it, MULBLANK records (one to column 255) and BLANK records, an embedded chart substream with records of its own, cells out of row and column order, and a cell written twice",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["records"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "records", "cells": [["N", 2, 1, "4035000000000000", 0, "General", 2],["N", 2, 9, "403d000000000000", 0, "General", 2],["T", 3, 0, "beside"],["N", 4, 0, "4010000000000000", 0, "General", 2],["N", 7, 0, "4051800000000000", 0, "General", 2]]}
+ ],
+ "cells": 5,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

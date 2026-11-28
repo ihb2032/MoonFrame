@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_repeats.ods",
+ "origin": "odfpy",
+ "note": "repeats: empty rows before data, empty cells mid-row, a value repeated along a row, a row with values repeated, trailing empties with large counts",
+ "writer": "odfpy",
+ "bytes": 1705,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 10}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Repeats", "source": "reference", "cells": [[3, 2, "Text", "after gaps"],[3, 4, "Number", "401c000000000000"],[4, 0, "Number", "4014000000000000"],[4, 1, "Number", "4014000000000000"],[4, 2, "Number", "4014000000000000"],[5, 0, "Text", "twice"],[5, 1, "Number", "4000000000000000"],[6, 0, "Text", "twice"],[6, 1, "Number", "4000000000000000"],[7, 0, "Number", "3ff0000000000000"]]}
+ ]
+}

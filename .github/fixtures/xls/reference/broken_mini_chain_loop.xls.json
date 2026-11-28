@@ -1,0 +1,15 @@
+{
+ "file": "broken_mini_chain_loop.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream's mini chain coming back to its first mini sector",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 1028: the Workbook stream enters mini sector 0 a second time, so its chain loops",
+ "reference_opens": false,
+ "reference_error": "MemoryError: ",
+ "second_reader_opens": false,
+ "second_reader_error": "MemoryError: ",
+ "compound_reader": "opens"
+}

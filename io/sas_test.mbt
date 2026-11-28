@@ -273,10 +273,11 @@ test "the SAS entries raise the errors a caller meets" {
       "sas7bdat: byte 70: the character-set field names shift_jis (code 138), and this reader decodes UTF-8 (code 20) and the single-byte character sets",
     ),
   )
-  // A file cut short inside its header records.
-  let whole = @fs.read_file_to_bytes("_build/io_sas_roundtrip.xpt") catch {
-    _ => b""
-  }
+  // A file cut short inside its header records. It is this test's own
+  // file: what another test wrote, and when, is not relied on.
+  let own = "_build/io_sas_errors.xpt"
+  @io.write_sas(df, own)
+  let whole = @fs.read_file_to_bytes(own)
   let cut = sas_raised(() => @io.parse_sas(whole[0:100].to_owned()))
   assert_true(
     cut

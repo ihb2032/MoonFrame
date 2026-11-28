@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_union.orc",
+ "origin": "pyarrow",
+ "note": "a UNION column",
+ "bytes": 526,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a UNION column",
+ "message": "orc: column \"u\" is a UNION, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "u: sparse_union<_union_0: int32=0, _union_1: double=1>"],
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]}
+  ]}
+ ],
+ "cells": 3
+}

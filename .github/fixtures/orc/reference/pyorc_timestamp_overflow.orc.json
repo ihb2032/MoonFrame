@@ -1,0 +1,23 @@
+{
+ "file": "pyorc_timestamp_overflow.orc",
+ "origin": "pyarrow",
+ "note": "whole seconds past what a 64-bit microsecond count holds",
+ "bytes": 399,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 6,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a timestamp past a 64-bit microsecond count",
+ "message": "orc: column \"over\" holds a timestamp past the microseconds a 64-bit count holds",
+ "reference_opens": false,
+ "reference_error": "ArrowInvalid: ORC timestamp (9223372036855s + 0ns) is out of range for nanosecond resolution",
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3","Int 4","Int 5","Int 6"]}
+  ]}
+ ],
+ "cells": 6
+}

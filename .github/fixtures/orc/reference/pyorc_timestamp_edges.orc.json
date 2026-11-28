@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_timestamp_edges.orc",
+ "origin": "pyarrow",
+ "note": "instants before the epoch with a fraction, in microseconds, nanoseconds, milliseconds and seconds; the first and the last instant a 64-bit nanosecond count holds",
+ "bytes": 1108,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 12,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 12,
+ "reference_columns": ["us: timestamp[ns]", "ns: timestamp[ns]", "ms: timestamp[ns]", "sec: timestamp[ns]"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "us", "dtype": "Timestamp", "cells": ["Timestamp -1500000","Timestamp -1","Timestamp -999999",null,"Timestamp 1500001","Timestamp -1000001","Timestamp 0","Timestamp -1000000","Timestamp -9223372036854","Timestamp 9223372036854","Timestamp 1","Timestamp -2"]},
+   {"name": "ns", "dtype": "Timestamp", "cells": ["Timestamp -1500000","Timestamp -1","Timestamp -999999",null,"Timestamp 1500001","Timestamp -1000001","Timestamp 0","Timestamp -1000000","Timestamp 1","Timestamp -1","Timestamp 1000001","Timestamp -1000000"]},
+   {"name": "ms", "dtype": "Timestamp", "cells": ["Timestamp -1500000","Timestamp -1000","Timestamp -1000000",null,"Timestamp 1500000","Timestamp -1001000","Timestamp 0","Timestamp -1000000","Timestamp 0","Timestamp -1000","Timestamp 1000000","Timestamp -1000000"]},
+   {"name": "sec", "dtype": "Timestamp", "cells": ["Timestamp -1000000",null,"Timestamp 0","Timestamp 1000000","Timestamp -9223372036000000","Timestamp 9223372036000000","Timestamp 2000000","Timestamp -3000000",null,"Timestamp -1000000","Timestamp 4000000","Timestamp -5000000"]}
+  ]}
+ ],
+ "cells": 48
+}

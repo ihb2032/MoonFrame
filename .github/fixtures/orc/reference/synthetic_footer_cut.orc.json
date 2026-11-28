@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_footer_cut.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the footer's last five bytes cut, its last field inside",
+ "bytes": 336,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the footer ends inside a field",
+ "message": "orc: byte 311: the Footer: a field of 5 bytes runs past the message's end",
+ "reference_opens": false,
+ "reference_error": "OSError: Failed to parse the footer from ArrowInputFile",
+ "views": [
+ ],
+ "cells": 0
+}

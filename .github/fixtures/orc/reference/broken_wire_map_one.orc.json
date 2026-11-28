@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_map_one.orc",
+ "origin": "hand-built",
+ "note": "a map of one subtype",
+ "bytes": 66,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a map of one subtype",
+ "message": "orc: byte 15: the Footer's type 1 is a MAP of 1 subtype",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Illegal MAP type that doesn't contain two subtypes",
+ "views": [
+ ],
+ "cells": 0
+}

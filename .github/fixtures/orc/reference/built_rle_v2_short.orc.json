@@ -1,0 +1,25 @@
+{
+ "file": "built_rle_v2_short.orc",
+ "origin": "hand-built",
+ "note": "short repeat runs: one byte positive, three bytes negative, eight bytes at both ends, a value in more bytes than it needs",
+ "bytes": 200,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 12,
+ "stripes": 1,
+ "fields": 5,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 12,
+ "reference_columns": ["c0: int64", "c1: int64", "c2: int64", "c3: int64", "c4: int64"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Int", "cells": ["Int 5","Int 5","Int 5","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c1", "dtype": "Int", "cells": ["Int -100000","Int -100000","Int -100000","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c2", "dtype": "Int", "cells": ["Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int -9223372036854775807","Int 0","Int 0"]},
+   {"name": "c3", "dtype": "Int", "cells": ["Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 4611686018427387904","Int 0","Int 0"]},
+   {"name": "c4", "dtype": "Int", "cells": ["Int 1","Int 1","Int 1","Int 1","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]}
+  ]}
+ ],
+ "cells": 60
+}

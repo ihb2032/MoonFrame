@@ -1,0 +1,22 @@
+{
+ "file": "pyorc_timestamp_instant.orc",
+ "origin": "pyarrow",
+ "note": "a time-zone-aware timestamp column: the TIMESTAMP_INSTANT type",
+ "bytes": 364,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 4,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 4,
+ "reference_columns": ["inst: timestamp[ns, tz=UTC]", "n: int32"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "inst", "dtype": "Timestamp", "cells": ["Timestamp 0",null,"Timestamp 1583054696789000","Timestamp -1000"]},
+   {"name": "n", "dtype": "Int", "cells": ["Int 1","Int 2","Int 3","Int 4"]}
+  ]}
+ ],
+ "cells": 8
+}

@@ -1,0 +1,25 @@
+{
+ "file": "orc_decimal64_v2.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; decimals of precision up to 18 in the UNSTABLE-PRE-2.0 spelling",
+ "bytes": 738,
+ "compression": "ZLIB",
+ "version": [1, 9999],
+ "rows": 10,
+ "stripes": 1,
+ "fields": 5,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 10,
+ "reference_columns": ["a: int64", "b: decimal128(12, 0)", "c: decimal128(20, 2)", "d: decimal128(12, 2)", "e: decimal128(2, 2)"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "a", "dtype": "Int", "cells": ["Int 17292380420","Int 17292380421","Int 17292380421","Int 17292380421","Int 17292380421","Int 17292380421","Int 17292380421","Int 17292380422","Int 17292380422","Int 17292380422"]},
+   {"name": "b", "dtype": "Decimal", "cells": ["Decimal 24","Decimal 38","Decimal 28","Decimal 40","Decimal 2","Decimal 42","Decimal 10","Decimal 12","Decimal 41","Decimal 38"]},
+   {"name": "c", "dtype": "Decimal", "cells": ["Decimal 36164.16","Decimal 63351.70","Decimal 42673.96","Decimal 76677.60","Decimal 2096.48","Decimal 45284.82","Decimal 18572.90","Decimal 14836.80","Decimal 82152.52","Decimal 47240.84"]},
+   {"name": "d", "dtype": "Decimal", "cells": ["Decimal 0.03","Decimal 0.08","Decimal 0.09","Decimal 0.05","Decimal 0.07","Decimal 0.07","Decimal 0.01","Decimal 0.09","Decimal 0.07","Decimal 0.10"]},
+   {"name": "e", "dtype": "Decimal", "cells": ["Decimal 0.01","Decimal 0.01","Decimal 0.06","Decimal 0.04","Decimal 0.07","Decimal 0.05","Decimal 0.08","Decimal 0.06","Decimal 0.02","Decimal 0.00"]}
+  ]}
+ ],
+ "cells": 50
+}

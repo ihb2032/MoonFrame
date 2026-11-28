@@ -1,0 +1,29 @@
+{
+ "file": "built_rle_v2_direct.orc",
+ "origin": "hand-built",
+ "note": "direct runs at the widths the writer never picks — 26, 28 and 30 bits among them — and at both ends of the count",
+ "bytes": 480,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 20,
+ "stripes": 1,
+ "fields": 9,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 20,
+ "reference_columns": ["c0: int64", "c1: int64", "c2: int64", "c3: int64", "c4: int64", "c5: int64", "c6: int64", "c7: int64", "c8: int64"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Int", "cells": ["Int 1","Int 0","Int -1","Int 1","Int 0","Int -1","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c1", "dtype": "Int", "cells": ["Int 33554431","Int -33554431","Int 7","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c2", "dtype": "Int", "cells": ["Int 134217727","Int -134217727","Int 7","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c3", "dtype": "Int", "cells": ["Int 536870911","Int -536870911","Int 7","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c4", "dtype": "Int", "cells": ["Int 2147483647","Int -2147483647","Int 7","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c5", "dtype": "Int", "cells": ["Int 549755813887","Int -549755813887","Int 1","Int 0","Int -274877906944","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c6", "dtype": "Int", "cells": ["Int 140737488355327","Int -140737488355327","Int 1","Int 0","Int -70368744177664","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c7", "dtype": "Int", "cells": ["Int 36028797018963967","Int -36028797018963967","Int 1","Int 0","Int -18014398509481984","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c8", "dtype": "Int", "cells": ["Int 9223372036854775807","Int -9223372036854775807","Int 1","Int 0","Int -4611686018427387904","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]}
+  ]}
+ ],
+ "cells": 180
+}

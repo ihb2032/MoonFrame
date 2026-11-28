@@ -1,0 +1,21 @@
+{
+ "file": "broken_patched_no_patch.orc",
+ "origin": "hand-built",
+ "note": "a patched base run whose patch list is empty",
+ "bytes": 71,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a patched base run with no patch",
+ "message": "orc: byte 6: stripe 0's DATA stream of column 1, which starts at byte 3: the bytes hold a patched base run with no patch",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Corrupt PATCHED_BASE encoded data (pl==0)!",
+ "views": [
+ ],
+ "cells": 0
+}

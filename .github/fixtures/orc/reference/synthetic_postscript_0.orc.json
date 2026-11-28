@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_postscript_0.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the PostScript length byte says 0",
+ "bytes": 341,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a PostScript of no byte",
+ "message": "orc: byte 340: the PostScript length byte names 0 bytes",
+ "reference_opens": false,
+ "reference_error": "OSError: Invalid ORC postscript length",
+ "views": [
+ ],
+ "cells": 0
+}

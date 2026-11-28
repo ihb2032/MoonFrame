@@ -1,0 +1,21 @@
+{
+ "file": "pyorc_timestamp_bounds.orc",
+ "origin": "pyarrow",
+ "note": "past what the reference reader holds: the instants at the ends of a 64-bit microsecond count, in microseconds and in whole seconds, and the first and the last datetime; the view's cells are the generator's own",
+ "bytes": 601,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 8,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "reads",
+ "reference_opens": false,
+ "reference_error": "ArrowInvalid: ORC timestamp (9223372036854s + 775807000ns) is out of range for nanosecond resolution",
+ "views": [
+  {"projection": null, "source": "generator", "reference_opens": false, "columns": [
+   {"name": "us", "dtype": "Timestamp", "cells": ["Timestamp 9223372036854775807","Timestamp -9223372036854775808","Timestamp 9223372036854775806","Timestamp -9223372036854775807","Timestamp -62135596800000000","Timestamp 253402300799999999",null,"Timestamp 0"]},
+   {"name": "sec", "dtype": "Timestamp", "cells": ["Timestamp 9223372036854000000","Timestamp -9223372036854000000",null,"Timestamp 0","Timestamp -62135596800000000","Timestamp 253402300799000000","Timestamp 1000000","Timestamp -1000000"]}
+  ]}
+ ],
+ "cells": 16
+}

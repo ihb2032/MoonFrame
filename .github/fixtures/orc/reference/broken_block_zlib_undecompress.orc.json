@@ -1,0 +1,16 @@
+{
+ "file": "broken_block_zlib_undecompress.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, the footer's first block claiming eight compressed bytes that are all ones",
+ "bytes": 464,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block that does not decompress",
+ "message": "orc: byte 292: the Footer: a ZLIB block that does not decompress within 262144 bytes",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "ArrowException: Unknown error: Data error in ZlibDecompressionStream::NextDecompress",
+ "views": [
+ ],
+ "cells": 0
+}

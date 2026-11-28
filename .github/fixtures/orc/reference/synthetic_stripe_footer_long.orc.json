@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_stripe_footer_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe footer's length names bytes past the file",
+ "bytes": 342,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the stripe leaves the file",
+ "message": "orc: byte 208: stripe 0 runs past the body's end at byte 168",
+ "reference_opens": false,
+ "reference_error": "OSError: Malformed StripeInformation at stripe index 0: fileLength=342, StripeInfo=(offset=3, indexLength=59, dataLength=19, footerLength=487)",
+ "views": [
+ ],
+ "cells": 0
+}

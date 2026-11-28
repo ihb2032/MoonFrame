@@ -1,0 +1,25 @@
+{
+ "file": "orc_decimal64_v2_cplusplus.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the C++ writer; decimals of precision up to 18 in the UNSTABLE-PRE-2.0 spelling",
+ "bytes": 715,
+ "compression": "ZLIB",
+ "version": [1, 9999],
+ "rows": 10,
+ "stripes": 1,
+ "fields": 5,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 10,
+ "reference_columns": ["a: int64", "b: decimal128(10, 2)", "c: decimal128(2, 2)", "d: decimal128(2, 2)", "e: decimal128(2, 2)"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "a", "dtype": "Int", "cells": ["Int 17292380420","Int 17292380421","Int 17292380422","Int 17292380423","Int 17292380424","Int 17292380425","Int 17292380426","Int 17292380427","Int 17292380428","Int 17292380429"]},
+   {"name": "b", "dtype": "Decimal", "cells": ["Decimal 164.16","Decimal 328.32","Decimal 656.64","Decimal 1313.28","Decimal 2626.56","Decimal 5253.12","Decimal 10506.24","Decimal 21012.48","Decimal 42024.96","Decimal 84049.92"]},
+   {"name": "c", "dtype": "Decimal", "cells": ["Decimal 0.03","Decimal 0.08","Decimal 0.09","Decimal 0.05","Decimal 0.07","Decimal 0.07","Decimal 0.01","Decimal 0.09","Decimal 0.07","Decimal 0.12"]},
+   {"name": "d", "dtype": "Decimal", "cells": ["Decimal 0.01","Decimal 0.01","Decimal 0.06","Decimal 0.04","Decimal 0.07","Decimal 0.05","Decimal 0.08","Decimal 0.06","Decimal 0.02","Decimal 0.34"]},
+   {"name": "e", "dtype": "Decimal", "cells": ["Decimal 0.04","Decimal 0.09","Decimal 0.15","Decimal 0.09","Decimal 0.14","Decimal 0.12","Decimal 0.09","Decimal 0.15","Decimal 0.09","Decimal 0.46"]}
+  ]}
+ ],
+ "cells": 50
+}

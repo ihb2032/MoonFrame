@@ -1,0 +1,33 @@
+{
+ "file": "orc_TestOrcFile.test1.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; every type in a struct, BINARY and MAP among them; ZLIB",
+ "bytes": 1711,
+ "compression": "ZLIB",
+ "version": [0, 12],
+ "rows": 2,
+ "stripes": 1,
+ "fields": 12,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "BINARY and MAP columns",
+ "message": "orc: column \"bytes1\" is BINARY, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 2,
+ "reference_columns": ["boolean1: bool", "byte1: int8", "short1: int16", "int1: int32", "long1: int64", "float1: float", "double1: double", "bytes1: binary", "string1: string", "middle: struct<list: list<item: struct<int1: int32, string1: string>>>", "list: list<item: struct<int1: int32, string1: string>>", "map: map<string, struct<int1: int32, string1: string>>"],
+ "views": [
+  {"projection": ["boolean1", "byte1", "short1", "int1", "long1", "float1", "double1", "string1", "middle", "list"], "columns": [
+   {"name": "boolean1", "dtype": "Bool", "cells": ["Bool false","Bool true"]},
+   {"name": "byte1", "dtype": "Int", "cells": ["Int 1","Int 100"]},
+   {"name": "short1", "dtype": "Int", "cells": ["Int 1024","Int 2048"]},
+   {"name": "int1", "dtype": "Int", "cells": ["Int 65536","Int 65536"]},
+   {"name": "long1", "dtype": "Int", "cells": ["Int 9223372036854775807","Int 9223372036854775807"]},
+   {"name": "float1", "dtype": "Float", "cells": ["Float 3ff0000000000000","Float 4000000000000000"]},
+   {"name": "double1", "dtype": "Float", "cells": ["Float c02e000000000000","Float c014000000000000"]},
+   {"name": "string1", "dtype": "String", "cells": ["String \"hi\"","String \"bye\""]},
+   {"name": "middle", "dtype": "Struct({\"list\": List(Struct({\"int1\": Int, \"string1\": String}))})", "cells": ["Struct {\"list\": List [Struct {\"int1\": Int 1, \"string1\": String \"bye\"}, Struct {\"int1\": Int 2, \"string1\": String \"sigh\"}]}","Struct {\"list\": List [Struct {\"int1\": Int 1, \"string1\": String \"bye\"}, Struct {\"int1\": Int 2, \"string1\": String \"sigh\"}]}"]},
+   {"name": "list", "dtype": "List(Struct({\"int1\": Int, \"string1\": String}))", "cells": ["List [Struct {\"int1\": Int 3, \"string1\": String \"good\"}, Struct {\"int1\": Int 4, \"string1\": String \"bad\"}]","List [Struct {\"int1\": Int 100000000, \"string1\": String \"cat\"}, Struct {\"int1\": Int -100000, \"string1\": String \"in\"}, Struct {\"int1\": Int 1234, \"string1\": String \"hat\"}]"]}
+  ]}
+ ],
+ "cells": 20
+}

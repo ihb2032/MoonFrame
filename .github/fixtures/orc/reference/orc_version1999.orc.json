@@ -1,0 +1,21 @@
+{
+ "file": "orc_version1999.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): format version 19.99, a struct of no field, no row; the reference reader only warns",
+ "bytes": 46,
+ "compression": "NONE",
+ "version": [19, 99],
+ "rows": 0,
+ "stripes": 0,
+ "fields": 0,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a format version this reader does not read",
+ "message": "orc: a file of format version 19.99, which this reader does not read",
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": [],
+ "views": [
+ ],
+ "cells": 0
+}

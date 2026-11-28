@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_encodings_short.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe footer names no encoding",
+ "bytes": 323,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the encodings do not match the types",
+ "message": "orc: byte 190: stripe 0's footer names 0 encodings for 3 types",
+ "reference_opens": false,
+ "reference_error": "OSError: bad number of ColumnEncodings in StripeFooter: expected=3, actual=0",
+ "views": [
+ ],
+ "cells": 0
+}

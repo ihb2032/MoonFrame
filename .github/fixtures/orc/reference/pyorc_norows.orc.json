@@ -1,0 +1,32 @@
+{
+ "file": "pyorc_norows.orc",
+ "origin": "pyarrow",
+ "note": "a column a carried type, and no row",
+ "bytes": 389,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 0,
+ "fields": 12,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": ["b: bool", "tiny: int8", "small: int16", "int: int32", "big: int64", "flt: float", "dbl: double", "str: string", "ts: timestamp[ns]", "dt: date32[day]", "dec: decimal128(10, 2)", "wide: decimal128(38, 2)"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "b", "dtype": "Bool", "cells": []},
+   {"name": "tiny", "dtype": "Int", "cells": []},
+   {"name": "small", "dtype": "Int", "cells": []},
+   {"name": "int", "dtype": "Int", "cells": []},
+   {"name": "big", "dtype": "Int", "cells": []},
+   {"name": "flt", "dtype": "Float", "cells": []},
+   {"name": "dbl", "dtype": "Float", "cells": []},
+   {"name": "str", "dtype": "String", "cells": []},
+   {"name": "ts", "dtype": "Timestamp", "cells": []},
+   {"name": "dt", "dtype": "Date", "cells": []},
+   {"name": "dec", "dtype": "Decimal", "cells": []},
+   {"name": "wide", "dtype": "Decimal", "cells": []}
+  ]}
+ ],
+ "cells": 0
+}

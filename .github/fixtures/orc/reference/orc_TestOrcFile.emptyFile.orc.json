@@ -1,0 +1,33 @@
+{
+ "file": "orc_TestOrcFile.emptyFile.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; a schema of every type and no row",
+ "bytes": 523,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 0,
+ "fields": 12,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "BINARY and MAP columns",
+ "message": "orc: column \"bytes1\" is BINARY, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": ["boolean1: bool", "byte1: int8", "short1: int16", "int1: int32", "long1: int64", "float1: float", "double1: double", "bytes1: binary", "string1: string", "middle: struct<list: list<item: struct<int1: int32, string1: string>>>", "list: list<item: struct<int1: int32, string1: string>>", "map: map<string, struct<int1: int32, string1: string>>"],
+ "views": [
+  {"projection": ["boolean1", "byte1", "short1", "int1", "long1", "float1", "double1", "string1", "middle", "list"], "columns": [
+   {"name": "boolean1", "dtype": "Bool", "cells": []},
+   {"name": "byte1", "dtype": "Int", "cells": []},
+   {"name": "short1", "dtype": "Int", "cells": []},
+   {"name": "int1", "dtype": "Int", "cells": []},
+   {"name": "long1", "dtype": "Int", "cells": []},
+   {"name": "float1", "dtype": "Float", "cells": []},
+   {"name": "double1", "dtype": "Float", "cells": []},
+   {"name": "string1", "dtype": "String", "cells": []},
+   {"name": "middle", "dtype": "Struct({\"list\": List(Struct({\"int1\": Int, \"string1\": String}))})", "cells": []},
+   {"name": "list", "dtype": "List(Struct({\"int1\": Int, \"string1\": String}))", "cells": []}
+  ]}
+ ],
+ "cells": 0
+}

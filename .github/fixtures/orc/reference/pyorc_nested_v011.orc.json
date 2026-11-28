@@ -1,0 +1,26 @@
+{
+ "file": "pyorc_nested_v011.orc",
+ "origin": "pyarrow",
+ "note": "the same in the 0.11 format",
+ "bytes": 2692,
+ "compression": "NONE",
+ "version": [0, 11],
+ "rows": 8,
+ "stripes": 1,
+ "fields": 6,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 8,
+ "reference_columns": ["li: list<item: int64>", "ls: list<item: string>", "ll: list<item: list<item: int32>>", "lst: list<item: struct<x: int32, s: string>>", "st: struct<a: int32, b: string, c: struct<d: double, e: bool>>", "deep: struct<l: list<item: list<item: struct<n: int32>>>, s: struct<t: list<item: list<item: int32>>>>"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "li", "dtype": "List(Int)", "cells": ["List [Int 1, Int 2, Int 3]",null,"List []","List [Int 4]","List [Int 5, Int 6]","List [Null]","List [Int 7, Null]","List []"]},
+   {"name": "ls", "dtype": "List(String)", "cells": ["List [String \"a\", Null]",null,"List []","List [String \"\"]","List [String \"ünï\"]","List [String \"x\", String \"y\", String \"z\"]",null,"List [String \"日本\"]"]},
+   {"name": "ll", "dtype": "List(List(Int))", "cells": ["List [List [Int 1], List []]",null,"List [List [Int 2, Int 3]]","List []","List [List [], List [Int 4]]","List [List [Null], List [Int 5, Int 6]]","List [List [Int 7]]",null]},
+   {"name": "lst", "dtype": "List(Struct({\"x\": Int, \"s\": String}))", "cells": ["List [Struct {\"x\": Int 1, \"s\": String \"a\"}, Struct {\"x\": Null, \"s\": Null}]",null,"List []","List [Struct {\"x\": Int 2, \"s\": String \"\"}]","List [Struct {\"x\": Null, \"s\": String \"ünï\"}]","List [Struct {\"x\": Int 3, \"s\": String \"b\"}, Struct {\"x\": Int 4, \"s\": Null}]","List []","List [Struct {\"x\": Int 5, \"s\": String \"c\"}]"]},
+   {"name": "st", "dtype": "Struct({\"a\": Int, \"b\": String, \"c\": Struct({\"d\": Float, \"e\": Bool})})", "cells": ["Struct {\"a\": Int 1, \"b\": String \"x\", \"c\": Struct {\"d\": Float 3ff8000000000000, \"e\": Bool true}}",null,"Struct {\"a\": Null, \"b\": Null, \"c\": Null}","Struct {\"a\": Int 2, \"b\": String \"\", \"c\": Struct {\"d\": Null, \"e\": Bool false}}","Struct {\"a\": Int 3, \"b\": String \"ünï\", \"c\": Struct {\"d\": Float 8000000000000000, \"e\": Null}}","Struct {\"a\": Null, \"b\": String \"z\", \"c\": Struct {\"d\": Float 7ff8000000000000, \"e\": Bool true}}","Struct {\"a\": Int -2147483648, \"b\": Null, \"c\": Struct {\"d\": Float 7ff0000000000000, \"e\": Null}}","Struct {\"a\": Null, \"b\": Null, \"c\": Null}"]},
+   {"name": "deep", "dtype": "Struct({\"l\": List(List(Struct({\"n\": Int}))), \"s\": Struct({\"t\": List(List(Int))})})", "cells": ["Struct {\"l\": List [List [Struct {\"n\": Int 1}]], \"s\": Struct {\"t\": List [List [Int 1, Null], List []]}}",null,"Struct {\"l\": List [], \"s\": Struct {\"t\": Null}}","Struct {\"l\": List [Null, List []], \"s\": Struct {\"t\": List [List []]}}","Struct {\"l\": Null, \"s\": Null}","Struct {\"l\": List [List [Struct {\"n\": Null}], List [Struct {\"n\": Int 2}, Struct {\"n\": Int 3}]], \"s\": Struct {\"t\": List [List [], List [Int 4], List [Int 5, Null]]}}",null,"Struct {\"l\": Null, \"s\": Struct {\"t\": Null}}"]}
+  ]}
+ ],
+ "cells": 48
+}

@@ -1,0 +1,21 @@
+{
+ "file": "synthetic_rows_huge.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the footer declares 2^40 rows and its stripe 5",
+ "bytes": 346,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1099511627776,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the rows disagree",
+ "message": "orc: byte 208: the Footer declares 1099511627776 rows and its stripes 5",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,21 @@
+{
+ "file": "broken_list_items_huge.orc",
+ "origin": "hand-built",
+ "note": "two lists naming 2^31 + 4 items",
+ "bytes": 97,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "list items past a column",
+ "message": "orc: byte 3: the lists of column \"l\" name 2147483648 items in stripe 0, past what a column holds",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

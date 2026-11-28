@@ -1,0 +1,21 @@
+{
+ "file": "broken_stripe_rows_frame.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe declares 2^31 + 1 rows",
+ "bytes": 349,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2147483649,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "stripe rows past a frame",
+ "message": "orc: byte 208: stripe 0 declares 2147483649 rows, past a frame's own height",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in nextBuffer",
+ "views": [
+ ],
+ "cells": 0
+}

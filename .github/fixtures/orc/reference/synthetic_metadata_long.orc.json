@@ -1,0 +1,16 @@
+{
+ "file": "synthetic_metadata_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the metadata length names more than the file holds before the footer",
+ "bytes": 342,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the metadata leaves the file",
+ "message": "orc: byte 317: the PostScript: a metadata length of 240 bytes, past the head of the file",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

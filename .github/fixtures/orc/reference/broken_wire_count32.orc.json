@@ -1,0 +1,22 @@
+{
+ "file": "broken_wire_count32.orc",
+ "origin": "hand-built",
+ "note": "a type of kind 2^32",
+ "bytes": 74,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a count past 32 bits",
+ "message": "orc: byte 49: the Footer's type 1: a kind of 4294967296, past 32 bits",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: bool"],
+ "views": [
+ ],
+ "cells": 0
+}

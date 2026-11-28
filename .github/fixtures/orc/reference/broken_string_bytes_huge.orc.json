@@ -1,0 +1,22 @@
+{
+ "file": "broken_string_bytes_huge.orc",
+ "origin": "hand-built",
+ "note": "lengths naming 2^62 bytes four times over, past what a count holds",
+ "bytes": 111,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 4,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a string's bytes short",
+ "message": "orc: byte 37: stripe 0's DATA stream of column 1, which starts at byte 37: the lengths of column \"s\" name 9223372036854775807 bytes and the stream holds 4",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 4,
+ "reference_columns": ["s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

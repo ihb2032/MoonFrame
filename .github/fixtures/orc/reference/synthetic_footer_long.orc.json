@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_footer_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the footer length names bytes past the file",
+ "bytes": 342,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the tail leaves the file",
+ "message": "orc: byte 317: the PostScript: with a footer of 509 bytes a tail of 534 bytes, in a file of 342",
+ "reference_opens": false,
+ "reference_error": "OSError: Invalid ORC tailSize=534, fileLength=342",
+ "views": [
+ ],
+ "cells": 0
+}

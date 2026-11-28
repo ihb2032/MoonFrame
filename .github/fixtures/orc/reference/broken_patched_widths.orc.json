@@ -1,0 +1,21 @@
+{
+ "file": "broken_patched_widths.orc",
+ "origin": "hand-built",
+ "note": "a patched base run whose patch and gap widths pass 64 bits",
+ "bytes": 70,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "patched base widths past 64 bits",
+ "message": "orc: byte 3: stripe 0's DATA stream of column 1, which starts at byte 3: the bytes hold a patched base run whose patch and gap widths pass 64 bits",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

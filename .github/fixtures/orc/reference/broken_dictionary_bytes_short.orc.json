@@ -1,0 +1,21 @@
+{
+ "file": "broken_dictionary_bytes_short.orc",
+ "origin": "hand-built",
+ "note": "the dictionary's lengths name four bytes and its stream holds one",
+ "bytes": 90,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a dictionary's bytes short",
+ "message": "orc: byte 9: stripe 0's DICTIONARY_DATA stream of column 1, which starts at byte 9: the 2 entries of the dictionary of column \"d\" name 4 bytes and the stream holds 1",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in readFully",
+ "views": [
+ ],
+ "cells": 0
+}

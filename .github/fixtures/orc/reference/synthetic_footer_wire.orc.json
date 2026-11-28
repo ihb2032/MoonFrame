@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_footer_wire.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: every type of the footer arrives as a varint, not a message",
+ "bytes": 307,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the footer is malformed",
+ "message": "orc: byte 226: the Footer: field 4 arrives in wire type 0",
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: no types found",
+ "views": [
+ ],
+ "cells": 0
+}

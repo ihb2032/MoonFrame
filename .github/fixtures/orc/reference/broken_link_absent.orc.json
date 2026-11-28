@@ -1,0 +1,21 @@
+{
+ "file": "broken_link_absent.orc",
+ "origin": "hand-built",
+ "note": "the root struct names a subtype the footer does not carry",
+ "bytes": 57,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a subtype the footer does not carry",
+ "message": "orc: byte 11: the Footer's type 0 names subtype 5, which the Footer does not carry",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: types(5) not exists",
+ "views": [
+ ],
+ "cells": 0
+}

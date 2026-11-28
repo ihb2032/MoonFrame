@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_encoding_4.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the string column declares an encoding of kind 4",
+ "bytes": 341,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "an encoding of kind 4",
+ "message": "orc: column \"s\" carries encoding 4, which this reader does not read",
+ "reference_opens": false,
+ "reference_error": "OSError: failed to read in StringDirectColumnReader.next",
+ "views": [
+ ],
+ "cells": 0
+}

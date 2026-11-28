@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_map.orc",
+ "origin": "pyarrow",
+ "note": "a MAP column",
+ "bytes": 499,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a MAP column",
+ "message": "orc: column \"m\" is a MAP, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "m: map<string, int32>"],
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]}
+  ]}
+ ],
+ "cells": 3
+}

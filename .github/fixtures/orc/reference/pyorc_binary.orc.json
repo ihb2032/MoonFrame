@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_binary.orc",
+ "origin": "pyarrow",
+ "note": "a BINARY column",
+ "bytes": 315,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a BINARY column",
+ "message": "orc: column \"bin\" is BINARY, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "bin: binary"],
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]}
+  ]}
+ ],
+ "cells": 3
+}

@@ -1,0 +1,20 @@
+{
+ "file": "orc_TestOrcFile.testTimestamp.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; the top-level type is a TIMESTAMP, not a struct",
+ "bytes": 289,
+ "compression": "ZLIB",
+ "version": [0, 11],
+ "rows": 12,
+ "stripes": 1,
+ "fields": 0,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "the top-level type is not a struct",
+ "message": "orc: the top-level type is TIMESTAMP, where the columns are a STRUCT's fields",
+ "reference_opens": false,
+ "reference_error": "ArrowNotImplementedError: Only ORC files with a top-level struct can be handled",
+ "views": [
+ ],
+ "cells": 0
+}

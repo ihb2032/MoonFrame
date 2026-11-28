@@ -1,0 +1,21 @@
+{
+ "file": "broken_timestamp_low.orc",
+ "origin": "hand-built",
+ "note": "seconds after 2015-01-01 at the low end of a 64-bit count",
+ "bytes": 87,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a timestamp past a 64-bit microsecond count",
+ "message": "orc: column \"c0\" holds a timestamp past the microseconds a 64-bit count holds",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "ArrowInvalid: ORC timestamp (-9223372035434705408s + 0ns) is out of range for nanosecond resolution",
+ "views": [
+ ],
+ "cells": 0
+}

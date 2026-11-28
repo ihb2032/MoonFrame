@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_varint_wire.orc",
+ "origin": "hand-built",
+ "note": "the footer's row count as a length-delimited field",
+ "bytes": 73,
+ "compression": "NONE",
+ "version": [0, 12],
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a field in the wrong wire type",
+ "message": "orc: byte 55: the Footer: field 6 arrives in wire type 2",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

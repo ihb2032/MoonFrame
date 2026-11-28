@@ -1,0 +1,21 @@
+{
+ "file": "broken_list_length_negative.orc",
+ "origin": "hand-built",
+ "note": "a list's length with its top bit set",
+ "bytes": 97,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a negative list length",
+ "message": "orc: byte 13: stripe 0's LENGTH stream of column 1, which starts at byte 3: a list of column \"l\" has a length of -9223372036854775808",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "the reader crashed: exit code 3221225477 ",
+ "views": [
+ ],
+ "cells": 0
+}

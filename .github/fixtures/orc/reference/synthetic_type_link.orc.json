@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_type_link.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the string column names itself for subtype",
+ "bytes": 344,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the type tree does not hold together",
+ "message": "orc: byte 208: the Footer's type 2 names 1 subtype, and a STRING has none",
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: malformed link from type 2 to 2",
+ "views": [
+ ],
+ "cells": 0
+}

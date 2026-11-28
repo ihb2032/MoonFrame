@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_list_two.orc",
+ "origin": "hand-built",
+ "note": "a list of two subtypes",
+ "bytes": 75,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a list of two subtypes",
+ "message": "orc: byte 19: the Footer's type 1 is a LIST of 2 subtypes",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Illegal LIST type that doesn't contain one subtype",
+ "views": [
+ ],
+ "cells": 0
+}

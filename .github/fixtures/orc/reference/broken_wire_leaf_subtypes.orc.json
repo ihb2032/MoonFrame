@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_leaf_subtypes.orc",
+ "origin": "hand-built",
+ "note": "a long of two subtypes",
+ "bytes": 75,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a leaf with subtypes",
+ "message": "orc: byte 19: the Footer's type 1 names 2 subtypes, and a LONG has none",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: DATA stream not found in Integer column",
+ "views": [
+ ],
+ "cells": 0
+}

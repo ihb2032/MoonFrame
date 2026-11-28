@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_bad_magic.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: no magic at the end of the PostScript, and the head spells ORX",
+ "bytes": 334,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "not an ORC file",
+ "message": "orc: byte 0: not an ORC file: neither the end of the PostScript nor the head spells the magic",
+ "reference_opens": false,
+ "reference_error": "OSError: Not an ORC file",
+ "views": [
+ ],
+ "cells": 0
+}

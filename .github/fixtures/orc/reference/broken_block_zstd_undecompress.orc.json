@@ -1,0 +1,16 @@
+{
+ "file": "broken_block_zstd_undecompress.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZSTD, the footer's first block claiming eight compressed bytes that are all ones",
+ "bytes": 464,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block that does not decompress",
+ "message": "orc: byte 292: the Footer: a ZSTD block that does not decompress within 262144 bytes",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "ArrowException: Unknown error: Error while calling ZSTD_decompressDCtx(), error: Src size is incorrect",
+ "views": [
+ ],
+ "cells": 0
+}

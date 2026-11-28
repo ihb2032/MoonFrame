@@ -1,0 +1,22 @@
+{
+ "file": "synthetic_root_all_null.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: a PRESENT stream on the root struct, every row absent",
+ "bytes": 351,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "a", "dtype": "Int", "cells": [null,null,null,null,null]},
+   {"name": "s", "dtype": "String", "cells": [null,null,null,null,null]}
+  ]}
+ ],
+ "cells": 10
+}

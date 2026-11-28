@@ -1,0 +1,22 @@
+{
+ "file": "broken_decimal_quantum.orc",
+ "origin": "hand-built",
+ "note": "a value whose zeros under a scale of 6200 pass the library's smallest quantum",
+ "bytes": 93,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a decimal past the library's smallest quantum",
+ "message": "orc: column \"c0\" holds a decimal of 1 digit at scale 6200, which the library's decimal cannot hold exactly",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["c0: decimal128(38, 6200)"],
+ "views": [
+ ],
+ "cells": 0
+}

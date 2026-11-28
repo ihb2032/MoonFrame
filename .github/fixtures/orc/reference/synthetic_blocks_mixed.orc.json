@@ -1,0 +1,22 @@
+{
+ "file": "synthetic_blocks_mixed.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, blocks of at most 9 bytes, every other one a DEFLATE stream",
+ "bytes": 465,
+ "compression": "ZLIB",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "a", "dtype": "Int", "cells": ["Int 1","Int 2","Int 3",null,"Int 5"]},
+   {"name": "s", "dtype": "String", "cells": ["String \"x\"","String \"yy\"",null,"String \"zzz\"","String \"w\""]}
+  ]}
+ ],
+ "cells": 10
+}

@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_stripe_footer_short.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe footer's length cut by six bytes",
+ "bytes": 341,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the stripe footer is malformed",
+ "message": "orc: byte 158: stripe 0's footer: a field of 4 bytes runs past the message's end",
+ "reference_opens": false,
+ "reference_error": "OSError: bad StripeFooter from ArrowInputFile from 81 for 81",
+ "views": [
+ ],
+ "cells": 0
+}

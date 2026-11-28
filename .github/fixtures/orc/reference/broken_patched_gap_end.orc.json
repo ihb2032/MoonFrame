@@ -1,0 +1,22 @@
+{
+ "file": "broken_patched_gap_end.orc",
+ "origin": "hand-built",
+ "note": "a patch list of one skip entry, which ends inside its gap",
+ "bytes": 74,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a patch list that ends inside a gap",
+ "message": "orc: byte 11: stripe 0's DATA stream of column 1, which starts at byte 3: the bytes hold a patch list that ends inside a gap",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

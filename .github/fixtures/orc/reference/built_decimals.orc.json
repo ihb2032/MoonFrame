@@ -1,0 +1,24 @@
+{
+ "file": "built_decimals.orc",
+ "origin": "hand-built",
+ "note": "decimals: unbounded varints with a scale stream in both formats, 128-bit edges of one significant digit, a scale of eight",
+ "bytes": 330,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 4,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 4,
+ "reference_columns": ["c0: decimal128(38, 2)", "c1: decimal128(38, 2)", "c2: decimal128(38, 0)", "c3: decimal128(10, 8)"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Decimal", "cells": ["Decimal 123.45","Decimal -0.01",null,"Decimal 10000000000000000000000000000.00"]},
+   {"name": "c1", "dtype": "Decimal", "cells": ["Decimal 123.45","Decimal -0.01",null,"Decimal 10000000000000000000000000000.00"]},
+   {"name": "c2", "dtype": "Decimal", "cells": ["Decimal 10000000000000000000000000000000000000","Decimal -10000000000000000000000000000000000000",null,"Decimal 90000000000000000000000000000000000000"]},
+   {"name": "c3", "dtype": "Decimal", "cells": ["Decimal 0.00000015","Decimal -0.00000250",null,"Decimal 0.00000001"]}
+  ]}
+ ],
+ "cells": 16
+}

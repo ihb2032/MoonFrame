@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_stream_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the string column's first stream names 40 bytes past its stripe",
+ "bytes": 341,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stream leaves its stripe",
+ "message": "orc: byte 109: stripe 0's DATA stream of column 1, which starts at byte 104: the bytes end inside a value",
+ "reference_opens": false,
+ "reference_error": "OSError: Malformed stream meta at stream index 3 in stripe 0: streamOffset=102, streamLength=2, stripeOffset=3, stripeIndexLength=59, stripeDataLength=19",
+ "views": [
+ ],
+ "cells": 0
+}

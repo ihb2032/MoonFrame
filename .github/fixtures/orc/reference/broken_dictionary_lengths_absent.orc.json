@@ -1,0 +1,21 @@
+{
+ "file": "broken_dictionary_lengths_absent.orc",
+ "origin": "hand-built",
+ "note": "a dictionary and no length stream",
+ "bytes": 81,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a dictionary's length stream absent",
+ "message": "orc: byte 3: stripe 0 lists no LENGTH stream for the 1 dictionary entry of column 1",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: LENGTH stream not found in StringDictionaryColumn",
+ "views": [
+ ],
+ "cells": 0
+}

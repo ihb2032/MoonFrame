@@ -1,0 +1,21 @@
+{
+ "file": "built_negative_remainder.orc",
+ "origin": "hand-built",
+ "note": "seconds toward zero with a negative nanosecond remainder, the first writers' legacy spelling, which no writer spells today: summed, as the Java reader does — the C++ reference reader answers another instant",
+ "bytes": 114,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: timestamp[ns]"],
+ "views": [
+  {"projection": null, "source": "generator", "reference_opens": true, "reference_cells": {"c0": ["Timestamp -34560000999999", "Timestamp -5500000", "Timestamp 1420070399999999"]}, "columns": [
+   {"name": "c0", "dtype": "Timestamp", "cells": ["Timestamp -34560000999999","Timestamp -5500000","Timestamp 1420070399999999"]}
+  ]}
+ ],
+ "cells": 3
+}

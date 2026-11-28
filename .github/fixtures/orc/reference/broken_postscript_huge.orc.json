@@ -1,0 +1,16 @@
+{
+ "file": "broken_postscript_huge.orc",
+ "origin": "hand-built",
+ "note": "the PostScript length byte names 255 bytes of a file of 72",
+ "bytes": 70,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the PostScript past the head",
+ "message": "orc: byte 69: the PostScript length byte names 255 bytes, past the head of the file",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Invalid ORC postscript length: 255, file length = 70",
+ "views": [
+ ],
+ "cells": 0
+}

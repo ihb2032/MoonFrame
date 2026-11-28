@@ -1,0 +1,21 @@
+{
+ "file": "broken_stripe_offset_absent.orc",
+ "origin": "hand-built",
+ "note": "a stripe's information with no offset, which reads as byte 0, inside the magic",
+ "bytes": 68,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stripe starting before the body",
+ "message": "orc: byte 23: stripe 0 starts at byte 0, inside the magic",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad StripeFooter from ArrowInputFile from 4 for 16",
+ "views": [
+ ],
+ "cells": 0
+}

@@ -21,6 +21,7 @@ internal/column -> internal/buffer
 internal/column -> internal/numeric
 internal/column -> internal/text
 internal/column -> types
+internal/fwf -> types
 internal/ipc -> internal/text
 internal/ipc -> series
 internal/ipc -> types
@@ -53,6 +54,7 @@ internal/xport -> series
 internal/xport -> types
 io -> frame
 io -> internal/avro
+io -> internal/fwf
 io -> internal/ipc
 io -> internal/numeric
 io -> internal/orc

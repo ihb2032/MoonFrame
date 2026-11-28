@@ -258,6 +258,21 @@ test "PartitionBy copies the caller's key columns in and out" {
 }
 
 ///|
+test "FwfReadOptions copies the caller's arrays in and out" {
+  let widths = [1, 2]
+  let colspecs = [(0, 1)]
+  let names = ["p"]
+  let options = FwfReadOptions::FwfReadOptions(widths~, colspecs~, names~)
+  widths[0] = 9
+  widths.push(5)
+  colspecs[0] = (5, 6)
+  names.clear()
+  assert_eq(options.widths(), [1, 2])
+  assert_eq(options.colspecs(), [(0, 1)])
+  assert_eq(options.names(), ["p"])
+}
+
+///|
 /// Join options compare on what they mean — kind, suffix, coalesce choice, and
 /// the keys as rendered. The keys are expressions and `Expr` carries no `==`,
 /// so there is none on the whole value either.

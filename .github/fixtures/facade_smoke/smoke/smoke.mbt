@@ -77,7 +77,6 @@ test "eager expression pipeline" {
   assert_eq(big.nrows(), 2)
   let _ = big.select(@moonframe.cols(["region", "qty"]))
   let _ = big.to_markdown()
-
 }
 
 ///|
@@ -94,17 +93,10 @@ test "group-by, sort, and reshaping" {
       @moonframe.col("rev").sum().with_alias("rev"),
       @moonframe.col("rev").count().with_alias("n"),
     ])
-    .sort([
-      (
-        @moonframe.col("rev"),
-        true,
-        true,
-      ),
-    ])
+    .sort([(@moonframe.col("rev"), true, true)])
   assert_eq(grouped.nrows(), 2)
   let _ = df.unique(subset=[@moonframe.col("region")])
   let _ = df.drop([@moonframe.col("rev")]).rename([("region", "r")])
-
 }
 
 ///|
@@ -140,7 +132,6 @@ test "lazy pipeline" {
   let out = lf.collect()
   assert_eq(out.nrows(), 2)
   let _ = lf.explain()
-
 }
 
 ///|
@@ -284,7 +275,7 @@ test "avro write and read" {
     @moonframe.Series::from_strings("name", ["a", "b"]),
   ])
   let codec : @moonframe.AvroCodec = @moonframe.AvroCodec::Deflate
-  @moonframe.write_avro(df, "_build/smoke.avro", codec=codec)
+  @moonframe.write_avro(df, "_build/smoke.avro", codec~)
   assert_eq(@moonframe.read_avro("_build/smoke.avro").shape(), (2, 2))
   // The default codec stores the blocks as encoded; the bytes already in
   // memory parse with a projection, which keeps the named column and the
@@ -293,10 +284,7 @@ test "avro write and read" {
   let bytes = @fs.read_file_to_bytes("_build/smoke_plain.avro") catch {
     _ => b""
   }
-  assert_eq(
-    @moonframe.parse_avro(bytes, projection=["name"]).shape(),
-    (2, 1),
-  )
+  assert_eq(@moonframe.parse_avro(bytes, projection=["name"]).shape(), (2, 1))
 }
 
 ///|
@@ -310,13 +298,8 @@ test "stata write and read" {
   ])
   @moonframe.write_stata(df, "_build/smoke.dta")
   assert_eq(@moonframe.read_stata("_build/smoke.dta").shape(), (2, 2))
-  let bytes = @fs.read_file_to_bytes("_build/smoke.dta") catch {
-    _ => b""
-  }
-  assert_eq(
-    @moonframe.parse_stata(bytes, projection=["name"]).shape(),
-    (2, 1),
-  )
+  let bytes = @fs.read_file_to_bytes("_build/smoke.dta") catch { _ => b"" }
+  assert_eq(@moonframe.parse_stata(bytes, projection=["name"]).shape(), (2, 1))
 }
 
 ///|
@@ -369,9 +352,7 @@ test "sas write and read" {
 test "spss read" {
   let path = "../spss/reference/pyrs_four_rows.sav"
   assert_eq(@moonframe.read_spss(path).shape(), (4, 2))
-  let bytes = @fs.read_file_to_bytes(path) catch {
-    _ => b""
-  }
+  let bytes = @fs.read_file_to_bytes(path) catch { _ => b"" }
   assert_eq(@moonframe.parse_spss(bytes).columns(), ["a", "s"])
 }
 
@@ -382,9 +363,7 @@ test "spss read" {
 test "orc read" {
   let path = "../orc/reference/pyorc_small_uncompressed.orc"
   assert_eq(@moonframe.read_orc(path).shape(), (5, 2))
-  let bytes = @fs.read_file_to_bytes(path) catch {
-    _ => b""
-  }
+  let bytes = @fs.read_file_to_bytes(path) catch { _ => b"" }
   let kept : @moonframe.DataFrame = @moonframe.parse_orc(bytes, projection=["s"])
   assert_eq(kept.shape(), (5, 1))
   assert_eq(kept.columns(), ["s"])
@@ -403,6 +382,27 @@ test "partitioned sink" {
   let a = @moonframe.read_parquet("_build/smoke_parts/k=a/00000000.parquet")
   assert_eq(a.shape(), (2, 2))
   assert_eq(@moonframe.PartitionBy::PartitionBy().key(), None)
+}
+
+///|
+/// The fixed-width entries, each named through the facade: a text of
+/// fixed-width lines parsed under inferred and under named layouts.
+test "fwf read" {
+  let df : @moonframe.DataFrame = @moonframe.parse_fwf("a  b\n1  2\n3  4\n")
+  assert_eq(df.shape(), (2, 2))
+  let named : @moonframe.DataFrame = @moonframe.parse_fwf(
+    "x   y\n",
+    options=@moonframe.FwfReadOptions::FwfReadOptions(
+      widths=[1, 4],
+      has_header=false,
+    ),
+  )
+  assert_eq(named.shape(), (1, 2))
+  assert_eq(named.columns(), ["column1", "column2"])
+  assert_eq(
+    named.get_column("column2").to_scalars()[0],
+    @moonframe.Scalar::String("y"),
+  )
 }
 
 ///|

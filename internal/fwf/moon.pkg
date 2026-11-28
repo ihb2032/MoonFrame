@@ -1,0 +1,9 @@
+// The codec's dependencies: the value types its errors are spelled with.
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+} for "wbtest"

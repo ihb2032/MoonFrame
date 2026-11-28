@@ -25,6 +25,8 @@ pub fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[Stri
 
 pub fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_fwf(String, options? : FwfReadOptions) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -50,6 +52,8 @@ pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise 
 pub fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_fwf(String, options? : FwfReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
@@ -168,6 +172,17 @@ pub struct ExcelWriteOptions {
   has_header : Bool
 }
 pub fn ExcelWriteOptions::ExcelWriteOptions(sheet? : String, has_header? : Bool) -> Self
+
+pub struct FwfReadOptions {
+  infer_nrows : Int32
+  has_header : Bool
+  skiprows : Int32
+  // private fields
+}
+pub fn FwfReadOptions::FwfReadOptions(widths? : Array[Int32], colspecs? : Array[(Int32, Int32)], infer_nrows? : Int32, has_header? : Bool, skiprows? : Int32, names? : Array[String]) -> Self
+pub fn FwfReadOptions::colspecs(Self) -> Array[(Int32, Int32)]
+pub fn FwfReadOptions::names(Self) -> Array[String]
+pub fn FwfReadOptions::widths(Self) -> Array[Int32]
 
 #derive(Eq, @debug.Debug)
 pub(all) enum IpcCompression {

@@ -1,0 +1,15 @@
+{
+ "file": "broken_sst_runs_missing.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a shared string claiming two rich-text runs and holding one",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 80 of the workbook stream: the 1st string of the shared string table ends inside its data",
+ "reference_opens": false,
+ "reference_error": "IndexError: list index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: list index out of range",
+ "compound_reader": "opens"
+}

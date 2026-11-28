@@ -1,0 +1,15 @@
+{
+ "file": "broken_biff3.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a stream opening with the BOF record id of BIFF3",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 0 of the workbook stream: the BOF record's id 0x0209 is BIFF3's, and this reader reads BIFF8's 0x0809",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0209 vers=0x0dbb strm=0x07cc build=0 year=0 -> BIFF30",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0209 vers=0x0dbb strm=0x07cc build=0 year=0 -> BIFF30",
+ "compound_reader": "opens"
+}

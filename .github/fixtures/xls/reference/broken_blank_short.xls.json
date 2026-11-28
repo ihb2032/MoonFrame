@@ -1,0 +1,14 @@
+{
+ "file": "broken_blank_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BLANK record of 4 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the BLANK record is 4 bytes long, and its kind needs 6",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 6 bytes",
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

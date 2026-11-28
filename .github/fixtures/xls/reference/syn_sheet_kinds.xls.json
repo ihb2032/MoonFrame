@@ -1,0 +1,22 @@
+{
+ "file": "syn_sheet_kinds.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: BOUNDSHEET records of a chart, a macro sheet and a module between three worksheets — one hidden, one very hidden, one named in Japanese — and a dialog sheet, which holds no cells; the first three are passed over, as the format's readers do",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["Ws", "Hidden", "日本語のシート", "Dialog"],
+ "datemode": 0,
+ "out_of_range": [4, 5, -1],
+ "grids": [
+  {"sheet": "Ws", "cells": [["T", 0, 0, "first"]]},
+  {"sheet": "Hidden", "cells": [["N", 0, 0, "4000000000000000", 0, "General", 2]]},
+  {"sheet": "日本語のシート", "cells": [["T", 0, 0, "very hidden"]]},
+  {"sheet": "Dialog", "cells": []}
+ ],
+ "cells": 3,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "broken_sst_more.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a shared string table counting one string and holding two",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 75 of the workbook stream: the shared string table declares a string count of 1 and holds more",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

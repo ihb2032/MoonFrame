@@ -1,0 +1,14 @@
+{
+ "file": "broken_formula_error.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a formula caching error code 0x0005",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 105 of the workbook stream: the FORMULA record at byte 93 carries error code 0x0005, which the format does not name",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_bof_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOF record of two bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 0 of the workbook stream: the BOF record is 2 bytes long, and its kind needs 4",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Invalid length (2) for BOF record type 0x0809",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Invalid length (2) for BOF record type 0x0809",
+ "compound_reader": "opens"
+}

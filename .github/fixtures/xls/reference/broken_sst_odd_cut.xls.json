@@ -1,0 +1,15 @@
+{
+ "file": "broken_sst_odd_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a UTF-16 shared string cut by a CONTINUE record inside a character",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 72 of the workbook stream: the characters of the 1st string of the shared string table are cut inside a character at the record's end",
+ "reference_opens": false,
+ "reference_error": "IndexError: list index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: list index out of range",
+ "compound_reader": "opens"
+}

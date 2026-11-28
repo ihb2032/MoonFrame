@@ -1,0 +1,15 @@
+{
+ "file": "broken_difat_loop.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a DIFAT sector chaining to itself",
+ "bytes": 61952,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 61436: the file allocation table's chain enters sector 118 a second time, so it loops",
+ "reference_opens": false,
+ "reference_error": "CompDocError: MSAT corruption: seen[118] == 1",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: MSAT corruption: seen[118] == 1",
+ "compound_reader": "refuses"
+}

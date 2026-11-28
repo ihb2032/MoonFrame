@@ -1,0 +1,15 @@
+{
+ "file": "broken_file_truncated.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a sound file cut at 2000 bytes, inside its file allocation table's sector",
+ "bytes": 2000,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 76: the header names sector 2 as one of the file allocation table's, and the file holds 2",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 512 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 512 bytes",
+ "compound_reader": "refuses"
+}

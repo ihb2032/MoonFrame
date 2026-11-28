@@ -1,0 +1,14 @@
+{
+ "file": "broken_mulblank_last.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a MULBLANK record holding two cells from column 0 and naming column 4 as its last",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 105 of the workbook stream: the MULBLANK record at byte 93 holds 2 cells from column 0, and names column 4 as its last",
+ "reference_opens": false,
+ "reference_error": "AssertionError: ",
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

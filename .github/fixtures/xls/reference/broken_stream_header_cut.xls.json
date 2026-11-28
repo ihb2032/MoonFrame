@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_header_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a Workbook stream of two bytes: cut inside its first record's header",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 0 of the workbook stream: the stream ends inside a record header, which needs 4 bytes",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Incomplete BOF record[1]; met end of file",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Incomplete BOF record[1]; met end of file",
+ "compound_reader": "opens"
+}

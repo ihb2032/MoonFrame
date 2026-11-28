@@ -1,0 +1,15 @@
+{
+ "file": "broken_root_start_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the root entry's stream starting at sector 77, in a file of 4 sectors",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2164: the root entry's stream names sector 77, and the file holds 4",
+ "reference_opens": false,
+ "reference_error": "IndexError: array index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: array index out of range",
+ "compound_reader": "opens"
+}

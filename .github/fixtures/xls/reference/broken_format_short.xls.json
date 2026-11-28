@@ -1,0 +1,15 @@
+{
+ "file": "broken_format_short.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a FORMAT record holding its index and no code",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 26 of the workbook stream: the FORMAT record at byte 20 ends inside its character count",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 2 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 2 bytes",
+ "compound_reader": "opens"
+}

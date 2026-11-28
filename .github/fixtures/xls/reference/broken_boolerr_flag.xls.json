@@ -1,0 +1,15 @@
+{
+ "file": "broken_boolerr_flag.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOOLERR record whose last byte is 2",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 104 of the workbook stream: the BOOLERR record at byte 93 holds 2, neither a boolean's 0 nor an error's 1",
+ "reference_opens": false,
+ "reference_error": "IndexError: tuple index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: tuple index out of range",
+ "compound_reader": "opens"
+}

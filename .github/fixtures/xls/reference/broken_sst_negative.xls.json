@@ -1,0 +1,15 @@
+{
+ "file": "broken_sst_negative.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a shared string table counting -1 strings",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 65 of the workbook stream: the shared string table declares a string count of -1",
+ "reference_opens": false,
+ "reference_error": "IndexError: list index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: list index out of range",
+ "compound_reader": "opens"
+}

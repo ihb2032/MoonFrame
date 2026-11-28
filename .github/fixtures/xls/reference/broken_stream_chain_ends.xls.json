@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_chain_ends.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream's chain ending one sector early",
+ "bytes": 5632,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 4632: the Workbook stream needs 8 sectors and its chain ends after 7",
+ "reference_opens": false,
+ "reference_error": "AssertionError: ",
+ "second_reader_opens": false,
+ "second_reader_error": "AssertionError: ",
+ "compound_reader": "opens"
+}

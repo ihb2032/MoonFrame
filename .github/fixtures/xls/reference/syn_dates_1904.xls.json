@@ -1,0 +1,19 @@
+{
+ "file": "syn_dates_1904.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: a DATEMODE record counting dates from 1904-01-01, with date-formatted numbers",
+ "bytes": 2560,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["d1904"],
+ "datemode": 1,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "d1904", "cells": [["N", 0, 0, "40e4b7b0c6bb5aa5", 14, "m/d/yy", 3],["N", 0, 1, "0000000000000000", 14, "m/d/yy", 3],["N", 1, 0, "40e566e000000000", 165, "yyyy-mm-dd", 3]]}
+ ],
+ "cells": 3,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

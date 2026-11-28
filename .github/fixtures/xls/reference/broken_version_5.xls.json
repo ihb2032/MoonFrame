@@ -1,0 +1,14 @@
+{
+ "file": "broken_version_5.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a compound file declaring version 5",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "xls: byte 26: the compound file declares version 5 with 2^9-byte sectors, and this reader reads version 3 with 512-byte sectors and version 4 with 4096-byte ones",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

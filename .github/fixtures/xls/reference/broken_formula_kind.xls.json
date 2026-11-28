@@ -1,0 +1,15 @@
+{
+ "file": "broken_formula_kind.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a formula caching a value of kind 7",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 103 of the workbook stream: the FORMULA record at byte 93 caches a value of kind 7, which the format does not name",
+ "reference_opens": false,
+ "reference_error": "XLRDError: unexpected special case (0x07) in FORMULA",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: unexpected special case (0x07) in FORMULA",
+ "compound_reader": "opens"
+}

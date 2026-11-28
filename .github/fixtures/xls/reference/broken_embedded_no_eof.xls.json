@@ -1,0 +1,15 @@
+{
+ "file": "broken_embedded_no_eof.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a chart's substream embedded in a sheet, with no EOF record to end it",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 119 of the workbook stream: the substream embedded at byte 93 ends before its EOF record",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 4 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 4 bytes",
+ "compound_reader": "opens"
+}

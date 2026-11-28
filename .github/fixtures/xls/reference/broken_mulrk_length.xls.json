@@ -1,0 +1,15 @@
+{
+ "file": "broken_mulrk_length.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a MULRK record of 17 bytes: five past its two cells",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 93 of the workbook stream: the MULRK record is 17 bytes long, and its kind needs 6 bytes and 6 more for every cell",
+ "reference_opens": false,
+ "reference_error": "error: unpack requires a buffer of 2 bytes",
+ "second_reader_opens": false,
+ "second_reader_error": "error: unpack requires a buffer of 2 bytes",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_sheet_type.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a sheet's BOF record opening a chart's substream",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 86 of the workbook stream: the BOF record at byte 80 declares substream type 0x0020, not a worksheet's 0x0010",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0809 vers=0x0600 strm=0x0020 build=3515 year=1996 -> BIFF80",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0809 vers=0x0600 strm=0x0020 build=3515 year=1996 -> BIFF80",
+ "compound_reader": "opens"
+}

@@ -1,0 +1,15 @@
+{
+ "file": "broken_boundsheet_name_utf16.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOUNDSHEET record naming its sheet by a lone high surrogate",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 56 of the workbook stream: the characters of the BOUNDSHEET record at byte 44 are not well-formed UTF-16",
+ "reference_opens": false,
+ "reference_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode bytes in position 0-1: unexpected end of data",
+ "second_reader_opens": false,
+ "second_reader_error": "UnicodeDecodeError: 'utf-16-le' codec can't decode bytes in position 0-1: unexpected end of data",
+ "compound_reader": "opens"
+}

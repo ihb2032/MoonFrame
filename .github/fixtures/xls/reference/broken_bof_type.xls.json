@@ -1,0 +1,15 @@
+{
+ "file": "broken_bof_type.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a stream opening with a worksheet's BOF record",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 6 of the workbook stream: the BOF record at byte 0 declares substream type 0x0010, not the workbook globals' 0x0005",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0809 vers=0x0600 strm=0x0010 build=3515 year=1996 -> BIFF80",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: BOF not workbook/worksheet: op=0x0809 vers=0x0600 strm=0x0010 build=3515 year=1996 -> BIFF80",
+ "compound_reader": "opens"
+}

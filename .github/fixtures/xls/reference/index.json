@@ -1,0 +1,1146 @@
+[
+ {
+  "file": "xlwt_kinds.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 20,
+  "note": "the reference writer: every cell kind — a text, RK numbers plain and divided by 100 in a MULRK run, NUMBER records, booleans, the seven error codes, a formula (its cached value a blank string), BLANK and MULBLANK records, a merged range, the corner cell"
+ },
+ {
+  "file": "xlwt_text.xls",
+  "origin": "xlwt",
+  "bytes": 9728,
+  "codec": "reads",
+  "cells": 17,
+  "note": "the reference writer: compressed and UTF-16 text, Japanese, emoji, the Latin-1 high bytes, control characters, a byte order mark, a string of 4000 characters, one shared string referenced twice"
+ },
+ {
+  "file": "xlwt_rich.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 5,
+  "note": "the reference writer: rich-text strings, compressed and UTF-16, in two and three runs"
+ },
+ {
+  "file": "xlwt_long_strings.xls",
+  "origin": "xlwt",
+  "bytes": 104448,
+  "codec": "reads",
+  "cells": 6,
+  "note": "the reference writer: shared strings longer than a record's 8224 bytes — 9000, 8224, 32767 (the most a cell holds) and 40000 bytes — spanning CONTINUE records in both spellings, a string beginning inside a CONTINUE record"
+ },
+ {
+  "file": "xlwt_numbers.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 31,
+  "note": "the reference writer: whole numbers at the RK edges and past them, fractions, negatives, the largest and smallest doubles, and three a sheet never holds — two infinities and a not-a-number — which a NUMBER record carries all the same"
+ },
+ {
+  "file": "xlwt_formats.xls",
+  "origin": "xlwt",
+  "bytes": 9728,
+  "codec": "reads",
+  "cells": 420,
+  "note": "the reference writer: twelve date serials — 1, around the phantom 29 February 1900, the epoch, 2020-03-01 with a time, the last second of 9999, fractions, a negative — each under the built-in date and time ids 14 to 22 and 45 to 47 and under twenty-four custom codes"
+ },
+ {
+  "file": "xlwt_dates_1904.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 35,
+  "note": "the reference writer: a workbook counting dates from 1904-01-01, its numbers under built-in and custom date and time formats"
+ },
+ {
+  "file": "xlwt_sheets.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 5,
+  "note": "the reference writer: five worksheets out of alphabetical order, one hidden, one very hidden, one named in Japanese, one named with the longest name a sheet holds, one empty"
+ },
+ {
+  "file": "xlwt_limits.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 260,
+  "note": "the reference writer: the widest row, 256 cells in one MULRK record; the longest row's last cell, in column 255"
+ },
+ {
+  "file": "xlwt_overwrite.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 4,
+  "note": "the reference writer: cells written twice keep their last record — a text by a number, a text by a text, a number by a text, a text by a blank; the shared string table counts one reference to its two strings"
+ },
+ {
+  "file": "xlwt_formulas.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 6,
+  "note": "the reference writer: three formula cells, each caching a blank string, beside two numbers and a text"
+ },
+ {
+  "file": "xlwt_small.xls",
+  "origin": "xlwt",
+  "bytes": 5632,
+  "codec": "reads",
+  "cells": 4,
+  "note": "the reference writer: two rows, a text and a number in each"
+ },
+ {
+  "file": "syn_tiny.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: one text and two numbers, in the mini stream"
+ },
+ {
+  "file": "syn_rk.xls",
+  "origin": "synthetic",
+  "bytes": 4096,
+  "codec": "reads",
+  "cells": 282,
+  "note": "hand-built: the four RK spellings — a 30-bit integer and the high 30 bits of a double, each plain and divided by 100 — as RK records and in MULRK runs, one run 256 cells long, one ending at column 255"
+ },
+ {
+  "file": "syn_label.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 9,
+  "note": "hand-built: LABEL records — a cell's own string, compressed and UTF-16, with rich-text runs and with phonetic data, an empty one, control characters"
+ },
+ {
+  "file": "syn_label_continued.xls",
+  "origin": "synthetic",
+  "bytes": 26112,
+  "codec": "reads",
+  "cells": 4,
+  "note": "hand-built: a LABEL record whose string outgrows one record and is continued by CONTINUE records, with a change of spelling; a formula's cached string of 9000 characters, and one continued after an ARRAY record"
+ },
+ {
+  "file": "syn_getting_data.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: the eighth error code the format names, #GETTING_DATA, in a BOOLERR record and as a formula's cached value"
+ },
+ {
+  "file": "syn_formula.xls",
+  "origin": "synthetic",
+  "bytes": 3072,
+  "codec": "reads",
+  "cells": 18,
+  "note": "hand-built: FORMULA records with every cached value — a number, a boolean, each error, the blank string, and a string in a STRING record: plain, after ARRAY and SHRFMLA records, and spelled two ways"
+ },
+ {
+  "file": "syn_formula_tableop.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 2,
+  "note": "hand-built: a formula whose cached string follows a TABLEOP and a TABLEOP2 record, the pair a data table's formula carries"
+ },
+ {
+  "file": "syn_switch.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 7,
+  "note": "hand-built: shared strings whose characters CONTINUE records cut every few bytes, each piece after a cut spelled as the flags byte at its head says — compressed turning UTF-16 and back — with rich-text runs and phonetic data cut too, and a string beginning inside a CONTINUE record"
+ },
+ {
+  "file": "syn_records.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 5,
+  "note": "hand-built: INDEX, DBCELL, DIMENSIONS and ROW records, an unknown record with a CONTINUE after it, MULBLANK records (one to column 255) and BLANK records, an embedded chart substream with records of its own, cells out of row and column order, and a cell written twice"
+ },
+ {
+  "file": "syn_formats.xls",
+  "origin": "synthetic",
+  "bytes": 9728,
+  "codec": "reads",
+  "cells": 276,
+  "note": "hand-built: twelve numbers from 0 to the last second of 9999, a fraction, a negative and a tiny one, each under every kind of number format — General, decimals, the built-in date and time ids 14 to 22 and 45 to 47, text, and custom codes, a built-in id re-spelled by a FORMAT record among them"
+ },
+ {
+  "file": "syn_dates_1904.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: a DATEMODE record counting dates from 1904-01-01, with date-formatted numbers"
+ },
+ {
+  "file": "syn_book_stream.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: the workbook in a stream named Book, the older spelling"
+ },
+ {
+  "file": "syn_uppercase_stream.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: the workbook in a stream named WORKBOOK, matched without regard to case"
+ },
+ {
+  "file": "syn_size_high_bytes.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: a version 3 compound file whose stream size carries other bytes than zero in its high four, which a version 3 file does not read"
+ },
+ {
+  "file": "syn_mini_stream.xls",
+  "origin": "synthetic",
+  "bytes": 3072,
+  "codec": "reads",
+  "cells": 56,
+  "note": "hand-built: a workbook of 56 numbers in the mini stream, nine mini sectors long"
+ },
+ {
+  "file": "syn_mini_scattered.xls",
+  "origin": "synthetic",
+  "bytes": 4096,
+  "codec": "reads",
+  "cells": 50,
+  "note": "hand-built: a workbook of 50 numbers in a mini stream that lies in two regular sectors apart from each other, its mini sectors out of order"
+ },
+ {
+  "file": "syn_sector_4096.xls",
+  "origin": "synthetic",
+  "bytes": 12800,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: a version 4 compound file with 4096-byte sectors"
+ },
+ {
+  "file": "syn_difat_chain.xls",
+  "origin": "synthetic",
+  "bytes": 61952,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: a compound file with 110 file allocation table sectors, more than the header has entries for, so a DIFAT sector chains after them"
+ },
+ {
+  "file": "syn_fragmented.xls",
+  "origin": "synthetic",
+  "bytes": 7680,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: a compound file whose stream's sectors are not next to each other in the file, a free sector among them, the FAT sector after the data"
+ },
+ {
+  "file": "syn_zero_sheets.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 0,
+  "note": "hand-built: a workbook of no sheet, which the reference writer cannot save"
+ },
+ {
+  "file": "syn_sheet_kinds.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 3,
+  "note": "hand-built: BOUNDSHEET records of a chart, a macro sheet and a module between three worksheets — one hidden, one very hidden, one named in Japanese — and a dialog sheet, which holds no cells; the first three are passed over, as the format's readers do"
+ },
+ {
+  "file": "syn_no_sst.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "reads",
+  "cells": 2,
+  "note": "hand-built: numbers only, no shared string table"
+ },
+ {
+  "file": "broken_zip_container.xls",
+  "origin": "synthetic",
+  "bytes": 310,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a ZIP archive, as an .xlsx workbook is one, under an .xls name"
+ },
+ {
+  "file": "broken_text_bytes.xls",
+  "origin": "synthetic",
+  "bytes": 192,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "plain text"
+ },
+ {
+  "file": "broken_empty.xls",
+  "origin": "synthetic",
+  "bytes": 0,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "no byte at all"
+ },
+ {
+  "file": "broken_seven_bytes.xls",
+  "origin": "synthetic",
+  "bytes": 7,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "seven bytes: shorter than the signature"
+ },
+ {
+  "file": "broken_header_cut.xls",
+  "origin": "synthetic",
+  "bytes": 108,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the signature, then a header cut short at 108 bytes"
+ },
+ {
+  "file": "broken_byte_order.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a compound file declaring the big-endian byte order"
+ },
+ {
+  "file": "broken_version_5.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a compound file declaring version 5"
+ },
+ {
+  "file": "broken_sector_shift.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a version 3 compound file declaring 4096-byte sectors"
+ },
+ {
+  "file": "broken_mini_shift.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a compound file declaring 128-byte mini sectors"
+ },
+ {
+  "file": "broken_no_workbook.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a compound file holding one stream, named Data"
+ },
+ {
+  "file": "broken_entry_name_odd.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a directory entry spelling its name in 7 bytes, beside the workbook's"
+ },
+ {
+  "file": "broken_entry_name_long.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a directory entry spelling its name in 66 bytes, past the 64 an entry holds, beside the workbook's"
+ },
+ {
+  "file": "broken_fat_sector_out.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header naming sector 99 as its file allocation table's, in a file of 4 sectors"
+ },
+ {
+  "file": "broken_fat_sector_marker.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header naming no file allocation table sector at all, where the file has one"
+ },
+ {
+  "file": "broken_fat_named_twice.xls",
+  "origin": "synthetic",
+  "bytes": 61952,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header naming the same file allocation table sector twice"
+ },
+ {
+  "file": "broken_difat_out.xls",
+  "origin": "synthetic",
+  "bytes": 61952,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the DIFAT chain naming a sector the file does not hold"
+ },
+ {
+  "file": "broken_difat_loop.xls",
+  "origin": "synthetic",
+  "bytes": 61952,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a DIFAT sector chaining to itself"
+ },
+ {
+  "file": "broken_directory_out.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header placing the directory at sector 99, in a file of 4 sectors"
+ },
+ {
+  "file": "broken_directory_end.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header placing the directory at an end-of-chain marker"
+ },
+ {
+  "file": "broken_directory_loop.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the directory's sector chained to itself"
+ },
+ {
+  "file": "broken_file_truncated.xls",
+  "origin": "synthetic",
+  "bytes": 2000,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a sound file cut at 2000 bytes, inside its file allocation table's sector"
+ },
+ {
+  "file": "broken_stream_size_past.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream declaring 999999 bytes"
+ },
+ {
+  "file": "broken_stream_size_negative.xls",
+  "origin": "synthetic",
+  "bytes": 12800,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a version 4 compound file whose Workbook stream declares a size past 63 bits"
+ },
+ {
+  "file": "broken_stream_start_out.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream starting at sector 99, in a file of 10 sectors"
+ },
+ {
+  "file": "broken_stream_start_end.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream starting at an end-of-chain marker"
+ },
+ {
+  "file": "broken_stream_chain_ends.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's chain ending one sector early"
+ },
+ {
+  "file": "broken_stream_chain_out.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's chain naming sector 500, in a file of 10 sectors"
+ },
+ {
+  "file": "broken_stream_chain_marker.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's chain naming a FAT sector marker"
+ },
+ {
+  "file": "broken_stream_chain_loop.xls",
+  "origin": "synthetic",
+  "bytes": 5632,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's chain coming back to a sector it entered"
+ },
+ {
+  "file": "broken_mini_no_root.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a short Workbook stream in a compound file whose root entry holds no mini stream"
+ },
+ {
+  "file": "broken_mini_sector_out.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream naming mini sector 60, where the mini stream holds 3"
+ },
+ {
+  "file": "broken_mini_chain_ends.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's mini chain ending after its first mini sector"
+ },
+ {
+  "file": "broken_mini_chain_loop.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the Workbook stream's mini chain coming back to its first mini sector"
+ },
+ {
+  "file": "broken_mini_table_out.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header placing the mini stream's table at sector 99, in a file of 4 sectors"
+ },
+ {
+  "file": "broken_mini_table_ends.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the header counting two mini table sectors, where the chain holds one"
+ },
+ {
+  "file": "broken_mini_table_missing.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a short Workbook stream in a compound file whose header counts no mini table sector at all"
+ },
+ {
+  "file": "broken_root_size_past.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the root entry's stream declaring 999999 bytes"
+ },
+ {
+  "file": "broken_root_start_out.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the root entry's stream starting at sector 77, in a file of 4 sectors"
+ },
+ {
+  "file": "broken_root_chain_loop.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "the root entry's stream chained back to its own first sector"
+ },
+ {
+  "file": "broken_stream_empty.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a Workbook stream of no byte"
+ },
+ {
+  "file": "broken_stream_header_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a Workbook stream of two bytes: cut inside its first record's header"
+ },
+ {
+  "file": "broken_stream_record_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a Workbook stream of 30 bytes: cut inside a record's body"
+ },
+ {
+  "file": "broken_no_bof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a stream opening with an EOF record"
+ },
+ {
+  "file": "broken_unknown_bof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a stream opening with a record of an id the format does not give the workbook globals"
+ },
+ {
+  "file": "broken_biff5.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a BOF record declaring BIFF version 0x0500, as a BIFF5 file does"
+ },
+ {
+  "file": "broken_biff4.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a stream opening with the BOF record id of BIFF4"
+ },
+ {
+  "file": "broken_biff3.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a stream opening with the BOF record id of BIFF3"
+ },
+ {
+  "file": "broken_biff2.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a stream opening with the BOF record id of BIFF2"
+ },
+ {
+  "file": "broken_bof_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOF record of two bytes"
+ },
+ {
+  "file": "broken_bof_type.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a stream opening with a worksheet's BOF record"
+ },
+ {
+  "file": "broken_filepass.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a FILEPASS record after the BOF record: an encrypted workbook"
+ },
+ {
+  "file": "broken_datemode.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a DATEMODE record holding 2"
+ },
+ {
+  "file": "broken_globals_no_eof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a workbook globals that ends before its EOF record"
+ },
+ {
+  "file": "broken_bof_in_globals.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a sheet's BOF record where the workbook globals' EOF record should be"
+ },
+ {
+  "file": "broken_xf_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "an XF record of ten bytes"
+ },
+ {
+  "file": "broken_format_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a FORMAT record holding its index and no code"
+ },
+ {
+  "file": "broken_format_flags.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a FORMAT record holding its index, a count of no characters, and no flags"
+ },
+ {
+  "file": "broken_format_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a FORMAT record whose UTF-16 code counts two characters and holds three bytes"
+ },
+ {
+  "file": "broken_format_count.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a FORMAT record whose code counts three characters and holds two"
+ },
+ {
+  "file": "broken_sst_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string of ten characters, three of which the record holds"
+ },
+ {
+  "file": "broken_sst_odd_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a UTF-16 shared string cut by a CONTINUE record inside a character"
+ },
+ {
+  "file": "broken_sst_utf16.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string holding a lone high surrogate"
+ },
+ {
+  "file": "broken_sst_phonetic_negative.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string claiming -4 bytes of phonetic data"
+ },
+ {
+  "file": "broken_sst_runs_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string claiming two rich-text runs, the second cut by two bytes"
+ },
+ {
+  "file": "broken_sst_runs_missing.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string claiming two rich-text runs and holding one"
+ },
+ {
+  "file": "broken_sst_phonetic_missing.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string claiming ten bytes of phonetic data and holding none"
+ },
+ {
+  "file": "broken_sst_negative.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string table counting -1 strings"
+ },
+ {
+  "file": "broken_sst_fewer.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string table counting three strings and holding two"
+ },
+ {
+  "file": "broken_sst_more.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a shared string table counting one string and holding two"
+ },
+ {
+  "file": "broken_sst_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "an SST record holding one of its two counts"
+ },
+ {
+  "file": "broken_continue_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a CONTINUE record after the shared string table, claiming more than the stream holds"
+ },
+ {
+  "file": "broken_labelsst_index.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a LABELSST record naming shared string 5, where the table holds one"
+ },
+ {
+  "file": "broken_labelsst_negative.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a LABELSST record naming shared string -1"
+ },
+ {
+  "file": "broken_xf_index.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a cell naming XF 3, where the workbook holds one XF record"
+ },
+ {
+  "file": "broken_format_undefined.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "an XF record naming number format 200, which no FORMAT record defines"
+ },
+ {
+  "file": "broken_col_256.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a NUMBER record placing a cell in column 256"
+ },
+ {
+  "file": "broken_mulrk_col_256.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULRK run of three cells from column 254"
+ },
+ {
+  "file": "broken_number_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a NUMBER record of 10 bytes"
+ },
+ {
+  "file": "broken_rk_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a RK record of 6 bytes"
+ },
+ {
+  "file": "broken_blank_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BLANK record of 4 bytes"
+ },
+ {
+  "file": "broken_labelsst_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a LABELSST record of 6 bytes"
+ },
+ {
+  "file": "broken_boolerr_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOOLERR record of 7 bytes"
+ },
+ {
+  "file": "broken_formula_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a FORMULA record of 10 bytes"
+ },
+ {
+  "file": "broken_mulrk_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULRK record of 6 bytes"
+ },
+ {
+  "file": "broken_mulblank_short.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULBLANK record of 7 bytes"
+ },
+ {
+  "file": "broken_mulrk_length.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULRK record of 17 bytes: five past its two cells"
+ },
+ {
+  "file": "broken_mulrk_last.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULRK record holding two cells from column 0 and naming column 5 as its last"
+ },
+ {
+  "file": "broken_mulblank_length.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULBLANK record of 9 bytes: one past its row, its first column and its two styles"
+ },
+ {
+  "file": "broken_mulblank_last.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a MULBLANK record holding two cells from column 0 and naming column 4 as its last"
+ },
+ {
+  "file": "broken_boolerr_flag.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOOLERR record whose last byte is 2"
+ },
+ {
+  "file": "broken_boolerr_value.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOOLERR record holding 2 as a boolean"
+ },
+ {
+  "file": "broken_error_code.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOOLERR record carrying error code 0x0001"
+ },
+ {
+  "file": "broken_formula_kind.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a formula caching a value of kind 7"
+ },
+ {
+  "file": "broken_formula_bool.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a formula caching a boolean of 2"
+ },
+ {
+  "file": "broken_formula_error.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a formula caching error code 0x0005"
+ },
+ {
+  "file": "broken_formula_no_string.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a formula whose cached value is a string, followed by a NUMBER record"
+ },
+ {
+  "file": "broken_label_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a LABEL record counting ten characters and holding three"
+ },
+ {
+  "file": "broken_label_flags_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a LABEL record naming rich-text runs and holding no count of them"
+ },
+ {
+  "file": "broken_string_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a STRING record counting five characters and holding two"
+ },
+ {
+  "file": "broken_string_odd_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a UTF-16 STRING record cut by a CONTINUE record inside a character"
+ },
+ {
+  "file": "broken_string_utf16.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a STRING record holding a lone high surrogate"
+ },
+ {
+  "file": "broken_sheet_position.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOUNDSHEET record placing its sheet at byte 99999"
+ },
+ {
+  "file": "broken_sheet_bof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOUNDSHEET record placing its sheet at an XF record"
+ },
+ {
+  "file": "broken_sheet_type.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a sheet's BOF record opening a chart's substream"
+ },
+ {
+  "file": "broken_sheet_biff5.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "Unsupported",
+  "note": "a sheet's BOF record declaring BIFF version 0x0500"
+ },
+ {
+  "file": "broken_sheet_no_eof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a sheet that ends with the stream, before its EOF record"
+ },
+ {
+  "file": "broken_embedded_no_eof.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a chart's substream embedded in a sheet, with no EOF record to end it"
+ },
+ {
+  "file": "broken_boundsheet_name_cut.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOUNDSHEET record counting twenty characters of name and holding one"
+ },
+ {
+  "file": "broken_boundsheet_name_utf16.xls",
+  "origin": "synthetic",
+  "bytes": 2560,
+  "codec": "refuses",
+  "refusal": "ParseError",
+  "note": "a BOUNDSHEET record naming its sheet by a lone high surrogate"
+ }
+]

@@ -1,0 +1,19 @@
+{
+ "file": "syn_formula.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "hand-built: FORMULA records with every cached value — a number, a boolean, each error, the blank string, and a string in a STRING record: plain, after ARRAY and SHRFMLA records, and spelled two ways",
+ "bytes": 3072,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["f"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "f", "cells": [["N", 0, 0, "4004000000000000", 0, "General", 2],["N", 0, 1, "bfc0000000000000", 0, "General", 2],["B", 1, 0, true],["B", 1, 1, false],["E", 2, 0, "#NULL!"],["E", 2, 1, "#DIV/0!"],["E", 2, 2, "#VALUE!"],["E", 2, 3, "#REF!"],["E", 2, 4, "#NAME?"],["E", 2, 5, "#NUM!"],["E", 2, 6, "#N/A"],["T", 3, 0, "", "blank"],["T", 4, 0, "cached"],["T", 4, 1, "after array"],["T", 4, 2, "after shrfmla"],["T", 5, 0, "ab日本"],["T", 5, 1, ""],["T", 6, 0, "a text beside"]]}
+ ],
+ "cells": 18,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

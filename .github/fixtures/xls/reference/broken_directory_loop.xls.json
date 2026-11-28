@@ -1,0 +1,15 @@
+{
+ "file": "broken_directory_loop.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the directory's sector chained to itself",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 1548: the directory enters sector 3 a second time, so its chain loops",
+ "reference_opens": false,
+ "reference_error": "CompDocError: directory corruption: seen[3] == 3",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: directory corruption: seen[3] == 3",
+ "compound_reader": "opens"
+}

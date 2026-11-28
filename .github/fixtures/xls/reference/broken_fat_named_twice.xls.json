@@ -1,0 +1,15 @@
+{
+ "file": "broken_fat_named_twice.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the header naming the same file allocation table sector twice",
+ "bytes": 61952,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 80: the header names sector 8 as one of the file allocation table's a second time",
+ "reference_opens": false,
+ "reference_error": "CompDocError: MSAT extension corruption: seen[8] == 2",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: MSAT extension corruption: seen[8] == 2",
+ "compound_reader": "opens"
+}

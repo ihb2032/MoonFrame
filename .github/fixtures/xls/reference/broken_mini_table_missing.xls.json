@@ -1,0 +1,15 @@
+{
+ "file": "broken_mini_table_missing.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a short Workbook stream in a compound file whose header counts no mini table sector at all",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2292: the Workbook stream names mini sector 0, and its allocation table holds 0 entries",
+ "reference_opens": false,
+ "reference_error": "CompDocError: OLE2 stream 'Workbook (from SSCS)': sector allocation table invalid entry (0)",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: OLE2 stream 'Workbook (from SSCS)': sector allocation table invalid entry (0)",
+ "compound_reader": "opens"
+}

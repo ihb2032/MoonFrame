@@ -1,0 +1,14 @@
+{
+ "file": "broken_labelsst_negative.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a LABELSST record naming shared string -1",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 109 of the workbook stream: the LABELSST record at byte 99 names shared string -1, and the table holds 1",
+ "reference_opens": true,
+ "reference_sheets": ["S"],
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

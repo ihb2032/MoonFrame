@@ -1,0 +1,19 @@
+{
+ "file": "xlwt_formulas.xls",
+ "origin": "xlwt",
+ "writer": "xlwt 1.3.0",
+ "note": "the reference writer: three formula cells, each caching a blank string, beside two numbers and a text",
+ "bytes": 5632,
+ "codec": "reads",
+ "reference_opens": true,
+ "sidecar_source": "reference",
+ "sheets": ["formulas"],
+ "datemode": 0,
+ "out_of_range": [1, 2, -1],
+ "grids": [
+  {"sheet": "formulas", "cells": [["N", 0, 0, "3ff0000000000000", 164, "General", 2],["N", 0, 1, "4000000000000000", 164, "General", 2],["T", 1, 0, "", "blank"],["T", 1, 1, "", "blank"],["T", 1, 2, "", "blank"],["T", 2, 1, "beside"]]}
+ ],
+ "cells": 6,
+ "second_reader_opens": true,
+ "compound_reader": "opens"
+}

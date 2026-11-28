@@ -1,0 +1,15 @@
+{
+ "file": "broken_header_cut.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the signature, then a header cut short at 108 bytes",
+ "bytes": 108,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 108: the file ends inside the compound file's 512-byte header",
+ "reference_opens": false,
+ "reference_error": "CompDocError: Expected \"little-endian\" marker, found b'\\x00\\x00'",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: Expected \"little-endian\" marker, found b'\\x00\\x00'",
+ "compound_reader": "refuses"
+}

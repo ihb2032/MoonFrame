@@ -1,0 +1,15 @@
+{
+ "file": "broken_mulrk_last.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a MULRK record holding two cells from column 0 and naming column 5 as its last",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 113 of the workbook stream: the MULRK record at byte 93 holds 2 cells from column 0, and names column 5 as its last",
+ "reference_opens": false,
+ "reference_error": "IndexError: index out of range",
+ "second_reader_opens": false,
+ "second_reader_error": "IndexError: index out of range",
+ "compound_reader": "opens"
+}

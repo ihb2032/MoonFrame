@@ -1,0 +1,15 @@
+{
+ "file": "broken_mini_sector_out.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream naming mini sector 60, where the mini stream holds 3",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2292: the Workbook stream names mini sector 60, and the mini stream holds 3",
+ "reference_opens": false,
+ "reference_error": "AssertionError: ",
+ "second_reader_opens": false,
+ "second_reader_error": "AssertionError: ",
+ "compound_reader": "opens"
+}

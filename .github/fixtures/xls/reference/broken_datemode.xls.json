@@ -1,0 +1,15 @@
+{
+ "file": "broken_datemode.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a DATEMODE record holding 2",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 24 of the workbook stream: the DATEMODE record at byte 20 holds 2, neither 0 nor 1",
+ "reference_opens": false,
+ "reference_error": "AssertionError: ",
+ "second_reader_opens": false,
+ "second_reader_error": "AssertionError: ",
+ "compound_reader": "opens"
+}

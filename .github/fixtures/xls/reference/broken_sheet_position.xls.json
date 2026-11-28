@@ -1,0 +1,15 @@
+{
+ "file": "broken_sheet_position.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "a BOUNDSHEET record placing its sheet at byte 99999",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 48 of the workbook stream: the BOUNDSHEET record at byte 44 places the sheet \"S\" at byte 99999, and the stream holds 150 bytes",
+ "reference_opens": false,
+ "reference_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; met end of file",
+ "second_reader_opens": false,
+ "second_reader_error": "XLRDError: Unsupported format, or corrupt file: Expected BOF record; met end of file",
+ "compound_reader": "opens"
+}

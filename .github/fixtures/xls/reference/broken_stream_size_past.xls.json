@@ -1,0 +1,15 @@
+{
+ "file": "broken_stream_size_past.xls",
+ "origin": "synthetic",
+ "writer": "tools/xlsbuild.py",
+ "note": "the Workbook stream declaring 999999 bytes",
+ "bytes": 2560,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "xls: byte 2296: the Workbook stream declares 999999 bytes, and the file holds 2048 past its header",
+ "reference_opens": false,
+ "reference_error": "CompDocError: 'Workbook' stream length (999999 bytes) > file data size (2048 bytes)",
+ "second_reader_opens": false,
+ "second_reader_error": "CompDocError: 'Workbook' stream length (999999 bytes) > file data size (2048 bytes)",
+ "compound_reader": "opens"
+}

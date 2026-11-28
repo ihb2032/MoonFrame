@@ -95,7 +95,7 @@ libraries — not a derivative work of either codebase.
   (`maintain_order=True`), dedups on a column subset when given one, and takes
   Polars' `keep` strategies (`First` / `Last` / `None`).
 - **Lazy file sources** — `scan_csv` / `scan_ndjson` / `scan_json` (and the
-  columnar `scan_parquet`, covered below) with
+  columnar `scan_parquet` and `scan_orc`, covered below) with
   both projection and predicate pushdown into the reader. The pushdowns
   prune the *assembly* — only the consumed columns are built, and only the
   surviving rows' cells are parsed past the predicate's own columns. Two
@@ -263,7 +263,8 @@ here today:
   file's bytes are still read whole, but only the projected chunks' pages
   decode — and a sunk `head` / `tail` / `slice` skips the row groups outside its
   window outright (multi-row-group files read; a written file's layout
-  is `write_parquet`'s `row_group_rows~`),
+  is `write_parquet`'s `row_group_rows~`) — and `scan_orc` the stripes
+  outside a window the same way,
   over a module-internal reader / writer
   (`read_parquet` / `write_parquet`) — a `FLOAT` column refuses on read
   rather than silently narrowing. Arrow IPC reads and writes over a
@@ -452,8 +453,10 @@ here today:
   UNION column, an encrypted column, a nanosecond timestamp and a decimal
   past what the library holds refuse by name, where pandas carries the
   first three. Two top-level fields of one name reach the frame as they
-  are spelled, and the frame refuses them. There is no lazy source and no
-  iterated read: a file is read whole.
+  are spelled, and the frame refuses them. `scan_orc` reads a file
+  lazily, as Polars' `scan_orc` does — a stripe a batch, a pushed-down
+  window skipping the stripes outside it — where pandas' `read_orc`
+  reads a file whole; there is no iterated read of the eager entry.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

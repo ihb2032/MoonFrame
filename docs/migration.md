@@ -241,6 +241,9 @@ What changed on `main` since 0.9.0:
   of the header's, `skiprows`, `infer_nrows` — each line a row, a blank
   line skipped, each column typed by the CSV reader's rule. No
   existing call changes.
+  and the refusals. `scan_orc` is the file's lazy source, as Polars'
+  `scan_orc`: a stripe a batch, a sunk window skipping the stripes
+  outside it.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

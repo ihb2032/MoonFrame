@@ -7,7 +7,13 @@ import {
 }
 
 // Values
+pub fn orc_fields(Bytes, projection? : Array[String]) -> Array[@types.Field] raise @types.DataError
+
+pub fn orc_stripe_rows(Bytes) -> Array[Int32] raise @types.DataError
+
 pub fn read_orc_frame(Bytes, projection? : Array[String]) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
+
+pub fn read_orc_stripe(Bytes, Int32, projection? : Array[String]) -> (Array[(String, @series.Series)], Int32) raise @types.DataError
 
 // Errors
 

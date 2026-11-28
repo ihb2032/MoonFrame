@@ -358,8 +358,8 @@ test "spss read" {
 
 ///|
 /// The ORC entries, each named through the facade: a file of the reference
-/// corpus read from its path, and its bytes parsed in memory under a
-/// projection.
+/// corpus read from its path, its bytes parsed in memory under a
+/// projection, and the file scanned lazily under a window.
 test "orc read" {
   let path = "../orc/reference/pyorc_small_uncompressed.orc"
   assert_eq(@moonframe.read_orc(path).shape(), (5, 2))
@@ -367,6 +367,11 @@ test "orc read" {
   let kept : @moonframe.DataFrame = @moonframe.parse_orc(bytes, projection=["s"])
   assert_eq(kept.shape(), (5, 1))
   assert_eq(kept.columns(), ["s"])
+  let windowed : @moonframe.DataFrame = @moonframe.scan_orc(path)
+    .select([@moonframe.col("a")])
+    .head(2)
+    .collect()
+  assert_eq(windowed.shape(), (2, 1))
 }
 
 ///|

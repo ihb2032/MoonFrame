@@ -53,34 +53,118 @@ pub fn read_orc_frame(
     None => None
   }
   let layout = read_layout(bytes)
+  let kept = kept_columns(layout, wanted)
+  // Each kept column's cells, gathered stripe by stripe: one series a
+  // column is built over them once every stripe has been read.
+  let cells : Array[Array[@types.Scalar]] = kept.map(_ => [])
+  for k in 0..<layout.stripes.length() {
+    let stripe = open_stripe(layout, k)
+    for c, (id, name, _) in kept {
+      for value in column_values(stripe, id, name) {
+        cells[c].push(value)
+      }
+    }
+  }
+  let out = kept.mapi((c, column) => {
+    let (_, name, dtype) = column
+    (name, @series.Series::from_scalars(name, cells[c], dtype~))
+  })
+  (out, layout.rows)
+}
+
+///|
+/// The names and dtypes of the fields `projection` names among the file's
+/// top-level ones, in file order — every field when `projection` is `None`
+/// — as a batch-wise reader answers a frame that holds no row. Raises the
+/// errors `read_orc_frame` states for a file it cannot open or a type it
+/// does not carry.
+pub fn orc_fields(
+  bytes : Bytes,
+  projection? : Array[String],
+) -> Array[@types.Field] raise @types.DataError {
+  // The caller's array is copied at the boundary: the reader keeps the
+  // names itself, so a later mutation of theirs cannot change which
+  // columns are read.
+  let wanted : Array[String]? = match projection {
+    Some(names) => Some(names.copy())
+    None => None
+  }
+  let layout = read_layout(bytes)
+  kept_columns(layout, wanted).map(column => {
+    let (_, name, dtype) = column
+    @types.Field::Field(name, dtype)
+  })
+}
+
+///|
+/// The rows of every stripe of the file in `bytes`, in file order — what a
+/// batch-wise reader walks, and what places a window. Raises the errors
+/// `read_orc_frame` states for a file it cannot open.
+pub fn orc_stripe_rows(bytes : Bytes) -> Array[Int32] raise @types.DataError {
+  let layout = read_layout(bytes)
+  layout.stripes.map(info => info.rows.to_int())
+}
+
+///|
+/// The kept columns of one stripe: stripe `k` of the file in `bytes`, the
+/// fields `projection` names (every field when it is `None`), decoded from
+/// that stripe alone — so a batch-wise reader holds one stripe's cells at a
+/// time, never a file's. Each column is a series of the stripe's rows under
+/// its dtype; the count answered is the stripe's own. Raises
+/// `InvalidOperation` for a stripe the file does not hold, and the errors
+/// `read_orc_frame` states otherwise.
+pub fn read_orc_stripe(
+  bytes : Bytes,
+  stripe : Int32,
+  projection? : Array[String],
+) -> (Array[(String, @series.Series)], Int32) raise @types.DataError {
+  let layout = read_layout(bytes)
+  if stripe < 0 || stripe >= layout.stripes.length() {
+    raise @types.DataError::InvalidOperation(
+      "orc: stripe \{stripe}, where the file holds \{layout.stripes.length()}",
+    )
+  }
+  // The caller's array is copied at the boundary: the reader keeps the
+  // names itself, so a later mutation of theirs cannot change which
+  // columns are read.
+  let wanted : Array[String]? = match projection {
+    Some(names) => Some(names.copy())
+    None => None
+  }
+  let kept = kept_columns(layout, wanted)
+  let opened = open_stripe(layout, stripe)
+  let out = kept.map(column => {
+    let (id, name, dtype) = column
+    let cells : Array[@types.Scalar] = []
+    for value in column_values(opened, id, name) {
+      cells.push(value)
+    }
+    (name, @series.Series::from_scalars(name, cells, dtype~))
+  })
+  (out, layout.stripes[stripe].rows.to_int())
+}
+
+///|
+/// The top-level fields `projection` names, in file order — every field
+/// when it is `None` — each with its type id and the dtype its column is
+/// built with. A type this reader does not carry refuses here, before any
+/// stripe opens.
+fn kept_columns(
+  layout : Layout,
+  projection : Array[String]?,
+) -> Array[(Int32, String, @types.DataType)] raise @types.DataError {
   let root = layout.types[0]
-  // The columns kept, each mapped to its dtype before any stripe opens,
-  // so a type this reader does not carry refuses the whole read first.
-  let kept : Array[(Int32, String, @types.DataType, Array[@types.Scalar])] = []
+  let kept : Array[(Int32, String, @types.DataType)] = []
   for i, id in root.subtypes {
     let name = root.names[i]
-    let keep = match wanted {
+    let keep = match projection {
       Some(names) => names.contains(name)
       None => true
     }
     if keep {
       let (_, dtype) = plan(layout, id, name)
-      kept.push((id, name, dtype, []))
+      kept.push((id, name, dtype))
     }
   }
-  for k in 0..<layout.stripes.length() {
-    let stripe = open_stripe(layout, k)
-    for column in kept {
-      let (id, name, _, cells) = column
-      for value in column_values(stripe, id, name) {
-        cells.push(value)
-      }
-    }
-  }
-  let out : Array[(String, @series.Series)] = []
-  for column in kept {
-    let (_, name, dtype, cells) = column
-    out.push((name, @series.Series::from_scalars(name, cells, dtype~)))
-  }
-  (out, layout.rows)
+  kept
 }

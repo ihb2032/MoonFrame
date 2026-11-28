@@ -194,6 +194,7 @@ pub using @io {
   scan_ipc,
   scan_json,
   scan_ndjson,
+  scan_orc,
   scan_parquet,
   scan_sql,
   sink_csv,

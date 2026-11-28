@@ -109,6 +109,8 @@ pub fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
 pub fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame
 
+pub fn scan_orc(String) -> @frame.LazyFrame
+
 pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame

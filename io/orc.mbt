@@ -83,3 +83,158 @@ pub fn parse_orc(
     @frame.DataFrame::DataFrame(columns.map(pair => pair.1))
   }
 }
+
+///|
+/// The lazy source over an ORC file: the file's stripes are its batches,
+/// one a `next`. A pushed-down projection names the columns decoded, a
+/// pushed-down window the stripes read — the others are skipped without
+/// being decoded — and a pushed-down predicate filters each stripe's rows
+/// once it is read. The frame a collected plan answers is the frame
+/// `read_orc` answers under the same projection and predicate, and the
+/// read's errors are `parse_orc`'s, raised where the read happens.
+pub fn scan_orc(path : String) -> @frame.LazyFrame {
+  @frame.LazyFrame::file_scan(orc_scan_driver(path), may_carry_temporal=true)
+}
+
+///|
+/// The ORC scan driver: the bytes read once, then the file's stripes
+/// walked as its batches — one stripe per `next`, the decode carrying the
+/// projected columns plus the predicate's own, never anything else. An
+/// absorbed window resolves against the footer's row count and skips the
+/// stripes outside it outright; a stripe the window only partly covers
+/// decodes and cuts to the overlap. The predicate filters each stripe's
+/// rows after the decode, the column pruning happening inside it — where a
+/// columnar source can prune. The predicate's columns ride the decode even
+/// when the projection omits them, the key-column contract every scan
+/// driver honours: the optimizer's projection pass narrows a scan to what
+/// its consumers reference, so a pushed predicate reading a pruned column
+/// would otherwise filter a frame that no longer carries it. Served to
+/// `scan_orc`.
+fn orc_scan_driver(path : String) -> @scan.ScanDriver {
+  @scan.ScanDriver::driver(
+    () => "ORC \"\{@text.escape_debug(path)}\"",
+    (projection, predicate, window) => {
+      let bytes = @fs.read_file_to_bytes(path) catch {
+        @fs.IOError(msg) => raise @types.DataError::IoError(msg)
+      }
+      let stripe_rows = @orc.orc_stripe_rows(bytes)
+      // The file's row count is the sum of its stripes'. Every count, the
+      // sum included, is one a frame's height holds — the file's own
+      // refusal otherwise — so the arithmetic below cannot wrap.
+      let mut total = 0
+      for rows in stripe_rows {
+        total = total + rows
+      }
+      // The window as an absolute [start, start + len) row range against
+      // the footer's rows — `resolve` saturates exactly as the eager
+      // window verbs do.
+      let (w0, wlen) = match window {
+        Some(w) => w.resolve(total)
+        None => (0, total)
+      }
+      // The columns decoded: the projection's, with the predicate's own
+      // beside them.
+      let decoded : Array[String]? = match (projection, predicate) {
+        (Some(cols), Some(pred)) => {
+          let union : Array[String] = []
+          for c in cols {
+            union.push(c)
+          }
+          for c in pred.referenced_columns() {
+            if !union.contains(c) {
+              union.push(c)
+            }
+          }
+          Some(union)
+        }
+        (Some(cols), None) => Some(cols)
+        (None, _) => None
+      }
+      // One stripe's frame to the batch the engine reads: the absorbed
+      // predicate filters the stripe's rows, then the projection keeps its
+      // columns in the file's own order (a name the file does not carry
+      // builds no column, and the batch's separately carried height keeps
+      // the rows — the `N×0` shape).
+      let to_batch : (@frame.DataFrame) -> @scan.ScanBatch raise @types.DataError = frame => {
+        let kept = match predicate {
+          Some(pred) => frame.filter(pred)
+          None => frame
+        }
+        let out : Array[@series.Series] = match projection {
+          Some(cols) =>
+            kept.column_series().filter(s => cols.contains(s.name()))
+          None => kept.column_series()
+        }
+        @scan.ScanBatch::batch(out, kept.nrows())
+      }
+      // The cursor's place: the next stripe, the rows before that stripe,
+      // and whether any batch has left yet — array cells, so the step
+      // closure sees its own earlier answers on every later call.
+      let place : Array[Int32] = [0, 0]
+      let emitted : Array[Bool] = [false]
+      @scan.BatchCursor::cursor(() => {
+        let stripes = stripe_rows.length()
+        let mut i = place[0]
+        let mut rows_before = place[1]
+        // Skip the stripes that end at or before the window's start —
+        // their streams are never decoded.
+        while i < stripes {
+          let srows = stripe_rows[i]
+          if rows_before + srows <= w0 {
+            i = i + 1
+            rows_before = rows_before + srows
+          } else {
+            break
+          }
+        }
+        // Past the last stripe, or the window entirely behind us: done —
+        // unless nothing has left yet, in which case the read still
+        // answers its columns: one zero-row batch over the fields, the
+        // `0×N` shape an eager read-then-window yields.
+        if i >= stripes || rows_before >= w0 + wlen {
+          if emitted[0] {
+            return None
+          }
+          emitted[0] = true
+          let fields = match decoded {
+            Some(names) => @orc.orc_fields(bytes, projection=names)
+            None => @orc.orc_fields(bytes)
+          }
+          let empty = fields.map(field => {
+            @series.Series::from_scalars(field.name(), [], dtype=field.dtype())
+          })
+          return Some(to_batch(@frame.DataFrame::from_parts(empty, 0)))
+        }
+        emitted[0] = true
+        let (pairs, srows) = match decoded {
+          Some(names) => @orc.read_orc_stripe(bytes, i, projection=names)
+          None => @orc.read_orc_stripe(bytes, i)
+        }
+        place[0] = i + 1
+        place[1] = rows_before + srows
+        // The window's overlap with this stripe — a stripe the window cuts
+        // through keeps only the overlapping rows of every column.
+        let lo = if w0 > rows_before { w0 - rows_before } else { 0 }
+        let hi = if w0 + wlen - rows_before < srows {
+          w0 + wlen - rows_before
+        } else {
+          srows
+        }
+        let columns : Array[@series.Series] = []
+        let rows = if lo > 0 || hi < srows {
+          for pair in pairs {
+            columns.push(pair.1.slice_series(lo, hi - lo))
+          }
+          hi - lo
+        } else {
+          for pair in pairs {
+            columns.push(pair.1)
+          }
+          srows
+        }
+        Some(to_batch(@frame.DataFrame::from_parts(columns, rows)))
+      })
+    },
+    absorbs_window=true,
+  )
+}

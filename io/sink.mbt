@@ -26,12 +26,20 @@
 /// window) and the file write's `IoError`. Nothing is read until the
 /// first batch is pulled.
 ///
+///
+/// `partition` writes the plan's rows as files under the directory `path`
+/// names instead of one file — a directory a distinct value of the key
+/// columns, and a file per `max_rows_per_file` rows — as `PartitionBy`'s
+/// docstring spells the layout; each file reads back as this sink's own
+/// rows for that partition.
+///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
 pub fn sink_parquet(
   lf : @frame.LazyFrame,
   path : String,
   codec? : ParquetCodec,
+  partition? : PartitionBy,
   row_group_rows~ : Int32 = 0,
   optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
 ) -> Unit raise @types.DataError {
@@ -40,6 +48,19 @@ pub fn sink_parquet(
     Some(Snappy) => @parquet.Codec::Snappy
     Some(Gzip) => @parquet.Codec::Gzip
     None => @parquet.Codec::Uncompressed
+  }
+  match partition {
+    Some(parts) => {
+      sink_partitioned(
+        lf,
+        path,
+        partition_checked(parts),
+        Parquet(chosen, row_group_rows.to_int64()),
+        optimizations,
+      )
+      return
+    }
+    None => ()
   }
   let sink = @parquet.ParquetSink::sink(
     chosen,
@@ -80,15 +101,36 @@ pub fn sink_parquet(
 /// rows-but-no-columns shape), plus the file write's `IoError`. Nothing
 /// is read until the first batch is pulled.
 ///
+///
+/// `partition` writes the plan's rows as files under the directory `path`
+/// names instead of one file — a directory a distinct value of the key
+/// columns, and a file per `max_rows_per_file` rows — as `PartitionBy`'s
+/// docstring spells the layout; each file reads back as this sink's own
+/// rows for that partition.
+///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
 pub fn sink_csv(
   lf : @frame.LazyFrame,
   path : String,
+  partition? : PartitionBy,
   options~ : CsvWriteOptions = CsvWriteOptions::CsvWriteOptions(),
   optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
 ) -> Unit raise @types.DataError {
   validate_csv_delimiter(options.delimiter)
+  match partition {
+    Some(parts) => {
+      sink_partitioned(
+        lf,
+        path,
+        partition_checked(parts),
+        Csv(options),
+        optimizations,
+      )
+      return
+    }
+    None => ()
+  }
   let rows = StringBuilder()
   let later = CsvWriteOptions::CsvWriteOptions(
     header=false,
@@ -134,15 +176,36 @@ pub fn sink_csv(
 /// file write's `IoError`. Nothing is read until the first batch is
 /// pulled.
 ///
+///
+/// `partition` writes the plan's rows as files under the directory `path`
+/// names instead of one file — a directory a distinct value of the key
+/// columns, and a file per `max_rows_per_file` rows — as `PartitionBy`'s
+/// docstring spells the layout; each file reads back as this sink's own
+/// rows for that partition.
+///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
 pub fn sink_ipc(
   lf : @frame.LazyFrame,
   path : String,
+  partition? : PartitionBy,
   compression~ : IpcCompression = IpcCompression::Uncompressed,
   format~ : IpcFormat = IpcFormat::File,
   optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
 ) -> Unit raise @types.DataError {
+  match partition {
+    Some(parts) => {
+      sink_partitioned(
+        lf,
+        path,
+        partition_checked(parts),
+        Ipc(ipc_codec(compression), ipc_file(format)),
+        optimizations,
+      )
+      return
+    }
+    None => ()
+  }
   let sink = @ipc.IpcSink::sink(ipc_codec(compression), file=ipc_file(format))
   let stream = lf.collect_batches(optimizations~)
   while true {
@@ -223,13 +286,34 @@ pub fn sink_json(
 /// refusal; the file write's own failure is `IoError`. Nothing is read
 /// until the first batch is pulled.
 ///
+///
+/// `partition` writes the plan's rows as files under the directory `path`
+/// names instead of one file — a directory a distinct value of the key
+/// columns, and a file per `max_rows_per_file` rows — as `PartitionBy`'s
+/// docstring spells the layout; each file reads back as this sink's own
+/// rows for that partition.
+///
 /// `optimizations` defaults to the same every-stage-on pipeline
 /// `collect` runs.
 pub fn sink_ndjson(
   lf : @frame.LazyFrame,
   path : String,
+  partition? : PartitionBy,
   optimizations~ : @frame.Optimizations = @frame.Optimizations::Optimizations(),
 ) -> Unit raise @types.DataError {
+  match partition {
+    Some(parts) => {
+      sink_partitioned(
+        lf,
+        path,
+        partition_checked(parts),
+        Ndjson,
+        optimizations,
+      )
+      return
+    }
+    None => ()
+  }
   let stream = lf.collect_batches(optimizations~)
   let text = StringBuilder()
   while true {

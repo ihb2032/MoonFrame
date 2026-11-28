@@ -391,6 +391,21 @@ test "orc read" {
 }
 
 ///|
+/// The partitioning options, named through the facade: a plan sunk to a
+/// directory a key value, and the files read back by name.
+test "partitioned sink" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_strings("k", ["a", "b", "a"]),
+    @moonframe.Series::from_ints("i", [1, 2, 3]),
+  ])
+  let by_key = @moonframe.PartitionBy::PartitionBy(key=["k"])
+  @moonframe.sink_parquet(df.to_lazy(), "_build/smoke_parts", partition=by_key)
+  let a = @moonframe.read_parquet("_build/smoke_parts/k=a/00000000.parquet")
+  assert_eq(a.shape(), (2, 2))
+  assert_eq(@moonframe.PartitionBy::PartitionBy().key(), None)
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

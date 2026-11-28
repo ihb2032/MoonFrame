@@ -87,15 +87,15 @@ pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame
 
-pub fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_csv(@frame.LazyFrame, String, partition? : PartitionBy, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_ipc(@frame.LazyFrame, String, partition? : PartitionBy, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn sink_json(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_ndjson(@frame.LazyFrame, String, partition? : PartitionBy, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, partition? : PartitionBy, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn write_avro(@frame.DataFrame, String, codec? : AvroCodec) -> Unit raise @types.DataError
 
@@ -216,6 +216,20 @@ pub(all) enum ParquetCodec {
 pub fn ParquetCodec::equal(Self, Self) -> Bool
 pub fn ParquetCodec::not_equal(Self, Self) -> Bool
 pub fn ParquetCodec::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub struct PartitionBy {
+  include_key : Bool
+  max_rows_per_file : Int32?
+  // private fields
+}
+pub fn PartitionBy::PartitionBy(key? : Array[String], include_key? : Bool, max_rows_per_file? : Int32) -> Self
+pub fn PartitionBy::equal(Self, Self) -> Bool
+pub fn PartitionBy::include_key(Self) -> Bool
+pub fn PartitionBy::key(Self) -> Array[String]?
+pub fn PartitionBy::max_rows_per_file(Self) -> Int32?
+pub fn PartitionBy::not_equal(Self, Self) -> Bool
+pub fn PartitionBy::to_repr(Self) -> @debug.Repr
 
 #derive(Eq, @debug.Debug)
 pub(all) enum SqlIfExists {

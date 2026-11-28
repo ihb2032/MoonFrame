@@ -212,6 +212,18 @@ encodes every cell into one buffer and writes it once: `O(r × c)`
 encodings, in memory until the file's one write, in blocks of ten
 thousand rows.
 
+## Stata datasets
+
+`read_stata` takes the whole file into memory and walks its header once;
+each kept variable's cells are then read in one pass from the data block,
+which the format lays out row by row — so a file of `r` rows and `c` kept
+columns costs `O(r × c)` cell reads, and a variable the projection leaves
+out is never read into a cell. A long-string column resolves each of its
+cells through the table the file carries. `write_stata` plans every
+column in one pass — its cells encoded, a long-string column's records
+collected — and then lays the file out into one buffer and writes it
+once: `O(r × c)` cells, in memory until the file's one write.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

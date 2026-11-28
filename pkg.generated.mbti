@@ -51,6 +51,8 @@ pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn plot(@frame.DataFrame) -> @chart.FramePlot
 
 pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -70,6 +72,8 @@ pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame rai
 pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_stata(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame
 
@@ -110,6 +114,8 @@ pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError
 
 pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : @io.SqlIfExists) -> Unit raise @types.DataError
+
+pub fn write_stata(@frame.DataFrame, String) -> Unit raise @types.DataError
 
 pub fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError
 

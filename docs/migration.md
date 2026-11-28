@@ -31,6 +31,8 @@ Source-level note:
 - Avro joins the facade: `read_avro` / `parse_avro` / `write_avro`, and
   the option enum `AvroCodec` that `write_avro` takes. No existing call
   changes.
+- Stata joins the facade: `read_stata` / `parse_stata` / `write_stata`,
+  over packages the module already depends on. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, and `moonbit-community/flate`: the LZ4 / Zstandard / snappy
   codecs, the CRC-32 behind a snappy block's checksum, and the raw DEFLATE
@@ -137,6 +139,17 @@ What changed on `main` since 0.9.0:
   nullable union, in blocks of ten thousand rows, and the same frame
   writes the same file. `parse_avro`'s docstring states the mapping and
   the refusals.
+- Stata datasets read and write over a codec inside the module
+  (`internal/stata`): releases 113 to 119 read in either byte order, and
+  118 is written. A numeric cell outside its storage's valid range reads
+  as missing, a variable under a date format as a `Date` or a
+  `Timestamp`, and value labels are not applied. `write_stata` writes
+  every column under its own name and refuses a name the format forbids;
+  the same frame writes the same file. A round trip is not the identity:
+  a `Bool` column reads back as `Int` 0 / 1, an `Int` column with a cell
+  past the `long` storage as `Float`, a NaN as missing, a missing string
+  cell as the empty string, and a `Null` column as an all-missing `Float`
+  column. `parse_stata`'s docstring states the mapping and the refusals.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

@@ -1,0 +1,370 @@
+[
+ {
+  "file": "codes_pandas_v114_be.dta",
+  "sha256": "7d4aa9a955f273898ec2e22dea7399d6a9027fe66c99a4d62ebf3b34a0df6bbf",
+  "size": 1624,
+  "release": 114,
+  "byteorder": "MSF",
+  "synthetic": "every cell was rewritten after the write to one of the 27 missing codes, row k holding the k-th code"
+ },
+ {
+  "file": "codes_pandas_v114_le.dta",
+  "sha256": "69c86edf799b6fd6ef17f811be4764819b8f9cdf898f7de0e18c856fa95f63dd",
+  "size": 1624,
+  "release": 114,
+  "byteorder": "LSF",
+  "synthetic": "every cell was rewritten after the write to one of the 27 missing codes, row k holding the k-th code"
+ },
+ {
+  "file": "codes_pandas_v118_be.dta",
+  "sha256": "04131158d09f173ce447a30f47c29661346890e6acd0a95f5cf982ad77dea22b",
+  "size": 4281,
+  "release": 118,
+  "byteorder": "MSF",
+  "synthetic": "every cell was rewritten after the write to one of the 27 missing codes, row k holding the k-th code"
+ },
+ {
+  "file": "codes_pandas_v118_le.dta",
+  "sha256": "55534135c43a5d1efb6683cdc536236869080b34a94e08a6b9d96d6840f0dd92",
+  "size": 4281,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": "every cell was rewritten after the write to one of the 27 missing codes, row k holding the k-th code"
+ },
+ {
+  "file": "codes_pyreadstat_v113.dta",
+  "sha256": "9c604faa4124568db736eee8ddb2339723dd9cceeb3ea8a48d165652ddda3a69",
+  "size": 872,
+  "release": 113,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "codes_pyreadstat_v115.dta",
+  "sha256": "d6cf5c9d94189cdade1405cae70df4c947ba3c94a9dcb48729933fe9935e51a4",
+  "size": 946,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "codes_pyreadstat_v117.dta",
+  "sha256": "019fc2e7698fb37c6801d4d4e5f408f680422bb1302c6209680a84ec57982a03",
+  "size": 1382,
+  "release": 117,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "codes_pyreadstat_v118.dta",
+  "sha256": "a5c216f8382c14ee2a0547ca3403c63a70a44f5a9cd556fc984906d03e1e0fb0",
+  "size": 2267,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "codes_pyreadstat_v119.dta",
+  "sha256": "5a27ca521a7a9bf8df79895d876f870744f97f30a4f119c8442e34ddf1784565",
+  "size": 2275,
+  "release": 119,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "empty_pyreadstat_v113.dta",
+  "sha256": "c01caf35666237346b40d43e209425a998fb1b2fc665561e67c9a51e4accadb8",
+  "size": 116,
+  "release": 113,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "empty_pyreadstat_v115.dta",
+  "sha256": "95ba12861f557b2fa2325d39639ae128f744d9e8acfe2626f42abf763dcee582",
+  "size": 116,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "empty_pyreadstat_v117.dta",
+  "sha256": "0844d1f589103abb3d5ec4b0a4f3be7730cb0fa401bae9fd39bf12ec6ab1c5f1",
+  "size": 550,
+  "release": 117,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "empty_pyreadstat_v118.dta",
+  "sha256": "bf00f1013c4404f2a9c87af93a74ea853467725e369a7666ec6056ccc12de3ad",
+  "size": 555,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "empty_pyreadstat_v119.dta",
+  "sha256": "7d8f1959c90751f01f48b32d7c7ab02d6feef22da00038b02458092630cd44ae",
+  "size": 559,
+  "release": 119,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "limits_pandas_v114_be.dta",
+  "sha256": "1ef3ec5a9a9580be938ae783ee89ecc8f2723301b2a1279deba95e360a2ee95b",
+  "size": 1270,
+  "release": 114,
+  "byteorder": "MSF",
+  "synthetic": null
+ },
+ {
+  "file": "limits_pandas_v118_le.dta",
+  "sha256": "836b948668910ad481de6984460ddc5d51aad8ed1549023677cc62e0a3a51902",
+  "size": 19460,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "names_pandas_v118_le.dta",
+  "sha256": "11eb1a39af890a39ec5ea2f62dda4b2ecd7a3fe6173c721c523c465480e233c3",
+  "size": 2514,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "norows_pandas_v114_le.dta",
+  "sha256": "147967c0e0bff1521a6d11d4d32c1ac342aff88269a0fcdb36bd386c0b0ecc12",
+  "size": 2305,
+  "release": 114,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "norows_pandas_v118_le.dta",
+  "sha256": "0fd7ff6eb1ebe22e343113748d96599ae34f25430764602324a68a999193e5d4",
+  "size": 7608,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "norows_pyreadstat_v115.dta",
+  "sha256": "619e4a19dd0863f63e1096af6f3c322dba96cc27c327edba42842136512293b8",
+  "size": 3300,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pandas_v114_be.dta",
+  "sha256": "99a484f697c6c79e494af2af881065698bf18b10e2b03f0da50c4ad42889607b",
+  "size": 2780,
+  "release": 114,
+  "byteorder": "MSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v114_le.dta",
+  "sha256": "ecd109b3537ea02b23db079553e4e97dc5aa8c0be2fd99fc2cc10758f71f8c89",
+  "size": 2780,
+  "release": 114,
+  "byteorder": "LSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v117_be.dta",
+  "sha256": "e736204ee2c7da18a5764fb83493f1eed9b5945f7d8c3f9b6f2e6603bd51505b",
+  "size": 5658,
+  "release": 117,
+  "byteorder": "MSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v117_le.dta",
+  "sha256": "3b46c89097884dcef4b3079a263cc80faa7a8f3915ba6638a5cc2da20f530bb3",
+  "size": 5658,
+  "release": 117,
+  "byteorder": "LSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v118_be.dta",
+  "sha256": "c96435675b1eadd26f3351732eab57363b2f575dadd529048dfe23c196c050b4",
+  "size": 11454,
+  "release": 118,
+  "byteorder": "MSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v118_le.dta",
+  "sha256": "dcd402711c17de4fdb7e6be7aa5baa78fdaf6ebe72fa4caa346d34b07d0c63a9",
+  "size": 11454,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v119_be.dta",
+  "sha256": "c3d6554a93fdc68ce6d9042758e465df32d64b621db560d84c627853845a3059",
+  "size": 11482,
+  "release": 119,
+  "byteorder": "MSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pandas_v119_le.dta",
+  "sha256": "af786b40ef28cb22478421e0b79914c24060f6f83199c46b06b514cf6b831934",
+  "size": 11482,
+  "release": 119,
+  "byteorder": "LSF",
+  "synthetic": "rows 5 and 6 of byte, int, long, float and double were rewritten after the write to the `.a` and `.z` codes, which the reference writer does not spell"
+ },
+ {
+  "file": "pyreadstat_plain_v113.dta",
+  "sha256": "5cb36a66ede9a049f6202369f6e703f31bdebabba6e53a71f356a3ebbf4e2581",
+  "size": 714,
+  "release": 113,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_plain_v115.dta",
+  "sha256": "54fffc4e45df61d92ab28c151cbf5ae6a3d2257a4422ada5480b9c886092e01d",
+  "size": 825,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_v113.dta",
+  "sha256": "392f7faa520b80cb3a922b222b1959e3a4a18587956dbbbf7a61d1b860508d5e",
+  "size": 3369,
+  "release": 113,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_v115.dta",
+  "sha256": "abedde946b5f99effdc7ab82a15b151e1cd301e4087af8fa7e03555affedb6cb",
+  "size": 3961,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_v117.dta",
+  "sha256": "957a31765156771e7b3c246c1b237e76d6329d9c6a644d7c89f9e181583e4b62",
+  "size": 6872,
+  "release": 117,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_v118.dta",
+  "sha256": "e83fc43c602bec3d127dc910fd69a24ffe6e32313230a747d45dcaa20afec978",
+  "size": 14843,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "pyreadstat_v119.dta",
+  "sha256": "ef1042fadb92230182cfd2c4a1d50cc053b1225f976a28a1369e0436b088e8ee",
+  "size": 14881,
+  "release": 119,
+  "byteorder": "LSF",
+  "synthetic": null
+ },
+ {
+  "file": "reserved_pandas_v118_le.dta",
+  "sha256": "5f3298c7a725f56e450b3f511ce90764c138d1d01b3924273864153f9e376027",
+  "size": 3806,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": "every cell was rewritten after the write: byte -128, int -32768, long -2147483648, float +inf and a plain NaN, double -inf and a plain NaN \u2014 each outside the valid range and no missing code"
+ },
+ {
+  "file": "synthetic_v113_be_from_pyreadstat_v113.dta",
+  "sha256": "b9387b34a6fe3e03145b19355da6e2694b0dc8928bd80186abfb149cf51d6c42",
+  "size": 714,
+  "release": 113,
+  "byteorder": "MSF",
+  "synthetic": "every multi-byte field of the little-endian file (the variable count, the observation count and the data cells) was byte-swapped and its byte-order flag set to 1"
+ },
+ {
+  "file": "synthetic_v113_from_pandas_v114_be.dta",
+  "sha256": "49b03c682db2ecee8bb54dceaffac070f5f15bb9038900c3844915c6abb3cc21",
+  "size": 2373,
+  "release": 113,
+  "byteorder": "MSF",
+  "synthetic": "the release byte of the 114 file was rewritten to 113 and every display format slot narrowed from 49 bytes to the 12 release 113 gives it"
+ },
+ {
+  "file": "synthetic_v113_from_pandas_v114_le.dta",
+  "sha256": "1192bbca14b034606d82bcf9004dfc5a31fccb000df6169a5b8c7b92f793d64a",
+  "size": 2373,
+  "release": 113,
+  "byteorder": "LSF",
+  "synthetic": "the release byte of the 114 file was rewritten to 113 and every display format slot narrowed from 49 bytes to the 12 release 113 gives it"
+ },
+ {
+  "file": "synthetic_v115_be_from_pyreadstat_v115.dta",
+  "sha256": "3e3c0c3b9fe716e42830c7c638fd8b40334bc4ff73c0a437ecd1bd79abcd981b",
+  "size": 825,
+  "release": 115,
+  "byteorder": "MSF",
+  "synthetic": "every multi-byte field of the little-endian file (the variable count, the observation count and the data cells) was byte-swapped and its byte-order flag set to 1"
+ },
+ {
+  "file": "synthetic_v115_from_pandas_v114_be.dta",
+  "sha256": "e917509f05ea045140208ee8a713c6de95c6045b217b26086cf367d1dd162993",
+  "size": 2780,
+  "release": 115,
+  "byteorder": "MSF",
+  "synthetic": "the release byte of the 114 file was rewritten to 115"
+ },
+ {
+  "file": "synthetic_v115_from_pandas_v114_le.dta",
+  "sha256": "55059e49c92a6fd711aabfd8021222935f5bf2a0435f84f9d6ca57273140371c",
+  "size": 2780,
+  "release": 115,
+  "byteorder": "LSF",
+  "synthetic": "the release byte of the 114 file was rewritten to 115"
+ },
+ {
+  "file": "synthetic_v116_from_pyreadstat_v115.dta",
+  "sha256": "99d77a05ef0f744044a053d4993b9fb4f1de9ede87cf68fb7e94603e88558ef3",
+  "size": 3961,
+  "release": 116,
+  "byteorder": "LSF",
+  "synthetic": "the release byte of the 115 file was rewritten to 116"
+ },
+ {
+  "file": "synthetic_v117_latin1_in_strl.dta",
+  "sha256": "6a4986b60134f96766d6e193bd138ae63dc2b7dc8e7ce71e7df36966c884ce0e",
+  "size": 5658,
+  "release": 117,
+  "byteorder": "LSF",
+  "synthetic": "the text of one strL record was rewritten after the write to Latin-1 bytes"
+ },
+ {
+  "file": "synthetic_v118_latin1_in_utf8.dta",
+  "sha256": "ed14e97cde62ae7c1eabda2b822ea2a7e22fc6de55d7875a56586f0d6c790507",
+  "size": 1241,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": "the first cell of strf was rewritten after the write to Latin-1 bytes"
+ },
+ {
+  "file": "synthetic_v118_obs_no_var.dta",
+  "sha256": "cb03f272d5ddb95bd70ca689f270546ce3edf3bf9617aa7160614dc7615837ac",
+  "size": 555,
+  "release": 118,
+  "byteorder": "LSF",
+  "synthetic": "the observation count of the empty table was rewritten from 0 to 5"
+ }
+]

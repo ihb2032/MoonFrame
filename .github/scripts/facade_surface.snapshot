@@ -1035,6 +1035,8 @@ fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise 
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn plot(@frame.DataFrame) -> @chart.FramePlot <- root
 fn plot(@frame.DataFrame) -> FramePlot <- chart
 fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
@@ -1055,6 +1057,8 @@ fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.D
 fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_sql_table(&@moondb.Driver, String, columns? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
+fn read_stata(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_stata(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn scan_csv(String, options? : @io.CsvReadOptions) -> @frame.LazyFrame <- root
 fn scan_csv(String, options? : CsvReadOptions) -> @frame.LazyFrame <- io
 fn scan_ipc(String) -> @frame.LazyFrame <- io
@@ -1095,6 +1099,8 @@ fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_
 fn write_parquet(@frame.DataFrame, String, codec? : ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError <- io
 fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : @io.SqlIfExists) -> Unit raise @types.DataError <- root
 fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : SqlIfExists) -> Unit raise @types.DataError <- io
+fn write_stata(@frame.DataFrame, String) -> Unit raise @types.DataError <- io
+fn write_stata(@frame.DataFrame, String) -> Unit raise @types.DataError <- root
 fn write_vega_html(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root
 fn write_vega_html(String, @frame.DataFrame, Chart) -> Unit raise @types.DataError <- chart
 fn write_vega_lite(String, @frame.DataFrame, @chart.Chart) -> Unit raise @types.DataError <- root

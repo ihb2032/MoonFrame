@@ -287,6 +287,26 @@ test "avro write and read" {
 }
 
 ///|
+/// The Stata entries, each named through the facade: a frame written as
+/// a dataset file, and the file read back from a path and from bytes
+/// with a projection.
+test "stata write and read" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_ints("id", [1, 2]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  @moonframe.write_stata(df, "_build/smoke.dta")
+  assert_eq(@moonframe.read_stata("_build/smoke.dta").shape(), (2, 2))
+  let bytes = @fs.read_file_to_bytes("_build/smoke.dta") catch {
+    _ => b""
+  }
+  assert_eq(
+    @moonframe.parse_stata(bytes, projection=["name"]).shape(),
+    (2, 1),
+  )
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

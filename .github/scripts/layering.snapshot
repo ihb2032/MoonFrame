@@ -39,12 +39,16 @@ internal/scan -> expr
 internal/scan -> internal/order
 internal/scan -> series
 internal/scan -> types
+internal/stata -> internal/text
+internal/stata -> series
+internal/stata -> types
 io -> frame
 io -> internal/avro
 io -> internal/ipc
 io -> internal/numeric
 io -> internal/parquet
 io -> internal/scan
+io -> internal/stata
 io -> internal/text
 io -> series
 io -> types

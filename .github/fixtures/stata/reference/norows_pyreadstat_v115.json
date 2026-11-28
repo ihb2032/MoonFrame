@@ -1,0 +1,124 @@
+{
+ "file": "norows_pyreadstat_v115.dta",
+ "writer": "norows pyreadstat v115",
+ "release": 115,
+ "byteorder": "LSF",
+ "synthetic": null,
+ "sidecar_source": "pandas 3.1.1 read_stata(convert_dates=False)",
+ "pyreadstat_agrees": true,
+ "nobs": 0,
+ "columns": [
+  {
+   "name": "dlong",
+   "storage": "long",
+   "format": "%td",
+   "dtype": "Date",
+   "cells": []
+  },
+  {
+   "name": "ddbl",
+   "storage": "double",
+   "format": "%td",
+   "dtype": "Date",
+   "cells": []
+  },
+  {
+   "name": "tcd",
+   "storage": "double",
+   "format": "%tc",
+   "dtype": "Timestamp",
+   "cells": []
+  },
+  {
+   "name": "tcl",
+   "storage": "long",
+   "format": "%tc",
+   "dtype": "Timestamp",
+   "cells": []
+  },
+  {
+   "name": "tcc",
+   "storage": "double",
+   "format": "%tC",
+   "dtype": "Timestamp",
+   "cells": []
+  },
+  {
+   "name": "tm",
+   "storage": "long",
+   "format": "%tm",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "tq",
+   "storage": "long",
+   "format": "%tq",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "tw",
+   "storage": "long",
+   "format": "%tw",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "th",
+   "storage": "long",
+   "format": "%th",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "ty",
+   "storage": "long",
+   "format": "%ty",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "dold",
+   "storage": "long",
+   "format": "%d",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "other",
+   "storage": "double",
+   "format": "%9.2f",
+   "dtype": "Float",
+   "cells": []
+  },
+  {
+   "name": "strf",
+   "storage": "str1",
+   "format": "%12s",
+   "dtype": "String",
+   "cells": []
+  },
+  {
+   "name": "labelled",
+   "storage": "long",
+   "format": "%12.0g",
+   "dtype": "Int",
+   "cells": []
+  },
+  {
+   "name": "missl",
+   "storage": "str1",
+   "format": "%12.0g",
+   "dtype": "String",
+   "cells": []
+  },
+  {
+   "name": "missd",
+   "storage": "str1",
+   "format": "%10.0g",
+   "dtype": "String",
+   "cells": []
+  }
+ ]
+}

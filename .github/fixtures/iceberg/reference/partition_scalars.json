@@ -1,0 +1,439 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/partition_scalars",
+ "not_carried": [
+  "data\\b=true\\i=-5\\l=-1099511627776\\f=1.5\\d=2.25\\m=12.345\\ts=2020-03-01T12%3A34%3A56.789012\\tsz=2020-03-01T12%3A34%3A56.789012%2B00%3A00\\00000-0-900e497b-1227-4073-a775-f1c1a21595c9.parquet"
+ ],
+ "origin": "reference",
+ "partition_fields": [
+  [
+   "b",
+   1,
+   "identity"
+  ],
+  [
+   "i",
+   2,
+   "identity"
+  ],
+  [
+   "l",
+   3,
+   "identity"
+  ],
+  [
+   "f",
+   4,
+   "identity"
+  ],
+  [
+   "d",
+   5,
+   "identity"
+  ],
+  [
+   "m",
+   6,
+   "identity"
+  ],
+  [
+   "ts",
+   7,
+   "identity"
+  ],
+  [
+   "tsz",
+   8,
+   "identity"
+  ]
+ ],
+ "plan": {
+  "manifest_list": "metadata/snap-1112686588839612055-0-900e497b-1227-4073-a775-f1c1a21595c9.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "b",
+        1,
+        "identity",
+        {
+         "kind": "bool",
+         "value": true
+        }
+       ],
+       [
+        "i",
+        2,
+        "identity",
+        {
+         "kind": "int",
+         "value": -5
+        }
+       ],
+       [
+        "l",
+        3,
+        "identity",
+        {
+         "kind": "int",
+         "value": -1099511627776
+        }
+       ],
+       [
+        "f",
+        4,
+        "identity",
+        {
+         "kind": "float",
+         "value": "3ff8000000000000"
+        }
+       ],
+       [
+        "d",
+        5,
+        "identity",
+        {
+         "kind": "float",
+         "value": "4002000000000000"
+        }
+       ],
+       [
+        "m",
+        6,
+        "identity",
+        {
+         "kind": "decimal",
+         "value": "12.345"
+        }
+       ],
+       [
+        "ts",
+        7,
+        "identity",
+        {
+         "kind": "timestamp",
+         "value": "1583066096789012"
+        }
+       ],
+       [
+        "tsz",
+        8,
+        "identity",
+        {
+         "kind": "timestamp",
+         "value": "1583066096789012"
+        }
+       ]
+      ],
+      "path": "data/b=true/i=-5/l=-1099511627776/f=1.5/d=2.25/m=12.345/ts=2020-03-01T12%3A34%3A56.789012/tsz=2020-03-01T12%3A34%3A56.789012%2B00%3A00/00000-0-900e497b-1227-4073-a775-f1c1a21595c9.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     },
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "b",
+        1,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "i",
+        2,
+        "identity",
+        {
+         "kind": "int",
+         "value": 7
+        }
+       ],
+       [
+        "l",
+        3,
+        "identity",
+        {
+         "kind": "int",
+         "value": 1099511627776
+        }
+       ],
+       [
+        "f",
+        4,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "d",
+        5,
+        "identity",
+        {
+         "kind": "float",
+         "value": "c00c000000000000"
+        }
+       ],
+       [
+        "m",
+        6,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "ts",
+        7,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "tsz",
+        8,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ]
+      ],
+      "path": "data/b=null/i=7/l=1099511627776/f=null/d=-3.5/m=null/ts=null/tsz=null/00000-1-900e497b-1227-4073-a775-f1c1a21595c9.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 6604,
+    "path": "metadata/900e497b-1227-4073-a775-f1c1a21595c9-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 1112686588839612055
+ },
+ "plan_rows": [
+  {
+   "b": {
+    "kind": "bool",
+    "value": true
+   },
+   "d": {
+    "kind": "float",
+    "value": "4002000000000000"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": -5
+   },
+   "l": {
+    "kind": "int",
+    "value": -1099511627776
+   },
+   "m": {
+    "kind": "decimal",
+    "value": "12.345"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "tsz": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "v": {
+    "kind": "string",
+    "value": "one"
+   }
+  },
+  {
+   "b": {
+    "kind": "null"
+   },
+   "d": {
+    "kind": "float",
+    "value": "c00c000000000000"
+   },
+   "f": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "int",
+    "value": 7
+   },
+   "l": {
+    "kind": "int",
+    "value": 1099511627776
+   },
+   "m": {
+    "kind": "null"
+   },
+   "ts": {
+    "kind": "null"
+   },
+   "tsz": {
+    "kind": "null"
+   },
+   "v": {
+    "kind": "string",
+    "value": "two"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "b": {
+    "kind": "bool",
+    "value": true
+   },
+   "d": {
+    "kind": "float",
+    "value": "4002000000000000"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": -5
+   },
+   "l": {
+    "kind": "int",
+    "value": -1099511627776
+   },
+   "m": {
+    "kind": "decimal",
+    "value": "12.345"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "tsz": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "v": {
+    "kind": "string",
+    "value": "one"
+   }
+  },
+  {
+   "b": {
+    "kind": "null"
+   },
+   "d": {
+    "kind": "float",
+    "value": "c00c000000000000"
+   },
+   "f": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "int",
+    "value": 7
+   },
+   "l": {
+    "kind": "int",
+    "value": 1099511627776
+   },
+   "m": {
+    "kind": "null"
+   },
+   "ts": {
+    "kind": "null"
+   },
+   "tsz": {
+    "kind": "null"
+   },
+   "v": {
+    "kind": "string",
+    "value": "two"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Bool",
+   "Int",
+   "Int",
+   "Float",
+   "Float",
+   "Decimal",
+   "Timestamp",
+   "Timestamp",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "names": [
+   "b",
+   "i",
+   "l",
+   "f",
+   "d",
+   "m",
+   "ts",
+   "tsz",
+   "v"
+  ],
+  "types": [
+   "boolean",
+   "int",
+   "long",
+   "float",
+   "double",
+   "decimal(10, 3)",
+   "timestamp",
+   "timestamptz",
+   "string"
+  ]
+ },
+ "table": "partition_scalars",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

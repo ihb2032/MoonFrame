@@ -1,0 +1,79 @@
+{
+ "codec": "reads",
+ "derived": "the metadata of a version-2 table rewritten as format version 3",
+ "format_version": 3,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/version_three",
+ "not_carried": [],
+ "origin": "derived",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-3082261822462248927-0-f45e5e1c-aec0-484c-a294-0b52ffcc665e.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-f45e5e1c-aec0-484c-a294-0b52ffcc665e.parquet",
+      "record_count": 2,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4241,
+    "path": "metadata/f45e5e1c-aec0-484c-a294-0b52ffcc665e-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 3082261822462248927
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 2
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 2
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int"
+  ],
+  "field_ids": [
+   1
+  ],
+  "names": [
+   "i"
+  ],
+  "types": [
+   "long"
+  ]
+ },
+ "table": "version_three",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

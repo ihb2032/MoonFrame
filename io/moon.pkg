@@ -11,6 +11,7 @@ import {
   "ihb2032/MoonFrame/internal/spss",
   "ihb2032/MoonFrame/internal/scan",
   "ihb2032/MoonFrame/internal/fwf",
+  "ihb2032/MoonFrame/internal/iceberg",
   "ihb2032/MoonFrame/internal/numeric",
   "ihb2032/MoonFrame/frame",
   "ihb2032/MoonFrame/internal/text",

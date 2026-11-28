@@ -90,7 +90,7 @@ allowed_series="types internal/buffer internal/column internal/text internal/num
 allowed_expr="types series internal/ir internal/text"
 allowed_frame="types series expr internal/ir internal/kernel internal/order internal/scan internal/text"
 allowed_chart="types frame io"
-allowed_io="types series frame internal/avro internal/ipc internal/fwf internal/parquet internal/sas7bdat internal/spss internal/orc internal/xport internal/scan internal/stata internal/text internal/numeric internal/ods internal/xls"
+allowed_io="types series frame internal/avro internal/ipc internal/fwf internal/parquet internal/sas7bdat internal/spss internal/orc internal/xport internal/scan internal/stata internal/text internal/numeric internal/ods internal/xls internal/iceberg"
 allowed_internal_column="types internal/buffer internal/text internal/numeric"
 allowed_internal_kernel="types series internal/column internal/ir internal/text internal/numeric"
 allowed_internal_ir="types series"
@@ -110,6 +110,7 @@ allowed_internal_sas7bdat="types series"
 allowed_internal_spss="types series"
 allowed_internal_ods="types"
 allowed_internal_xls="types"
+allowed_internal_iceberg="types"
 verb_packages="frame io"
 
 fail=0

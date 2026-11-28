@@ -1,0 +1,340 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/partition_transforms",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [
+  [
+   "k",
+   1,
+   "identity"
+  ],
+  [
+   "n_bucket_4",
+   3,
+   "bucket[4]"
+  ],
+  [
+   "t_trunc_2",
+   2,
+   "truncate[2]"
+  ],
+  [
+   "dt_year",
+   4,
+   "year"
+  ],
+  [
+   "dt2_month",
+   5,
+   "month"
+  ],
+  [
+   "ts_day",
+   6,
+   "day"
+  ]
+ ],
+ "plan": {
+  "manifest_list": "metadata/snap-6638426465239084877-0-fa3ad7e4-fc90-45e6-9f7f-d41d8529bea2.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "iceberg"
+        }
+       ],
+       [
+        "n_bucket_4",
+        3,
+        "bucket[4]",
+        {
+         "kind": "int",
+         "value": 3
+        }
+       ],
+       [
+        "t_trunc_2",
+        2,
+        "truncate[2]",
+        {
+         "kind": "string",
+         "value": "ic"
+        }
+       ],
+       [
+        "dt_year",
+        4,
+        "year",
+        {
+         "kind": "int",
+         "value": 52
+        }
+       ],
+       [
+        "dt2_month",
+        5,
+        "month",
+        {
+         "kind": "int",
+         "value": 624
+        }
+       ],
+       [
+        "ts_day",
+        6,
+        "day",
+        {
+         "kind": "date",
+         "value": 18322
+        }
+       ]
+      ],
+      "path": "data/k=iceberg/n_bucket_4=3/t_trunc_2=ic/dt_year=2022/dt2_month=2022-01/ts_day=2020-03-01/00000-0-fa3ad7e4-fc90-45e6-9f7f-d41d8529bea2.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     },
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "spark"
+        }
+       ],
+       [
+        "n_bucket_4",
+        3,
+        "bucket[4]",
+        {
+         "kind": "int",
+         "value": 1
+        }
+       ],
+       [
+        "t_trunc_2",
+        2,
+        "truncate[2]",
+        {
+         "kind": "string",
+         "value": "sp"
+        }
+       ],
+       [
+        "dt_year",
+        4,
+        "year",
+        {
+         "kind": "int",
+         "value": 0
+        }
+       ],
+       [
+        "dt2_month",
+        5,
+        "month",
+        {
+         "kind": "int",
+         "value": 0
+        }
+       ],
+       [
+        "ts_day",
+        6,
+        "day",
+        {
+         "kind": "date",
+         "value": 18322
+        }
+       ]
+      ],
+      "path": "data/k=spark/n_bucket_4=1/t_trunc_2=sp/dt_year=1970/dt2_month=1970-01/ts_day=2020-03-01/00000-1-fa3ad7e4-fc90-45e6-9f7f-d41d8529bea2.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 5950,
+    "path": "metadata/fa3ad7e4-fc90-45e6-9f7f-d41d8529bea2-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 6638426465239084877
+ },
+ "plan_rows": [
+  {
+   "dt": {
+    "kind": "date",
+    "value": 19000
+   },
+   "dt2": {
+    "kind": "date",
+    "value": 19000
+   },
+   "k": {
+    "kind": "string",
+    "value": "iceberg"
+   },
+   "n": {
+    "kind": "int",
+    "value": 34
+   },
+   "t": {
+    "kind": "string",
+    "value": "iceberg"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   }
+  },
+  {
+   "dt": {
+    "kind": "date",
+    "value": 1
+   },
+   "dt2": {
+    "kind": "date",
+    "value": 1
+   },
+   "k": {
+    "kind": "string",
+    "value": "spark"
+   },
+   "n": {
+    "kind": "int",
+    "value": 35
+   },
+   "t": {
+    "kind": "string",
+    "value": "spark"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583078696789012
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "dt": {
+    "kind": "date",
+    "value": 19000
+   },
+   "dt2": {
+    "kind": "date",
+    "value": 19000
+   },
+   "k": {
+    "kind": "string",
+    "value": "iceberg"
+   },
+   "n": {
+    "kind": "int",
+    "value": 34
+   },
+   "t": {
+    "kind": "string",
+    "value": "iceberg"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   }
+  },
+  {
+   "dt": {
+    "kind": "date",
+    "value": 1
+   },
+   "dt2": {
+    "kind": "date",
+    "value": 1
+   },
+   "k": {
+    "kind": "string",
+    "value": "spark"
+   },
+   "n": {
+    "kind": "int",
+    "value": 35
+   },
+   "t": {
+    "kind": "string",
+    "value": "spark"
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583078696789012
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "String",
+   "String",
+   "Int",
+   "Date",
+   "Date",
+   "Timestamp"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "names": [
+   "k",
+   "t",
+   "n",
+   "dt",
+   "dt2",
+   "ts"
+  ],
+  "types": [
+   "string",
+   "string",
+   "long",
+   "date",
+   "date",
+   "timestamp"
+  ]
+ },
+ "table": "partition_transforms",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

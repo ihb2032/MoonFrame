@@ -1,0 +1,117 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.parquet",
+      "record_count": 3,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4308,
+    "path": "metadata/476e2a8d-28ae-48b3-9112-9196a5920e8a-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 1550479460107044029
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "s": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 2
+   },
+   "s": {
+    "kind": "string",
+    "value": "b"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 3
+   },
+   "s": {
+    "kind": "null"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "s": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 2
+   },
+   "s": {
+    "kind": "string",
+    "value": "b"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 3
+   },
+   "s": {
+    "kind": "null"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "s"
+  ],
+  "types": [
+   "long",
+   "string"
+  ]
+ },
+ "table": "append_one",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

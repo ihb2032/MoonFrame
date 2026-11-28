@@ -1,0 +1,143 @@
+{
+ "codec": "reads",
+ "format_version": 1,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/version_one_partitioned",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [
+  [
+   "k",
+   1,
+   "identity"
+  ]
+ ],
+ "plan": {
+  "manifest_list": "metadata/snap-5109039309124895905-0-b584c385-c948-4c33-b177-69e0137d0ad8.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "b"
+        }
+       ]
+      ],
+      "path": "data/k=b/00000-0-b584c385-c948-4c33-b177-69e0137d0ad8.parquet",
+      "record_count": 1,
+      "sequence_number": 0
+     }
+    ],
+    "length": 4064,
+    "path": "metadata/b584c385-c948-4c33-b177-69e0137d0ad8-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "a"
+        }
+       ]
+      ],
+      "path": "data/k=a/00000-0-7fa50338-bd3b-4592-af42-9223049891bd.parquet",
+      "record_count": 1,
+      "sequence_number": 0
+     }
+    ],
+    "length": 4065,
+    "path": "metadata/7fa50338-bd3b-4592-af42-9223049891bd-m0.avro"
+   }
+  ],
+  "sequence_number": 0,
+  "snapshot": 5109039309124895905
+ },
+ "plan_rows": [
+  {
+   "k": {
+    "kind": "string",
+    "value": "b"
+   },
+   "n": {
+    "kind": "int",
+    "value": 2
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "a"
+   },
+   "n": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "k": {
+    "kind": "string",
+    "value": "b"
+   },
+   "n": {
+    "kind": "int",
+    "value": 2
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "a"
+   },
+   "n": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "String",
+   "Int"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "k",
+   "n"
+  ],
+  "types": [
+   "string",
+   "long"
+  ]
+ },
+ "table": "version_one_partitioned",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

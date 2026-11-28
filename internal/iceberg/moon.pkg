@@ -1,0 +1,36 @@
+// The codec's dependencies: the value types its schema and partition
+// values map to, the JSON the metadata, the schemas and the partition
+// specs are written in, the UTF-8 decoder its text passes through, the
+// checksum a snappy block ends with, and the block codecs a container's
+// blocks ride: raw DEFLATE, snappy's raw block and zstd's frame.
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbit-community/flate",
+  "moonbit-community/flate/checksum",
+  "gaato/snappy",
+  "gaato/zstd",
+}
+
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+  "moonbitlang/core/test",
+} for "test"
+
+// The whitebox tests build their own containers, compressing blocks with
+// the same crates the reader inflates them with.
+import {
+  "moonbitlang/core/test",
+  "moonbit-community/flate",
+  "moonbit-community/flate/checksum",
+  "gaato/snappy",
+  "gaato/zstd",
+} for "wbtest"
+
+// The backends the package builds for, named because its compression
+// dependencies name their own and the build asks the same of what depends
+// on them.
+
+supported_targets = "js + native + wasm + wasm-gc"

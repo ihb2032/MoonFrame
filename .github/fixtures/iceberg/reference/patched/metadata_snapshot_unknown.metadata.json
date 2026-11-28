@@ -1,0 +1,88 @@
+{
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+ "table-uuid": "25e40d88-ea84-485a-b2e7-2c03c28fb7bc",
+ "last-updated-ms": 1795876404044,
+ "last-column-id": 2,
+ "schemas": [
+  {
+   "type": "struct",
+   "fields": [
+    {
+     "id": 1,
+     "name": "i",
+     "type": "long",
+     "required": false
+    },
+    {
+     "id": 2,
+     "name": "s",
+     "type": "string",
+     "required": false
+    }
+   ],
+   "schema-id": 0,
+   "identifier-field-ids": []
+  }
+ ],
+ "current-schema-id": 0,
+ "partition-specs": [
+  {
+   "spec-id": 0,
+   "fields": []
+  }
+ ],
+ "default-spec-id": 0,
+ "last-partition-id": 999,
+ "properties": {},
+ "current-snapshot-id": 123,
+ "snapshots": [
+  {
+   "snapshot-id": 1550479460107044029,
+   "sequence-number": 1,
+   "timestamp-ms": 1795876404044,
+   "manifest-list": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+   "summary": {
+    "operation": "append",
+    "added-files-size": "905",
+    "added-data-files": "1",
+    "added-records": "3",
+    "total-data-files": "1",
+    "total-delete-files": "0",
+    "total-records": "3",
+    "total-files-size": "905",
+    "total-position-deletes": "0",
+    "total-equality-deletes": "0"
+   },
+   "schema-id": 0
+  }
+ ],
+ "snapshot-log": [
+  {
+   "snapshot-id": 1550479460107044029,
+   "timestamp-ms": 1795876404044
+  }
+ ],
+ "metadata-log": [
+  {
+   "metadata-file": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/metadata/00000-a723cabd-45ef-4379-8d28-787ca2c9f701.metadata.json",
+   "timestamp-ms": 1795876403948
+  }
+ ],
+ "sort-orders": [
+  {
+   "order-id": 0,
+   "fields": []
+  }
+ ],
+ "default-sort-order-id": 0,
+ "refs": {
+  "main": {
+   "snapshot-id": 123,
+   "type": "branch"
+  }
+ },
+ "statistics": [],
+ "partition-statistics": [],
+ "format-version": 2,
+ "last-sequence-number": 1
+}

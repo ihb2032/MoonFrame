@@ -85,6 +85,10 @@ fn ParquetGroup::find(self : ParquetGroup, name : String) -> ColumnRead? {
 priv struct ParquetFooter {
   groups : Array[ParquetGroup]
   num_rows : Int64
+  // Every schema column's name with the field id its element names, in
+  // schema order — what a table format laid over parquet files identifies
+  // a column by.
+  field_ids : Array[(String, Int64)]
 }
 
 ///|
@@ -185,7 +189,29 @@ fn read_footer(bytes : Bytes) -> ParquetFooter raise @types.DataError {
       "the file declares \{num_rows} rows but its row groups spell \{summed}",
     )
   }
-  { groups: paired, num_rows, }
+  let field_ids : Array[(String, Int64)] = []
+  for i in 1..<schema.length() {
+    let id = match schema[i].field_id {
+      Some(id) => id.to_int64()
+      None => -1L
+    }
+    field_ids.push((schema[i].name, id))
+  }
+  { groups: paired, num_rows, field_ids, }
+}
+
+///|
+/// Every column of the file's schema, in schema order, each with the field
+/// id its schema element names — `-1` where it names none. The parquet
+/// format gives the id no meaning of its own; a table format laid over
+/// parquet files identifies a column by it, so that a column renamed since
+/// a file was written is still the column the file holds. Raises what a
+/// read of the same bytes raises: a file that is not a parquet file, whose
+/// footer is malformed, or whose schema is nested.
+pub fn parquet_field_ids(
+  bytes : Bytes,
+) -> Array[(String, Int64)] raise @types.DataError {
+  read_footer(bytes).field_ids
 }
 
 ///|
@@ -271,6 +297,7 @@ priv struct SchemaElem {
   decimal_scale : Int32?
   decimal_precision : Int32?
   type_length : Int32?
+  field_id : Int32?
 }
 
 ///|
@@ -278,7 +305,8 @@ priv struct SchemaElem {
 /// element struct's fields — the physical type (1), the FIXED_LEN_BYTE_ARRAY
 /// element's type length (2), the repetition type (3), the name (4), the
 /// child count (5), the converted annotation (6), the decimal scale (7),
-/// and the decimal precision (8).
+/// the decimal precision (8), and the field id (9), which a table format
+/// laid over parquet gives its meaning.
 fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
   let count = match list_header(r, 12) {
     Some(c) => c
@@ -293,6 +321,7 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
     let mut scale : Int32? = None
     let mut precision : Int32? = None
     let mut type_length : Int32? = None
+    let mut field_id : Int32? = None
     let walked = walk_fields(r, (id, wire) => {
       match id {
         1 =>
@@ -359,6 +388,14 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
             }
             None => false
           }
+        9 =>
+          match r.zigzag_i32() {
+            Some(v) => {
+              field_id = Some(v)
+              true
+            }
+            None => false
+          }
         _ => r.skip(wire)
       }
     })
@@ -374,6 +411,7 @@ fn schema_read_list(r : ThriftReader, into : Array[SchemaElem]) -> Bool {
       decimal_scale: scale,
       decimal_precision: precision,
       type_length,
+      field_id,
     })
   }
   true
@@ -610,26 +648,36 @@ fn column_meta_read(r : ThriftReader, into : Array[RawChunk]) -> Bool {
 // ── the page walk ────────────────────────────────────────────────────
 
 ///|
-/// The most decompressed bytes one GZIP page body may produce — the
-/// page-level spelling of the io layer's gzip read cap, where the
+/// The most decompressed bytes one GZIP or ZSTD page body may produce —
+/// the page-level spelling of the io layer's gzip read cap, where the
 /// SNAPPY codec's own declared-length guard refuses the same
 /// decompression bomb before its expansion runs. A compressed page of a
 /// few bytes can name gigabytes of payload; past this cap the page
 /// refuses instead of letting the inflation run the process out of
 /// memory.
-const GZIP_PAGE_MAX_OUTPUT : Int32 = 0x4000_0000
+const PAGE_MAX_OUTPUT : Int32 = 0x4000_0000
 
 ///|
 /// Decompress one GZIP page body under the page cap — the cap rides the
 /// inflater itself, never a declared size the stream could misname, so
 /// only the bytes actually produced count against it.
 fn gzip_page_body(bytes : Bytes) -> Bytes raise @types.DataError {
-  gzip_page_body_capped(bytes, GZIP_PAGE_MAX_OUTPUT)
+  gzip_page_body_capped(bytes, PAGE_MAX_OUTPUT)
+}
+
+///|
+/// Decompress one ZSTD page body under the same page cap, riding the
+/// decompressor the same way: what it produces counts, never a size the
+/// frame names.
+fn zstd_page_body(bytes : Bytes) -> Bytes raise @types.DataError {
+  @zstd.decompress(bytes, max_output=PAGE_MAX_OUTPUT) catch {
+    _ => raise bad("a ZSTD page body does not decompress")
+  }
 }
 
 ///|
 /// `gzip_page_body` with the cap as a parameter — production reads pass
-/// `GZIP_PAGE_MAX_OUTPUT`; the whitebox tests pass a small one, because
+/// `PAGE_MAX_OUTPUT`; the whitebox tests pass a small one, because
 /// inflating a real gigabyte past the production cap is exactly the
 /// cost the guard exists to spare.
 fn gzip_page_body_capped(
@@ -940,6 +988,7 @@ fn decode_chunk_cells(
             None => raise bad("a SNAPPY page body does not decompress")
           }
         2 => gzip_page_body(values_input)
+        6 => zstd_page_body(values_input)
         c =>
           raise @types.DataError::Unsupported(
             "parquet column \"\{chunk.name}\" carries compression codec \{c}",

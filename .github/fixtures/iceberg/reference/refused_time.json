@@ -1,0 +1,81 @@
+{
+ "codec": "refuses",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_time",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-9024228957657545381-0-99c4db27-0083-470c-b5ed-399265e26121.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-99c4db27-0083-470c-b5ed-399265e26121.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4309,
+    "path": "metadata/99c4db27-0083-470c-b5ed-399265e26121-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 9024228957657545381
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "t": {
+    "kind": "time",
+    "value": "1000000023"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: column \"t\": the type time, which this reader does not carry",
+  "variant": "Unsupported"
+ },
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "t": {
+    "kind": "time",
+    "value": "1000000023"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": null,
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "t"
+  ],
+  "types": [
+   "long",
+   "time"
+  ]
+ },
+ "table": "refused_time",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

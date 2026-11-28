@@ -1,0 +1,66 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/codec_zstandard",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-7487908446252118193-0-70851b30-5054-4d2a-80d7-2225cecd67ff.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-70851b30-5054-4d2a-80d7-2225cecd67ff.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4256,
+    "path": "metadata/70851b30-5054-4d2a-80d7-2225cecd67ff-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 7487908446252118193
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int"
+  ],
+  "field_ids": [
+   1
+  ],
+  "names": [
+   "i"
+  ],
+  "types": [
+   "long"
+  ]
+ },
+ "table": "codec_zstandard",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

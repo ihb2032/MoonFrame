@@ -1,0 +1,81 @@
+{
+ "codec": "refuses",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_binary",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-6751360478916514487-0-a14da855-e7a6-4e94-9991-fe5feacebeee.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-a14da855-e7a6-4e94-9991-fe5feacebeee.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4309,
+    "path": "metadata/a14da855-e7a6-4e94-9991-fe5feacebeee-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 6751360478916514487
+ },
+ "plan_rows": [
+  {
+   "bin": {
+    "kind": "bytes",
+    "value": "0001"
+   },
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: column \"bin\": the type binary, which this reader does not carry",
+  "variant": "Unsupported"
+ },
+ "rows": [
+  {
+   "bin": {
+    "kind": "bytes",
+    "value": "0001"
+   },
+   "i": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": null,
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "bin"
+  ],
+  "types": [
+   "long",
+   "binary"
+  ]
+ },
+ "table": "refused_binary",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

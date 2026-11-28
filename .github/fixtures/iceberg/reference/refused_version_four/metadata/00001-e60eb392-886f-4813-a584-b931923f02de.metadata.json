@@ -1,0 +1,82 @@
+{
+ "current-schema-id": 0,
+ "current-snapshot-id": 8052839202498556465,
+ "default-sort-order-id": 0,
+ "default-spec-id": 0,
+ "format-version": 4,
+ "last-column-id": 1,
+ "last-partition-id": 999,
+ "last-sequence-number": 1,
+ "last-updated-ms": 1795876407646,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_version_four",
+ "metadata-log": [
+  {
+   "metadata-file": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_version_four/metadata/00000-1ae4e60c-76f4-4e99-9b66-98da33bdf1d0.metadata.json",
+   "timestamp-ms": 1795876407623
+  }
+ ],
+ "partition-specs": [
+  {
+   "fields": [],
+   "spec-id": 0
+  }
+ ],
+ "partition-statistics": [],
+ "properties": {},
+ "refs": {
+  "main": {
+   "snapshot-id": 8052839202498556465,
+   "type": "branch"
+  }
+ },
+ "schemas": [
+  {
+   "fields": [
+    {
+     "id": 1,
+     "name": "i",
+     "required": false,
+     "type": "long"
+    }
+   ],
+   "identifier-field-ids": [],
+   "schema-id": 0,
+   "type": "struct"
+  }
+ ],
+ "snapshot-log": [
+  {
+   "snapshot-id": 8052839202498556465,
+   "timestamp-ms": 1795876407646
+  }
+ ],
+ "snapshots": [
+  {
+   "manifest-list": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_version_four/metadata/snap-8052839202498556465-0-0b99d1dc-c17f-497e-9a2b-42d36b2581c2.avro",
+   "schema-id": 0,
+   "sequence-number": 1,
+   "snapshot-id": 8052839202498556465,
+   "summary": {
+    "added-data-files": "1",
+    "added-files-size": "596",
+    "added-records": "1",
+    "operation": "append",
+    "total-data-files": "1",
+    "total-delete-files": "0",
+    "total-equality-deletes": "0",
+    "total-files-size": "596",
+    "total-position-deletes": "0",
+    "total-records": "1"
+   },
+   "timestamp-ms": 1795876407646
+  }
+ ],
+ "sort-orders": [
+  {
+   "fields": [],
+   "order-id": 0
+  }
+ ],
+ "statistics": [],
+ "table-uuid": "0cee75f9-9fc1-4f16-ad81-5ba896075a1d"
+}

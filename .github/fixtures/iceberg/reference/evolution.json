@@ -1,0 +1,221 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/evolution",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-792677025896739217-0-bb9d7ff4-7434-4515-a6f2-d0e7e229e82c.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       6
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-bb9d7ff4-7434-4515-a6f2-d0e7e229e82c.parquet",
+      "record_count": 1,
+      "sequence_number": 2
+     }
+    ],
+    "length": 4516,
+    "path": "metadata/bb9d7ff4-7434-4515-a6f2-d0e7e229e82c-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-680efdc2-5d95-4cfa-bcb9-764f5426671b.parquet",
+      "record_count": 2,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4518,
+    "path": "metadata/680efdc2-5d95-4cfa-bcb9-764f5426671b-m0.avro"
+   }
+  ],
+  "sequence_number": 2,
+  "snapshot": 792677025896739217
+ },
+ "plan_rows": [
+  {
+   "added": {
+    "kind": "string",
+    "value": "new"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "3"
+   },
+   "f": {
+    "kind": "float",
+    "value": "4004000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 3
+   },
+   "title": {
+    "kind": "string",
+    "value": "c"
+   }
+  },
+  {
+   "added": {
+    "kind": "null"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "1.1"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3fe0000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 1
+   },
+   "title": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "added": {
+    "kind": "null"
+   },
+   "dec": {
+    "kind": "null"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 2
+   },
+   "title": {
+    "kind": "string",
+    "value": "b"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "added": {
+    "kind": "string",
+    "value": "new"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "3"
+   },
+   "f": {
+    "kind": "float",
+    "value": "4004000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 3
+   },
+   "title": {
+    "kind": "string",
+    "value": "c"
+   }
+  },
+  {
+   "added": {
+    "kind": "null"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "1.1"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3fe0000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 1
+   },
+   "title": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "added": {
+    "kind": "null"
+   },
+   "dec": {
+    "kind": "null"
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "id": {
+    "kind": "int",
+    "value": 2
+   },
+   "title": {
+    "kind": "string",
+    "value": "b"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String",
+   "Float",
+   "Decimal",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3,
+   4,
+   6
+  ],
+  "names": [
+   "id",
+   "title",
+   "f",
+   "dec",
+   "added"
+  ],
+  "types": [
+   "long",
+   "string",
+   "double",
+   "decimal(12, 2)",
+   "string"
+  ]
+ },
+ "table": "evolution",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

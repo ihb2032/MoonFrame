@@ -1,0 +1,305 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/partition_identity",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [
+  [
+   "k",
+   1,
+   "identity"
+  ],
+  [
+   "d",
+   2,
+   "identity"
+  ]
+ ],
+ "plan": {
+  "manifest_list": "metadata/snap-8405598440940602101-0-c465962c-d49c-4253-8a1d-fabcea1c252d.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "b"
+        }
+       ],
+       [
+        "d",
+        2,
+        "identity",
+        {
+         "kind": "date",
+         "value": 1
+        }
+       ]
+      ],
+      "path": "data/k=b/d=1970-01-02/00000-0-c465962c-d49c-4253-8a1d-fabcea1c252d.parquet",
+      "record_count": 1,
+      "sequence_number": 2
+     }
+    ],
+    "length": 4708,
+    "path": "metadata/c465962c-d49c-4253-8a1d-fabcea1c252d-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "a"
+        }
+       ],
+       [
+        "d",
+        2,
+        "identity",
+        {
+         "kind": "date",
+         "value": 0
+        }
+       ]
+      ],
+      "path": "data/k=a/d=1970-01-01/00000-0-85da08f9-e51d-46bb-bda7-5be32befb2c0.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     },
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "a"
+        }
+       ],
+       [
+        "d",
+        2,
+        "identity",
+        {
+         "kind": "date",
+         "value": 1
+        }
+       ]
+      ],
+      "path": "data/k=a/d=1970-01-02/00000-1-85da08f9-e51d-46bb-bda7-5be32befb2c0.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     },
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "d",
+        2,
+        "identity",
+        {
+         "kind": "date",
+         "value": 0
+        }
+       ]
+      ],
+      "path": "data/k=null/d=1970-01-01/00000-2-85da08f9-e51d-46bb-bda7-5be32befb2c0.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 5215,
+    "path": "metadata/85da08f9-e51d-46bb-bda7-5be32befb2c0-m0.avro"
+   }
+  ],
+  "sequence_number": 2,
+  "snapshot": 8405598440940602101
+ },
+ "plan_rows": [
+  {
+   "d": {
+    "kind": "date",
+    "value": 1
+   },
+   "i": {
+    "kind": "int",
+    "value": 4
+   },
+   "k": {
+    "kind": "string",
+    "value": "b"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 0
+   },
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "k": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 1
+   },
+   "i": {
+    "kind": "int",
+    "value": 2
+   },
+   "k": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 0
+   },
+   "i": {
+    "kind": "int",
+    "value": 3
+   },
+   "k": {
+    "kind": "null"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "d": {
+    "kind": "date",
+    "value": 1
+   },
+   "i": {
+    "kind": "int",
+    "value": 4
+   },
+   "k": {
+    "kind": "string",
+    "value": "b"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 0
+   },
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "k": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 1
+   },
+   "i": {
+    "kind": "int",
+    "value": 2
+   },
+   "k": {
+    "kind": "string",
+    "value": "a"
+   }
+  },
+  {
+   "d": {
+    "kind": "date",
+    "value": 0
+   },
+   "i": {
+    "kind": "int",
+    "value": 3
+   },
+   "k": {
+    "kind": "null"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "String",
+   "Date",
+   "Int"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3
+  ],
+  "names": [
+   "k",
+   "d",
+   "i"
+  ],
+  "types": [
+   "string",
+   "date",
+   "long"
+  ]
+ },
+ "table": "partition_identity",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

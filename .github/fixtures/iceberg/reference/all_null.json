@@ -1,0 +1,130 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/all_null",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-4368103960665238495-0-dd4f24d5-331a-4908-8b6e-3ef33a9f961f.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-dd4f24d5-331a-4908-8b6e-3ef33a9f961f.parquet",
+      "record_count": 3,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4344,
+    "path": "metadata/dd4f24d5-331a-4908-8b6e-3ef33a9f961f-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 4368103960665238495
+ },
+ "plan_rows": [
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  },
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  },
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  },
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  },
+  {
+   "d": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String",
+   "Date"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3
+  ],
+  "names": [
+   "i",
+   "s",
+   "d"
+  ],
+  "types": [
+   "long",
+   "string",
+   "date"
+  ]
+ },
+ "table": "all_null",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

@@ -1,0 +1,146 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/unicode",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-7513773013266854793-0-4332c5d6-138e-4e95-b127-aa701d4e3974.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-4332c5d6-138e-4e95-b127-aa701d4e3974.parquet",
+      "record_count": 3,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4433,
+    "path": "metadata/4332c5d6-138e-4e95-b127-aa701d4e3974-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 7513773013266854793
+ },
+ "plan_rows": [
+  {
+   "a.b": {
+    "kind": "int",
+    "value": 1
+   },
+   "col naïf": {
+    "kind": "string",
+    "value": "Ünïcödé — ✓"
+   },
+   "with space": {
+    "kind": "string",
+    "value": ""
+   }
+  },
+  {
+   "a.b": {
+    "kind": "int",
+    "value": -2
+   },
+   "col naïf": {
+    "kind": "string",
+    "value": "日本語"
+   },
+   "with space": {
+    "kind": "string",
+    "value": "two words"
+   }
+  },
+  {
+   "a.b": {
+    "kind": "int",
+    "value": 3
+   },
+   "col naïf": {
+    "kind": "null"
+   },
+   "with space": {
+    "kind": "string",
+    "value": "three"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "a.b": {
+    "kind": "int",
+    "value": 1
+   },
+   "col naïf": {
+    "kind": "string",
+    "value": "Ünïcödé — ✓"
+   },
+   "with space": {
+    "kind": "string",
+    "value": ""
+   }
+  },
+  {
+   "a.b": {
+    "kind": "int",
+    "value": -2
+   },
+   "col naïf": {
+    "kind": "string",
+    "value": "日本語"
+   },
+   "with space": {
+    "kind": "string",
+    "value": "two words"
+   }
+  },
+  {
+   "a.b": {
+    "kind": "int",
+    "value": 3
+   },
+   "col naïf": {
+    "kind": "null"
+   },
+   "with space": {
+    "kind": "string",
+    "value": "three"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "String",
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3
+  ],
+  "names": [
+   "col naïf",
+   "a.b",
+   "with space"
+  ],
+  "types": [
+   "string",
+   "long",
+   "string"
+  ]
+ },
+ "table": "unicode",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

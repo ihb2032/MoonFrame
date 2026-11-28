@@ -1,0 +1,195 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/partition_evolution",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [
+  [
+   "k",
+   1,
+   "identity"
+  ],
+  [
+   "n_bucket",
+   2,
+   "bucket[3]"
+  ]
+ ],
+ "plan": {
+  "manifest_list": "metadata/snap-3861184328466139709-0-cd520601-7f1c-4c55-ab98-11780f6b8240.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "c"
+        }
+       ],
+       [
+        "n_bucket",
+        2,
+        "bucket[3]",
+        {
+         "kind": "int",
+         "value": 0
+        }
+       ]
+      ],
+      "path": "data/k=c/n_bucket=0/00000-0-cd520601-7f1c-4c55-ab98-11780f6b8240.parquet",
+      "record_count": 1,
+      "sequence_number": 3
+     }
+    ],
+    "length": 4626,
+    "path": "metadata/cd520601-7f1c-4c55-ab98-11780f6b8240-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [
+       [
+        "k",
+        1,
+        "identity",
+        {
+         "kind": "string",
+         "value": "b"
+        }
+       ]
+      ],
+      "path": "data/k=b/00000-0-311bdcd6-2761-4bfb-a380-bc4b11c79a96.parquet",
+      "record_count": 1,
+      "sequence_number": 2
+     }
+    ],
+    "length": 4460,
+    "path": "metadata/311bdcd6-2761-4bfb-a380-bc4b11c79a96-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-bba49274-2be6-47e9-baad-b8dd82f77f8a.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4310,
+    "path": "metadata/bba49274-2be6-47e9-baad-b8dd82f77f8a-m0.avro"
+   }
+  ],
+  "sequence_number": 3,
+  "snapshot": 3861184328466139709
+ },
+ "plan_rows": [
+  {
+   "k": {
+    "kind": "string",
+    "value": "c"
+   },
+   "n": {
+    "kind": "int",
+    "value": 3
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "b"
+   },
+   "n": {
+    "kind": "int",
+    "value": 2
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "a"
+   },
+   "n": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "k": {
+    "kind": "string",
+    "value": "c"
+   },
+   "n": {
+    "kind": "int",
+    "value": 3
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "b"
+   },
+   "n": {
+    "kind": "int",
+    "value": 2
+   }
+  },
+  {
+   "k": {
+    "kind": "string",
+    "value": "a"
+   },
+   "n": {
+    "kind": "int",
+    "value": 1
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "String",
+   "Int"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "k",
+   "n"
+  ],
+  "types": [
+   "string",
+   "long"
+  ]
+ },
+ "table": "partition_evolution",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

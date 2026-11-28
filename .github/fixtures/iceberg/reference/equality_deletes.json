@@ -1,0 +1,95 @@
+{
+ "codec": "reads",
+ "derived": "an equality-delete Parquet file written by the generator and committed through the reference's own manifest, list and metadata writers",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/equality_deletes",
+ "not_carried": [],
+ "origin": "derived",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-2338621417990943604-0-e3ba30d7-fd03-4259-b54f-e63c8126b668.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [
+       1
+      ],
+      "field_ids": [
+       1
+      ],
+      "kind": 2,
+      "partition": [],
+      "path": "data/00000-0-equality-deletes.parquet",
+      "record_count": 2,
+      "sequence_number": 3
+     }
+    ],
+    "length": 4275,
+    "path": "metadata/e3ba30d7-fd03-4259-b54f-e63c8126b668-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-88789078-c94a-41e9-bccc-7ce850550486.parquet",
+      "record_count": 2,
+      "sequence_number": 2
+     }
+    ],
+    "length": 4315,
+    "path": "metadata/88789078-c94a-41e9-bccc-7ce850550486-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-21c5718f-aff0-449a-bf87-a60cd2f128cd.parquet",
+      "record_count": 3,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4316,
+    "path": "metadata/21c5718f-aff0-449a-bf87-a60cd2f128cd-m0.avro"
+   }
+  ],
+  "sequence_number": 3,
+  "snapshot": 2338621417990943604
+ },
+ "plan_rows": null,
+ "reference": "refuses to plan (PyIceberg does not yet support equality deletes); reads the list and the manifests",
+ "rows": null,
+ "rows_source": "none: the reference refuses to plan a table that holds an equality-delete file",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "s"
+  ],
+  "types": [
+   "long",
+   "string"
+  ]
+ },
+ "table": "equality_deletes",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

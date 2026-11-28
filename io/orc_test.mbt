@@ -271,3 +271,122 @@ test "the ORC entries raise the errors a caller meets" {
     @types.DataError::DuplicateColumn("a"),
   )
 }
+
+///|
+test "scan_orc collects to the eager read, its stripes its batches" {
+  // Sixty rows in six stripes of ten.
+  let path = ".github/fixtures/orc/reference/pyorc_stripes.orc"
+  let eager = @io.read_orc(path)
+  assert_eq(eager.shape(), (60, 4))
+  // The lazy pipeline equals the eager read.
+  assert_eq(@io.scan_orc(path).collect(), eager)
+  // An absorbed window skips the stripes it does not reach, and one it
+  // cuts through keeps the overlapping rows: the frame is the eager
+  // window's, whether the window ends on a stripe's edge or inside one.
+  assert_eq(@io.scan_orc(path).head(23).collect(), eager.head(23))
+  assert_eq(@io.scan_orc(path).head(10).collect(), eager.head(10))
+  assert_eq(@io.scan_orc(path).head(0).collect(), eager.head(0))
+  assert_eq(@io.scan_orc(path).tail(17).collect(), eager.tail(17))
+  assert_eq(
+    @io.scan_orc(path).slice(7, length=21).collect(),
+    eager.slice(7, length=21),
+  )
+  // A window reaching past the last row keeps what the file holds.
+  assert_eq(
+    @io.scan_orc(path).slice(55, length=100).collect(),
+    eager.slice(55, length=100),
+  )
+}
+
+///|
+test "scan_orc carries a pushed projection, predicate and window" {
+  let path = ".github/fixtures/orc/reference/pyorc_stripes.orc"
+  let eager = @io.read_orc(path)
+  // A projection narrows the decoded columns.
+  assert_eq(
+    @io.scan_orc(path).select([@expr.col("s")]).collect(),
+    eager.select([@expr.col("s")]),
+  )
+  // A bare Bool column read rides into the scan beside the projection —
+  // the predicate's own column decoded although the projection leaves it
+  // out.
+  let flagged = @expr.col("b")
+  let kept = [@expr.col("i")]
+  assert_eq(
+    @io.scan_orc(path).filter(flagged).select(kept).collect(),
+    eager.filter(flagged).select(kept),
+  )
+  // The plan renders the ORC leaf with the narrowed projection and the
+  // absorbed predicate.
+  assert_eq(
+    @io.scan_orc(path).filter(flagged).select(kept).explain(optimized=true),
+    "SELECT [col(i)]\n  SCAN_ORC \"\{path}\" [\"i\"] WHERE col(b)",
+  )
+  // A window above the two: the eager chain's frame.
+  assert_eq(
+    @io.scan_orc(path).filter(flagged).select(kept).head(3).collect(),
+    eager.filter(flagged).select(kept).head(3),
+  )
+}
+
+///|
+test "scan_orc keeps the eager read's refusals" {
+  // A column the reader cannot carry is refused when the plan reads it,
+  // and left alone when the projection leaves it out.
+  let every = ".github/fixtures/orc/reference/orc_TestOrcFile.test1.orc"
+  let kept = @io.scan_orc(every)
+    .select([@expr.col("int1"), @expr.col("string1")])
+    .collect()
+  assert_eq(kept.shape(), (2, 2))
+  assert_eq(kept.columns(), ["int1", "string1"])
+  let unprojected : Result[_, @types.DataError] = Ok(
+    ignore(@io.scan_orc(every).collect()),
+  ) catch {
+    e => Err(e)
+  }
+  assert_eq(
+    unprojected,
+    Err(
+      @types.DataError::Unsupported(
+        "orc: column \"bytes1\" is BINARY, which has no dtype here",
+      ),
+    ),
+  )
+  // A select naming a column the file does not carry raises the eager
+  // chain's ColumnNotFound: the projection is lenient, so the error comes
+  // from the expression's own evaluation.
+  let path = ".github/fixtures/orc/reference/pyorc_stripes.orc"
+  let absent : Result[_, @types.DataError] = Ok(
+    ignore(
+      @io.scan_orc(path).select([@expr.col("i"), @expr.col("nope")]).collect(),
+    ),
+  ) catch {
+    e => Err(e)
+  }
+  assert_eq(absent, Err(@types.DataError::ColumnNotFound("nope")))
+  // A missing file fails only at collect, as the read's IoError.
+  let gone : Result[_, @types.DataError] = Ok(
+    ignore(@io.scan_orc("_build/no_such_orc.orc").collect()),
+  ) catch {
+    e => Err(e)
+  }
+  assert_true(gone is Err(@types.DataError::IoError(_)))
+}
+
+///|
+test "a scope-dependent predicate over multi-stripe ORC matches eager" {
+  // A predicate carrying an aggregation is not row-stable: applied inside
+  // the scan it would compute a per-stripe mean. The optimizer keeps it
+  // above the scan, so the pipeline evaluates it over the whole file.
+  let path = ".github/fixtures/orc/reference/pyorc_stripes.orc"
+  let eager = @io.read_orc(path)
+  let scoped = @expr.col("i").gt(@expr.col("i").mean())
+  assert_eq(@io.scan_orc(path).filter(scoped).collect(), eager.filter(scoped))
+  // A row-stable filter before it may be absorbed; the second still
+  // blocks, and the pipeline evaluates it over the whole file.
+  let row_local = @expr.col("i").gt(@expr.lit_int(0))
+  assert_eq(
+    @io.scan_orc(path).filter(row_local).filter(scoped).collect(),
+    eager.filter(row_local).filter(scoped),
+  )
+}

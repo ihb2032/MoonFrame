@@ -1112,6 +1112,8 @@ fn scan_json(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
 fn scan_json(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
 fn scan_ndjson(String, options? : @io.JsonReadOptions) -> @frame.LazyFrame <- root
 fn scan_ndjson(String, options? : JsonReadOptions) -> @frame.LazyFrame <- io
+fn scan_orc(String) -> @frame.LazyFrame <- io
+fn scan_orc(String) -> @frame.LazyFrame <- root
 fn scan_parquet(String) -> @frame.LazyFrame <- io
 fn scan_parquet(String) -> @frame.LazyFrame <- root
 fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame <- io

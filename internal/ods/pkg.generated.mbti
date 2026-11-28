@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/ods"
+
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn ods_open(Bytes) -> OdsBook raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub struct OdsBook {
+  // private fields
+}
+pub fn OdsBook::grid(Self, sheet? : Int32) -> OdsGrid raise @types.DataError
+pub fn OdsBook::sheets(Self) -> Array[String]
+
+pub struct OdsCell {
+  // private fields
+}
+pub fn OdsCell::col(Self) -> Int32
+pub fn OdsCell::row(Self) -> Int32
+pub fn OdsCell::value(Self) -> OdsValue
+
+pub struct OdsGrid {
+  // private fields
+}
+pub fn OdsGrid::cells(Self) -> Array[OdsCell]
+
+pub(all) enum OdsValue {
+  Text(String)
+  Number(Double)
+  Boolean(Bool)
+  Day(Int64)
+  Instant(Int64)
+  Time(Int64)
+}
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,25 @@
+// The codec's dependencies: the error type every refusal is, the ZIP
+// reader the package goes through, the XML event reader its content.xml
+// does, the two text decoders that turn the entry's bytes into the text
+// that reader is handed, and the number parser and the double constants a
+// cell's office:value is read through.
+import {
+  "ihb2032/MoonFrame/types",
+  "moonbit-community/flate/zip",
+  "Milky2018/xml",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/encoding/utf16",
+  "moonbitlang/core/string",
+  "moonbitlang/core/double",
+}
+
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/test",
+  "moonbitlang/x/fs",
+} for "test"
+
+// The backends the package builds for, named because its dependencies
+// name their own and the build asks the same of what depends on them.
+
+supported_targets = "js + native + wasm + wasm-gc"

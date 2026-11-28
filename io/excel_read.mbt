@@ -34,15 +34,16 @@ fn excel_format(format : @xlsx.NumberFormat?) -> ExcelFormat {
 }
 
 ///|
-/// The sheet's cells by row and by column, over the rows and the columns
-/// that carry a value — a sheet with none answering no row. Under `dates`
-/// a number is read by its format; without it, as the number it is stored
-/// as.
+/// The cells of a workbook's sheet — the one at `position` — by row and by
+/// column, over the rows and the columns that carry a value; a sheet with
+/// none answering no row. Under `dates` a number is read by its format;
+/// without it, as the number it is stored as.
 fn excel_grid(
   workbook : @xlsx.Workbook,
-  sheet : @xlsx.Worksheet,
+  position : Int32,
   dates : Bool,
 ) -> Array[Array[ExcelCell]] raise @types.DataError {
+  let sheet = workbook.sheets()[position]
   // The first and the last row carrying a value, and the last column.
   let mut top = -1
   let mut bottom = 0
@@ -282,16 +283,17 @@ fn excel_column(
 }
 
 ///|
-/// The sheet as a frame: the first row carrying a value names the
+/// A sheet's cells as a frame: the first row carrying a value names the
 /// columns when the options ask for a header, and `"column1"`,
 /// `"column2"`, … do otherwise; every row after it is a frame row. A
-/// sheet with no value at all is the `0×0` frame.
-fn excel_frame(
-  workbook : @xlsx.Workbook,
-  sheet : @xlsx.Worksheet,
+/// sheet with no value at all is the `0×0` frame. `rows` is a sheet's
+/// cells by row and by column, over the rows and the columns that carry a
+/// value, each absent cell `Missing` — the grid every workbook layout is
+/// turned into before it reaches here.
+fn excel_grid_frame(
+  rows : Array[Array[ExcelCell]],
   options : ExcelReadOptions,
 ) -> @frame.DataFrame raise @types.DataError {
-  let rows = excel_grid(workbook, sheet, options.dates)
   if rows.is_empty() {
     return @frame.DataFrame::from_parts([], 0)
   }
@@ -306,4 +308,36 @@ fn excel_frame(
     columns.push(excel_column(name, rows, from, c))
   }
   @frame.DataFrame::from_parts(columns, rows.length() - from)
+}
+
+///|
+/// The grid of a sheet's placed cells: `cells` names each by its row and
+/// its column, zero-based, in row-then-column order — so the first names
+/// the first row and the last the last — and the grid runs from that row
+/// to that, as wide as the last column carrying a cell; every cell inside
+/// and absent is `Missing`, as a blank cell reads. A sheet with no cell is
+/// the empty grid.
+fn excel_placed_grid(
+  cells : Array[(Int32, Int32, ExcelCell)],
+) -> Array[Array[ExcelCell]] {
+  if cells.is_empty() {
+    return []
+  }
+  let (top, _, _) = cells[0]
+  let (bottom, _, _) = cells[cells.length() - 1]
+  let mut width = 0
+  for cell in cells {
+    let (_, col, _) = cell
+    if col + 1 > width {
+      width = col + 1
+    }
+  }
+  let grid : Array[Array[ExcelCell]] = Array::makei(bottom - top + 1, _ => {
+    Array::make(width, Missing)
+  })
+  for cell in cells {
+    let (row, col, value) = cell
+    grid[row - top][col] = value
+  }
+  grid
 }

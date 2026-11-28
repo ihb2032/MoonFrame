@@ -1,13 +1,18 @@
-// The Excel workbook interchange — .xlsx read and written over the
-// workbook library in moonbitlang/mbtexcel: the ZIP container, the XML
-// parts, the shared strings, and the styles are that package's, and what
-// a sheet's cells become in a frame is decided here. A column takes the
-// narrowest dtype holding every value in it, the rule the CSV reader
-// follows, with the one fact a sheet carries and text does not: a
-// number's format, which says whether it is a date or an instant.
+// The spreadsheet interchange: a sheet read into a frame from the three
+// workbook layouts a file's bytes tell apart, and written as the first of
+// them. An Excel workbook — `.xlsx`, and the macro-enabled `.xlsm` — is
+// read over the workbook library in moonbitlang/mbtexcel, whose the ZIP
+// container, the XML parts, the shared strings and the styles are; an
+// OpenDocument spreadsheet (`.ods`) over the codec in `internal/ods`; and
+// an Excel 97–2003 workbook (`.xls`) over the codec in `internal/xls`.
+// What a sheet's cells become in a frame is decided here, for the three
+// alike: a column takes the narrowest dtype holding every value in it, the
+// rule the CSV reader follows, with the one fact a sheet carries and text
+// does not — a cell's own type where the layout stores one, and otherwise
+// its number's format, which says whether it is a date or an instant.
 
 ///|
-/// Options that control how an Excel workbook is read into a `DataFrame`.
+/// Options that control how a spreadsheet is read into a `DataFrame`.
 ///
 /// - `sheet` — the sheet to read, by name; `""`, the default, is the
 ///   workbook's first sheet. `excel_sheets` names them.
@@ -17,7 +22,8 @@
 ///   order.
 /// - `dates` — when `true` (the default), a number under a date or a time
 ///   format reads as a `Date` or a `Timestamp`; when `false`, it is the
-///   number it is stored as.
+///   number it is stored as. A cell whose date the file itself types — an
+///   OpenDocument spreadsheet's — is that date whatever `dates` is.
 pub struct ExcelReadOptions {
   sheet : String
   has_header : Bool
@@ -89,36 +95,6 @@ fn excel_workbook(bytes : Bytes) -> @xlsx.Workbook raise @types.DataError {
 }
 
 ///|
-/// The sheet `name` names — the first one when the name is empty — or
-/// the refusal that names the workbook's sheets.
-fn excel_sheet(
-  workbook : @xlsx.Workbook,
-  name : String,
-) -> @xlsx.Worksheet raise @types.DataError {
-  let sheets = workbook.sheets()
-  if name == "" {
-    if sheets.length() == 0 {
-      raise @types.DataError::InvalidOperation(
-        "excel: the workbook carries no sheet",
-      )
-    }
-    return sheets[0]
-  }
-  for sheet in sheets {
-    if sheet.name == name {
-      return sheet
-    }
-  }
-  let names : Array[String] = []
-  for sheet in sheets {
-    names.push("\"\{sheet.name}\"")
-  }
-  raise @types.DataError::InvalidOperation(
-    "excel: the workbook carries no sheet named \"\{name}\"; its sheets are \{names.join(", ")}",
-  )
-}
-
-///|
 /// A file's bytes, an unreadable file being the I/O error it is.
 fn excel_bytes(path : String) -> Bytes raise @types.DataError {
   @fs.read_file_to_bytes(path) catch {
@@ -127,15 +103,19 @@ fn excel_bytes(path : String) -> Bytes raise @types.DataError {
 }
 
 ///|
-/// The names of a workbook's sheets, in the workbook's order.
+/// The names of a workbook's sheets, in the workbook's order — an Excel
+/// workbook's, an OpenDocument spreadsheet's or an Excel 97–2003
+/// workbook's, whichever the file opens as.
 pub fn excel_sheets(path : String) -> Array[String] raise @types.DataError {
-  let workbook = excel_workbook(excel_bytes(path))
-  workbook.sheets().map(sheet => sheet.name)
+  excel_sheet_names(excel_bytes(path))
 }
 
 ///|
-/// Read one sheet of an Excel workbook into a frame — the first sheet,
-/// or the one `options.sheet` names; `excel_sheets` lists them. The
+/// Read one sheet of a spreadsheet into a frame — the first sheet, or the
+/// one `options.sheet` names; `excel_sheets` lists them. The layout is the
+/// one the file's bytes name: an Excel workbook (`.xlsx`, or the
+/// macro-enabled `.xlsm`), an OpenDocument spreadsheet (`.ods`), or an
+/// Excel 97–2003 workbook (`.xls`), whichever the file opens as. The
 /// first row carrying a value names the columns unless `has_header` is
 /// off, and each column takes the narrowest dtype holding every value in
 /// it: text a `String`, a boolean a `Bool`, whole numbers an `Int`, any
@@ -149,17 +129,22 @@ pub fn excel_sheets(path : String) -> Array[String] raise @types.DataError {
 /// and 45 to 47, and a custom code by its letters), since the formats a
 /// locale re-spells are a date in one workbook and an accounting format
 /// in another — those read as numbers. Both date systems are honoured.
-/// `dates` off reads every such number as the number it is stored as.
+/// `dates` off reads every such number as the number it is stored as. An
+/// OpenDocument spreadsheet types its cells itself, so there a date, an
+/// instant and a time of day read as themselves and `dates` does not
+/// apply.
 ///
 /// What a frame column cannot hold is null: an empty cell, a cell
 /// carrying an error (`#DIV/0!`, `#N/A`, …), and a formula whose cached
 /// value is missing; a formula's cached value is what reads, never the
-/// formula. A merged cell's value sits in its top-left cell alone, and
-/// the others read null. A column holding date-formatted numbers beside
-/// plain ones refuses, naming the column.
+/// formula. A number that is not finite — an infinity or a NaN an Excel
+/// 97–2003 sheet stores — reads as the `Float` it is. A merged cell's
+/// value sits in its top-left cell alone, and the others read null. A
+/// column holding date-formatted numbers beside plain ones refuses,
+/// naming the column.
 ///
 /// Raises `IoError` for the file read, `ParseError` for a file that is
-/// not a workbook the reader can open, `Unsupported` for an encrypted
+/// not a spreadsheet the reader can open, `Unsupported` for an encrypted
 /// one, `InvalidOperation` for a sheet the workbook does not carry and
 /// for the mixed column, and `DuplicateColumn(name)` for two header
 /// cells of one name.
@@ -171,7 +156,7 @@ pub fn read_excel(
 }
 
 ///|
-/// Parse an Excel workbook's bytes into a frame — `read_excel`'s binary
+/// Parse a spreadsheet's bytes into a frame — `read_excel`'s binary
 /// counterpart, for bytes already in memory. The same contract as
 /// `read_excel`'s.
 pub fn parse_excel(
@@ -182,6 +167,5 @@ pub fn parse_excel(
     Some(given) => given
     None => ExcelReadOptions::ExcelReadOptions()
   }
-  let workbook = excel_workbook(bytes)
-  excel_frame(workbook, excel_sheet(workbook, chosen.sheet), chosen)
+  excel_workbook_frame(bytes, chosen)
 }

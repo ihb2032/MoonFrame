@@ -1,0 +1,98 @@
+{
+ "file": "blank_lines.txt",
+ "family": "blanks",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "blank lines before, between and after the rows, empty and whitespace-only; a blank line counts as a row of the inference window",
+ "roundtrip": false,
+ "lines": ["", "A  B", "1  2", "   ", "3333  4", "", "\t", "5  6", "   "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 4], [6, 7]],
+   "cut": [["", ""], ["A  B", ""], ["1  2", ""], ["", ""], ["3333", "4"], ["", ""], ["", ""], ["5  6", ""], ["", ""]],
+   "row_lines": [1, 2, 4, 7],
+   "rows": [["A  B", ""], ["1  2", ""], ["3333", "4"], ["5  6", ""]],
+   "table": {
+    "columns": ["A  B", "Unnamed: 1"],
+    "dtypes": ["str", "float64"],
+    "cells": [["1  2", null], ["3333", 4.0], ["5  6", null]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [4, 3],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 4], [4, 7]],
+   "cut": [["", ""], ["A  B", ""], ["1  2", ""], ["", ""], ["3333", "4"], ["", ""], ["", ""], ["5  6", ""], ["", ""]],
+   "row_lines": [1, 2, 4, 7],
+   "rows": [["A  B", ""], ["1  2", ""], ["3333", "4"], ["5  6", ""]],
+   "table": {
+    "columns": ["A  B", "Unnamed: 1"],
+    "dtypes": ["str", "float64"],
+    "cells": [["1  2", null], ["3333", 4.0], ["5  6", null]]
+   }
+  },
+  {
+   "name": "infer:3",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 3
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 1], [3, 4]],
+   "cut": [["", ""], ["A", "B"], ["1", "2"], ["", ""], ["3", "3"], ["", ""], ["", ""], ["5", "6"], ["", ""]],
+   "row_lines": [1, 2, 4, 7],
+   "rows": [["A", "B"], ["1", "2"], ["3", "3"], ["5", "6"]],
+   "table": {
+    "columns": ["A", "B"],
+    "dtypes": ["int64", "int64"],
+    "cells": [[1, 2], [3, 3], [5, 6]]
+   }
+  },
+  {
+   "name": "infer:5",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 5
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 4], [6, 7]],
+   "cut": [["", ""], ["A  B", ""], ["1  2", ""], ["", ""], ["3333", "4"], ["", ""], ["", ""], ["5  6", ""], ["", ""]],
+   "row_lines": [1, 2, 4, 7],
+   "rows": [["A  B", ""], ["1  2", ""], ["3333", "4"], ["5  6", ""]],
+   "table": {
+    "columns": ["A  B", "Unnamed: 1"],
+    "dtypes": ["str", "float64"],
+    "cells": [["1  2", null], ["3333", 4.0], ["5  6", null]]
+   }
+  }
+ ]
+}

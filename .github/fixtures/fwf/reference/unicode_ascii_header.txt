@@ -1,0 +1,5 @@
+col_a    col_b  col_c    
+東京       １２３    naïve    
+Αθήνα    ٤٥٦    façade   
+Москва   七八九    žluťoučký
+ירושלים  ૭૮૯    Přímý    

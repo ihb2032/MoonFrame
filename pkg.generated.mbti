@@ -49,6 +49,8 @@ pub fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise 
 
 pub fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_fwf(String, options? : @io.FwfReadOptions) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
@@ -72,6 +74,8 @@ pub fn read_avro(String, projection? : Array[String]) -> @frame.DataFrame raise 
 pub fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_fwf(String, options? : @io.FwfReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
@@ -187,6 +191,8 @@ pub using @expr {type Expr}
 pub using @types {type Field}
 
 pub using @types {type FieldValue}
+
+pub using @io {type FwfReadOptions}
 
 pub using @frame {type HtmlOptions}
 

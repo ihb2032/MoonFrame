@@ -1,0 +1,5 @@
+name age city
+Ada 31 Oslo
+Alan 5 Reykjavik
+Jo 250 Tokyo
+Anastasia 104 San Marino

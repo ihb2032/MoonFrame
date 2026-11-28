@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ihb2032/MoonFrame/internal/fwf"
+
+import {
+  "ihb2032/MoonFrame/types",
+}
+
+// Values
+pub fn fwf_cut(String, FwfLayout) -> Array[String]
+
+pub fn fwf_infer_layout(Array[String], Int32) -> FwfLayout raise @types.DataError
+
+pub fn fwf_layout_of_widths(Array[Int32]) -> FwfLayout raise @types.DataError
+
+// Errors
+
+// Types and methods
+pub struct FwfLayout {
+  // private fields
+}
+pub fn FwfLayout::FwfLayout(Array[Int32], Array[Int32]) -> Self raise @types.DataError
+pub fn FwfLayout::len(Self) -> Int32
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,7 @@
+    id  name   amount flag
+    100 elm    44113  Y   
+    101 spruce 1323   Y   
+    102 walnut 13487  Y   
+    103 ash    32681  Y   
+    104 spruce 40447  Y   
+    105 birch  6394   N   

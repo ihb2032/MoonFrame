@@ -1,0 +1,78 @@
+{
+ "file": "wide_cell_late.txt",
+ "family": "wide",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a cell wider than anything above it, on the fourth line: read with the default window it widens the field; read with a window of three rows the reference truncates it",
+ "roundtrip": true,
+ "lines": ["n  s               ", "1  xy              ", "2  ab              ", "3  abcdefghijklmnop", "4  pq              "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 1], [3, 19]],
+   "cut": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "abcdefghijklmnop"], ["4", "pq"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "abcdefghijklmnop"], ["4", "pq"]],
+   "table": {
+    "columns": ["n", "s"],
+    "dtypes": ["int64", "str"],
+    "cells": [[1, "xy"], [2, "ab"], [3, "abcdefghijklmnop"], [4, "pq"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [1, 18],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 1], [1, 19]],
+   "cut": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "abcdefghijklmnop"], ["4", "pq"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "abcdefghijklmnop"], ["4", "pq"]],
+   "table": {
+    "columns": ["n", "s"],
+    "dtypes": ["int64", "str"],
+    "cells": [[1, "xy"], [2, "ab"], [3, "abcdefghijklmnop"], [4, "pq"]]
+   }
+  },
+  {
+   "name": "infer:3",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 3
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 1], [3, 5]],
+   "cut": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "ab"], ["4", "pq"]],
+   "row_lines": [0, 1, 2, 3, 4],
+   "rows": [["n", "s"], ["1", "xy"], ["2", "ab"], ["3", "ab"], ["4", "pq"]],
+   "table": {
+    "columns": ["n", "s"],
+    "dtypes": ["int64", "str"],
+    "cells": [[1, "xy"], [2, "ab"], [3, "ab"], [4, "pq"]]
+   }
+  }
+ ]
+}

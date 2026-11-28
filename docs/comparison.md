@@ -287,6 +287,20 @@ here today:
   `read_sql(chunksize=…)` streams by chunks the same way, each typed on
   its own, where MoonFrame holds every batch to its first batch's dtypes
   and refuses a column that would have widened.
+- **Fixed-width files** — `read_fwf` reads a file of fixed-width lines
+  as a frame over a column logic inside the module, as pandas' `read_fwf`
+  does; Polars' I/O reference carries no fixed-width entry. The layout is
+  inferred from the first lines the same way — a field begins where a
+  line has a separator and then a character that is none, the whitespace
+  around a field is not its cell, leading indentation names no field —
+  or named by `widths` or `colspecs`; the columns are typed by the CSV
+  reader's rule, where pandas infers its own. `names` name the columns in
+  place of the header's while the header row is still consumed under
+  `has_header`, where pandas' default consumes no header once `names` is
+  given; a headerless column is `column1`, `column2`, … where pandas
+  numbers its; an empty text, or one of blank lines alone, answers the
+  `0×0` frame where pandas raises. `skiprows`, `infer_nrows` and a
+  transparently gzip path read as in CSV.
 - **Excel** — `read_excel` reads a sheet and `write_excel` writes one,
   over the `mbtexcel` workbook library, where pandas reaches for openpyxl
   and Polars for calamine. The sheet is taken by name
@@ -456,15 +470,15 @@ here today:
   Polars' carry beyond the entries above: HDF5 (pandas' `HDFStore`), whose
   `fixed` layout spells a frame as Python objects, a string column as a
   pickle stream, which a reader outside Python takes up only by
-  unpickling; a fixed-width file (`read_fwf`); pickle and the clipboard, a
-  Python object serialisation and an operating-system service; the
-  OpenDocument and `.xls` workbook flavours, which Polars takes through
-  `read_ods` and its Excel reader; a text file read as lines (Polars'
-  `Lines`); the catalog-based table formats Delta Lake, Iceberg and Lance;
-  a cloud database (pandas' `read_gbq`) or a remote file source (a path
-  names a file on a local filesystem here); and an encrypted Parquet file.
-  A reader takes a file whole: there is no chunked or iterated read, as
-  pandas' `chunksize` and its statistics formats' readers offer.
+  unpickling; pickle and the clipboard, a Python object serialisation and
+  an operating-system service; the OpenDocument and `.xls` workbook
+  flavours, which Polars takes through `read_ods` and its Excel reader; a
+  text file read as lines (Polars' `Lines`); the catalog-based table formats
+  Delta Lake, Iceberg and Lance; a cloud database (pandas' `read_gbq`) or a
+  remote file source (a path names a file on a local filesystem here); and
+  an encrypted Parquet file. A reader takes a file whole: there is no
+  chunked or iterated read, as pandas' `chunksize` and its statistics
+  formats' readers offer.
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

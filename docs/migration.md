@@ -225,6 +225,12 @@ What changed on `main` since 0.9.0:
   projection keeps only the top-level fields it names, and a field it
   leaves out is never decoded. `parse_orc`'s docstring states the mapping
   and the refusals.
+- Fixed-width files join the facade: `read_fwf` / `parse_fwf` over
+  `FwfReadOptions` — a layout inferred from the first lines or named by
+  `widths` / `colspecs`, a header under `has_header`, `names` in place
+  of the header's, `skiprows`, `infer_nrows` — each line a row, a blank
+  line skipped, each column typed by the CSV reader's rule. No
+  existing call changes.
 - A column can hold lists and structs. `Series::from_scalars` builds one
   from nested values and infers its dtype from the first cell that names
   one. A nested column is carried whole — through the row verbs, the

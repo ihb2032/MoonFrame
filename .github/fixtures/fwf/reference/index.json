@@ -1,0 +1,272 @@
+[
+ {
+  "file": "grid_one_space.txt",
+  "family": "grid",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "grid_two_spaces.txt",
+  "family": "grid",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "grid_seeded.txt",
+  "family": "grid",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 13,
+  "readings": 2,
+  "cells": 130
+ },
+ {
+  "file": "ragged_short_cells.txt",
+  "family": "ragged",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "ragged_single_space.txt",
+  "family": "ragged",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 2,
+  "cells": 20
+ },
+ {
+  "file": "wide_header.txt",
+  "family": "wide",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 4,
+  "readings": 2,
+  "cells": 24
+ },
+ {
+  "file": "wide_cell.txt",
+  "family": "wide",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 4,
+  "readings": 2,
+  "cells": 16
+ },
+ {
+  "file": "wide_cell_late.txt",
+  "family": "wide",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 3,
+  "cells": 30
+ },
+ {
+  "file": "indent.txt",
+  "family": "indent",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "trailing_spaces.txt",
+  "family": "trailing",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "blank_lines.txt",
+  "family": "blanks",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 9,
+  "readings": 4,
+  "cells": 72
+ },
+ {
+  "file": "tabs_inside.txt",
+  "family": "tabs",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 3,
+  "readings": 2,
+  "cells": 12
+ },
+ {
+  "file": "tabs_as_separators.txt",
+  "family": "tabs",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 2,
+  "cells": 30
+ },
+ {
+  "file": "tabs_ragged.txt",
+  "family": "tabs",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 2,
+  "cells": 20
+ },
+ {
+  "file": "empty_middle.txt",
+  "family": "empty",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 4,
+  "readings": 2,
+  "cells": 24
+ },
+ {
+  "file": "empty_at_end.txt",
+  "family": "empty",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 4,
+  "readings": 2,
+  "cells": 24
+ },
+ {
+  "file": "short_line.txt",
+  "family": "short",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 6,
+  "readings": 2,
+  "cells": 24
+ },
+ {
+  "file": "unicode_header_cells.txt",
+  "family": "unicode",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 2,
+  "cells": 30
+ },
+ {
+  "file": "unicode_ascii_header.txt",
+  "family": "unicode",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 2,
+  "cells": 30
+ },
+ {
+  "file": "unicode_astral.txt",
+  "family": "unicode",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 4,
+  "readings": 2,
+  "cells": 24
+ },
+ {
+  "file": "unicode_combining.txt",
+  "family": "unicode",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 8,
+  "readings": 2,
+  "cells": 32
+ },
+ {
+  "file": "separator_only.txt",
+  "family": "separator_only",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 42
+ },
+ {
+  "file": "one_column.txt",
+  "family": "one_column",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 6,
+  "readings": 2,
+  "cells": 12
+ },
+ {
+  "file": "other_spaces.txt",
+  "family": "other_spaces",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 28
+ },
+ {
+  "file": "skiprows_preamble.txt",
+  "family": "skiprows",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 5,
+  "readings": 4,
+  "cells": 35
+ },
+ {
+  "file": "comment_lines.txt",
+  "family": "comment",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 6,
+  "cells": 112
+ },
+ {
+  "file": "crlf_line_endings.txt",
+  "family": "line_endings",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "cr_line_endings.txt",
+  "family": "line_endings",
+  "seed": 20261128,
+  "refuses": false,
+  "lines": 7,
+  "readings": 2,
+  "cells": 56
+ },
+ {
+  "file": "all_blank.txt",
+  "family": "refusal",
+  "seed": 20261128,
+  "refuses": true,
+  "lines": 4,
+  "readings": 2,
+  "cells": 8
+ },
+ {
+  "file": "empty.txt",
+  "family": "refusal",
+  "seed": 20261128,
+  "refuses": true,
+  "lines": 0,
+  "readings": 2,
+  "cells": 0
+ }
+]

@@ -1,0 +1,58 @@
+{
+ "file": "one_column.txt",
+ "family": "one_column",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a table of one column: numbers right-aligned in it, the leading spaces naming nothing",
+ "roundtrip": false,
+ "lines": ["value", "   12", " 1000", "    7", "12345", "   -3"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5]],
+   "cut": [["value"], ["12"], ["1000"], ["7"], ["12345"], ["-3"]],
+   "row_lines": [0, 1, 2, 3, 4, 5],
+   "rows": [["value"], ["12"], ["1000"], ["7"], ["12345"], ["-3"]],
+   "table": {
+    "columns": ["value"],
+    "dtypes": ["int64"],
+    "cells": [[12], [1000], [7], [12345], [-3]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [5],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5]],
+   "cut": [["value"], ["12"], ["1000"], ["7"], ["12345"], ["-3"]],
+   "row_lines": [0, 1, 2, 3, 4, 5],
+   "rows": [["value"], ["12"], ["1000"], ["7"], ["12345"], ["-3"]],
+   "table": {
+    "columns": ["value"],
+    "dtypes": ["int64"],
+    "cells": [[12], [1000], [7], [12345], [-3]]
+   }
+  }
+ ]
+}

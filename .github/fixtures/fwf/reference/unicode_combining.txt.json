@@ -1,0 +1,58 @@
+{
+ "file": "unicode_combining.txt",
+ "family": "unicode",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "fields of combining characters — a base under one to five marks, three Hangul jamo, a Thai vowel and tone mark, a Devanagari conjunct with a zero-width joiner — each code point one character, no grapheme cluster counted as one",
+ "roundtrip": true,
+ "lines": ["marks  text  ", "0      e     ", "1      é    ", "5      é̂̃̈́", "3      각   ", "2      กิ่   ", "1      क्‍ष  ", "4      q̣̰́̈ "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [7, 13]],
+   "cut": [["marks", "text"], ["0", "e"], ["1", "é"], ["5", "é̂̃̈́"], ["3", "각"], ["2", "กิ่"], ["1", "क्‍ष"], ["4", "q̣̰́̈"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6, 7],
+   "rows": [["marks", "text"], ["0", "e"], ["1", "é"], ["5", "é̂̃̈́"], ["3", "각"], ["2", "กิ่"], ["1", "क्‍ष"], ["4", "q̣̰́̈"]],
+   "table": {
+    "columns": ["marks", "text"],
+    "dtypes": ["int64", "str"],
+    "cells": [[0, "e"], [1, "é"], [5, "é̂̃̈́"], [3, "각"], [2, "กิ่"], [1, "क्‍ष"], [4, "q̣̰́̈"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [5, 8],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [5, 13]],
+   "cut": [["marks", "text"], ["0", "e"], ["1", "é"], ["5", "é̂̃̈́"], ["3", "각"], ["2", "กิ่"], ["1", "क्‍ष"], ["4", "q̣̰́̈"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6, 7],
+   "rows": [["marks", "text"], ["0", "e"], ["1", "é"], ["5", "é̂̃̈́"], ["3", "각"], ["2", "กิ่"], ["1", "क्‍ष"], ["4", "q̣̰́̈"]],
+   "table": {
+    "columns": ["marks", "text"],
+    "dtypes": ["int64", "str"],
+    "cells": [[0, "e"], [1, "é"], [5, "é̂̃̈́"], [3, "각"], [2, "กิ่"], [1, "क्‍ष"], [4, "q̣̰́̈"]]
+   }
+  }
+ ]
+}

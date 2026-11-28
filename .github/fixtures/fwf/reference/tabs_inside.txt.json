@@ -1,0 +1,58 @@
+{
+ "file": "tabs_inside.txt",
+ "family": "tabs",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a tab inside a field: another line has content across the same position, so the tab stays in the cell",
+ "roundtrip": false,
+ "lines": ["first\tlast   age", "firstlast      30", "fi\tla         4"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [13, 17]],
+   "cut": [["first\tlast", "age"], ["firstlast", "30"], ["fi\tla", "4"]],
+   "row_lines": [0, 1, 2],
+   "rows": [["first\tlast", "age"], ["firstlast", "30"], ["fi\tla", "4"]],
+   "table": {
+    "columns": ["first\tlast", "age"],
+    "dtypes": ["str", "int64"],
+    "cells": [["firstlast", 30], ["fi\tla", 4]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [10, 7],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 10], [10, 17]],
+   "cut": [["first\tlast", "age"], ["firstlast", "30"], ["fi\tla", "4"]],
+   "row_lines": [0, 1, 2],
+   "rows": [["first\tlast", "age"], ["firstlast", "30"], ["fi\tla", "4"]],
+   "table": {
+    "columns": ["first\tlast", "age"],
+    "dtypes": ["str", "int64"],
+    "cells": [["firstlast", 30], ["fi\tla", 4]]
+   }
+  }
+ ]
+}

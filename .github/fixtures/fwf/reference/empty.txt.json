@@ -1,0 +1,56 @@
+{
+ "file": "empty.txt",
+ "family": "refusal",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "no line at all: the reference reader refuses the file",
+ "roundtrip": false,
+ "lines": [],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": {
+    "type": "EmptyDataError",
+    "message": "No rows from which to infer column width"
+   },
+   "colspecs_from": "none: the reader class refuses too (EmptyDataError)",
+   "colspecs": null,
+   "cut": null,
+   "row_lines": null,
+   "rows": null,
+   "table": null
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [4, 3],
+   "refuses": {
+    "type": "EmptyDataError",
+    "message": "No columns to parse from file"
+   },
+   "colspecs_from": "read_fwf's arithmetic from the widths; it refuses the file",
+   "colspecs": [[0, 4], [4, 7]],
+   "cut": [],
+   "row_lines": null,
+   "rows": null,
+   "table": null
+  }
+ ]
+}

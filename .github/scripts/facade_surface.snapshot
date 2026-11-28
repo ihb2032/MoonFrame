@@ -11,6 +11,7 @@ ctor ExcelReadOptions::ExcelReadOptions(sheet? : String, has_header? : Bool, dat
 ctor ExcelWriteOptions::ExcelWriteOptions(sheet? : String, has_header? : Bool) -> Self <- io
 ctor Field::Field(String, DataType, nullable? : Bool) -> Self <- types
 ctor FieldValue::FieldValue(String, Scalar) -> Self <- types
+ctor FwfReadOptions::FwfReadOptions(widths? : Array[Int32], colspecs? : Array[(Int32, Int32)], infer_nrows? : Int32, has_header? : Bool, skiprows? : Int32, names? : Array[String]) -> Self <- io
 ctor HtmlOptions::HtmlOptions(max_rows? : Int32, table_class? : String, caption? : String, escape? : Bool) -> Self <- frame
 ctor JsonReadOptions::JsonReadOptions(infer_schema_rows? : Int32, on_parse_error? : OnParseError, reject_duplicate_keys? : Bool, allow_nonfinite_floats? : Bool, dtypes? : Map[String, @types.DataType]) -> Self <- io
 ctor LatexOptions::LatexOptions(columns? : Array[String], header? : Bool, index? : Bool, na_rep? : String, escape? : Bool, column_format? : String, longtable? : Bool, caption? : String, label? : String, position? : String, bold_rows? : Bool, decimal? : String) -> Self <- frame
@@ -161,6 +162,9 @@ field ExcelReadOptions.has_header : Bool <- io
 field ExcelReadOptions.sheet : String <- io
 field ExcelWriteOptions.has_header : Bool <- io
 field ExcelWriteOptions.sheet : String <- io
+field FwfReadOptions.has_header : Bool <- io
+field FwfReadOptions.infer_nrows : Int32 <- io
+field FwfReadOptions.skiprows : Int32 <- io
 field HtmlOptions.caption : String? <- frame
 field HtmlOptions.escape : Bool <- frame
 field HtmlOptions.max_rows : Int32? <- frame
@@ -1046,6 +1050,8 @@ fn parse_avro(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @typ
 fn parse_csv_str(String, options? : CsvReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_excel(Bytes, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_excel(Bytes, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_fwf(String, options? : @io.FwfReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn parse_fwf(String, options? : FwfReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- io
 fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- root
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
@@ -1072,6 +1078,8 @@ fn read_csv(String, options? : @io.CsvReadOptions) -> @frame.DataFrame raise @ty
 fn read_csv(String, options? : CsvReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_excel(String, options? : @io.ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_excel(String, options? : ExcelReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_fwf(String, options? : @io.FwfReadOptions) -> @frame.DataFrame raise @types.DataError <- root
+fn read_fwf(String, options? : FwfReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- io
 fn read_html(String) -> Array[@frame.DataFrame] raise @types.DataError <- root
 fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
@@ -1494,6 +1502,9 @@ method FramePlot::square(Self, x~ : String, y~ : String, color? : String, size? 
 method FramePlot::text(Self, x~ : String, y~ : String, text~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
 method FramePlot::tick(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
 method FramePlot::trail(Self, x~ : String, y~ : String, color? : String, size? : String, opacity? : String, tooltip? : String, detail? : String, title? : String, width? : VegaExtent, height? : VegaExtent) -> Plot <- chart
+method FwfReadOptions::colspecs(Self) -> Array[(Int32, Int32)] <- io
+method FwfReadOptions::names(Self) -> Array[String] <- io
+method FwfReadOptions::widths(Self) -> Array[Int32] <- io
 method GroupedDataFrame::agg(Self, Array[@expr.Expr]) -> DataFrame raise @types.DataError <- frame
 method GroupedDataFrame::count(Self) -> DataFrame raise @types.DataError <- frame
 method GroupedDataFrame::first(Self) -> DataFrame raise @types.DataError <- frame
@@ -2377,6 +2388,7 @@ type ExcelWriteOptions <- io
 type Expr <- expr
 type Field <- types
 type FieldValue <- types
+type FwfReadOptions <- io
 type HtmlOptions <- frame
 type IpcCompression <- io
 type IpcFormat <- io

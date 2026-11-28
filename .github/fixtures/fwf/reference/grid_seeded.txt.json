@@ -1,0 +1,58 @@
+{
+ "file": "grid_seeded.txt",
+ "family": "grid",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "a rigid grid drawn from the seed: five columns of random widths, a random gap after each, empty cells, every line cut after its last character",
+ "roundtrip": true,
+ "lines": ["00VKF   VOM1BJLY YQTOO96 R4XNDMOFE   FGX", "        asz9xuk          g8n9        80", "z4dxu   13dc14l          t           q0i", "c       81g              sw5w        fwz", "2z      e        5e      eled77e35   635", "jnip    2ivs     nnreb1  rs0uk8qwg   8", "67      8r       fkwa    rrhl        us", "m8594   jw5kh    a       jquazkrt    2g", "4       nar      p5      0say0j7q    xom", "dao0f   hqo              a35ylzgdq   4", "uw14    juq3     zi4                 9", "6a      eo5wbw4                      f", "pyh0c   5h       jk9b    u           r8"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [8, 16], [17, 24], [25, 34], [37, 40]],
+   "cut": [["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"], ["", "asz9xuk", "", "g8n9", "80"], ["z4dxu", "13dc14l", "", "t", "q0i"], ["c", "81g", "", "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", "", "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", "", "9"], ["6a", "eo5wbw4", "", "", "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+   "rows": [["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"], ["", "asz9xuk", "", "g8n9", "80"], ["z4dxu", "13dc14l", "", "t", "q0i"], ["c", "81g", "", "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", "", "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", "", "9"], ["6a", "eo5wbw4", "", "", "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]],
+   "table": {
+    "columns": ["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"],
+    "dtypes": ["str", "str", "str", "str", "str"],
+    "cells": [[null, "asz9xuk", null, "g8n9", "80"], ["z4dxu", "13dc14l", null, "t", "q0i"], ["c", "81g", null, "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", null, "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", null, "9"], ["6a", "eo5wbw4", null, null, "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [5, 11, 8, 10, 6],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 5], [5, 16], [16, 24], [24, 34], [34, 40]],
+   "cut": [["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"], ["", "asz9xuk", "", "g8n9", "80"], ["z4dxu", "13dc14l", "", "t", "q0i"], ["c", "81g", "", "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", "", "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", "", "9"], ["6a", "eo5wbw4", "", "", "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+   "rows": [["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"], ["", "asz9xuk", "", "g8n9", "80"], ["z4dxu", "13dc14l", "", "t", "q0i"], ["c", "81g", "", "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", "", "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", "", "9"], ["6a", "eo5wbw4", "", "", "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]],
+   "table": {
+    "columns": ["00VKF", "VOM1BJLY", "YQTOO96", "R4XNDMOFE", "FGX"],
+    "dtypes": ["str", "str", "str", "str", "str"],
+    "cells": [[null, "asz9xuk", null, "g8n9", "80"], ["z4dxu", "13dc14l", null, "t", "q0i"], ["c", "81g", null, "sw5w", "fwz"], ["2z", "e", "5e", "eled77e35", "635"], ["jnip", "2ivs", "nnreb1", "rs0uk8qwg", "8"], ["67", "8r", "fkwa", "rrhl", "us"], ["m8594", "jw5kh", "a", "jquazkrt", "2g"], ["4", "nar", "p5", "0say0j7q", "xom"], ["dao0f", "hqo", null, "a35ylzgdq", "4"], ["uw14", "juq3", "zi4", null, "9"], ["6a", "eo5wbw4", null, null, "f"], ["pyh0c", "5h", "jk9b", "u", "r8"]]
+   }
+  }
+ ]
+}

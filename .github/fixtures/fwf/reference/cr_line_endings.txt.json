@@ -1,0 +1,58 @@
+{
+ "file": "cr_line_endings.txt",
+ "family": "line_endings",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\r",
+ "note": "a grid written with carriage returns alone as its line endings: the reference translates them on reading",
+ "roundtrip": false,
+ "lines": ["id  name   amount flag", "100 elm    71488  Y   ", "101 pine   48835  N   ", "102 oak    23989  N   ", "103 cedar  44159  N   ", "104 cedar  94127  N   ", "105 spruce 32017  N   "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 3], [4, 10], [11, 17], [18, 22]],
+   "cut": [["id", "name", "amount", "flag"], ["100", "elm", "71488", "Y"], ["101", "pine", "48835", "N"], ["102", "oak", "23989", "N"], ["103", "cedar", "44159", "N"], ["104", "cedar", "94127", "N"], ["105", "spruce", "32017", "N"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["id", "name", "amount", "flag"], ["100", "elm", "71488", "Y"], ["101", "pine", "48835", "N"], ["102", "oak", "23989", "N"], ["103", "cedar", "44159", "N"], ["104", "cedar", "94127", "N"], ["105", "spruce", "32017", "N"]],
+   "table": {
+    "columns": ["id", "name", "amount", "flag"],
+    "dtypes": ["int64", "str", "int64", "str"],
+    "cells": [[100, "elm", 71488, "Y"], [101, "pine", 48835, "N"], [102, "oak", 23989, "N"], [103, "cedar", 44159, "N"], [104, "cedar", 94127, "N"], [105, "spruce", 32017, "N"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [3, 7, 7, 5],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 3], [3, 10], [10, 17], [17, 22]],
+   "cut": [["id", "name", "amount", "flag"], ["100", "elm", "71488", "Y"], ["101", "pine", "48835", "N"], ["102", "oak", "23989", "N"], ["103", "cedar", "44159", "N"], ["104", "cedar", "94127", "N"], ["105", "spruce", "32017", "N"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["id", "name", "amount", "flag"], ["100", "elm", "71488", "Y"], ["101", "pine", "48835", "N"], ["102", "oak", "23989", "N"], ["103", "cedar", "44159", "N"], ["104", "cedar", "94127", "N"], ["105", "spruce", "32017", "N"]],
+   "table": {
+    "columns": ["id", "name", "amount", "flag"],
+    "dtypes": ["int64", "str", "int64", "str"],
+    "cells": [[100, "elm", 71488, "Y"], [101, "pine", 48835, "N"], [102, "oak", 23989, "N"], [103, "cedar", 44159, "N"], [104, "cedar", 94127, "N"], [105, "spruce", 32017, "N"]]
+   }
+  }
+ ]
+}

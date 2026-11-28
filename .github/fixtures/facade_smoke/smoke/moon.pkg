@@ -1,6 +1,6 @@
 import {
   "ihb2032/MoonFrame" @moonframe,
-  "ihb2032/MoonFrame/io" @io,
+  "ihb2032/MoonFrame/io",
   "moonbitstack/moondb",
   "moonbitlang/x/fs",
 }
@@ -8,4 +8,5 @@ import {
 // The backends the package builds for, named because a dependency of
 // the module names its own and the build asks the same of what depends
 // on it.
+
 supported_targets = "js + native + wasm + wasm-gc"

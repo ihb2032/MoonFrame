@@ -1,0 +1,7 @@
+id  name  amount flag
+100 maple 15012  Y   
+101 oak   83854  N   
+102 cedar 47173  Y   
+103 fir   97544  N   
+104 elm   84416  N   
+105 fir   63235  N   

@@ -212,6 +212,12 @@ same way.
   over a query, read through the driver's cursor in batches. MoonFrame
   takes the moondb contract and no database backend: the driver is the
   caller's.
+- **Read fixed-width files** — `read_fwf` reads a file of fixed-width
+  lines as a frame (`parse_fwf` for text already in memory): each line a
+  row, its fields laid out by `FwfReadOptions` — inferred from the first
+  lines, or named by `widths` or `colspecs` — the first line the header,
+  a blank line skipped, and each column typed by the CSV reader's rule.
+  `parse_fwf`'s docstring states the rules and the refusals.
 - **Hold lists and structs** — a column of lists (`DataType::List`) or of
   records (`DataType::Struct`), built with `Series::from_scalars` or read
   from a JSON field of arrays / objects, and carried whole through the
@@ -422,10 +428,11 @@ internal/xport/   the native SAS transport codec — the Version 5 header record
 internal/sas7bdat/ the native SAS data-set codec — the paged layout of Versions 7, 8 and 9 with its subheaders, either byte order and word size, the two row compressions, and the single-byte character sets; wrapped by io's read_sas
 internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read_orc
 internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
+internal/fwf/     the fixed-width column logic — where each line's fields start and end, inferred from the lines or named by widths and positions, and how a line is cut into them; wrapped by io's read_fwf
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

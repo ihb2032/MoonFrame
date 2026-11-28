@@ -1,0 +1,7 @@
+id  name  amount flag
+100 fir   57148  N   
+101 ash   98031  Y   
+102 birch 62374  Y   
+103 ash   86217  N   
+104 ash   62042  Y   
+105 cedar 87369  N   

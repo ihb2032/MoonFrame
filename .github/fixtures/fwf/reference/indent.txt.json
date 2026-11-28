@@ -1,0 +1,58 @@
+{
+ "file": "indent.txt",
+ "family": "indent",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "four spaces of indentation on every line: they name no field",
+ "roundtrip": false,
+ "lines": ["    id  name   amount flag", "    100 elm    44113  Y   ", "    101 spruce 1323   Y   ", "    102 walnut 13487  Y   ", "    103 ash    32681  Y   ", "    104 spruce 40447  Y   ", "    105 birch  6394   N   "],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[4, 7], [8, 14], [15, 21], [22, 26]],
+   "cut": [["id", "name", "amount", "flag"], ["100", "elm", "44113", "Y"], ["101", "spruce", "1323", "Y"], ["102", "walnut", "13487", "Y"], ["103", "ash", "32681", "Y"], ["104", "spruce", "40447", "Y"], ["105", "birch", "6394", "N"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["id", "name", "amount", "flag"], ["100", "elm", "44113", "Y"], ["101", "spruce", "1323", "Y"], ["102", "walnut", "13487", "Y"], ["103", "ash", "32681", "Y"], ["104", "spruce", "40447", "Y"], ["105", "birch", "6394", "N"]],
+   "table": {
+    "columns": ["id", "name", "amount", "flag"],
+    "dtypes": ["int64", "str", "int64", "str"],
+    "cells": [[100, "elm", 44113, "Y"], [101, "spruce", 1323, "Y"], [102, "walnut", 13487, "Y"], [103, "ash", 32681, "Y"], [104, "spruce", 40447, "Y"], [105, "birch", 6394, "N"]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [7, 7, 7, 5],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 7], [7, 14], [14, 21], [21, 26]],
+   "cut": [["id", "name", "amount", "flag"], ["100", "elm", "44113", "Y"], ["101", "spruce", "1323", "Y"], ["102", "walnut", "13487", "Y"], ["103", "ash", "32681", "Y"], ["104", "spruce", "40447", "Y"], ["105", "birch", "6394", "N"]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["id", "name", "amount", "flag"], ["100", "elm", "44113", "Y"], ["101", "spruce", "1323", "Y"], ["102", "walnut", "13487", "Y"], ["103", "ash", "32681", "Y"], ["104", "spruce", "40447", "Y"], ["105", "birch", "6394", "N"]],
+   "table": {
+    "columns": ["id", "name", "amount", "flag"],
+    "dtypes": ["int64", "str", "int64", "str"],
+    "cells": [[100, "elm", 44113, "Y"], [101, "spruce", 1323, "Y"], [102, "walnut", 13487, "Y"], [103, "ash", 32681, "Y"], [104, "spruce", 40447, "Y"], [105, "birch", 6394, "N"]]
+   }
+  }
+ ]
+}

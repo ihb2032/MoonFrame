@@ -1,0 +1,138 @@
+{
+ "file": "comment_lines.txt",
+ "family": "comment",
+ "origin": "generated",
+ "generator": "tools/gen_fixtures.py",
+ "seed": 20261128,
+ "reference": {
+  "implementation": "pandas",
+  "version": "3.1.1",
+  "function": "read_fwf"
+ },
+ "newline": "\n",
+ "note": "comment lines and a comment inside a field: read without a marker, then with '#' — a comment line counts as a row of the window and names nothing, as windows of five and six rows show against one of seven",
+ "roundtrip": false,
+ "lines": ["Aaa  Bbb  Ccc", "# a note of some length", "1    2    3", "x#y  123  z", "# whole", "4    5    6", "4444 5555 6666"],
+ "readings": [
+  {
+   "name": "infer",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 16], [17, 23]],
+   "cut": [["Aaa  Bbb  Ccc", ""], ["# a note of some", "length"], ["1    2    3", ""], ["x#y  123  z", ""], ["# whole", ""], ["4    5    6", ""], ["4444 5555 6666", ""]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["Aaa  Bbb  Ccc", ""], ["# a note of some", "length"], ["1    2    3", ""], ["x#y  123  z", ""], ["# whole", ""], ["4    5    6", ""], ["4444 5555 6666", ""]],
+   "table": {
+    "columns": ["Aaa  Bbb  Ccc", "Unnamed: 1"],
+    "dtypes": ["str", "str"],
+    "cells": [["# a note of some", "length"], ["1    2    3", null], ["x#y  123  z", null], ["# whole", null], ["4    5    6", null], ["4444 5555 6666", null]]
+   }
+  },
+  {
+   "name": "widths",
+   "options": {
+    "skiprows": null,
+    "comment": null,
+    "infer_nrows": 100
+   },
+   "widths": [16, 7],
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 16], [16, 23]],
+   "cut": [["Aaa  Bbb  Ccc", ""], ["# a note of some", "length"], ["1    2    3", ""], ["x#y  123  z", ""], ["# whole", ""], ["4    5    6", ""], ["4444 5555 6666", ""]],
+   "row_lines": [0, 1, 2, 3, 4, 5, 6],
+   "rows": [["Aaa  Bbb  Ccc", ""], ["# a note of some", "length"], ["1    2    3", ""], ["x#y  123  z", ""], ["# whole", ""], ["4    5    6", ""], ["4444 5555 6666", ""]],
+   "table": {
+    "columns": ["Aaa  Bbb  Ccc", "Unnamed: 1"],
+    "dtypes": ["str", "str"],
+    "cells": [["# a note of some", "length"], ["1    2    3", null], ["x#y  123  z", null], ["# whole", null], ["4    5    6", null], ["4444 5555 6666", null]]
+   }
+  },
+  {
+   "name": "comment",
+   "options": {
+    "skiprows": null,
+    "comment": "#",
+    "infer_nrows": 100
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 4], [5, 9], [10, 14]],
+   "cut": [["Aaa", "Bbb", "Ccc"], ["# a", "ote", "f so"], ["1", "2", "3"], ["x#y", "123", "z"], ["# wh", "le", ""], ["4", "5", "6"], ["4444", "5555", "6666"]],
+   "row_lines": [0, 2, 3, 5, 6],
+   "rows": [["Aaa", "Bbb", "Ccc"], ["1", "2", "3"], ["x", null, null], ["4", "5", "6"], ["4444", "5555", "6666"]],
+   "table": {
+    "columns": ["Aaa", "Bbb", "Ccc"],
+    "dtypes": ["str", "float64", "float64"],
+    "cells": [["1", 2.0, 3.0], ["x", null, null], ["4", 5.0, 6.0], ["4444", 5555.0, 6666.0]]
+   }
+  },
+  {
+   "name": "comment:5",
+   "options": {
+    "skiprows": null,
+    "comment": "#",
+    "infer_nrows": 5
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 3], [5, 8], [10, 13]],
+   "cut": [["Aaa", "Bbb", "Ccc"], ["# a", "ote", "f s"], ["1", "2", "3"], ["x#y", "123", "z"], ["# w", "le", ""], ["4", "5", "6"], ["444", "555", "666"]],
+   "row_lines": [0, 2, 3, 5, 6],
+   "rows": [["Aaa", "Bbb", "Ccc"], ["1", "2", "3"], ["x", null, null], ["4", "5", "6"], ["444", "555", "666"]],
+   "table": {
+    "columns": ["Aaa", "Bbb", "Ccc"],
+    "dtypes": ["str", "float64", "float64"],
+    "cells": [["1", 2.0, 3.0], ["x", null, null], ["4", 5.0, 6.0], ["444", 555.0, 666.0]]
+   }
+  },
+  {
+   "name": "comment:6",
+   "options": {
+    "skiprows": null,
+    "comment": "#",
+    "infer_nrows": 6
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 3], [5, 8], [10, 13]],
+   "cut": [["Aaa", "Bbb", "Ccc"], ["# a", "ote", "f s"], ["1", "2", "3"], ["x#y", "123", "z"], ["# w", "le", ""], ["4", "5", "6"], ["444", "555", "666"]],
+   "row_lines": [0, 2, 3, 5, 6],
+   "rows": [["Aaa", "Bbb", "Ccc"], ["1", "2", "3"], ["x", null, null], ["4", "5", "6"], ["444", "555", "666"]],
+   "table": {
+    "columns": ["Aaa", "Bbb", "Ccc"],
+    "dtypes": ["str", "float64", "float64"],
+    "cells": [["1", 2.0, 3.0], ["x", null, null], ["4", 5.0, 6.0], ["444", 555.0, 666.0]]
+   }
+  },
+  {
+   "name": "comment:7",
+   "options": {
+    "skiprows": null,
+    "comment": "#",
+    "infer_nrows": 7
+   },
+   "widths": null,
+   "refuses": null,
+   "colspecs_from": "parser._engine.data.colspecs",
+   "colspecs": [[0, 4], [5, 9], [10, 14]],
+   "cut": [["Aaa", "Bbb", "Ccc"], ["# a", "ote", "f so"], ["1", "2", "3"], ["x#y", "123", "z"], ["# wh", "le", ""], ["4", "5", "6"], ["4444", "5555", "6666"]],
+   "row_lines": [0, 2, 3, 5, 6],
+   "rows": [["Aaa", "Bbb", "Ccc"], ["1", "2", "3"], ["x", null, null], ["4", "5", "6"], ["4444", "5555", "6666"]],
+   "table": {
+    "columns": ["Aaa", "Bbb", "Ccc"],
+    "dtypes": ["str", "float64", "float64"],
+    "cells": [["1", 2.0, 3.0], ["x", null, null], ["4", 5.0, 6.0], ["4444", 5555.0, 6666.0]]
+   }
+  }
+ ]
+}

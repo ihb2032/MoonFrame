@@ -1,0 +1,21 @@
+{
+ "file": "broken_string_length_negative.orc",
+ "origin": "hand-built",
+ "note": "a string's length with its top bit set",
+ "bytes": 86,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a negative string length",
+ "message": "orc: byte 13: stripe 0's LENGTH stream of column 1, which starts at byte 3: a string of column \"s\" has a length of -9223372036854775808 bytes",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "the reader crashed: exit code 3221225477 ",
+ "views": [
+ ],
+ "cells": 0
+}

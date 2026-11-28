@@ -1,0 +1,22 @@
+{
+ "file": "broken_utf8.orc",
+ "origin": "hand-built",
+ "note": "a string's bytes not well-formed as UTF-8",
+ "bytes": 79,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a string not UTF-8",
+ "message": "orc: byte 6: stripe 0's DATA stream of column 1, which starts at byte 6: a string of column \"s\" not well-formed as UTF-8",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,25 @@
+{
+ "file": "pyorc_nested_binary.orc",
+ "origin": "pyarrow",
+ "note": "a BINARY inside a list and inside a struct",
+ "bytes": 751,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a BINARY inside a list and inside a struct",
+ "message": "orc: column \"lb[]\" is BINARY, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "lb: list<item: binary>", "sb: struct<b: binary>", "li: list<item: int32>"],
+ "views": [
+  {"projection": ["n", "li"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]},
+   {"name": "li", "dtype": "List(Int)", "cells": ["List [Int 1]",null,"List [Int 2, Int 3]"]}
+  ]}
+ ],
+ "cells": 6
+}

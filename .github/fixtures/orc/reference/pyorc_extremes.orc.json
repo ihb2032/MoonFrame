@@ -1,0 +1,27 @@
+{
+ "file": "pyorc_extremes.orc",
+ "origin": "pyarrow",
+ "note": "the numeric extremes, the largest and smallest floats",
+ "bytes": 1195,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 6,
+ "stripes": 1,
+ "fields": 7,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 6,
+ "reference_columns": ["i8: int8", "i16: int16", "i32: int32", "i64: int64", "f32: float", "f64: double", "d: date32[day]"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "i8", "dtype": "Int", "cells": ["Int -128","Int 127","Int 0","Int -1",null,"Int 1"]},
+   {"name": "i16", "dtype": "Int", "cells": ["Int -32768","Int 32767","Int 0","Int -1",null,"Int 1"]},
+   {"name": "i32", "dtype": "Int", "cells": ["Int -2147483648","Int 2147483647","Int 0","Int -1",null,"Int 1"]},
+   {"name": "i64", "dtype": "Int", "cells": ["Int -9223372036854775808","Int 9223372036854775807","Int 0","Int -1",null,"Int 1"]},
+   {"name": "f32", "dtype": "Float", "cells": ["Float 47efffffe0000000","Float c7efffffe0000000","Float 3810000000000000","Float 36a0000000000000","Float 7ff0000000000000","Float fff0000000000000"]},
+   {"name": "f64", "dtype": "Float", "cells": ["Float 7fefffffffffffff","Float ffefffffffffffff","Float 0010000000000000","Float 0000000000000001","Float 7ff0000000000000","Float fff0000000000000"]},
+   {"name": "d", "dtype": "Date", "cells": ["Date -2147483648","Date 2147483647","Date 0","Date -719162","Date 2932896",null]}
+  ]}
+ ],
+ "cells": 42
+}

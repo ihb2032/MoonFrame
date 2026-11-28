@@ -1,0 +1,21 @@
+{
+ "file": "built_decimal_precision_0.orc",
+ "origin": "hand-built",
+ "note": "a decimal of precision 0, the first format's: the cells carry the scale each value's stream names; the reference reader forces a scale of zero",
+ "bytes": 95,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: decimal128(38, 6)"],
+ "views": [
+  {"projection": null, "source": "generator", "reference_opens": true, "reference_cells": {"c0": ["Decimal 123.450000", "Decimal -0.010000", null]}, "columns": [
+   {"name": "c0", "dtype": "Decimal", "cells": ["Decimal 123.45","Decimal -0.01",null]}
+  ]}
+ ],
+ "cells": 3
+}

@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_top_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the root type retyped LONG, its two subtypes beneath it",
+ "bytes": 341,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "the top-level type is not a struct",
+ "message": "orc: the top-level type is LONG, where the columns are a STRUCT's fields",
+ "reference_opens": false,
+ "reference_error": "ArrowNotImplementedError: Only ORC files with a top-level struct can be handled",
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,23 @@
+{
+ "file": "pyorc_dictionary.orc",
+ "origin": "pyarrow",
+ "note": "strings under the dictionary threshold: two columns stay dictionary encoded, one falls back to direct",
+ "bytes": 613,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 10,
+ "stripes": 1,
+ "fields": 3,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 10,
+ "reference_columns": ["few: string", "all: string", "one: string"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "few", "dtype": "String", "cells": ["String \"Nevada\"","String \"California\"",null,"String \"Nevada\"","String \"California\"","String \"Florida\"","String \"\"",null,"String \"Florida\"","String \"nevada\""]},
+   {"name": "all", "dtype": "String", "cells": ["String \"row 0\"","String \"row 1\"","String \"row 2\"","String \"row 3\"","String \"row 4\"","String \"row 5\"","String \"row 6\"","String \"row 7\"","String \"row 8\"","String \"row 9\""]},
+   {"name": "one", "dtype": "String", "cells": ["String \"same\"",null,"String \"same\"","String \"same\"",null,null,"String \"same\"","String \"same\"","String \"same\"","String \"same\""]}
+  ]}
+ ],
+ "cells": 30
+}

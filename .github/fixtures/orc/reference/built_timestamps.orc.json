@@ -1,0 +1,24 @@
+{
+ "file": "built_timestamps.orc",
+ "origin": "hand-built",
+ "note": "timestamps: before the 2015 epoch, every trailing-zero count of the nanosecond spelling, both formats, the instant kind",
+ "bytes": 301,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["c0: timestamp[ns]", "c1: timestamp[ns]", "c2: timestamp[ns]", "c3: timestamp[ns, tz=UTC]"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Timestamp", "cells": ["Timestamp 1420070400000000","Timestamp 1420070399000001","Timestamp 2420070400999999",null,"Timestamp 123456"]},
+   {"name": "c1", "dtype": "Timestamp", "cells": ["Timestamp 1420070401000001","Timestamp 1420070402000120","Timestamp 1420070403500000","Timestamp 1420070404999999","Timestamp 1420070405123456"]},
+   {"name": "c2", "dtype": "Timestamp", "cells": ["Timestamp 1420070400000000","Timestamp 1420070399000001","Timestamp 2420070400999999",null,"Timestamp 123456"]},
+   {"name": "c3", "dtype": "Timestamp", "cells": ["Timestamp 1420070400000000","Timestamp 1420070399000001","Timestamp 2420070400999999",null,"Timestamp 123456"]}
+  ]}
+ ],
+ "cells": 20
+}

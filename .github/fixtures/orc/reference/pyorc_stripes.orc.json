@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_stripes.orc",
+ "origin": "pyarrow",
+ "note": "60 rows in six stripes of three row groups each, a dictionary string column",
+ "bytes": 3831,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 60,
+ "stripes": 6,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 60,
+ "reference_columns": ["i: int64", "s: string", "f: double", "b: bool"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "i", "dtype": "Int", "cells": ["Int 0","Int 1","Int 2","Int 3","Int 4","Int 5","Int 6","Int 7","Int 8","Int 9","Int 10","Int 11","Int 12","Int 13","Int 14","Int 15","Int 16","Int 17","Int 18","Int 19","Int 20","Int 21","Int 22","Int 23","Int 24","Int 25","Int 26","Int 27","Int 28","Int 29","Int 30","Int 31","Int 32","Int 33","Int 34","Int 35","Int 36","Int 37","Int 38","Int 39","Int 40","Int 41","Int 42","Int 43","Int 44","Int 45","Int 46","Int 47","Int 48","Int 49","Int 50","Int 51","Int 52","Int 53","Int 54","Int 55","Int 56","Int 57","Int 58","Int 59"]},
+   {"name": "s", "dtype": "String", "cells": ["String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"",null,"String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"",null,"String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"",null,"String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"",null,"String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"",null,"String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"","String \"ünï\"","String \"alpha\"","String \"beta\"","String \"gamma\"","String \"delta\"",null]},
+   {"name": "f", "dtype": "Float", "cells": ["Float 0000000000000000","Float 3ff4000000000000","Float 4004000000000000","Float 400e000000000000","Float 4014000000000000","Float 4019000000000000","Float 401e000000000000","Float 4021800000000000","Float 4024000000000000","Float 4026800000000000","Float 4029000000000000","Float 402b800000000000","Float 402e000000000000","Float 4030400000000000","Float 4031800000000000","Float 4032c00000000000","Float 4034000000000000","Float 4035400000000000","Float 4036800000000000","Float 4037c00000000000","Float 4039000000000000","Float 403a400000000000","Float 403b800000000000","Float 403cc00000000000","Float 403e000000000000","Float 403f400000000000","Float 4040400000000000","Float 4040e00000000000","Float 4041800000000000","Float 4042200000000000","Float 4042c00000000000","Float 4043600000000000","Float 4044000000000000","Float 4044a00000000000","Float 4045400000000000","Float 4045e00000000000","Float 4046800000000000","Float 4047200000000000","Float 4047c00000000000","Float 4048600000000000","Float 4049000000000000","Float 4049a00000000000","Float 404a400000000000","Float 404ae00000000000","Float 404b800000000000","Float 404c200000000000","Float 404cc00000000000","Float 404d600000000000","Float 404e000000000000","Float 404ea00000000000","Float 404f400000000000","Float 404fe00000000000","Float 4050400000000000","Float 4050900000000000","Float 4050e00000000000","Float 4051300000000000","Float 4051800000000000","Float 4051d00000000000","Float 4052200000000000","Float 4052700000000000"]},
+   {"name": "b", "dtype": "Bool", "cells": ["Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false","Bool true","Bool false","Bool false"]}
+  ]}
+ ],
+ "cells": 240
+}

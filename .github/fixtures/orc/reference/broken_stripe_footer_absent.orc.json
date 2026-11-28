@@ -1,0 +1,21 @@
+{
+ "file": "broken_stripe_footer_absent.orc",
+ "origin": "hand-built",
+ "note": "a stripe's information with no footer length, an empty stripe footer",
+ "bytes": 68,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the encodings do not match the types",
+ "message": "orc: byte 23: stripe 0's footer names 0 encodings for 2 types",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad number of ColumnEncodings in StripeFooter: expected=2, actual=0",
+ "views": [
+ ],
+ "cells": 0
+}

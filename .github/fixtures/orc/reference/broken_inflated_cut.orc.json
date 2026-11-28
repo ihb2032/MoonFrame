@@ -1,0 +1,21 @@
+{
+ "file": "broken_inflated_cut.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the string column's PRESENT stream cut by two bytes, the file under ZLIB in blocks of at most 9 bytes",
+ "bytes": 460,
+ "compression": "ZLIB",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "an inflated stream ending inside a value",
+ "message": "orc: byte 3: of the inflated stripe 0's LENGTH stream of column 2, which starts at byte 99: the bytes end inside a value",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

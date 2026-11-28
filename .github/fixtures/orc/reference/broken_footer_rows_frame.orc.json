@@ -1,0 +1,21 @@
+{
+ "file": "broken_footer_rows_frame.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_stripes.orc: six stripes of 400,000,000 rows and a footer that agrees",
+ "bytes": 3859,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2400000000,
+ "stripes": 6,
+ "fields": 4,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "footer rows past a frame",
+ "message": "orc: byte 3538: the Footer declares 2400000000 rows, past a frame's own height",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

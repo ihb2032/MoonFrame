@@ -65,12 +65,12 @@ types | doc_hidden internal_engine | pub fn DataType::comparable_with(self : Dat
 types | doc_hidden internal_engine | pub fn DataType::i64_rider_scalar(self : DataType, v : Int64) -> Scalar? | used by: internal/column,series
 types | doc_hidden internal_engine | pub fn DataType::orderable(self : DataType) -> Bool | used by: frame
 types | doc_hidden internal_engine | pub fn DataType::physical(self : DataType) -> PhysicalType? | used by: internal/column,series
-types | doc_hidden internal_engine | pub fn Dec128::of_unscaled( low : UInt64, high : UInt64, negative~ : Bool, scale~ : Int32, ) -> Dec128? | used by: internal/avro
+types | doc_hidden internal_engine | pub fn Dec128::of_unscaled( low : UInt64, high : UInt64, negative~ : Bool, scale~ : Int32, ) -> Dec128? | used by: internal/avro,internal/orc
 types | doc_hidden internal_engine | pub fn Dec128::to_unscaled( self : Dec128, scale~ : Int32, ) -> (UInt64, UInt64, Bool)? | used by: internal/avro
 types | doc_hidden internal_engine | pub fn Schema::index_maybe(self : Schema, name : String) -> Int32? | used by: frame
 types | doc_hidden internal_engine | pub fn date_days_to_civil(days : Int64) -> (Int64, Int64, Int64) | used by: internal/kernel
 types | doc_hidden internal_engine | pub fn day_micros_to_clock(within_day : Int64) -> (Int64, Int64, Int64, Int64) | used by: internal/kernel
-types | doc_hidden internal_engine | pub fn float32_bits_to_double(bits : UInt32) -> Double | used by: internal/avro,internal/ipc,internal/stata
+types | doc_hidden internal_engine | pub fn float32_bits_to_double(bits : UInt32) -> Double | used by: internal/avro,internal/ipc,internal/orc,internal/stata
 types | doc_hidden internal_engine | pub fn parse_date_days_opt(s : String) -> Int64? | used by: io
 types | doc_hidden internal_engine | pub fn parse_timestamp_micros_opt(s : String) -> Int64? | used by: io
 types | doc_hidden internal_engine | pub fn timestamp_micros_to_day(micros : Int64) -> (Int64, Int64) | used by: internal/column,internal/kernel,io

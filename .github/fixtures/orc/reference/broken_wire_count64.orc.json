@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_count64.orc",
+ "origin": "hand-built",
+ "note": "a stripe whose offset is 2^63",
+ "bytes": 79,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a count past 64 bits",
+ "message": "orc: byte 28: the Footer's stripe 0: an offset of 9223372036854775808, past what a 64-bit count holds",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Malformed StripeInformation at stripe index 0: fileLength=79, StripeInfo=(offset=9223372036854775808, indexLength=0, dataLength=4, footerLength=16)",
+ "views": [
+ ],
+ "cells": 0
+}

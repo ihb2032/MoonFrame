@@ -1,0 +1,15 @@
+{
+ "file": "orc_zero.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): no byte at all",
+ "bytes": 0,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "an empty file",
+ "message": "orc: byte 0: a file of 0 bytes, too short for a PostScript",
+ "reference_opens": false,
+ "reference_error": "OSError: File size too small",
+ "views": [
+ ],
+ "cells": 0
+}

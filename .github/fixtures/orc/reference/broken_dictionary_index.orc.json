@@ -1,0 +1,21 @@
+{
+ "file": "broken_dictionary_index.orc",
+ "origin": "hand-built",
+ "note": "an index of five into two entries",
+ "bytes": 91,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a dictionary index past its entries",
+ "message": "orc: byte 9: stripe 0's DATA stream of column 1, which starts at byte 6: an index of 5 into the 2 entries of the dictionary of column \"d\"",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Entry index out of range in StringDictionaryColumn",
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,1585 @@
+[
+ {
+  "file": "pyorc_small_uncompressed.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "pyorc_small_zlib.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "pyorc_small_snappy.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "pyorc_small_lz4.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "pyorc_small_zstd.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "pyorc_scalars.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 12,
+  "cells": 144
+ },
+ {
+  "file": "pyorc_scalars_v011.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 12,
+  "cells": 144
+ },
+ {
+  "file": "pyorc_dictionary.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 10,
+  "cells": 30
+ },
+ {
+  "file": "pyorc_dictionary_v011.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 10,
+  "cells": 30
+ },
+ {
+  "file": "pyorc_nested.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 8,
+  "cells": 48
+ },
+ {
+  "file": "pyorc_nested_v011.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 8,
+  "cells": 48
+ },
+ {
+  "file": "pyorc_nulls.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 6,
+  "cells": 108
+ },
+ {
+  "file": "pyorc_extremes.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 6,
+  "cells": 42
+ },
+ {
+  "file": "pyorc_encodings.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 100,
+  "cells": 1000
+ },
+ {
+  "file": "pyorc_encodings_v011.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 100,
+  "cells": 1000
+ },
+ {
+  "file": "pyorc_encodings_long.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 1050,
+  "cells": 3150
+ },
+ {
+  "file": "pyorc_stripes.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 60,
+  "cells": 240
+ },
+ {
+  "file": "pyorc_empty.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "pyorc_norows.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "pyorc_timestamp_instant.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 4,
+  "cells": 8
+ },
+ {
+  "file": "pyorc_timestamp_edges.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 12,
+  "cells": 48
+ },
+ {
+  "file": "pyorc_timestamp_bounds.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": false,
+  "rows": 8,
+  "cells": 16
+ },
+ {
+  "file": "pyorc_timestamp_overflow.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 6,
+  "cells": 6
+ },
+ {
+  "file": "pyorc_decimals.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 36
+ },
+ {
+  "file": "pyorc_multiblock_zlib.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 550,
+  "cells": 550
+ },
+ {
+  "file": "pyorc_names.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 2,
+  "cells": 8
+ },
+ {
+  "file": "pyorc_dupnames.orc",
+  "origin": "pyarrow",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 2,
+  "cells": 4
+ },
+ {
+  "file": "pyorc_binary.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "pyorc_map.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "pyorc_union.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "pyorc_nested_binary.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 6
+ },
+ {
+  "file": "pyorc_dupfield.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "pyorc_timestamp_nanos.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "pyorc_decimal_wide.orc",
+  "origin": "pyarrow",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "orc_TestOrcFile.test1.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 2,
+  "cells": 20
+ },
+ {
+  "file": "orc_TestOrcFile.emptyFile.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "orc_TestOrcFile.testStringAndBinaryStatistics.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 4,
+  "cells": 4
+ },
+ {
+  "file": "orc_TestOrcFile.testTimestamp.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 12,
+  "cells": 0
+ },
+ {
+  "file": "orc_TestOrcFile.testWithoutCompressionBlockSize.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "orc_bad_bloom_filter_1.6.0.orc",
+  "origin": "apache/orc examples",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "orc_bad_bloom_filter_1.6.11.orc",
+  "origin": "apache/orc examples",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "orc_complextypes_iceberg.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 3
+ },
+ {
+  "file": "orc_decimal64_v2.orc",
+  "origin": "apache/orc examples",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 10,
+  "cells": 50
+ },
+ {
+  "file": "orc_decimal64_v2_cplusplus.orc",
+  "origin": "apache/orc examples",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 10,
+  "cells": 50
+ },
+ {
+  "file": "orc_no_format.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "orc_version1999.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "orc_zero.orc",
+  "origin": "apache/orc examples",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "orc_TestOrcFile.testMemoryManagementV11.orc",
+  "origin": "apache/orc examples",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 2500,
+  "cells": 5000
+ },
+ {
+  "file": "synthetic_lzo.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_compression_9.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_no_magic.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_bad_magic.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_postscript_0.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_postscript_3.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_footer_cut.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_footer_wire.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_footer_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_metadata_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_compression_absent.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "synthetic_rows_plus_one.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 6,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_rows_huge.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 1099511627776,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stream_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stream_short.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stripe_footer_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stripe_footer_short.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stripe_offset.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_stripe_absent.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_no_types.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_type_names.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_type_link.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_type_past.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_top_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_encodings_short.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_kind_19.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_encoding_4.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_encoding_dictionary_int.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_encrypted.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_encrypted_stream.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "synthetic_dictionary_count_stream.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_unknown_stream.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_varchar.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_char.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_decimal_precision_0.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 36
+ },
+ {
+  "file": "synthetic_root_null.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_root_all_null.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_blocks_original.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_blocks_mixed.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_blocks_huge_block_size.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 10
+ },
+ {
+  "file": "synthetic_snappy_compressed.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 200,
+  "cells": 400
+ },
+ {
+  "file": "synthetic_lz4_compressed.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 200,
+  "cells": 400
+ },
+ {
+  "file": "synthetic_zstd_compressed.orc",
+  "origin": "synthetic",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 200,
+  "cells": 400
+ },
+ {
+  "file": "built_rle_v1.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 140,
+  "cells": 1120
+ },
+ {
+  "file": "built_rle_v2_short.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 12,
+  "cells": 60
+ },
+ {
+  "file": "built_rle_v2_direct.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 20,
+  "cells": 180
+ },
+ {
+  "file": "built_rle_v2_patched.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 64,
+  "cells": 960
+ },
+ {
+  "file": "built_patched_long.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 356,
+  "cells": 712
+ },
+ {
+  "file": "built_long_runs.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 1400,
+  "cells": 4200
+ },
+ {
+  "file": "built_rle_v2_delta.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 512,
+  "cells": 3072
+ },
+ {
+  "file": "built_chain.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 58,
+  "cells": 232
+ },
+ {
+  "file": "built_root_null.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 4,
+  "cells": 12
+ },
+ {
+  "file": "built_scalars.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 6,
+  "cells": 42
+ },
+ {
+  "file": "built_strings.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 600,
+  "cells": 3600
+ },
+ {
+  "file": "built_timestamps.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 5,
+  "cells": 20
+ },
+ {
+  "file": "built_decimals.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 4,
+  "cells": 16
+ },
+ {
+  "file": "built_nested.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 6,
+  "cells": 36
+ },
+ {
+  "file": "built_index_streams.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "built_no_fields.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "built_subtypes_unpacked.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "built_negative_remainder.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "built_decimal_precision_0.orc",
+  "origin": "hand-built",
+  "codec": "reads",
+  "reference_opens": true,
+  "rows": 3,
+  "cells": 3
+ },
+ {
+  "file": "broken_version_13.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_postscript_huge.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_version_three.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_struct_encoding.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 2,
+  "cells": 0
+ },
+ {
+  "file": "broken_utf8.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_string_length_negative.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_string_bytes_short.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_string_data_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_size.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_bytes_short.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_index.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_data_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_lengths_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_patched_no_patch.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_patched_widths.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_patched_gap_end.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_delta_one.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_packed.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 10,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_short_repeat.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 8,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_float.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 2,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_byte_rle.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 128,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_present.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 128,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_delta.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 8,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_patched_base.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_varint.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 2,
+  "cells": 0
+ },
+ {
+  "file": "broken_cut_decimal.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_nanoseconds.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_decimal_wider_payload.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_decimal_wider_continued.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_decimal_scale_out.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_decimal_digits.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_decimal_quantum.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_list_length_negative.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_list_items_huge.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 2,
+  "cells": 0
+ },
+ {
+  "file": "broken_list_densest.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_densest.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 100000,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_rows_frame.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 2147483649,
+  "cells": 0
+ },
+ {
+  "file": "broken_footer_rows_frame.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 2400000000,
+  "cells": 0
+ },
+ {
+  "file": "broken_stream_past_stripe.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_inflated_cut.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_index_long.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 5,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_offset_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_footer_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_string_bytes_huge.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 4,
+  "cells": 0
+ },
+ {
+  "file": "broken_timestamp_far.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_timestamp_high.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_timestamp_low.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 1,
+  "cells": 0
+ },
+ {
+  "file": "broken_strings_data_absent_empty.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_dictionary_data_absent_empty.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_varint_wide.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_tag_huge.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_field_zero.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_group.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_count64.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_count32.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_varint_wire.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_packed_wire.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_field_name.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_subtypes_unrising.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_link_back.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "broken_link_absent.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_list_two.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_map_one.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_wire_leaf_subtypes.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_top_map.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "Unsupported",
+  "rows": 0,
+  "cells": 0
+ },
+ {
+  "file": "broken_stripe_footer_encryption.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_encrypted_index.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "Unsupported",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_encodings_long.orc",
+  "origin": "hand-built",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "rows": 3,
+  "cells": 0
+ },
+ {
+  "file": "broken_block_zlib_undecompress.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_snappy_undecompress.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_lz4_undecompress.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_zstd_undecompress.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_header_cut.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_no_bytes.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": true,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_past_end.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ },
+ {
+  "file": "broken_block_past_size.orc",
+  "origin": "synthetic",
+  "codec": "refuses",
+  "reference_opens": false,
+  "refusal": "ParseError",
+  "cells": 0
+ }
+]

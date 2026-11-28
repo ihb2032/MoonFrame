@@ -1,0 +1,16 @@
+{
+ "file": "broken_block_header_cut.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, two stray bytes after the footer's last block",
+ "bytes": 467,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block header cut short",
+ "message": "orc: byte 440: the Footer: a block header cut short",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Read past EOF in DecompressionStream::readBuffer",
+ "views": [
+ ],
+ "cells": 0
+}

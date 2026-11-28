@@ -1,0 +1,21 @@
+{
+ "file": "synthetic_encrypted_stream.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: an ENCRYPTED_DATA stream",
+ "bytes": 349,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "encrypted columns",
+ "message": "orc: stripe 0 carries an ENCRYPTED_DATA stream: the spelling of encrypted columns, which this reader does not read",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

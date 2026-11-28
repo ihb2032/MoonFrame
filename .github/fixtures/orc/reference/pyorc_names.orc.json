@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_names.orc",
+ "origin": "pyarrow",
+ "note": "an empty name, a name of 255 bytes, a non-ASCII name, blanks in a name",
+ "bytes": 886,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 2,
+ "reference_columns": [": int32", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: string", "日本語 ünïcödé: list<item: int32>", "with space and\ttab: bool"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "", "dtype": "Int", "cells": ["Int 1",null]},
+   {"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dtype": "String", "cells": ["String \"x\"","String \"y\""]},
+   {"name": "日本語 ünïcödé", "dtype": "List(Int)", "cells": ["List [Int 1]",null]},
+   {"name": "with space and\ttab", "dtype": "Bool", "cells": [null,"Bool true"]}
+  ]}
+ ],
+ "cells": 8
+}

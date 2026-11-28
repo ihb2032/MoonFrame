@@ -1,0 +1,22 @@
+{
+ "file": "broken_version_three.orc",
+ "origin": "hand-built",
+ "note": "the PostScript names three version numbers",
+ "bytes": 71,
+ "compression": "NONE",
+ "version": [0, 12, 1],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a format version this reader does not read",
+ "message": "orc: a file whose PostScript names 3 version numbers, which this reader does not read",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

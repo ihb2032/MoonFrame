@@ -1,0 +1,21 @@
+{
+ "file": "broken_struct_encoding.orc",
+ "origin": "hand-built",
+ "note": "a struct column under DIRECT_V2, where the format spells DIRECT",
+ "bytes": 83,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a struct under another encoding",
+ "message": "orc: column \"st\" is a STRUCT and carries encoding 2, where the format spells DIRECT",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Unknown encoding for StructColumnReader",
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,24 @@
+{
+ "file": "built_chain.orc",
+ "origin": "hand-built",
+ "note": "every version 2 run in one stream and every version 1 run in another, with and without nulls",
+ "bytes": 375,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 58,
+ "stripes": 1,
+ "fields": 4,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 58,
+ "reference_columns": ["c0: int64", "c1: int64", "c2: int64", "c3: int64"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Int", "cells": ["Int 9","Int 9","Int 9","Int 9","Int 1","Int 2","Int 3","Int 4","Int 500","Int 507","Int 514","Int 521","Int 528","Int 535","Int 542","Int 549","Int 556","Int 563","Int 570","Int 577","Int 584","Int 591","Int 598","Int 505","Int 512","Int 519","Int 526","Int 533","Int 540","Int 547","Int 554","Int 561","Int 568","Int 575","Int 582","Int 589","Int 596","Int 503","Int 1000","Int 1003","Int 1006","Int 1009","Int 1012","Int 1015","Int 1018","Int 1021","Int 1024","Int 1027","Int 1030","Int 1033","Int 1036","Int 1039","Int 1042","Int 1045","Int 1048","Int 1051","Int 1054","Int 1057"]},
+   {"name": "c1", "dtype": "Int", "cells": ["Int 1","Int 2","Int 3","Int 4","Int 6","Int 8","Int 10","Int 12","Int -1","Int -2","Int 50","Int 47","Int 44","Int 41","Int 38","Int 35","Int 32","Int 29","Int 26","Int 23","Int 1099511627776","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0","Int 0"]},
+   {"name": "c2", "dtype": "Int", "cells": ["Int 9",null,"Int 9","Int 9",null,"Int 9","Int 1",null,"Int 2","Int 3",null,"Int 4","Int 500",null,"Int 507","Int 514",null,"Int 521","Int 528",null,"Int 535","Int 542",null,"Int 549","Int 556",null,"Int 563","Int 570",null,"Int 577","Int 584",null,"Int 591","Int 598",null,"Int 505","Int 512",null,"Int 519","Int 526",null,"Int 533","Int 540",null,"Int 547","Int 554",null,"Int 561","Int 568",null,"Int 575","Int 582",null,"Int 589","Int 596","Int 503","Int 1000","Int 1003"]},
+   {"name": "c3", "dtype": "Int", "cells": ["Int 1",null,"Int 2","Int 3",null,"Int 4","Int 6",null,"Int 8","Int 10",null,"Int 12","Int -1",null,"Int -2","Int 50",null,"Int 47","Int 44",null,"Int 41","Int 38",null,"Int 35","Int 32",null,"Int 29","Int 26",null,"Int 23","Int 1099511627776",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0",null,"Int 0","Int 0","Int 0","Int 0","Int 0"]}
+  ]}
+ ],
+ "cells": 232
+}

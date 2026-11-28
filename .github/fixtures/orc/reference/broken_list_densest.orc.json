@@ -1,0 +1,21 @@
+{
+ "file": "broken_list_densest.orc",
+ "origin": "hand-built",
+ "note": "five lists of ten million items over a few bytes of stream",
+ "bytes": 104,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "list items past the densest encoding",
+ "message": "orc: byte 51: the lists of column \"l\" name 50000000 items in stripe 0, more than the densest encoding spells over its streams",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

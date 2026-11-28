@@ -1,0 +1,32 @@
+{
+ "file": "synthetic_decimal_precision_0.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_decimals.orc: the first decimal retyped to precision 0, the first format's decimal",
+ "bytes": 3308,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 12,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["p1: decimal128(1, 0)", "p2: decimal128(38, 6)", "p9: decimal128(9, 4)", "p10: decimal128(10, 0)", "p17: decimal128(17, 9)", "p18: decimal128(18, 2)", "p19: decimal128(19, 2)", "p20: decimal128(20, 4)", "p33: decimal128(33, 10)", "p34: decimal128(34, 2)", "p35: decimal128(35, 2)", "p38: decimal128(38, 8)"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "p1", "dtype": "Decimal", "cells": [null,"Decimal 7","Decimal 0"]},
+   {"name": "p2", "dtype": "Decimal", "cells": [null,"Decimal 0.070000","Decimal -0.070000"]},
+   {"name": "p9", "dtype": "Decimal", "cells": [null,"Decimal 12345.6789","Decimal -99999.9999"]},
+   {"name": "p10", "dtype": "Decimal", "cells": [null,"Decimal 1234567890","Decimal -1234567890"]},
+   {"name": "p17", "dtype": "Decimal", "cells": [null,"Decimal 12345678.123456789","Decimal 0.000000001"]},
+   {"name": "p18", "dtype": "Decimal", "cells": [null,"Decimal 999999999999999.99","Decimal -0.01"]},
+   {"name": "p19", "dtype": "Decimal", "cells": [null,"Decimal 1234567890123456.78","Decimal 1.00"]},
+   {"name": "p20", "dtype": "Decimal", "cells": [null,"Decimal 1234567890123456.7890","Decimal 7.0000"]},
+   {"name": "p33", "dtype": "Decimal", "cells": [null,"Decimal 12345678901234567890123.1234567890","Decimal -1.0000000001"]},
+   {"name": "p34", "dtype": "Decimal", "cells": [null,"Decimal 1234567890123456789012345678901.23","Decimal -99999999999999999999999999999999.99"]},
+   {"name": "p35", "dtype": "Decimal", "cells": [null,"Decimal 100000000000000000000000000000000.00","Decimal -1.00"]},
+   {"name": "p38", "dtype": "Decimal", "cells": [null,"Decimal 12345678901234567890123456.78901234","Decimal -0.00000001"]}
+  ]}
+ ],
+ "cells": 36
+}

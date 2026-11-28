@@ -1,0 +1,21 @@
+{
+ "file": "broken_stripe_index_long.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe's index names 400 bytes past the body",
+ "bytes": 342,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stripe past the body",
+ "message": "orc: byte 208: stripe 0 runs past the body's end at byte 168",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Malformed StripeInformation at stripe index 0: fileLength=342, StripeInfo=(offset=3, indexLength=400, dataLength=19, footerLength=87)",
+ "views": [
+ ],
+ "cells": 0
+}

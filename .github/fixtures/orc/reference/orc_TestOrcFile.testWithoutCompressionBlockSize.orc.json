@@ -1,0 +1,20 @@
+{
+ "file": "orc_TestOrcFile.testWithoutCompressionBlockSize.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; the top-level type is a LONG; SNAPPY with no block size",
+ "bytes": 63,
+ "compression": "SNAPPY",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 1,
+ "fields": 0,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "the top-level type is not a struct",
+ "message": "orc: the top-level type is LONG, where the columns are a STRUCT's fields",
+ "reference_opens": false,
+ "reference_error": "ArrowNotImplementedError: Only ORC files with a top-level struct can be handled",
+ "views": [
+ ],
+ "cells": 0
+}

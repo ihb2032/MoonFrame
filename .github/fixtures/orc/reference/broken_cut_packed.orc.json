@@ -1,0 +1,21 @@
+{
+ "file": "broken_cut_packed.orc",
+ "origin": "hand-built",
+ "note": "a direct run of ten values with three bytes cut",
+ "bytes": 72,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 10,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stream ending inside a value",
+ "message": "orc: byte 9: stripe 0's DATA stream of column 1, which starts at byte 3: the bytes end inside a value",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

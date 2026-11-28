@@ -1,0 +1,20 @@
+{
+ "file": "pyorc_empty.orc",
+ "origin": "pyarrow",
+ "note": "no column and no row",
+ "bytes": 61,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 0,
+ "fields": 0,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": [],
+ "views": [
+  {"projection": null, "columns": [
+  ]}
+ ],
+ "cells": 0
+}

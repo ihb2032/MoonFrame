@@ -1,0 +1,21 @@
+{
+ "file": "broken_top_map.orc",
+ "origin": "hand-built",
+ "note": "the top-level type is a MAP",
+ "bytes": 59,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "the top-level type is not a struct",
+ "message": "orc: the top-level type is MAP, where the columns are a STRUCT's fields",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "ArrowNotImplementedError: Only ORC files with a top-level struct can be handled",
+ "views": [
+ ],
+ "cells": 0
+}

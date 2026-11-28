@@ -1,0 +1,22 @@
+{
+ "file": "broken_nanoseconds.orc",
+ "origin": "hand-built",
+ "note": "a nanosecond count that scales past 64 bits",
+ "bytes": 87,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a nanosecond count past 64 bits",
+ "message": "orc: byte 3: stripe 0: the SECONDARY stream of column 1 holds a nanosecond count past 64 bits",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["c0: timestamp[ns]"],
+ "views": [
+ ],
+ "cells": 0
+}

@@ -2,6 +2,7 @@ import {
   "ihb2032/MoonFrame/internal/avro",
   "ihb2032/MoonFrame/internal/ipc",
   "ihb2032/MoonFrame/internal/parquet",
+  "ihb2032/MoonFrame/internal/orc",
   "ihb2032/MoonFrame/internal/stata",
   "ihb2032/MoonFrame/internal/sas7bdat",
   "ihb2032/MoonFrame/internal/xport",

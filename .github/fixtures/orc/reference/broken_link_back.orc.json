@@ -1,0 +1,21 @@
+{
+ "file": "broken_link_back.orc",
+ "origin": "hand-built",
+ "note": "the root struct names itself for a subtype",
+ "bytes": 57,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 0,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a subtype at or before itself",
+ "message": "orc: byte 11: the Footer's type 0 names subtype 0, at or before itself",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: malformed link from type 0 to 0",
+ "views": [
+ ],
+ "cells": 0
+}

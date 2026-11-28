@@ -1,0 +1,25 @@
+{
+ "file": "orc_no_format.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): an old Java writer; no format version and no magic in the PostScript; a list, a map and a struct",
+ "bytes": 745,
+ "compression": "ZLIB",
+ "version": [],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 3,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a MAP column",
+ "message": "orc: column \"_col1\" is a MAP, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 5,
+ "reference_columns": ["_col0: list<item: string>", "_col1: map<int32, string>", "_col2: struct<name: string, score: int32>"],
+ "views": [
+  {"projection": ["_col0", "_col2"], "columns": [
+   {"name": "_col0", "dtype": "List(String)", "cells": ["List [String \"Java/C++/Linux,4306:Bob/4307:Jack,Bob/90\"]","List [String \"C++/Python/Linux,4309:Sue/4310:Amy,Amy/100\"]","List [String \"Java/PHP/JQuery,4311:Alex/4312:Zach,Zach/10\"]","List [String \"Java/Java/Java,4313:Susan/4314:Jenny,Susan/20\"]","List [String \"Java/C/Linux,4315:Rob/4316:Max,Max/30\"]"]},
+   {"name": "_col2", "dtype": "Struct({\"name\": String, \"score\": Int})", "cells": [null,null,null,null,null]}
+  ]}
+ ],
+ "cells": 10
+}

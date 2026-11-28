@@ -376,6 +376,21 @@ test "spss read" {
 }
 
 ///|
+/// The ORC entries, each named through the facade: a file of the reference
+/// corpus read from its path, and its bytes parsed in memory under a
+/// projection.
+test "orc read" {
+  let path = "../orc/reference/pyorc_small_uncompressed.orc"
+  assert_eq(@moonframe.read_orc(path).shape(), (5, 2))
+  let bytes = @fs.read_file_to_bytes(path) catch {
+    _ => b""
+  }
+  let kept : @moonframe.DataFrame = @moonframe.parse_orc(bytes, projection=["s"])
+  assert_eq(kept.shape(), (5, 1))
+  assert_eq(kept.columns(), ["s"])
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

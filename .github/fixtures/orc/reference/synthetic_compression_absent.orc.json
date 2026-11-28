@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_compression_absent.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: no compression kind in the PostScript",
+ "bytes": 339,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "no compression kind",
+ "message": "orc: byte 317: the PostScript names no compression kind",
+ "reference_opens": false,
+ "reference_error": "OSError: Unknown compression type",
+ "views": [
+ ],
+ "cells": 0
+}

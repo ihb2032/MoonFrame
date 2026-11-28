@@ -1,0 +1,22 @@
+{
+ "file": "broken_decimal_digits.orc",
+ "origin": "hand-built",
+ "note": "five digits at a scale of -30 in the scale stream, which scales them past 34",
+ "bytes": 84,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a decimal past 34 digits at its scale",
+ "message": "orc: column \"c0\" holds a decimal of 5 digits at scale -30, which the library's decimal cannot hold exactly",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["c0: decimal128(38, 0)"],
+ "views": [
+ ],
+ "cells": 0
+}

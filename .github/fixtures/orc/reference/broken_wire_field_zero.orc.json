@@ -1,0 +1,16 @@
+{
+ "file": "broken_wire_field_zero.orc",
+ "origin": "hand-built",
+ "note": "a footer field of number zero",
+ "bytes": 72,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a field of number zero",
+ "message": "orc: byte 54: the Footer holds a field of number zero",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Failed to parse the footer from ArrowInputFile",
+ "views": [
+ ],
+ "cells": 0
+}

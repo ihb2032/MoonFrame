@@ -1,0 +1,38 @@
+{
+ "file": "pyorc_nulls.orc",
+ "origin": "pyarrow",
+ "note": "every carried type as a column of nothing but nulls, and as a column with none",
+ "bytes": 2167,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 6,
+ "stripes": 1,
+ "fields": 18,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 6,
+ "reference_columns": ["nb: bool", "ni: int64", "nf: double", "ns: string", "nt: timestamp[ns]", "nd: date32[day]", "nc: decimal128(8, 3)", "nl: list<item: int32>", "nst: struct<a: int32>", "pb: bool", "pi: int64", "pf: double", "ps: string", "pt: timestamp[ns]", "pd: date32[day]", "pc: decimal128(8, 3)", "pl: list<item: int32>", "pst: struct<a: int32>"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "nb", "dtype": "Bool", "cells": [null,null,null,null,null,null]},
+   {"name": "ni", "dtype": "Int", "cells": [null,null,null,null,null,null]},
+   {"name": "nf", "dtype": "Float", "cells": [null,null,null,null,null,null]},
+   {"name": "ns", "dtype": "String", "cells": [null,null,null,null,null,null]},
+   {"name": "nt", "dtype": "Timestamp", "cells": [null,null,null,null,null,null]},
+   {"name": "nd", "dtype": "Date", "cells": [null,null,null,null,null,null]},
+   {"name": "nc", "dtype": "Decimal", "cells": [null,null,null,null,null,null]},
+   {"name": "nl", "dtype": "List(Int)", "cells": [null,null,null,null,null,null]},
+   {"name": "nst", "dtype": "Struct({\"a\": Int})", "cells": [null,null,null,null,null,null]},
+   {"name": "pb", "dtype": "Bool", "cells": ["Bool true","Bool true","Bool true","Bool true","Bool true","Bool true"]},
+   {"name": "pi", "dtype": "Int", "cells": ["Int 0","Int 1","Int 2","Int 3","Int 4","Int 5"]},
+   {"name": "pf", "dtype": "Float", "cells": ["Float 3ff8000000000000","Float 3ff8000000000000","Float 3ff8000000000000","Float 3ff8000000000000","Float 3ff8000000000000","Float 3ff8000000000000"]},
+   {"name": "ps", "dtype": "String", "cells": ["String \"s\"","String \"s\"","String \"s\"","String \"s\"","String \"s\"","String \"s\""]},
+   {"name": "pt", "dtype": "Timestamp", "cells": ["Timestamp 1000","Timestamp 1000","Timestamp 1000","Timestamp 1000","Timestamp 1000","Timestamp 1000"]},
+   {"name": "pd", "dtype": "Date", "cells": ["Date 7","Date 7","Date 7","Date 7","Date 7","Date 7"]},
+   {"name": "pc", "dtype": "Decimal", "cells": ["Decimal 1.500","Decimal 1.500","Decimal 1.500","Decimal 1.500","Decimal 1.500","Decimal 1.500"]},
+   {"name": "pl", "dtype": "List(Int)", "cells": ["List [Int 1]","List []","List [Int 2, Int 3]","List [Int 1]","List []","List [Int 2, Int 3]"]},
+   {"name": "pst", "dtype": "Struct({\"a\": Int})", "cells": ["Struct {\"a\": Int 1}","Struct {\"a\": Null}","Struct {\"a\": Int 1}","Struct {\"a\": Null}","Struct {\"a\": Int 1}","Struct {\"a\": Null}"]}
+  ]}
+ ],
+ "cells": 108
+}

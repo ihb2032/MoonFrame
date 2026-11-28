@@ -1,0 +1,22 @@
+{
+ "file": "broken_decimal_scale_out.orc",
+ "origin": "hand-built",
+ "note": "a decimal at scale 7000",
+ "bytes": 84,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a decimal scale outside the library's",
+ "message": "orc: column \"c0\" holds a decimal of scale 7000, outside what the library's decimal holds",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["c0: decimal128(38, 7000)"],
+ "views": [
+ ],
+ "cells": 0
+}

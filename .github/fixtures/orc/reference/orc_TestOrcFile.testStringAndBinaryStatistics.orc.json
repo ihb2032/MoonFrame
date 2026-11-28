@@ -1,0 +1,24 @@
+{
+ "file": "orc_TestOrcFile.testStringAndBinaryStatistics.orc",
+ "origin": "apache/orc examples",
+ "note": "the format's own repository's example file (Apache-2.0): the Java writer; a BINARY and a STRING column",
+ "bytes": 341,
+ "compression": "ZLIB",
+ "version": [0, 12],
+ "rows": 4,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a BINARY column",
+ "message": "orc: column \"bytes1\" is BINARY, which has no dtype here",
+ "reference_opens": true,
+ "reference_rows": 4,
+ "reference_columns": ["bytes1: binary", "string1: string"],
+ "views": [
+  {"projection": ["string1"], "columns": [
+   {"name": "string1", "dtype": "String", "cells": ["String \"foo\"","String \"bar\"",null,"String \"hi\""]}
+  ]}
+ ],
+ "cells": 4
+}

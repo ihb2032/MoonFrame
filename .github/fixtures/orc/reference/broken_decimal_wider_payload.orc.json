@@ -1,0 +1,22 @@
+{
+ "file": "broken_decimal_wider_payload.orc",
+ "origin": "hand-built",
+ "note": "a decimal's varint of 19 bytes whose last carries more than two bits",
+ "bytes": 100,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a decimal wider than 128 bits",
+ "message": "orc: column \"c0\" holds a decimal wider than 128 bits",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 1,
+ "reference_columns": ["c0: decimal128(10, 2)"],
+ "views": [
+ ],
+ "cells": 0
+}

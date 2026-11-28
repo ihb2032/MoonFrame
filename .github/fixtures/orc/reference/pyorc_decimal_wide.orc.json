@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_decimal_wide.orc",
+ "origin": "pyarrow",
+ "note": "a decimal of 35 significant digits",
+ "bytes": 546,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a decimal of 35 significant digits",
+ "message": "orc: column \"d\" holds a decimal of more than 34 significant digits, which the library's decimal cannot carry",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "d: decimal128(38, 2)"],
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]}
+  ]}
+ ],
+ "cells": 3
+}

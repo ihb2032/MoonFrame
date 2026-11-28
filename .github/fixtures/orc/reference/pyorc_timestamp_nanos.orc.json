@@ -1,0 +1,24 @@
+{
+ "file": "pyorc_timestamp_nanos.orc",
+ "origin": "pyarrow",
+ "note": "timestamps with a nanosecond remainder",
+ "bytes": 327,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a nanosecond remainder",
+ "message": "orc: column \"t\" holds a timestamp with a nanosecond remainder, 1 ns in its second, which a microsecond timestamp cannot carry",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["n: int32", "t: timestamp[ns]"],
+ "views": [
+  {"projection": ["n"], "columns": [
+   {"name": "n", "dtype": "Int", "cells": ["Int 1",null,"Int 3"]}
+  ]}
+ ],
+ "cells": 3
+}

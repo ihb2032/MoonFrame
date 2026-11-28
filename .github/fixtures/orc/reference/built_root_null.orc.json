@@ -1,0 +1,23 @@
+{
+ "file": "built_root_null.orc",
+ "origin": "hand-built",
+ "note": "a PRESENT stream on the root struct — the second row absent — and each column's own over the rows it holds",
+ "bytes": 192,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 4,
+ "stripes": 1,
+ "fields": 3,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 4,
+ "reference_columns": ["c0: int64", "c1: string", "c2: list<item: int32>"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Int", "cells": ["Int 1",null,"Int 2","Int 3"]},
+   {"name": "c1", "dtype": "String", "cells": ["String \"a\"",null,"String \"\"","String \"bc\""]},
+   {"name": "c2", "dtype": "List(Int)", "cells": ["List [Int 7]",null,null,"List [Int 8, Int 9]"]}
+  ]}
+ ],
+ "cells": 12
+}

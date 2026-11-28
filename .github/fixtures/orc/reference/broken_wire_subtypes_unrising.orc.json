@@ -1,0 +1,21 @@
+{
+ "file": "broken_wire_subtypes_unrising.orc",
+ "origin": "hand-built",
+ "note": "the root struct's subtypes falling",
+ "bytes": 93,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "subtypes that do not rise",
+ "message": "orc: byte 39: the Footer's type 0's subtypes do not rise",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: subType(0) >= subType(1) in types(0). (2 >= 1)",
+ "views": [
+ ],
+ "cells": 0
+}

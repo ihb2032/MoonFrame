@@ -1,0 +1,21 @@
+{
+ "file": "broken_stream_past_stripe.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the string column's first stream names 400 bytes past the stripe",
+ "bytes": 342,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stream past its stripe",
+ "message": "orc: byte 209: stripe 0: stream 2 of column 2 runs past the stripe's end at byte 169",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Malformed stream meta at stream index 3 in stripe 0: streamOffset=462, streamLength=2, stripeOffset=3, stripeIndexLength=59, stripeDataLength=19",
+ "views": [
+ ],
+ "cells": 0
+}

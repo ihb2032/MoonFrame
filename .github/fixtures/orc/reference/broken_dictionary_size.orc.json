@@ -1,0 +1,21 @@
+{
+ "file": "broken_dictionary_size.orc",
+ "origin": "hand-built",
+ "note": "the encoding names 2^31 dictionary entries",
+ "bytes": 94,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a dictionary count past a column",
+ "message": "orc: byte 3: the dictionary of column \"d\" declares 2147483648 entries, past what a column holds",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in RleDecoderV2::readByte",
+ "views": [
+ ],
+ "cells": 0
+}

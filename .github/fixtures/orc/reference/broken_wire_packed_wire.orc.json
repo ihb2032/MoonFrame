@@ -1,0 +1,17 @@
+{
+ "file": "broken_wire_packed_wire.orc",
+ "origin": "hand-built",
+ "note": "the PostScript's version as a fixed-width field",
+ "bytes": 79,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a field in the wrong wire type",
+ "message": "orc: byte 63: the PostScript: field 4 arrives in wire type 1",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

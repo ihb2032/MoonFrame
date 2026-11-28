@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_lzo.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the PostScript names LZO",
+ "bytes": 341,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "LZO",
+ "message": "orc: the LZO compression kind, which this reader does not decode",
+ "reference_opens": false,
+ "reference_error": "OSError: Read past EOF in DecompressionStream::readBuffer",
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_type_past.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the int column names a subtype the footer does not carry",
+ "bytes": 344,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the type tree does not hold together",
+ "message": "orc: byte 208: the Footer's type 1 names 1 subtype, and an INT has none",
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: types(9) not exists",
+ "views": [
+ ],
+ "cells": 0
+}

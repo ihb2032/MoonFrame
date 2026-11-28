@@ -1,0 +1,20 @@
+{
+ "file": "synthetic_no_types.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the footer carries no type",
+ "bytes": 301,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 1,
+ "fields": 0,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "no type",
+ "message": "orc: byte 208: the Footer carries no type",
+ "reference_opens": false,
+ "reference_error": "OSError: Footer is corrupt: no types found",
+ "views": [
+ ],
+ "cells": 0
+}

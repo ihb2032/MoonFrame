@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_postscript_3.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the PostScript length byte says 3, cutting the PostScript",
+ "bytes": 341,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the PostScript is malformed",
+ "message": "orc: byte 337: the PostScript holds a field of wire type 7, a group",
+ "reference_opens": false,
+ "reference_error": "OSError: Failed to parse the postscript from ArrowInputFile",
+ "views": [
+ ],
+ "cells": 0
+}

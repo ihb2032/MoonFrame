@@ -1,0 +1,22 @@
+{
+ "file": "broken_dictionary_data_absent_empty.orc",
+ "origin": "hand-built",
+ "note": "a dictionary of two empty strings and no dictionary data stream, which every writer lists",
+ "bytes": 81,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a dictionary data stream absent",
+ "message": "orc: byte 3: stripe 0 lists no DICTIONARY_DATA stream for the 2 dictionary entries of column 1",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["d: string"],
+ "views": [
+ ],
+ "cells": 0
+}

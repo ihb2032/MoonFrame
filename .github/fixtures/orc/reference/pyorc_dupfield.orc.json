@@ -1,0 +1,21 @@
+{
+ "file": "pyorc_dupfield.orc",
+ "origin": "pyarrow",
+ "note": "a struct whose two fields share a name",
+ "bytes": 378,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a struct whose two fields share a name",
+ "message": "orc: column \"st\" holds a STRUCT whose field name \"a\" repeats, which spells no schema",
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["st: struct<a: int32, a: int64>"],
+ "views": [
+ ],
+ "cells": 0
+}

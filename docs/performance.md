@@ -279,6 +279,22 @@ one pass. A file of `r` rows and `c` columns costs `O(r × c)` cell reads
 beyond that, with the file, the inflated data and the frame all in
 memory. Nothing is written.
 
+## ORC files
+
+`read_orc` takes the whole file into memory and reads its tail first — the
+PostScript, the Footer and the type tree — then opens each stripe in turn:
+its footer located, every stream's range checked against the stripe, and
+only the streams of the kept columns inflated, block by block, each
+block's inflated length bounded by the file's compression block size. Each
+kept column's cells are then decoded in one pass over its stripe, so a
+file of `r` rows and `c` kept columns costs `O(r × c)` cell decodings
+beyond that, with the file and the frame in memory, and a column the
+projection leaves out costs nothing beyond locating its streams. A stripe
+that declares more rows than its streams can spell — denser than the
+format's densest encoding, 520 values to a byte — is refused before a cell
+is built for them, so a small file cannot ask for a large allocation.
+Nothing is written.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

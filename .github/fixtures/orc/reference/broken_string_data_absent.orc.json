@@ -1,0 +1,21 @@
+{
+ "file": "broken_string_data_absent.orc",
+ "origin": "hand-built",
+ "note": "a length of three and no data stream",
+ "bytes": 68,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 1,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a data stream absent",
+ "message": "orc: byte 3: stripe 0 lists no DATA stream for the 1 present value of column 1",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: DATA stream not found in StringDirectColumn",
+ "views": [
+ ],
+ "cells": 0
+}

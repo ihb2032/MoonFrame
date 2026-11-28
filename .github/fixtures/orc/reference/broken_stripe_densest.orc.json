@@ -1,0 +1,21 @@
+{
+ "file": "broken_stripe_densest.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: the stripe declares 100,000 rows over its 78 bytes of streams, more than the densest encoding spells over them",
+ "bytes": 345,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 100000,
+ "stripes": 1,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "rows past the densest encoding",
+ "message": "orc: byte 208: stripe 0 declares 100000 rows over 78 bytes of streams, more than the densest encoding spells",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in nextBuffer",
+ "views": [
+ ],
+ "cells": 0
+}

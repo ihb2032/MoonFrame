@@ -1,0 +1,21 @@
+{
+ "file": "broken_cut_float.orc",
+ "origin": "hand-built",
+ "note": "two doubles and five bytes of the second",
+ "bytes": 79,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 2,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a stream ending inside a value",
+ "message": "orc: byte 11: stripe 0's DATA stream of column 1, which starts at byte 3: the bytes end inside a value",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: bad read in DoubleColumnReader::next()",
+ "views": [
+ ],
+ "cells": 0
+}

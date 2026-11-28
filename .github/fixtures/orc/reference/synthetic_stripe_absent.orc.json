@@ -1,0 +1,21 @@
+{
+ "file": "synthetic_stripe_absent.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: no stripe under 5 declared rows",
+ "bytes": 329,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 5,
+ "stripes": 0,
+ "fields": 2,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "the rows disagree",
+ "message": "orc: byte 208: the Footer declares 5 rows and its stripes 0",
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

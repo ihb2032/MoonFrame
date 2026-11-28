@@ -1,0 +1,17 @@
+{
+ "file": "broken_block_no_bytes.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, the footer's first block declaring no bytes",
+ "bytes": 456,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block that declares no bytes",
+ "message": "orc: byte 292: the Footer: a block that declares no bytes",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 0,
+ "reference_columns": ["a: int32", "s: string"],
+ "views": [
+ ],
+ "cells": 0
+}

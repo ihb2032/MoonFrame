@@ -1,0 +1,26 @@
+{
+ "file": "built_nested.orc",
+ "origin": "hand-built",
+ "note": "lists with nulls and empty lists, a list of dictionary strings, a list of lists, a struct with a null field and a struct with an absent row, a struct in a list",
+ "bytes": 470,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 6,
+ "stripes": 1,
+ "fields": 6,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 6,
+ "reference_columns": ["c0: list<item: int64>", "c1: list<item: string>", "c2: list<item: list<item: int32>>", "c3: struct<a: int64, b: string>", "c4: struct<a: int64>", "c5: list<item: struct<v: int64>>"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "List(Int)", "cells": ["List [Int 3]","List []",null,"List [Null, Int 1]","List []","List [Int 2, Int 2, Int 3]"]},
+   {"name": "c1", "dtype": "List(String)", "cells": ["List [String \"x\", String \"yy\"]",null,"List [String \"yy\", String \"x\"]","List []","List []","List []"]},
+   {"name": "c2", "dtype": "List(List(Int))", "cells": [null,"List [List [Int 1, Int 2], List [Int 3]]","List []","List []","List []","List []"]},
+   {"name": "c3", "dtype": "Struct({\"a\": Int, \"b\": String})", "cells": ["Struct {\"a\": Int 1, \"b\": Null}","Struct {\"a\": Int 2, \"b\": String \"s\"}","Struct {\"a\": Int 0, \"b\": String \"\"}","Struct {\"a\": Int 0, \"b\": String \"\"}","Struct {\"a\": Int 0, \"b\": String \"\"}","Struct {\"a\": Int 0, \"b\": String \"\"}"]},
+   {"name": "c4", "dtype": "Struct({\"a\": Int})", "cells": [null,"Struct {\"a\": Int 2}",null,"Struct {\"a\": Int 3}",null,null]},
+   {"name": "c5", "dtype": "List(Struct({\"v\": Int}))", "cells": ["List [Struct {\"v\": Int 7}]","List [Struct {\"v\": Int 8}, Struct {\"v\": Int 9}]","List []","List []","List []","List []"]}
+  ]}
+ ],
+ "cells": 36
+}

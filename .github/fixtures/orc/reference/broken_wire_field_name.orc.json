@@ -1,0 +1,16 @@
+{
+ "file": "broken_wire_field_name.orc",
+ "origin": "hand-built",
+ "note": "a struct's field name not well-formed as UTF-8",
+ "bytes": 69,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a field name not UTF-8",
+ "message": "orc: byte 44: the Footer's type 0: a field name not well-formed as UTF-8",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "the reader crashed: exit code 1 , line 2572, in pyarrow.lib.Field.name.__get__\n  File \"pyarrow/compat.pxi\", line 71, in pyarrow.lib.frombytes\nUnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+ "views": [
+ ],
+ "cells": 0
+}

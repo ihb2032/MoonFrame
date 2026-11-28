@@ -53,6 +53,8 @@ pub fn parse_html(String) -> Array[@frame.DataFrame] raise @types.DataError
 
 pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_orc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_sas(Bytes) -> @frame.DataFrame raise @types.DataError
@@ -78,6 +80,8 @@ pub fn read_ipc(String, projection? : Array[String]) -> @frame.DataFrame raise @
 pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_orc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 

@@ -32,6 +32,8 @@ internal/kernel -> internal/numeric
 internal/kernel -> internal/text
 internal/kernel -> series
 internal/kernel -> types
+internal/orc -> series
+internal/orc -> types
 internal/parquet -> internal/text
 internal/parquet -> series
 internal/parquet -> types
@@ -53,6 +55,7 @@ io -> frame
 io -> internal/avro
 io -> internal/ipc
 io -> internal/numeric
+io -> internal/orc
 io -> internal/parquet
 io -> internal/sas7bdat
 io -> internal/scan

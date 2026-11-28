@@ -1,0 +1,16 @@
+{
+ "file": "broken_block_past_end.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, the footer's first block naming a hundred bytes past its end",
+ "bytes": 465,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block past the end",
+ "message": "orc: byte 404: the Footer: a block of 332034 bytes runs past the end at byte 440",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "OSError: Failed to parse the footer from ArrowInputFile",
+ "views": [
+ ],
+ "cells": 0
+}

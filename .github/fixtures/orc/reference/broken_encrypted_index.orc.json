@@ -1,0 +1,22 @@
+{
+ "file": "broken_encrypted_index.orc",
+ "origin": "hand-built",
+ "note": "an ENCRYPTED_INDEX stream",
+ "bytes": 78,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "encrypted columns",
+ "message": "orc: stripe 0 carries an ENCRYPTED_INDEX stream: the spelling of encrypted columns, which this reader does not read",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

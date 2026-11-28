@@ -1,0 +1,27 @@
+{
+ "file": "built_scalars.orc",
+ "origin": "hand-built",
+ "note": "a boolean, a byte, a float, a double, a date, a short and an int column, nulls and infinities among them",
+ "bytes": 388,
+ "compression": "NONE",
+ "version": [0, 12],
+ "rows": 6,
+ "stripes": 1,
+ "fields": 7,
+ "codec": "reads",
+ "reference_opens": true,
+ "reference_rows": 6,
+ "reference_columns": ["c0: bool", "c1: int8", "c2: float", "c3: double", "c4: date32[day]", "c5: int16", "c6: int32"],
+ "views": [
+  {"projection": null, "columns": [
+   {"name": "c0", "dtype": "Bool", "cells": ["Bool true","Bool false","Bool true",null,"Bool true","Bool false"]},
+   {"name": "c1", "dtype": "Int", "cells": ["Int 5",null,"Int 5","Int 5",null,"Int -1"]},
+   {"name": "c2", "dtype": "Float", "cells": ["Float 3ff8000000000000","Float c002000000000000",null,"Float 39b4484c00000000","Float 0000000000000000","Float 7ff0000000000000"]},
+   {"name": "c3", "dtype": "Float", "cells": ["Float 3fb999999999999a","Float fe37e43c8800759c",null,"Float 7ff0000000000000","Float fff0000000000000","Float 0000000000000001"]},
+   {"name": "c4", "dtype": "Date", "cells": ["Date 0","Date -1",null,"Date 20000","Date -2147483648","Date 2147483647"]},
+   {"name": "c5", "dtype": "Int", "cells": ["Int -32768","Int 32767","Int 0",null,"Int 1","Int -1"]},
+   {"name": "c6", "dtype": "Int", "cells": ["Int -2147483648","Int 2147483647","Int 0",null,"Int 1","Int -1"]}
+  ]}
+ ],
+ "cells": 42
+}

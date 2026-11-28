@@ -1,0 +1,22 @@
+{
+ "file": "broken_version_13.orc",
+ "origin": "hand-built",
+ "note": "the PostScript names format version 0.13",
+ "bytes": 70,
+ "compression": "NONE",
+ "version": [0, 13],
+ "rows": 3,
+ "stripes": 1,
+ "fields": 1,
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "why": "a format version this reader does not read",
+ "message": "orc: a file of format version 0.13, which this reader does not read",
+ "reference_isolated": true,
+ "reference_opens": true,
+ "reference_rows": 3,
+ "reference_columns": ["c0: int64"],
+ "views": [
+ ],
+ "cells": 0
+}

@@ -1,0 +1,16 @@
+{
+ "file": "broken_block_past_size.orc",
+ "origin": "synthetic",
+ "note": "derived from pyorc_small_uncompressed.orc: ZLIB, a block size of eight and the footer's first block compressed into nine",
+ "bytes": 463,
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "why": "a block past the block size",
+ "message": "orc: byte 292: the Footer: a compressed block of 9 bytes, past the block size of 8",
+ "reference_isolated": true,
+ "reference_opens": false,
+ "reference_error": "ArrowException: Unknown error: Data error in ZlibDecompressionStream::NextDecompress",
+ "views": [
+ ],
+ "cells": 0
+}

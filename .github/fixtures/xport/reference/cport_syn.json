@@ -1,0 +1,12 @@
+{
+ "file": "cport_syn.xpt",
+ "writer": "this script",
+ "note": "the library header record of a CPORT file",
+ "readable": false,
+ "refusal": {
+  "variant": "Unsupported",
+  "contains": "CPORT"
+ },
+ "rows": 0,
+ "columns": []
+}

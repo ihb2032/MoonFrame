@@ -344,6 +344,32 @@ here today:
   claims. `match`, `attrs`, `header`, `skiprows`, `converters`, and
   `extract_links` are not carried, and there is no `to_html` round trip:
   `to_html` renders a frame for display.
+
+- **SAS** — `read_sas` reads a Version 5 transport file (XPORT) or a
+  SAS data set (`sas7bdat`, Versions 7 to 9), whichever the file opens
+  as, and `write_sas` writes a transport file, over codecs inside the
+  module, where pandas' `read_sas` reads both formats and has no writer;
+  Polars' I/O reference carries no SAS entry. A numeric variable reads as
+  `Float` and the 28 missing spellings as nulls in both. A variable under
+  a date format reads as a `Date`, under a time or a datetime format as a
+  `Timestamp` — only while every present cell is a whole number of the
+  unit, one that is not leaving the column `Float`. In a transport file
+  pandas' reader converts no dates; in a data set it converts by its own
+  list of formats, and the time formats it leaves as numbers read as
+  times here, as a fractional day it rounds to a date stays `Float` here.
+  In a transport file the observations end at the last byte that is not a
+  blank, where pandas counts blank groups in the last record and can drop
+  or invent rows; a cell of eight zero bytes reads 0.0, where pandas reads
+  2^-260; a 56-bit fraction is rounded to the nearest double, where
+  pandas cuts it. A transport file's name is written as spelled where the
+  format's writers fold case, and two that differ only in case are
+  refused. A data set's text follows its header's character set — UTF-8,
+  or one of the 49 single-byte code pages, windows-1252 among them —
+  where pandas falls back to Latin-1 for a code its table does not name;
+  pandas reads a blank character cell as missing, and the empty string is
+  kept here. Nothing but the columns is carried out of a transport file:
+  no label, no format other than the two the dates ride, no informat, and
+  a timestamp of constants.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on

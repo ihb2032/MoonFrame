@@ -55,6 +55,8 @@ pub fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @
 
 pub fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
+pub fn parse_sas(Bytes) -> @frame.DataFrame raise @types.DataError
+
 pub fn parse_stata(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
 
 pub fn parse_xml(String, xpath? : String) -> @frame.DataFrame raise @types.DataError
@@ -76,6 +78,8 @@ pub fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame rai
 pub fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError
+
+pub fn read_sas(String) -> @frame.DataFrame raise @types.DataError
 
 pub fn read_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.DataFrame raise @types.DataError
 
@@ -122,6 +126,8 @@ pub fn write_json(String, @frame.DataFrame) -> Unit raise @types.DataError
 pub fn write_ndjson(String, @frame.DataFrame) -> Unit raise @types.DataError
 
 pub fn write_parquet(@frame.DataFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32) -> Unit raise @types.DataError
+
+pub fn write_sas(@frame.DataFrame, String) -> Unit raise @types.DataError
 
 pub fn write_sql(@frame.DataFrame, &@moondb.Driver, String, if_exists? : @io.SqlIfExists) -> Unit raise @types.DataError
 

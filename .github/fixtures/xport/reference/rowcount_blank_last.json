@@ -1,0 +1,52 @@
+{
+ "file": "rowcount_blank_last.xpt",
+ "writer": "this script",
+ "note": "blank padding against blank cells: the file holds N rows, and the last row of blank character cells reads as padding",
+ "readable": true,
+ "refusal": null,
+ "rows": 2,
+ "columns": [
+  {
+   "name": "c",
+   "kind": "char",
+   "format": "",
+   "width": 8,
+   "dtype": "String",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "String one",
+    "String two"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "String one",
+     "String two"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "String",
+    "rows": 2
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 2
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 2
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [],
+  "pandas_disagreements": []
+ }
+}

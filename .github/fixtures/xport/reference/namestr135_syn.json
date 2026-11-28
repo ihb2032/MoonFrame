@@ -1,0 +1,83 @@
+{
+ "file": "namestr135_syn.xpt",
+ "writer": "this script",
+ "note": "NAMESTRs of 135 bytes, as older files spell them",
+ "readable": true,
+ "refusal": null,
+ "rows": 2,
+ "columns": [
+  {
+   "name": "a",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float 4000000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float 4000000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "Float",
+    "rows": 0
+   }
+  },
+  {
+   "name": "b",
+   "kind": "char",
+   "format": "",
+   "width": 3,
+   "dtype": "String",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "String x",
+    "String yz"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 2,
+    "cells": [
+     "String x",
+     "String yz"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "String",
+    "rows": 0
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 2
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 0
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [
+   "a",
+   "b"
+  ],
+  "pandas_disagreements": []
+ }
+}

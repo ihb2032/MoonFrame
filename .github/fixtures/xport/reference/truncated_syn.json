@@ -1,0 +1,206 @@
+{
+ "file": "truncated_syn.xpt",
+ "writer": "this script",
+ "note": "numeric variables 2 to 7 bytes wide: a truncated cell is the leading bytes of the 8-byte spelling",
+ "readable": true,
+ "refusal": null,
+ "rows": 3,
+ "columns": [
+  {
+   "name": "t2",
+   "kind": "num",
+   "format": "",
+   "width": 2,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "t3",
+   "kind": "num",
+   "format": "",
+   "width": 3,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "t4",
+   "kind": "num",
+   "format": "",
+   "width": 4,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "t5",
+   "kind": "num",
+   "format": "",
+   "width": 5,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "t6",
+   "kind": "num",
+   "format": "",
+   "width": 6,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  },
+  {
+   "name": "t7",
+   "kind": "num",
+   "format": "",
+   "width": 7,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff8000000000000",
+    "Float bfd0000000000000",
+    "Float 401c000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 3,
+    "cells": [
+     "Float 3ff8000000000000",
+     "Float bfd0000000000000",
+     "Float 401c000000000000"
+    ],
+    "agrees": true,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": true,
+    "dtype": "Float",
+    "rows": 3
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 3
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 3
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [
+   "t2"
+  ],
+  "pandas_disagreements": []
+ }
+}

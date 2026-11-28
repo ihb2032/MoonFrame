@@ -1,0 +1,220 @@
+[
+ {
+  "file": "plain_pyrs.xpt",
+  "readable": true,
+  "rows": 5,
+  "refusal": null,
+  "cells": 20
+ },
+ {
+  "file": "dtypes_pyrs.xpt",
+  "readable": true,
+  "rows": 3,
+  "refusal": null,
+  "cells": 21
+ },
+ {
+  "file": "text_pyrs.xpt",
+  "readable": true,
+  "rows": 7,
+  "refusal": null,
+  "cells": 7
+ },
+ {
+  "file": "names_pyrs.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 14
+ },
+ {
+  "file": "empty_pyrs.xpt",
+  "readable": true,
+  "rows": 0,
+  "refusal": null,
+  "cells": 0
+ },
+ {
+  "file": "wide_pyrs.xpt",
+  "readable": true,
+  "rows": 7,
+  "refusal": null,
+  "cells": 112
+ },
+ {
+  "file": "dates_pyrs.xpt",
+  "readable": true,
+  "rows": 8,
+  "refusal": null,
+  "cells": 8
+ },
+ {
+  "file": "datetimes_pyrs.xpt",
+  "readable": true,
+  "rows": 6,
+  "refusal": null,
+  "cells": 12
+ },
+ {
+  "file": "datetime_units_pyrs.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 6
+ },
+ {
+  "file": "missing_syn.xpt",
+  "readable": true,
+  "rows": 35,
+  "refusal": null,
+  "cells": 35
+ },
+ {
+  "file": "truncated_syn.xpt",
+  "readable": true,
+  "rows": 3,
+  "refusal": null,
+  "cells": 18
+ },
+ {
+  "file": "ibm_syn.xpt",
+  "readable": true,
+  "rows": 31,
+  "refusal": null,
+  "cells": 31
+ },
+ {
+  "file": "rowcount_l4_n1.xpt",
+  "readable": true,
+  "rows": 1,
+  "refusal": null,
+  "cells": 1
+ },
+ {
+  "file": "rowcount_l4_n3.xpt",
+  "readable": true,
+  "rows": 3,
+  "refusal": null,
+  "cells": 3
+ },
+ {
+  "file": "rowcount_l16_n2.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 2
+ },
+ {
+  "file": "rowcount_l12_n5.xpt",
+  "readable": true,
+  "rows": 5,
+  "refusal": null,
+  "cells": 10
+ },
+ {
+  "file": "rowcount_blank_last.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 2
+ },
+ {
+  "file": "formats_syn.xpt",
+  "readable": true,
+  "rows": 3,
+  "refusal": null,
+  "cells": 30
+ },
+ {
+  "file": "namestr135_syn.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 4
+ },
+ {
+  "file": "longtext_syn.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 6
+ },
+ {
+  "file": "blankname_syn.xpt",
+  "readable": true,
+  "rows": 2,
+  "refusal": null,
+  "cells": 4
+ },
+ {
+  "file": "small_syn.xpt",
+  "readable": true,
+  "rows": 3,
+  "refusal": null,
+  "cells": 9
+ },
+ {
+  "file": "formats_pyrs.xpt",
+  "readable": true,
+  "rows": 4,
+  "refusal": null,
+  "cells": 88
+ },
+ {
+  "file": "v8_pyrs.xpt",
+  "readable": false,
+  "rows": 0,
+  "refusal": {
+   "variant": "Unsupported",
+   "contains": "a later version of the transport format"
+  },
+  "cells": 0
+ },
+ {
+  "file": "zerovars_pyrs.xpt",
+  "readable": true,
+  "rows": 0,
+  "refusal": null,
+  "cells": 0
+ },
+ {
+  "file": "cport_syn.xpt",
+  "readable": false,
+  "rows": 0,
+  "refusal": {
+   "variant": "Unsupported",
+   "contains": "CPORT"
+  },
+  "cells": 0
+ },
+ {
+  "file": "notxport_syn.xpt",
+  "readable": false,
+  "rows": 0,
+  "refusal": {
+   "variant": "Unsupported",
+   "contains": "not an XPORT file"
+  },
+  "cells": 0
+ },
+ {
+  "file": "badutf8_syn.xpt",
+  "readable": false,
+  "rows": 0,
+  "refusal": {
+   "variant": "ParseError",
+   "contains": "not well-formed UTF-8"
+  },
+  "cells": 0
+ },
+ {
+  "file": "badtype_syn.xpt",
+  "readable": false,
+  "rows": 0,
+  "refusal": {
+   "variant": "Unsupported",
+   "contains": "which is neither numeric (1) nor character (2)"
+  },
+  "cells": 0
+ }
+]

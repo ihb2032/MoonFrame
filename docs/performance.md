@@ -250,6 +250,22 @@ whose spans would carry its grid past some thirty-three million positions
 refuses — so a document cannot ask for memory out of proportion to what
 it holds.
 
+## SAS files
+
+A transport file is taken whole into memory by `read_sas`, which walks its header records
+once, and then reads each variable's cells in one pass straight out of
+the row-major observations: a file of `r` rows and `c` columns costs
+`O(r × c)` cell readings, each an IBM-to-IEEE conversion in constant
+time. The format has no index, so a read touches every observation once
+per column. `write_sas` plans every column in one pass — a character
+column's cells encoded, each numeric cell converted — and lays the file
+out into one buffer, once: `O(r × c)`, in memory until the file's one
+write. A data set is walked twice: once over its pages for the metadata —
+every subheader, the names, the formats and the text blocks — and once
+for the cells, each page's rows decompressed into a buffer no longer than
+a page and read column by column, `O(r × c)` beyond the walk, with the
+file and the frame both in memory.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

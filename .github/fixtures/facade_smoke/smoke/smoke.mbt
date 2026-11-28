@@ -339,6 +339,18 @@ test "html read" {
 }
 
 ///|
+/// The SAS transport entries, each named through the facade: a frame
+/// written as a transport file, and the file read back from its path.
+test "sas write and read" {
+  let df = @moonframe.DataFrame::DataFrame([
+    @moonframe.Series::from_floats("ratio", [1.5, 0.25]),
+    @moonframe.Series::from_strings("name", ["a", "b"]),
+  ])
+  @moonframe.write_sas(df, "_build/smoke.xpt")
+  assert_eq(@moonframe.read_sas("_build/smoke.xpt").shape(), (2, 2))
+}
+
+///|
 /// The error-detail enums are `#non_exhaustive`: a downstream match carries a
 /// `..` arm for the diagnostic shapes it does not know, so a shape arriving in
 /// a later release is a recompile, not a break. This match is the migration

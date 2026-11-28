@@ -1,0 +1,14 @@
+// The codec's dependencies: the value types its columns map to, the
+// series constructors it builds columns through, and the UTF-8 decoder its
+// text cells pass through.
+import {
+  "ihb2032/MoonFrame/types",
+  "ihb2032/MoonFrame/series",
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+  "moonbitlang/core/test",
+} for "test"

@@ -1,0 +1,12 @@
+{
+ "file": "notxport_syn.xpt",
+ "writer": "this script",
+ "note": "a library header record of no known format",
+ "readable": false,
+ "refusal": {
+  "variant": "Unsupported",
+  "contains": "not an XPORT file"
+ },
+ "rows": 0,
+ "columns": []
+}

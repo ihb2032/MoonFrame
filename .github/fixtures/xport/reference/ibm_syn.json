@@ -1,0 +1,114 @@
+{
+ "file": "ibm_syn.xpt",
+ "writer": "this script",
+ "note": "IBM spellings by hand: integers, fractions that need rounding from 56 bits, fractions with a leading zero hex digit, and both signs",
+ "readable": true,
+ "refusal": null,
+ "rows": 31,
+ "columns": [
+  {
+   "name": "v",
+   "kind": "num",
+   "format": "",
+   "width": 8,
+   "dtype": "Float",
+   "source": "this script's reading of the bytes",
+   "cells": [
+    "Float 3ff0000000000000",
+    "Float bff0000000000000",
+    "Float 3ff8000000000000",
+    "Float 3fb999999999999a",
+    "Float 4030000000000000",
+    "Float c030000000000000",
+    "Float 3fb0000000000000",
+    "Float 4088000000000000",
+    "Float bfec200000000000",
+    "Float 4030000000000001",
+    "Float 4048000000000002",
+    "Float 4060000000000000",
+    "Float 4060000000000000",
+    "Float 4060000000000002",
+    "Float 4060000000000001",
+    "Float 4050000000000000",
+    "Float 4050000000000000",
+    "Float 4058000000000000",
+    "Float 4050000000000001",
+    "Float 4040000000000000",
+    "Float 4040000000000002",
+    "Float 405c000000000003",
+    "Float 4070000000000000",
+    "Float 4fb0000000000000",
+    "Float cfb0000000000000",
+    "Float 3fb0000000000000",
+    "Float 0000000000000000",
+    "Float 8000000000000000",
+    "Float 8000000000000000",
+    "Float 2c70000000000000",
+    "Float 2fb0000000000000"
+   ],
+   "pandas_from": 0,
+   "pandas": {
+    "rows": 31,
+    "cells": [
+     "Float 3ff0000000000000",
+     "Float bff0000000000000",
+     "Float 3ff8000000000000",
+     "Float 3fb999999999999a",
+     "Float 4030000000000000",
+     "Float c030000000000000",
+     "Float 3fb0000000000000",
+     "Float 4088000000000000",
+     "Float bfec200000000000",
+     "Float 4030000000000001",
+     "Float 4048000000000002",
+     "Float 4060000000000000",
+     "Float 4060000000000000",
+     "Float 4060000000000001",
+     "Float 4060000000000000",
+     "Float 4050000000000000",
+     "Float 4050000000000000",
+     "Float 4058000000000000",
+     "Float 4050000000000000",
+     "Float 4040000000000000",
+     "Float 4040000000000001",
+     "Float 405c000000000003",
+     "Float 406fffffffffffff",
+     "Float 4fafffffffffffff",
+     "Float cfafffffffffffff",
+     "Float 3ff1000000000000",
+     "Float 3fb0000000000000",
+     "Float aff0000000000000",
+     "Float afb0000000000000",
+     "Float 2fb0000000000001",
+     "Float 2fb0000000000000"
+    ],
+    "agrees": false,
+    "zero_cells": 0,
+    "extra_rows": 0
+   },
+   "pyreadstat": {
+    "agrees": false,
+    "dtype": "Float",
+    "rows": 31
+   }
+  }
+ ],
+ "reference": {
+  "pandas": {
+   "rows": 31
+  },
+  "pandas_error": null,
+  "pyreadstat": {
+   "rows": 31
+  },
+  "pyreadstat_error": null,
+  "pandas_zero_cells": 0,
+  "pandas_dropped_rows": 0,
+  "pyreadstat_disagreements": [
+   "v"
+  ],
+  "pandas_disagreements": [
+   "v"
+  ]
+ }
+}

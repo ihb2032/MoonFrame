@@ -1,0 +1,1 @@
+{"file":"undefined_syn.sas7bdat","source":"laid out from scratch by the generator (sas7bdat_build.py): a header and one MIX page of 4096 bytes; 32-bit, little-endian; windows-1252, whose byte 0x81 is undefined, in a text cell; refused: ParseError: a text field holds byte 0x81","readable":false,"refusal":{"variant":"ParseError","contains":"a text field holds byte 0x81"}}

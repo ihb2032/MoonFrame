@@ -1,0 +1,12 @@
+{
+ "file": "badtype_syn.xpt",
+ "writer": "this script",
+ "note": "a NAMESTR naming variable type 3",
+ "readable": false,
+ "refusal": {
+  "variant": "Unsupported",
+  "contains": "which is neither numeric (1) nor character (2)"
+ },
+ "rows": 0,
+ "columns": []
+}

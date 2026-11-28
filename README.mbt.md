@@ -248,6 +248,9 @@ same way.
   `sink_parquet` / `sink_ipc` to the columnar ones — write a plan's result
   straight from its batches without building the collected frame; a text
   sink's file is byte-for-byte its `format_*` rendering of `collect()`.
+  `PartitionBy` turns a sink's target into a directory instead: a
+  directory a distinct value of the key columns (`region=Americas/`),
+  and a file per so many rows.
 - **Join** — the full `inner` / `left` / `right` / `outer` / `cross` matrix on
   expression keys, e.g.
   `orders.join(customers, JoinOptions::on([col("customer_id")]))` — or, for
@@ -418,14 +421,11 @@ internal/stata/    the native Stata codec — the binary and tagged headers of r
 internal/xport/   the native SAS transport codec — the Version 5 header records, the NAMESTR descriptors, the row-major observations, and the IBM floating point a numeric cell spells; wrapped by io's read / write_sas
 internal/sas7bdat/ the native SAS data-set codec — the paged layout of Versions 7, 8 and 9 with its subheaders, either byte order and word size, the two row compressions, and the single-byte character sets; wrapped by io's read_sas
 internal/orc/     the native ORC codec — the file tail with its PostScript and Footer, each stripe's footer and streams under none / zlib / snappy / LZ4 / zstandard, and the run length encodings of the 0.11 and 0.12 formats; wrapped by io's read_orc
-series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
-expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
-frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 internal/spss/     the native SPSS system-file codec — the file header, the dictionary's records with the variables' print formats and declared missing values, and the cases plain, bytecode-compressed or inside a zlib stream; wrapped by io's read_spss
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
+io/         CSV (NyaCSV-backed), JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel, Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

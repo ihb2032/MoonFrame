@@ -245,6 +245,19 @@ test "lazy order, distinct, and reshape builders copy their expression arrays" {
 }
 
 ///|
+test "PartitionBy copies the caller's key columns in and out" {
+  let names = ["region", "year"]
+  let parts = PartitionBy::PartitionBy(key=names, max_rows_per_file=10)
+  names[0] = "changed"
+  names.clear()
+  assert_eq(parts.key(), Some(["region", "year"]))
+  // The accessor answers a copy: a mutation of it does not reach the options.
+  let back = parts.key().unwrap()
+  back[1] = "changed"
+  assert_eq(parts.key(), Some(["region", "year"]))
+}
+
+///|
 /// Join options compare on what they mean — kind, suffix, coalesce choice, and
 /// the keys as rendered. The keys are expressions and `Expr` carries no `==`,
 /// so there is none on the whole value either.

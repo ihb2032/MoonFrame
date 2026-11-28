@@ -109,15 +109,15 @@ pub fn scan_parquet(String) -> @frame.LazyFrame
 
 pub fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame
 
-pub fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_csv(@frame.LazyFrame, String, partition? : @io.PartitionBy, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_ipc(@frame.LazyFrame, String, partition? : @io.PartitionBy, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn sink_json(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_ndjson(@frame.LazyFrame, String, partition? : @io.PartitionBy, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
-pub fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
+pub fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, partition? : @io.PartitionBy, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError
 
 pub fn when(@expr.Expr) -> @expr.WhenThen
 
@@ -215,6 +215,8 @@ pub using @frame {type Optimizations}
 pub using @io {type ParquetCodec}
 
 pub using @types {type ParseErrorDetail}
+
+pub using @io {type PartitionBy}
 
 pub using @frame {type PivotAgg}
 

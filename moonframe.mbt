@@ -157,6 +157,7 @@ pub using @io {
   type IpcFormat,
   type JsonReadOptions,
   type OnParseError,
+  type PartitionBy,
   type ParquetCodec,
   type SqlIfExists,
   excel_sheets,

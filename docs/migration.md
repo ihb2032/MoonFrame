@@ -105,6 +105,12 @@ What changed on `main` since 0.9.0:
   `format_ndjson(collect())`. Both write through the file writer
   `write_json` / `write_ndjson` use, so a `.gz` path is compressed the same
   way and an unpaired surrogate is refused with the same error.
+- `PartitionBy` joins the facade, and `sink_parquet` / `sink_csv` /
+  `sink_ipc` / `sink_ndjson` take it as `partition`: a plan's rows go to
+  files under a directory — one a distinct value of the key columns,
+  `column=value` a level, or so many rows a file — each file reading
+  back as the sink's own rows for that partition. A sink called
+  without it writes one file as before. No existing call changes.
 - `read_sql` joins the facade over the moondb contract: any moondb
   driver (the in-memory `MockDriver` ships with moondb; moonsqlite /
   moonpostgres / moondb's other drivers plug in the same way) answers a

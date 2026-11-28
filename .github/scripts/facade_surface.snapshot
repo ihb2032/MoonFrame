@@ -17,6 +17,7 @@ ctor LatexOptions::LatexOptions(columns? : Array[String], header? : Bool, index?
 ctor LazyFrame::LazyFrame(DataFrame) -> Self <- frame
 ctor ListValue::ListValue(Array[Scalar]) -> Self <- types
 ctor Optimizations::Optimizations() -> Self <- frame
+ctor PartitionBy::PartitionBy(key? : Array[String], include_key? : Bool, max_rows_per_file? : Int32) -> Self <- io
 ctor Schema::Schema(Array[Field]) -> Self raise DataError <- types
 ctor StructValue::StructValue(Array[FieldValue]) -> Self <- types
 ctor VegaAggField::VegaAggField(op~ : VegaAggregate, as_~ : String, field? : String) -> Self <- chart
@@ -187,6 +188,8 @@ field Optimizations.predicate_pushdown : Bool <- frame
 field Optimizations.projection_pushdown : Bool <- frame
 field Optimizations.simplify_expressions : Bool <- frame
 field Optimizations.slice_pushdown : Bool <- frame
+field PartitionBy.include_key : Bool <- io
+field PartitionBy.max_rows_per_file : Int32? <- io
 field VegaAggField.as_ : String <- chart
 field VegaAggField.field : String? <- chart
 field VegaAggField.op : VegaAggregate <- chart
@@ -1105,16 +1108,16 @@ fn scan_parquet(String) -> @frame.LazyFrame <- io
 fn scan_parquet(String) -> @frame.LazyFrame <- root
 fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame <- io
 fn scan_sql(&@moondb.Driver, String, params? : Array[@moondb.Value]) -> @frame.LazyFrame <- root
-fn sink_csv(@frame.LazyFrame, String, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
-fn sink_csv(@frame.LazyFrame, String, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
-fn sink_ipc(@frame.LazyFrame, String, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
-fn sink_ipc(@frame.LazyFrame, String, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
+fn sink_csv(@frame.LazyFrame, String, partition? : @io.PartitionBy, options? : @io.CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
+fn sink_csv(@frame.LazyFrame, String, partition? : PartitionBy, options? : CsvWriteOptions, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
+fn sink_ipc(@frame.LazyFrame, String, partition? : @io.PartitionBy, compression? : @io.IpcCompression, format? : @io.IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
+fn sink_ipc(@frame.LazyFrame, String, partition? : PartitionBy, compression? : IpcCompression, format? : IpcFormat, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn sink_json(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn sink_json(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
-fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
-fn sink_ndjson(@frame.LazyFrame, String, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
-fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
-fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
+fn sink_ndjson(@frame.LazyFrame, String, partition? : @io.PartitionBy, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
+fn sink_ndjson(@frame.LazyFrame, String, partition? : PartitionBy, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
+fn sink_parquet(@frame.LazyFrame, String, codec? : @io.ParquetCodec, partition? : @io.PartitionBy, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- root
+fn sink_parquet(@frame.LazyFrame, String, codec? : ParquetCodec, partition? : PartitionBy, row_group_rows? : Int32, optimizations? : @frame.Optimizations) -> Unit raise @types.DataError <- io
 fn when(@expr.Expr) -> @expr.WhenThen <- root
 fn when(Expr) -> WhenThen <- expr
 fn write_avro(@frame.DataFrame, String, codec? : @io.AvroCodec) -> Unit raise @types.DataError <- root
@@ -1604,6 +1607,12 @@ method ParquetCodec::to_repr(Self) -> @debug.Repr <- io
 method ParseErrorDetail::equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::not_equal(Self, Self) -> Bool <- types
 method ParseErrorDetail::to_repr(Self) -> @debug.Repr <- types
+method PartitionBy::equal(Self, Self) -> Bool <- io
+method PartitionBy::include_key(Self) -> Bool <- io
+method PartitionBy::key(Self) -> Array[String]? <- io
+method PartitionBy::max_rows_per_file(Self) -> Int32? <- io
+method PartitionBy::not_equal(Self, Self) -> Bool <- io
+method PartitionBy::to_repr(Self) -> @debug.Repr <- io
 method PivotAgg::equal(Self, Self) -> Bool <- frame
 method PivotAgg::not_equal(Self, Self) -> Bool <- frame
 method PivotAgg::to_repr(Self) -> @debug.Repr <- frame
@@ -2382,6 +2391,7 @@ type OnParseError <- io
 type Optimizations <- frame
 type ParquetCodec <- io
 type ParseErrorDetail <- types
+type PartitionBy <- io
 type PivotAgg <- frame
 type QuantileInterpolation <- series
 type RankMethod <- types

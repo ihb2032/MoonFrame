@@ -1,0 +1,5 @@
+///|
+/// Bring the test package's versions of `assert_eq` and `assert_true`
+/// into scope for every blackbox test file in this package. The prelude
+/// versions are deprecated in favor of these Debug-based assertions.
+using @test {assert_eq}

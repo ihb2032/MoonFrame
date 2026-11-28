@@ -1049,6 +1049,8 @@ fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @type
 fn parse_ipc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_json_str(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_ndjson_str(String, options? : JsonReadOptions, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_orc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn parse_orc(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn parse_parquet(Bytes, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn parse_sas(Bytes) -> @frame.DataFrame raise @types.DataError <- io
@@ -1075,6 +1077,8 @@ fn read_json(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @
 fn read_json(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
 fn read_ndjson(String, options? : @io.JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- root
 fn read_ndjson(String, options? : JsonReadOptions) -> @frame.DataFrame raise @types.DataError <- io
+fn read_orc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
+fn read_orc(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- io
 fn read_parquet(String, projection? : Array[String]) -> @frame.DataFrame raise @types.DataError <- root
 fn read_sas(String) -> @frame.DataFrame raise @types.DataError <- io

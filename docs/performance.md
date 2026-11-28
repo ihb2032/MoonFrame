@@ -189,6 +189,16 @@ See the operator docstrings (collected in the generated reference) for the
 per-operation semantics and
 [`comparison.md`](comparison.md) for how the semantics line up with Polars.
 
+## Fixed-width files
+
+`read_fwf` holds the text in memory and cuts each line by the layout
+once: a file of `r` rows and `c` fields costs `O(r × c)` cell cuts
+beyond the layout, each a walk over the line's code units up to the
+field's end — so a line is walked once per field it holds, and a
+file with no named layout first reads its first `infer_nrows` lines
+a second time to infer one. Each column is then typed in one pass,
+as the CSV reader types its columns.
+
 ## Excel workbooks
 
 `read_excel` parses the whole workbook into memory — the workbook

@@ -344,6 +344,19 @@ here today:
   claims. `match`, `attrs`, `header`, `skiprows`, `converters`, and
   `extract_links` are not carried, and there is no `to_html` round trip:
   `to_html` renders a frame for display.
+- **LaTeX** — `to_latex` renders a frame as a booktabs-ruled `tabular` —
+  a `longtable` on request — with an index column, a derived column
+  specification and a caption / label / placement, as pandas' `to_latex`
+  does; Polars has none. The cells render as this library's other
+  renderers spell them (a float as it is stored, a boolean lower-case,
+  six digits only on a timestamp), where pandas writes six decimals under
+  a float and spells a boolean `True`. A null renders as `NaN`, as in
+  pandas, and `na_rep` renames it. A column name and a string cell are
+  escaped by default — pandas' renderer leaves its default unescaped — and
+  `escape=false` lets a cell carry LaTeX. Styling, per-column formatters,
+  sparsified headers and merged cells are not carried; a header omitted
+  leaves no rule under the top rule, where pandas keeps one, and a frame
+  of no column renders as the empty string.
 
 - **SAS** — `read_sas` reads a Version 5 transport file (XPORT) or a
   SAS data set (`sas7bdat`, Versions 7 to 9), whichever the file opens

@@ -178,6 +178,11 @@ What changed on `main` since 0.9.0:
   runs folded, a missing-value spelling reading missing, and each column
   typed by the CSV reader's rule. `parse_html`'s docstring states the
   contract.
+- `DataFrame::to_latex` renders a frame as a LaTeX table over
+  `LatexOptions`: a booktabs `tabular`, or a `longtable`, with an index
+  column, an optional caption / label / placement, a column selection and
+  a column specification, escaping on by default. A null renders as
+  `NaN`. `to_latex`'s docstring states the output.
 
 - SAS files read, and the transport format writes, over codecs inside
   the module (`internal/xport` for the transport format,

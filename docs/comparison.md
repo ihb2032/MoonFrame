@@ -411,6 +411,20 @@ here today:
   named keep their inferred dtype, and a name the input does not carry is
   refused. See
   [`type-inference.md`](type-inference.md).
+- **Formats not carried** — of the formats pandas' I/O reference and
+  Polars' carry beyond the entries above: HDF5 (pandas' `HDFStore`), whose
+  `fixed` layout spells a frame as Python objects, a string column as a
+  pickle stream, which a reader outside Python takes up only by
+  unpickling; LaTeX (`to_latex`), a formatting export; a fixed-width file
+  (`read_fwf`); pickle and the clipboard, a Python object serialisation and
+  an operating-system service; the OpenDocument and `.xls` workbook
+  flavours, which Polars takes through `read_ods` and its Excel reader; a
+  text file read as lines (Polars' `Lines`); the catalog-based table formats
+  Delta Lake, Iceberg and Lance; a cloud database (pandas' `read_gbq`) or a
+  remote file source (a path names a file on a local filesystem here); a
+  partitioned sink; and an encrypted Parquet file. A reader takes a file
+  whole: there is no chunked or iterated read, as pandas' `chunksize` and
+  its statistics formats' readers offer.
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

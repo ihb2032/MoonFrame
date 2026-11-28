@@ -15,9 +15,10 @@ read_csv("sales.csv")
 ```
 
 It covers CSV / JSON / NDJSON / Parquet / Arrow IPC / Avro / Excel / Stata /
-XML / HTML / SAS / SPSS / ORC I/O and SQL through the moondb contract, filtering,
-sorting, null handling, group-by, joins, summary statistics, a composable
-expression engine, and a lazy query layer, and exports to Markdown, HTML,
+XML / HTML / SAS / SPSS / ORC / Iceberg I/O and SQL through the moondb
+contract, filtering, sorting, null handling, group-by, joins, summary
+statistics, a composable expression engine, and a lazy query layer, and
+exports to Markdown, HTML,
 LaTeX, JSON, NDJSON, and Vega-Lite charts — a focused foundation for everyday
 tabular work, not a full pandas clone.
 
@@ -208,6 +209,13 @@ same way.
   dtypes, a decimal as `Decimal`, and a projection leaves a column it does
   not name undecoded. `parse_orc`'s docstring states the mapping and the
   refusals.
+- **Read an Iceberg table** — `read_iceberg` reads a table directory's
+  current snapshot as a frame: every live data file (Parquet) with the
+  table's current columns, a column taken by the field id it carried when
+  the file was written, so one renamed, widened, added or dropped since
+  reads in its place; position deletes applied; nothing written and no
+  catalog — the path names the table's directory. `read_iceberg`'s
+  docstring states the rules and the refusals.
 - **Read and write a database** — `read_sql(driver, sql, params~)` runs a
   query through any moondb driver and answers a frame, `read_sql_table`
   reads one table whole, `write_sql(df, driver, table, if_exists~)`
@@ -435,10 +443,11 @@ internal/spss/     the native SPSS system-file codec — the file header, the di
 internal/fwf/     the fixed-width column logic — where each line's fields start and end, inferred from the lines or named by widths and positions, and how a line is cut into them; wrapped by io's read_fwf
 internal/ods/      the native OpenDocument spreadsheet codec — the ZIP package with the mimetype and the root element that judge it, the content.xml event walk over tables, rows and cells, a cell's typed values (text, number, boolean, date, instant, time of day), and the repetition counts the desktop writers spell; read by io's read_excel
 internal/xls/      the native Excel 97–2003 codec — the compound file's sectors, FAT and mini stream, the BIFF8 records from the workbook globals to each sheet's cells, the shared string table across its continuations, and the number format a date is read by; read by io's read_excel
+internal/iceberg/ the native Iceberg metadata reader — the table's metadata JSON, the snapshot's manifest list and its manifests as Avro containers resolved by field id, answering the snapshot's data and delete files; the data files are Parquet, read by io's read_iceberg
 series/     Series + column-level stats + the shared reduction / rebuild / key-cell kernels
 expr/       opaque Expr handle — constructors, operators, when/then/otherwise builders, to_string rendering
 frame/      DataFrame + the operators (usually one per file) + group_by + join + the expression evaluator (with_columns / select / filter / agg) + to_markdown / to_html + the deferred query plan (LazyFrame builders, collect / explain, predicate + projection pushdown)
-io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel (.xlsx read / write, .xlsm / .ods / .xls read), Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
+io/         CSV (NyaCSV-backed), fixed-width, JSON, NDJSON, Parquet, Arrow IPC, Avro, Excel (.xlsx read / write, .xlsm / .ods / .xls read), Stata read / write, XML read / write, HTML read, SAS transport read / write, SAS data-set read, SPSS read, ORC read, Iceberg read + SQL over the moondb contract (read, write, scan) + their options types + the lazy scan sources (scan_csv / scan_ndjson / scan_json / scan_parquet / scan_ipc / scan_sql)
 chart/      Vega-Lite v6 typed mirror — the plot(df) fluent chain over plain column names, ChartSpec mark-named builders over VegaChannel (field / constant / datum), the Chart composition layer, the guide trees (scale / axis / legend / header / projection / title), transforms, parameters, and the VegaConfig theme, format_vega_lite / write_vega_lite, a golden corpus schema-walked in CI (shares io's JSON cell conventions)
 moonframe.mbt   the root package — facade over the public API (fluent-chain intermediates stay in their sub-packages)
 ```

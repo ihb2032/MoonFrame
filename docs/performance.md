@@ -322,6 +322,20 @@ format's densest encoding, 520 values to a byte — is refused before a cell
 is built for them, so a small file cannot ask for a large allocation.
 Nothing is written.
 
+## Iceberg tables
+
+`read_iceberg` reads the table's metadata file, the snapshot's manifest
+list and each manifest whole — a table's own files, kilobytes each — and
+then every live data file, each a Parquet file read as `read_parquet`
+reads one: taken into memory, decoded whole. A snapshot of `f` data files
+costs the sum of the Parquet reads plus `O(r)` a row to join the files'
+rows into one frame, `r` the snapshot's rows, with every file in turn and
+then the frame in memory. No file is skipped: the column metrics and
+partition bounds a manifest entry carries are not consulted, so a table
+read for a few rows still reads every file. A position-delete file is
+read when it is met, and the positions it strikes cost one more pass
+over its data files' rows.
+
 ## Database writes
 
 `write_sql` sends a frame in `INSERT` statements of at most 999 bound

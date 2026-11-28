@@ -454,6 +454,21 @@ here today:
   first three. Two top-level fields of one name reach the frame as they
   are spelled, and the frame refuses them. There is no lazy source and no
   iterated read: a file is read whole.
+- **Iceberg** — `read_iceberg` reads a table directory's current snapshot
+  into a frame, as Polars' `read_iceberg` does over pyiceberg (pandas'
+  I/O reference carries no Iceberg entry); nothing is written. There is
+  no catalog: the path names the table's directory, and its current
+  metadata file is the one `version-hint.text` names, else the one with
+  the greatest version number — where Polars' takes a catalog's URI and
+  a table name. Every live data file reads, in the plan's order, each
+  column by the field id it carried when the file was written, so a
+  column renamed, widened, added or dropped since reads in its place; a
+  column an identity partition dropped from the data reads as the
+  partition's value. Position deletes apply; an equality-delete file, a
+  `float` column, a nested column, a file that names no field id and a
+  format version past 3 refuse by name, where the reference carries the
+  first four. No file is skipped by its statistics, and there is no lazy
+  source and no time travel.
 - **Optimizer** — the passes are slice, predicate, and projection pushdown
   (the predicate pass also splits a filter into the sides of a join) plus
   the folding / clustering rules, each gated by a flag on
@@ -478,11 +493,11 @@ here today:
   pickle stream, which a reader outside Python takes up only by
   unpickling; pickle and the clipboard, a Python object serialisation and
   an operating-system service; a text file read as lines (Polars' `Lines`);
-  the catalog-based table formats Delta Lake, Iceberg and Lance; a cloud
-  database (pandas' `read_gbq`) or a remote file source (a path names a
-  file on a local filesystem here); and an encrypted Parquet file. A
-  reader takes a file whole: there is no chunked or iterated read, as
-  pandas' `chunksize` and its statistics formats' readers offer.
+  the catalog-based table formats Delta Lake and Lance; a cloud database
+  (pandas' `read_gbq`) or a remote file source (a path names a file on a
+  local filesystem here); and an encrypted Parquet file. A reader takes a
+  file whole: there is no chunked or iterated read, as pandas' `chunksize`
+  and its statistics formats' readers offer.
 
 See [`migration.md`](migration.md) for the upgrade history, the per-symbol
 reference — generated from the docstrings — on

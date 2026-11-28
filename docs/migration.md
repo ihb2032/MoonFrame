@@ -44,6 +44,8 @@ Source-level note:
   changes.
 - ORC files join the facade: `read_orc` / `parse_orc`, read only, over
   packages the module already depends on. No existing call changes.
+- Iceberg tables join the facade: `read_iceberg`, read only, over
+  packages the module already depends on. No existing call changes.
 - MoonFrame depends on `gaato/lz4`, `gaato/zstd`, `gaato/snappy`,
   `gaato/crc`, `moonbit-community/flate`, and `Milky2018/xml`: the LZ4 /
   Zstandard / snappy codecs, the CRC-32 behind a snappy block's checksum,
@@ -235,6 +237,20 @@ What changed on `main` since 0.9.0:
   projection keeps only the top-level fields it names, and a field it
   leaves out is never decoded. `parse_orc`'s docstring states the mapping
   and the refusals.
+- The Parquet reader inflates ZSTD-compressed pages, which it refused
+  before by codec; a file written with Zstandard reads now, and the
+  writer's codecs are the same three. `read_parquet` and `scan_parquet`
+  both read such a file.
+- Iceberg tables read over a metadata codec inside the module
+  (`internal/iceberg`) and the Parquet codec; nothing is written.
+  `read_iceberg` takes a table's directory, finds its current metadata
+  file, and reads the snapshot's every live data file in the plan's order,
+  each column by the field id it carried when the file was written; a
+  column an identity partition dropped from the data reads as the
+  partition's value, and position deletes apply. An equality-delete file,
+  a `float` column, a nested column, a file that names no field id and a
+  format version past 3 refuse by name. `read_iceberg`'s docstring states
+  the rules and the refusals.
 - Fixed-width files join the facade: `read_fwf` / `parse_fwf` over
   `FwfReadOptions` — a layout inferred from the first lines or named by
   `widths` / `colspecs`, a header under `has_header`, `names` in place

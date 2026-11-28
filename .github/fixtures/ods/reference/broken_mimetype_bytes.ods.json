@@ -1,0 +1,11 @@
+{
+ "file": "broken_mimetype_bytes.ods",
+ "origin": "broken",
+ "note": "a mimetype entry of two bytes that are not UTF-8",
+ "writer": "patched",
+ "bytes": 1828,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: the package's mimetype is \"\\xFF\\xFE\", not an OpenDocument spreadsheet's"
+}

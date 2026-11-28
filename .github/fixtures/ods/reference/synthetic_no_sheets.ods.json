@@ -1,0 +1,11 @@
+{
+ "file": "synthetic_no_sheets.ods",
+ "origin": "synthetic",
+ "note": "a spreadsheet whose content.xml holds no table",
+ "writer": "hand-built",
+ "bytes": 1499,
+ "reference": {"opens": true, "error": null, "sheets": {}},
+ "codec": "reads",
+ "sheets": [
+ ]
+}

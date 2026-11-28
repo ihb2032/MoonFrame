@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_structure.ods",
+ "origin": "odfpy",
+ "note": "a header-rows block, row groups, a table-rows block, column declarations, empty rows and cells between data",
+ "writer": "odfpy",
+ "bytes": 1739,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Layout", "source": "reference", "cells": [[0, 0, "Text", "name"],[0, 1, "Text", "amount"],[0, 2, "Text", "day"],[1, 0, "Text", "a"],[1, 1, "Number", "3ff8000000000000"],[1, 2, "Day", "18263"],[2, 0, "Text", "b"],[2, 1, "Number", "c000000000000000"],[2, 2, "Day", "18264"],[3, 2, "Number", "4022000000000000"],[6, 2, "Text", "far right"]]}
+ ]
+}

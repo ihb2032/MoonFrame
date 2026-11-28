@@ -1,0 +1,11 @@
+{
+ "file": "broken_xml_junk.ods",
+ "origin": "broken",
+ "note": "content.xml that is not XML; the reference reader answers no sheet",
+ "writer": "patched",
+ "bytes": 1397,
+ "reference": {"opens": true, "error": null, "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 0 is not well-formed: InvalidSyntax(content before root element) at 1:1-1:1"
+}

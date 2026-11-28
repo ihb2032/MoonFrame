@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_strings.ods",
+ "origin": "odfpy",
+ "note": "strings: spaces at the ends, a run of spaces, a line break, paragraphs, an annotation, spans, a list, Japanese, emoji, CDATA, a tab",
+ "writer": "odfpy",
+ "bytes": 1933,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 19}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Strings", "source": "reference", "cells": [[0, 0, "Text", "  leading and trailing  "],[0, 1, "Text", "a     b"],[0, 2, "Text", "line one\nline two"],[0, 3, "Text", "first\nsecond\nthird"],[0, 4, "Text", "visible"],[0, 5, "Text", "plain styled plain again"],[0, 6, "Text", "xab  cdy"],[0, 7, "Text", "onetwo"],[0, 8, "Text", "   "],[0, 9, "Text", "\n"],[0, 10, "Text", "日本語のテキスト"],[0, 11, "Text", "emoji 🎉🚀 done"],[0, 12, "Text", "a\tb"],[0, 13, "Text", "a & b < c"],[0, 14, "Text", " x "],[0, 15, "Text", "  "],[0, 17, "Text", "alpha\nbeta"],[0, 18, "Text", "bare text, no paragraph"],[0, 19, "Text", "<raw & cdata>"]]}
+ ]
+}

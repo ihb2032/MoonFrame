@@ -1,0 +1,11 @@
+{
+ "file": "broken_repeat_negative.ods",
+ "origin": "broken",
+ "note": "a column repeat of -2 on an empty cell",
+ "writer": "patched",
+ "bytes": 3448,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1812: the table:number-columns-repeated attribute \"-2\" is not a whole number"
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_other_entry.ods",
+ "origin": "broken",
+ "note": "a stored styles.xml with its last byte flipped: the entry named is the broken one",
+ "writer": "patched",
+ "bytes": 2473,
+ "reference": {"opens": false, "error": "BadZipFile: Bad CRC-32 for file 'styles.xml'", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: the package's entry \"styles.xml\" is broken: zip: CRC-32 mismatch"
+}

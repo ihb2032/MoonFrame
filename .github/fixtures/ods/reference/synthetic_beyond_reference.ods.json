@@ -1,0 +1,15 @@
+{
+ "file": "synthetic_beyond_reference.ods",
+ "origin": "synthetic",
+ "note": "what the reference reader cannot answer: NaN, INF and -INF; -0.0; times of 26 hours; a bare date with a UTC offset; time cells read from their text",
+ "writer": "hand-built",
+ "bytes": 1772,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: cannot convert float NaN to integer"}, "1": {"error": "DateParseError: hour must be in 0..23: 26:00:00"}, "2": {"error": "DateParseError: Unknown datetime string format, unable to parse: 2020-01-02+02:00"}, "3": {"error": "ValueError: NaTType does not support time"}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "nonfinite", "source": "generator", "reference_error": "ValueError: cannot convert float NaN to integer", "cells": [[0, 0, "Number", "NaN"],[0, 1, "Number", "7ff0000000000000"],[0, 2, "Number", "fff0000000000000"],[0, 3, "Number", "8000000000000000"]]},
+  {"name": "longtimes", "source": "generator", "reference_error": "DateParseError: hour must be in 0..23: 26:00:00", "cells": [[0, 0, "Time", "93600000000"],[0, 1, "Time", "93600000000"],[0, 2, "Time", "45296789123"]]},
+  {"name": "dateoffset", "source": "generator", "reference_error": "DateParseError: Unknown datetime string format, unable to parse: 2020-01-02+02:00", "cells": [[0, 0, "Instant", "1577916000000000"],[0, 1, "Instant", "1577923200000000"],[0, 2, "Instant", "1577961296123456"]]},
+  {"name": "clocktext", "source": "generator", "reference_error": "ValueError: NaTType does not support time", "cells": [[0, 0, "Time", "45296000000"],[0, 1, "Time", "3900000000"],[0, 2, "Time", "45296789000"],[0, 3, "Time", "86340000000"]]}
+ ]
+}

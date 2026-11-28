@@ -1,0 +1,12 @@
+{
+ "file": "synthetic_utf16le.ods",
+ "origin": "synthetic",
+ "note": "content.xml in UTF-16, little-endian, with its byte-order mark; the reference reader decodes UTF-8 only",
+ "writer": "hand-built",
+ "bytes": 1123,
+ "reference": {"opens": false, "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte", "sheets": {}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "S", "source": "generator", "cells": [[0, 0, "Text", "café 日本 🎉"],[0, 1, "Number", "3ff8000000000000"],[0, 2, "Instant", "1577968496000000"]]}
+ ]
+}

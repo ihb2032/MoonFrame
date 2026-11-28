@@ -1,0 +1,11 @@
+{
+ "file": "broken_spaces.ods",
+ "origin": "broken",
+ "note": "a text:s made to spell two thousand million spaces",
+ "writer": "patched",
+ "bytes": 3504,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 12}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1855: the text:c attribute \"2000000000\" would spell more spaces than this reader grants a package of 3504 bytes (93568)"
+}

@@ -1,0 +1,11 @@
+{
+ "file": "broken_truncated.ods",
+ "origin": "broken",
+ "note": "the archive cut in half",
+ "writer": "patched",
+ "bytes": 936,
+ "reference": {"opens": false, "error": "BadZipFile: File is not a zip file", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: the package is a broken ZIP archive: zip: end of central directory not found"
+}

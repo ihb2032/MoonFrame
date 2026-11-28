@@ -1,0 +1,11 @@
+{
+ "file": "broken_repeat_text.ods",
+ "origin": "broken",
+ "note": "a column repeat that spells no number",
+ "writer": "patched",
+ "bytes": 3449,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "ValueError: invalid literal for int() with base 10: 'abc'"}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1812: the table:number-columns-repeated attribute \"abc\" is not a whole number"
+}

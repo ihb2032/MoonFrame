@@ -1,0 +1,13 @@
+{
+ "file": "ezodf_grid.ods",
+ "origin": "ezodf",
+ "note": "the way its README spells a sheet, with empty cells and spaces; a default-sized empty sheet",
+ "writer": "ezodf",
+ "bytes": 2425,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 7}, "1": {"cells": 0}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "A", "source": "reference", "cells": [[0, 0, "Number", "3ff0000000000000"],[0, 1, "Text", "two"],[0, 2, "Number", "400c000000000000"],[0, 3, "Boolean", "false"],[1, 0, "Text", "with spaces     \nsecond line"],[1, 1, "Text", "x"],[1, 3, "Boolean", "false"]]},
+  {"name": "Default", "source": "reference", "cells": []}
+ ]
+}

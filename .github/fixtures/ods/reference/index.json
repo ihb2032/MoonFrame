@@ -1,0 +1,410 @@
+[
+ {
+  "file": "odfpy_values.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Values",
+   "Empty"
+  ],
+  "cells": 55
+ },
+ {
+  "file": "odfpy_bool_spelled.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Booleans"
+  ],
+  "cells": 12
+ },
+ {
+  "file": "odfpy_strings.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Strings"
+  ],
+  "cells": 19
+ },
+ {
+  "file": "odfpy_sheets.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "First",
+   "An empty one",
+   "É 日本 & <x>"
+  ],
+  "cells": 4
+ },
+ {
+  "file": "odfpy_structure.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Layout"
+  ],
+  "cells": 11
+ },
+ {
+  "file": "odfpy_repeats.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Repeats"
+  ],
+  "cells": 10
+ },
+ {
+  "file": "odfpy_merged.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Merged"
+  ],
+  "cells": 6
+ },
+ {
+  "file": "odfpy_formula.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Formulas"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "odfpy_empty_cells.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Kinds of empty"
+  ],
+  "cells": 1
+ },
+ {
+  "file": "odfpy_pandas.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Sheet1"
+  ],
+  "cells": 20
+ },
+ {
+  "file": "odfpy_offsets.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Offsets and fractions"
+  ],
+  "cells": 15
+ },
+ {
+  "file": "odfpy_small.ods",
+  "origin": "odfpy",
+  "codec": "reads",
+  "sheets": [
+   "Small",
+   "Nothing here"
+  ],
+  "cells": 11
+ },
+ {
+  "file": "ezodf_values.ods",
+  "origin": "ezodf",
+  "codec": "reads",
+  "sheets": [
+   "S",
+   "Silent time"
+  ],
+  "cells": 12
+ },
+ {
+  "file": "ezodf_grid.ods",
+  "origin": "ezodf",
+  "codec": "reads",
+  "sheets": [
+   "A",
+   "Default"
+  ],
+  "cells": 7
+ },
+ {
+  "file": "synthetic_prefixed.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 1
+ },
+ {
+  "file": "synthetic_utf16le.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "synthetic_utf16be.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "synthetic_utf8_bom.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "synthetic_no_mimetype.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 1
+ },
+ {
+  "file": "synthetic_pretty.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "P"
+  ],
+  "cells": 2
+ },
+ {
+  "file": "synthetic_nested_table.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "Outer",
+   "Inner"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "synthetic_beyond_reference.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "nonfinite",
+   "longtimes",
+   "dateoffset",
+   "clocktext"
+  ],
+  "cells": 14
+ },
+ {
+  "file": "synthetic_no_sheets.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [],
+  "cells": 0
+ },
+ {
+  "file": "synthetic_repeats_equal.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "Plain",
+   "Repeated"
+  ],
+  "cells": 8
+ },
+ {
+  "file": "synthetic_stored.ods",
+  "origin": "synthetic",
+  "codec": "reads",
+  "sheets": [
+   "S"
+  ],
+  "cells": 3
+ },
+ {
+  "file": "broken_truncated.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_checksum.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_wont_inflate.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_other_entry.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_content_cut.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_xml_junk.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_value_type.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_repeat_negative.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_repeat_text.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_repeat_count.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_repeat_enormous.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_repeat_rows.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_date.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_number.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_number_missing.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_time_value.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_clock.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_spaces.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_text_c.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_mimetype_text.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_mimetype_bytes.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_no_content.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_ooxml.xlsx",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_not_package.zip",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_encoding_latin1.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_encoding_bytes.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "ParseError"
+ },
+ {
+  "file": "broken_root_other.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_root_mimetype.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ },
+ {
+  "file": "broken_encrypted.ods",
+  "origin": "broken",
+  "codec": "refuses",
+  "refusal": "Unsupported"
+ }
+]

@@ -1,0 +1,12 @@
+{
+ "file": "odfpy_offsets.ods",
+ "origin": "odfpy",
+ "note": "datetimes with UTC offsets and with fractions of 3, 6 and 9 digits; before 1970",
+ "writer": "odfpy",
+ "bytes": 1740,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 15}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Offsets and fractions", "source": "reference", "cells": [[0, 0, "Instant", "1577968496000000"],[0, 1, "Instant", "1577961296000000"],[0, 2, "Instant", "1577988296000000"],[0, 3, "Instant", "1577968496000000"],[0, 4, "Instant", "1577916000000000"],[0, 5, "Instant", "1577916000500000"],[1, 0, "Instant", "1577968496123000"],[1, 1, "Instant", "1577968496123456"],[1, 2, "Instant", "1577968496123456"],[1, 3, "Instant", "1577968496000000"],[1, 4, "Instant", "1577968496999999"],[1, 5, "Day", "18263"],[1, 6, "Instant", "-876544"],[1, 7, "Instant", "-1"],[1, 8, "Instant", "1"]]}
+ ]
+}

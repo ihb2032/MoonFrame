@@ -1,0 +1,11 @@
+{
+ "file": "broken_encoding_latin1.ods",
+ "origin": "broken",
+ "note": "content.xml declaring ISO-8859-1; the reference reader decodes UTF-8 only",
+ "writer": "hand-built",
+ "bytes": 940,
+ "reference": {"opens": false, "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 966: invalid continuation byte", "sheets": {}},
+ "codec": "refuses",
+ "refusal": "Unsupported",
+ "message": "ods: content.xml declares the iso-8859-1 encoding, which this reader does not decode"
+}

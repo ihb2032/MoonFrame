@@ -1,0 +1,13 @@
+{
+ "file": "odfpy_small.ods",
+ "origin": "odfpy",
+ "note": "four rows: numbers, strings, a boolean, a date, a time; a second sheet with nothing",
+ "writer": "odfpy",
+ "bytes": 1769,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"cells": 11}, "1": {"cells": 0}}},
+ "codec": "reads",
+ "sheets": [
+  {"name": "Small", "source": "reference", "cells": [[0, 0, "Number", "3ff0000000000000"],[0, 1, "Text", "one"],[0, 2, "Day", "18263"],[1, 0, "Number", "4004000000000000"],[1, 1, "Text", "two"],[1, 2, "Boolean", "false"],[2, 0, "Number", "c008000000000000"],[2, 1, "Text", "three"],[2, 2, "Time", "3723000000"],[3, 0, "Number", "4480f0cf064dd592"],[3, 2, "Instant", "-1000000"]]},
+  {"name": "Nothing here", "source": "reference", "cells": []}
+ ]
+}

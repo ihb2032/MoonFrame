@@ -1,0 +1,11 @@
+{
+ "file": "broken_repeat_count.ods",
+ "origin": "broken",
+ "note": "a column repeat past the largest count the reader takes",
+ "writer": "patched",
+ "bytes": 3456,
+ "reference": {"opens": true, "error": null, "sheets": {"0": {"error": "MemoryError: "}, "1": {"cells": 0}}},
+ "codec": "refuses",
+ "refusal": "ParseError",
+ "message": "ods: content.xml byte 1812: the table:number-columns-repeated attribute \"2147483648\" is past the largest count this reader takes"
+}

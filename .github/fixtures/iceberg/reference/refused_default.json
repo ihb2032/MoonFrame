@@ -1,0 +1,100 @@
+{
+ "codec": "refuses",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_default",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-6046627486867010525-0-47933af9-100c-4ca8-ba88-eb799cb039aa.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-47933af9-100c-4ca8-ba88-eb799cb039aa.parquet",
+      "record_count": 1,
+      "sequence_number": 2
+     }
+    ],
+    "length": 4363,
+    "path": "metadata/47933af9-100c-4ca8-ba88-eb799cb039aa-m0.avro"
+   },
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-99b85df0-7397-4e2f-993c-5869d6a04568.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4241,
+    "path": "metadata/99b85df0-7397-4e2f-993c-5869d6a04568-m0.avro"
+   }
+  ],
+  "sequence_number": 2,
+  "snapshot": 6046627486867010525
+ },
+ "reference": "plans and reads",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: column \"label\": the initial default \"none\", which the files written before the column was added do not hold and this reader does not materialise",
+  "variant": "Unsupported"
+ },
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 2
+   },
+   "label": {
+    "kind": "string",
+    "value": "two"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "label": {
+    "kind": "string",
+    "value": "none"
+   }
+  }
+ ],
+ "rows_source": "the reference's scan, in its order",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "label"
+  ],
+  "types": [
+   "long",
+   "string"
+  ]
+ },
+ "table": "refused_default",
+ "walk_differs": "the reference materialises the column's initial default for the rows written before the column was added; a reader of the files alone answers null",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

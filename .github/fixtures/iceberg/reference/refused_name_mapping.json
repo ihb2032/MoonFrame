@@ -1,0 +1,73 @@
+{
+ "codec": "refuses",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_name_mapping",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-3755387193663670545-0-766b2539-0e0b-46ad-8ac3-655553dce0b7.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data\\plain.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4275,
+    "path": "metadata/766b2539-0e0b-46ad-8ac3-655553dce0b7-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 3755387193663670545
+ },
+ "reference": "plans and reads",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: the property schema.name-mapping.default maps field ids to the columns of data files that carry none, and this reader does not apply it",
+  "variant": "Unsupported"
+ },
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "s": {
+    "kind": "string",
+    "value": "a"
+   }
+  }
+ ],
+ "rows_source": "the reference's scan, in its order",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "s"
+  ],
+  "types": [
+   "long",
+   "string"
+  ]
+ },
+ "table": "refused_name_mapping",
+ "walk_differs": "the imported Parquet file carries no field ids; its columns are found only through the name mapping the metadata holds",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

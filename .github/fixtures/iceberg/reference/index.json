@@ -1,0 +1,4523 @@
+{
+ "patched": [
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_truncated.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Unexpected end of file",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_truncated",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_bad_char.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '?' at line 1, column 0",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_bad_char",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_not_utf8.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not UTF-8 text",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_not_utf8",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_no_version.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata names no \"format-version\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_no_version",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_version_four.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: format version 4, where this reader reads 1 to 3",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_version_four",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_version_zero.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: format version 0, where this reader reads 1 to 3",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_version_zero",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_version_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: format-version is not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_version_text",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_version_fraction.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: format-version is 2.5, not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_version_fraction",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_version_huge.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: format-version is 9223372036854775808, not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_version_huge",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_no_location.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata names no \"location\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_no_location",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_location_empty.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: location is empty",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_location_empty",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_location_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: location is not a string",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_location_number",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_uuid_number.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_uuid_number",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": [
+     [
+      "s",
+      2,
+      "identity"
+     ]
+    ]
+   },
+   "codec": "reads",
+   "file": "patched/metadata_source_ids_single.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_source_ids_single",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_spec_no_id.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_spec_no_id",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_id_unknown.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: current-schema-id 7 names none of the table's 1 schemas",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_id_unknown",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schemas_not_array.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: schemas is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schemas_not_array",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a schema is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_id_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a schema's schema-id is not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_id_text",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_no_schema.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata names no schema",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_no_schema",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_type.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a schema whose type is record, not struct",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_type",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_no_type.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the schema names no \"type\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_no_type",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_schema_type_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the schema's type is not a string",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_schema_type_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_fields_not_array.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the schema's fields is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_fields_not_array",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_no_fields.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the schema names no \"fields\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_no_fields",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_field_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a field of the schema is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_field_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_field_no_id.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a field of the schema names no \"id\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_field_no_id",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_field_no_name.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a field of the schema names no \"name\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_field_no_name",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_field_no_type.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a field of the schema names no \"type\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_field_no_type",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the type of column \"i\" is neither a name nor a definition",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_type_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_binary.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type binary, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_binary",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_map.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type map, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_map",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_variant.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type variant, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_variant",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_time.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type time, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_time",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_timestamp_ns.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type timestamp_ns, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_timestamp_ns",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_timestamptz_ns.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type timestamptz_ns, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_timestamptz_ns",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_uuid.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type uuid, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_uuid",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_fixed.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type fixed[16], which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_fixed",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_unknown.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type unknown, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_unknown",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_geometry.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type geometry, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_geometry",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_geography.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type geography, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_geography",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_file.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the type file, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_type_file",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_list_no_element.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the list \"i\" names no \"element\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_list_no_element",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_list_element_binary.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i[]\": the type binary, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_list_element_binary",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_struct_no_fields.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the struct \"i\" names no \"fields\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_struct_no_fields",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_struct_duplicate.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the struct \"i\" holds two fields named \"x\"",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_struct_duplicate",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_duplicate_columns.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the schema holds two fields named \"i\"",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_duplicate_columns",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_initial_default.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": the initial default 5, which the files written before the column was added do not hold and this reader does not materialise",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_initial_default",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_initial_default_null.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_initial_default_null",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_decimal_shape.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: decimal(9), the type of column \"i\", spells no precision and scale",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_decimal_shape",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_decimal_negative_scale.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: decimal(9, -1), the type of column \"i\", spells no precision and scale",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_decimal_negative_scale",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_decimal_range.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: decimal(0, 0), the type of column \"i\", is not a decimal's precision and scale",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_decimal_range",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_decimal_scale_over_precision.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: decimal(9, 10), the type of column \"i\", is not a decimal's precision and scale",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_decimal_scale_over_precision",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_decimal_wide.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: column \"i\": decimal(35, 2) holds up to 35 digits, where a Decimal here holds 34",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_decimal_wide",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_specs_not_array.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: partition-specs is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_specs_not_array",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition spec is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_no_fields.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition spec names no \"fields\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_no_fields",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_fields_not_array.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition spec's fields is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_fields_not_array",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_field_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_no_source.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field names no source column",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_field_no_source",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_source_ids_empty.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field names no source column",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_field_source_ids_empty",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_multi_source.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field drawing on several source columns, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_spec_field_multi_source",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_no_name.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field names no \"name\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_field_no_name",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_field_no_transform.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field names no \"transform\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_field_no_transform",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_transform_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition field's transform is not a string",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_transform_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_bucket_zero.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: bucket[0], which spells no positive whole number in brackets",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_bucket_zero",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_bucket_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: truncate[w], which spells no positive whole number in brackets",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_bucket_text",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_bucket_unclosed.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: bucket[4, which spells no positive whole number in brackets",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_bucket_unclosed",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_id_unknown.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: default-spec-id 3 names none of the table's 1 partition specs",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_id_unknown",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_id_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: default-spec-id is not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_id_text",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_spec_id_field_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a partition spec's spec-id is not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_spec_id_field_text",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_name_mapping.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the property schema.name-mapping.default maps field ids to the columns of data files that carry none, and this reader does not apply it",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_name_mapping",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_name_mapping_empty.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_name_mapping_empty",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_encryption_keys.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the table holds encryption keys, and this reader decrypts nothing",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_encryption_keys",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_encryption_keys_empty.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_encryption_keys_empty",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_properties_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: properties is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_properties_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_refs_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: refs is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_refs_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_main_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the main reference is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_main_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_main_no_snapshot.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the main reference names no \"snapshot-id\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_main_no_snapshot",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_refs_disagree.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: refs names the snapshot 123 for main, current-snapshot-id the snapshot 1550479460107044029",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_refs_disagree",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_refs_without_current.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: refs names the snapshot 1550479460107044029 for main, current-snapshot-id none",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_refs_without_current",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_current_minus_one_with_refs.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: refs names the snapshot 1550479460107044029 for main, current-snapshot-id none",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_current_minus_one_with_refs",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_unknown.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 123 is named as current, but the metadata's snapshots do not hold it",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_unknown",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshots_not_array.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: snapshots is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshots_not_array",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_not_object.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a snapshot is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_not_object",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_no_id.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: a snapshot names no \"snapshot-id\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_no_id",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_no_list.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029 names no \"manifest-list\"",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_no_list",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_list_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029's manifest-list is not a string",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_list_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_sequence_negative.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029 carries the sequence number -1",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_sequence_negative",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_sequence_text.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029's sequence-number is not a 64-bit whole number",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_snapshot_sequence_text",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_snapshot_no_sequence.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_snapshot_no_sequence",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_snapshot_key_id.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029 names an encryption key, and this reader decrypts nothing",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_snapshot_key_id",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_list_outside.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the manifest list of the snapshot 1550479460107044029 C:/elsewhere/snap.avro lies outside the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_list_outside",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_list_other_scheme.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the manifest list of the snapshot 1550479460107044029 s3://bucket/snap.avro lies under the scheme s3, not under the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one, which lies under no scheme",
+    "variant": "Unsupported"
+   },
+   "shape": "metadata_list_other_scheme",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_list_empty.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the snapshot 1550479460107044029's manifest-list is an empty path",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_list_empty",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_location_slashes.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the table's location is empty",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_location_slashes",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_location_uri.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_location_uri",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_legacy_schema.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_legacy_schema",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_no_partition_specs.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_no_partition_specs",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": [
+     [
+      "s",
+      2,
+      "identity"
+     ]
+    ]
+   },
+   "codec": "reads",
+   "file": "patched/metadata_legacy_partition_spec.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_legacy_partition_spec",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": null,
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_minus_one_no_snapshot.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_minus_one_no_snapshot",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_no_refs.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_no_refs",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_write_default.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_write_default",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "dtypes": [
+     "Decimal",
+     "Decimal"
+    ],
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_decimals.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_decimals",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "dtypes": [
+     "Bool",
+     "Int",
+     "Int",
+     "Float",
+     "Float",
+     "String",
+     "Date",
+     "Timestamp",
+     "Timestamp",
+     "Decimal",
+     "List[Int]",
+     "Struct{x: Int, y: Date}"
+    ],
+    "field_ids": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_every_type.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_every_type",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_no_current_schema_id.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_no_current_schema_id",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_schema_no_id.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_schema_no_id",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": null,
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_no_snapshots.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_no_snapshots",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_no_properties.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_no_properties",
+   "step": "metadata"
+  },
+  {
+   "answers": {
+    "field_ids": [
+     1,
+     2
+    ],
+    "manifest_list": "metadata/snap-1550479460107044029-0-476e2a8d-28ae-48b3-9112-9196a5920e8a.avro",
+    "partition_fields": []
+   },
+   "codec": "reads",
+   "file": "patched/metadata_null_schema_id.metadata.json",
+   "kind": "metadata",
+   "shape": "metadata_null_schema_id",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_type_member_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the type of column \"i\" is not a string",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_type_member_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_bad_number.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '1' at line 1, column 20",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_bad_number",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_bad_ident.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '}' at line 1, column 22",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_bad_ident",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_bad_escape.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '\\\\' at line 1, column 28",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_bad_escape",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_number_cut.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '}' at line 1, column 21",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_number_cut",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_leading_dot.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character '.' at line 1, column 19",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_leading_dot",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_ident_tail.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Invalid character 'l' at line 1, column 10",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_ident_tail",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_duplicate_key.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Duplicate key \"format-version\" at line 1, column 22",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_duplicate_key",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/metadata_too_deep.metadata.json",
+   "kind": "metadata",
+   "refusal": {
+    "text": "iceberg: the metadata is not JSON: Depth limit exceeded, please increase the max_nesting_depth parameter",
+    "variant": "ParseError"
+   },
+   "shape": "metadata_too_deep",
+   "step": "metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_bad_magic.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 0: a file that does not open with the Avro magic",
+    "variant": "ParseError"
+   },
+   "shape": "list_bad_magic",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_too_short.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a file of 3 bytes, too short for the magic",
+    "variant": "ParseError"
+   },
+   "shape": "list_too_short",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_empty.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a file of 0 bytes, too short for the magic",
+    "variant": "ParseError"
+   },
+   "shape": "list_empty",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_codec_unknown.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 107: the header names the block codec \"unknown\", which this reader does not inflate",
+    "variant": "ParseError"
+   },
+   "shape": "list_codec_unknown",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_codec_deflate_corrupt.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1641: a deflate block that does not decompress within 16777216 bytes",
+    "variant": "ParseError"
+   },
+   "shape": "list_codec_deflate_corrupt",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_sync_truncated.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1625 of the manifest list as a file: a file that ends inside its sync marker",
+    "variant": "ParseError"
+   },
+   "shape": "list_sync_truncated",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_header_truncated.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 127 of the manifest list as a file: a length of 1495 bytes that the bytes cannot hold",
+    "variant": "ParseError"
+   },
+   "shape": "list_header_truncated",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_count_zero_then_bytes.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1815: 1 bytes past a block of no records",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_count_zero_then_bytes",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_count_negative.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1641: a block of -64 records",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_count_negative",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_count_too_many.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1547: a block of 200 records in 160 bytes",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_count_too_many",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_size_past.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1641: a block of 8191 bytes, past what the file holds",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_size_past",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_size_short.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1798: a block whose sync marker differs from the file's",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_size_short",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_sync_mismatch.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1799: a block whose sync marker differs from the file's",
+    "variant": "ParseError"
+   },
+   "shape": "list_sync_mismatch",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_block_truncated.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 1641: a block of 155 bytes, past what the file holds",
+    "variant": "ParseError"
+   },
+   "shape": "list_block_truncated",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_no_blocks.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [],
+   "shape": "list_no_blocks",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_count_zero_closes.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [],
+   "shape": "list_count_zero_closes",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_named_reference.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_named_reference",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_named_namespace.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_named_namespace",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_decimal_no_scale.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_decimal_no_scale",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_decimal_out_of_range.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a decimal with precision 0 and scale 0",
+    "variant": "ParseError"
+   },
+   "shape": "list_decimal_out_of_range",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_decimal_on_int.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_decimal_on_int",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_logical_map_three_fields.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_logical_map_three_fields",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_logical_map_on_string.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_logical_map_on_string",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_enum_no_symbol.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: an enum with no symbol",
+    "variant": "ParseError"
+   },
+   "shape": "list_enum_no_symbol",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_fixed_size_zero.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a fixed type of size 0",
+    "variant": "ParseError"
+   },
+   "shape": "list_fixed_size_zero",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_dangling_keyword.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a schema that refers to the type \"nothing\", which it never defines",
+    "variant": "ParseError"
+   },
+   "shape": "list_dangling_keyword",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_nested_definition.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_nested_definition",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_depth.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a schema nested deeper than 64 types",
+    "variant": "ParseError"
+   },
+   "shape": "list_depth",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_union_of_union.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a union that is not a null and one type",
+    "variant": "ParseError"
+   },
+   "shape": "list_union_of_union",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_union_null_null.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a union that is not a null and one type",
+    "variant": "ParseError"
+   },
+   "shape": "list_union_null_null",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_no_codec.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_no_codec",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_metadata_limit.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 4: a header with more than 1024 metadata entries",
+    "variant": "ParseError"
+   },
+   "shape": "list_metadata_limit",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_top_union.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest list: a top-level Avro schema that is a union, not a record",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_top_union",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_string_not_utf8.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: byte 0 of the block at byte 473: a string that is not valid UTF-8",
+    "variant": "ParseError"
+   },
+   "shape": "list_string_not_utf8",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_content_out_of_set.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list: the content 7, not 0 for data or 1 for deletes",
+    "variant": "ParseError"
+   },
+   "shape": "list_content_out_of_set",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_length_negative.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list: the manifest length -1",
+    "variant": "ParseError"
+   },
+   "shape": "list_length_negative",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_no_length.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list names no length",
+    "variant": "ParseError"
+   },
+   "shape": "list_no_length",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_no_path.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list names no path",
+    "variant": "ParseError"
+   },
+   "shape": "list_no_path",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_no_spec_id.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list names no partition spec id",
+    "variant": "ParseError"
+   },
+   "shape": "list_no_spec_id",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_no_snapshot_id.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list names no added snapshot id",
+    "variant": "ParseError"
+   },
+   "shape": "list_no_snapshot_id",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_sequence_negative.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 0 of the list: the sequence number -1",
+    "variant": "ParseError"
+   },
+   "shape": "list_sequence_negative",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_key_metadata.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest metadata/x.avro: it carries key metadata, which marks it as encrypted, and this reader decrypts nothing",
+    "variant": "Unsupported"
+   },
+   "shape": "list_key_metadata",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_path_outside.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest C:/other/x.avro lies outside the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+    "variant": "Unsupported"
+   },
+   "shape": "list_path_outside",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_path_other_scheme.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest s3://bucket/x.avro lies under the scheme s3, not under the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one, which lies under no scheme",
+    "variant": "Unsupported"
+   },
+   "shape": "list_path_other_scheme",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_path_empty.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest is an empty path",
+    "variant": "ParseError"
+   },
+   "shape": "list_path_empty",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_second_entry.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: manifest entry 1 of the list: the content 9, not 0 for data or 1 for deletes",
+    "variant": "ParseError"
+   },
+   "shape": "list_second_entry",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_no_path.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest list: a schema that names no field with the id 500",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_no_path",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_top_not_record.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest list: a top-level Avro schema that is an int, not a record",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_top_not_record",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_no_avro.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest list: the header names no \"avro.schema\"",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_no_avro",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_not_json.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the manifest list's Avro schema is not JSON: Unexpected end of file",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_not_json",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_number.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a schema entry that is neither a name, a union, or a type definition",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_number",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_dangling.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a schema that refers to the type \"nothing\", which it never defines",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_dangling",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_schema_union.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: a union that is not a null and one type",
+    "variant": "ParseError"
+   },
+   "shape": "list_schema_union",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/list_v1_defaults.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "manifests": [
+    {
+     "path": "metadata/x.avro"
+    }
+   ],
+   "shape": "list_v1_defaults",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/list_bytes_past_record.avro",
+   "kind": "list",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest_list",
+    "text": "iceberg: the block at byte 307: 1 bytes past the last record",
+    "variant": "ParseError"
+   },
+   "shape": "list_bytes_past_record",
+   "step": "manifest_list"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_data_file.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_data_file.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_data_file"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_position_delete.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 1,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_position_delete.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_position_delete"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_equality_delete.avro",
+   "files": [
+    {
+     "equality_ids": [
+      1
+     ],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 2,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_equality_delete.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_equality_delete"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_deleted_and_existing.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 9,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_deleted_and_existing.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_deleted_and_existing"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_deleted_entry.avro",
+   "files": [],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_deleted_entry"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_format_lower_case.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_format_lower_case"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_format_mixed_case.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_format_mixed_case"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_no_blocks.avro",
+   "files": [],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_no_blocks"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_v1_schema.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 4,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_v1_schema"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_values.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "d",
+       3,
+       "identity",
+       {
+        "kind": "date",
+        "value": 19000
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "d",
+       3,
+       "identity",
+       {
+        "kind": "null"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_values"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_scalars.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "i",
+       1,
+       "identity",
+       {
+        "kind": "int",
+        "value": -5
+       }
+      ],
+      [
+       "s_trunc",
+       2,
+       "truncate[2]",
+       {
+        "kind": "string",
+        "value": "ab"
+       }
+      ],
+      [
+       "d_year",
+       3,
+       "year",
+       {
+        "kind": "int",
+        "value": 52
+       }
+      ],
+      [
+       "b_void",
+       4,
+       "void",
+       {
+        "kind": "null"
+       }
+      ],
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "123.45"
+       }
+      ],
+      [
+       "t",
+       6,
+       "identity",
+       {
+        "kind": "timestamp",
+        "value": "1583164496789012"
+       }
+      ],
+      [
+       "t_bucket",
+       6,
+       "bucket[8]",
+       {
+        "kind": "int",
+        "value": 3
+       }
+      ],
+      [
+       "t_hour",
+       6,
+       "hour",
+       {
+        "kind": "int",
+        "value": 439768
+       }
+      ],
+      [
+       "d_day",
+       3,
+       "day",
+       {
+        "kind": "date",
+        "value": 19000
+       }
+      ],
+      [
+       "d_month",
+       3,
+       "month",
+       {
+        "kind": "int",
+        "value": 625
+       }
+      ],
+      [
+       "i_copy",
+       1,
+       "temporal[1, 2]",
+       {
+        "kind": "int",
+        "value": 9
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_scalars"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_skips_unknown_fields.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 5,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_skips_unknown_fields"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_metric_ids.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2,
+      3,
+      6
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_metric_ids"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_status_out_of_set.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest: the status 3, not 0, 1 or 2",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_status_out_of_set"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_status_null.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest names no status",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_status_null"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_path.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest names no path",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_no_path"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_path_empty.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file is an empty path",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_path_empty"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_format_avro.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet: the format AVRO, where this reader reads parquet files only",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_format_avro"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_format.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest names no format",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_no_format"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_negative.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest: the record count -1",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_negative"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_record_count.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest names no record count",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_no_record_count"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_content_out_of_set.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest: the content 5, not 0, 1 or 2",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_content_out_of_set"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_key_metadata.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet: it carries key metadata, which marks it as encrypted, and this reader decrypts nothing",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_key_metadata"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_key_metadata_required.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet: it carries key metadata, which marks it as encrypted, and this reader decrypts nothing",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_key_metadata_required"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_equality_no_column.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the equality-delete file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet names no column",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_equality_no_column"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_equality_null_ids.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the equality-delete file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet names no column",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_equality_null_ids"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_sequence_negative.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest: the sequence number -5",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_sequence_negative"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_path_outside.avro",
+   "kind": "manifest",
+   "list": "patched/manifest_path_outside.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file C:/other/x.parquet lies outside the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_path_outside"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_path_other_scheme.avro",
+   "kind": "manifest",
+   "list": "patched/manifest_path_other_scheme.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file s3://bucket/x.parquet lies under the scheme s3, not under the table location D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one, which lies under no scheme",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_path_other_scheme"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_second_entry_bad.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 1 of the manifest: the status 3, not 0, 1 or 2",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_second_entry_bad"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_union_index_outside.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1 of the block at byte 1589: the union index 5, outside its two branches",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_union_index_outside"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_union_index_two.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1 of the block at byte 1589: the union index 2, outside its two branches",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_union_index_two"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_null.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1751: a file whose partition is null where the manifest's spec names 1 fields",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_null"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_count.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1797: a partition of 2 fields where the manifest's spec names 1",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_count"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_no_fields.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1662: a partition of 0 fields where the manifest's spec names 1",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_no_fields"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1627: a string where a partition is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_array.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1649: an array where a partition is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_array"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_value_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"d\" holds a string, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_value_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_value_double.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"d\" holds a float, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_value_double"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_value_bool.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"d\" holds a boolean, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_value_bool"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_value_record.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1786: a record where the partition field \"d\" holding a primitive is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_value_record"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_source_missing.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"x\": the manifest's schema holds no column with the id 99",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_source_missing"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_source_binary.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"b\": the source column's type binary, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_source_binary"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_truncate_binary.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"b\": the source column's type binary, which this reader does not carry",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_truncate_binary"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_decimal_scale.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"m\" holds a decimal of scale 3, where the column's scale is 2",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_decimal_scale"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_decimal_wide.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"m\": a decimal 17 bytes wide, past the 16 a 128-bit integer holds",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_decimal_wide"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_decimal_digits.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"m\": a decimal with more than 34 significant digits",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_decimal_digits"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_void_bytes.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"b\": bytes, which this reader does not carry as a value",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_void_bytes"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_unknown_fixed.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"b\": bytes, which this reader does not carry as a value",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_unknown_fixed"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_field_array.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1728: an array where the partition field \"i\" holding a primitive is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_field_array"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_long_for_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"s\" holds a whole number, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_long_for_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_decimal_for_date.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"d\" holds a decimal of scale 2, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_decimal_for_date"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_source_decimal_wide.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"big\": the source column's decimal(38, 2) holds up to 38 digits, where a Decimal here holds 34",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_partition_source_decimal_wide"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_null_no_spec.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_null_no_spec"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_float_values.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "f",
+       7,
+       "identity",
+       {
+        "kind": "float",
+        "value": "bff8000000000000"
+       }
+      ],
+      [
+       "dd",
+       8,
+       "identity",
+       {
+        "kind": "float",
+        "value": "4004000000000000"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "f",
+       7,
+       "identity",
+       {
+        "kind": "float",
+        "value": "0000000000000000"
+       }
+      ],
+      [
+       "dd",
+       8,
+       "identity",
+       {
+        "kind": "float",
+        "value": "8000000000000000"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "f",
+       7,
+       "identity",
+       {
+        "kind": "float",
+        "value": "7ff0000000000000"
+       }
+      ],
+      [
+       "dd",
+       8,
+       "identity",
+       {
+        "kind": "null"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "f",
+       7,
+       "identity",
+       {
+        "kind": "float",
+        "value": "7ff8000000000000"
+       }
+      ],
+      [
+       "dd",
+       8,
+       "identity",
+       {
+        "kind": "float",
+        "value": "3ff8000000000000"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "f",
+       7,
+       "identity",
+       {
+        "kind": "float",
+        "value": "36a0000000000000"
+       }
+      ],
+      [
+       "dd",
+       8,
+       "identity",
+       {
+        "kind": "float",
+        "value": "0000000000000001"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_float_values"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_void_bool_double.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "bb",
+       9,
+       "void",
+       {
+        "kind": "bool",
+        "value": true
+       }
+      ],
+      [
+       "dd",
+       8,
+       "void",
+       {
+        "kind": "float",
+        "value": "4004000000000000"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_void_bool_double"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_decimal_padding.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "pad",
+       11,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "1230000000.12"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "pad",
+       11,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "-1000000000000.07"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "pad",
+       11,
+       "identity",
+       {
+        "kind": "null"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_decimal_padding"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_skips_fixed_decimal.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_skips_fixed_decimal"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_status_null_type.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 0 of the block at byte 1590: a null where the status of a manifest entry is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_status_null_type"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_path_long.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 3 of the block at byte 1587: a long where the path of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_path_long"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1591: a string where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_map.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1622: a map where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_map"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_column_sizes_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 109 of the block at byte 1558: a string where the column metrics of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_column_sizes_string"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_null_metrics.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_null_metrics"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_equality_ids_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 118 of the block at byte 1549: a string where the equality ids of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_equality_ids_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_equality_ids_long.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 118 of the block at byte 1547: a long where the equality ids of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_equality_ids_long"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_no_column_sizes.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_no_column_sizes"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_equality_null_element.avro",
+   "files": [
+    {
+     "equality_ids": [
+      1
+     ],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 2,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_equality_null_element"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_format_orc.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet: the format ORC, where this reader reads parquet files only",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_format_orc"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_format_seven_letters.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the file D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet: the format PARQUTX, where this reader reads parquet files only",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_format_seven_letters"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_schema_no_partition_no_spec.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_schema_no_partition_no_spec"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_partition_bytes_for_date.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the partition field \"d\" holds bytes, not the shape its transform and column give it",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_partition_bytes_for_date"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_void_string.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "s",
+       2,
+       "void",
+       {
+        "kind": "string",
+        "value": "x"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_void_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_status_boolean.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 0 of the block at byte 1593: a boolean where the status of a manifest entry is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_status_boolean"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_float.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1590: a float where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_float"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_double.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1591: a double where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_double"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_bytes.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1590: bytes where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_bytes"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_decimal.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1679: a decimal where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_decimal"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_record_count_enum.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 108 of the block at byte 1629: an enum where the record count of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_record_count_enum"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_path_fixed.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 3 of the block at byte 1618: a fixed where the path of a file is expected",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_path_fixed"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_void_decimal.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "void",
+       {
+        "kind": "decimal",
+        "value": "123.45"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_void_decimal"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_no_partition_field.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest: the manifest's schema names no partition where its spec names 1 fields",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_no_partition_field"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_data_file_null.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: entry 0 of the manifest names no path",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_data_file_null"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_header_no_spec_id.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_header_no_spec_id.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_header_no_spec_id"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_decimal_bytes.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "0"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "-15"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "12345678901.23"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_decimal_bytes"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_partition_decimal_fixed.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "-0.01"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "0.00"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    },
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [
+      [
+       "m",
+       5,
+       "identity",
+       {
+        "kind": "decimal",
+        "value": "-5497558138.87"
+       }
+      ]
+     ],
+     "path": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one/data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 0
+    }
+   ],
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_partition_decimal_fixed"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_schema.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: the header names no \"schema\"",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_no_schema"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_spec.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's header names no partition spec, which format versions 2 and 3 allow a reader to take from the table's own specs; given the manifest's bytes alone, this reader has none",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_no_spec"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_no_spec_v1.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: the header names no \"partition-spec\"",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_no_spec_v1"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_not_json.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's schema is not JSON: Unexpected end of file",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_not_json"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_not_struct.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the schema is not an object",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_not_struct"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_type.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: a schema whose type is int, not struct",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_type"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_spec_not_json.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's partition spec is not JSON: Unexpected end of file",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_spec_not_json"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_spec_not_array.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: a partition spec's fields is not an array",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_spec_not_array"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_spec_field_no_source.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: a partition field names no source column",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_spec_field_no_source"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_format_four.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's format version 4, where this reader reads 1 to 3",
+    "variant": "Unsupported"
+   },
+   "shape": "manifest_format_four"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_format_text.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's header names the format version \"two\", which spells no whole number",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_format_text"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_content_other.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's header names the content \"other\", not data or deletes",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_content_other"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_spec_id_text.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's header names the partition spec id \"x\", which spells no whole number",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_spec_id_text"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_content_disagrees.avro",
+   "kind": "manifest",
+   "list": "patched/manifest_content_disagrees.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest metadata/x.avro: its header names the content deletes, the list data",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_content_disagrees"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_spec_disagrees.avro",
+   "kind": "manifest",
+   "list": "patched/manifest_spec_disagrees.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest metadata/x.avro: its header names the partition spec 1, the list 0",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_spec_disagrees"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_length_mismatch.avro",
+   "kind": "manifest",
+   "list": "patched/manifest_length_mismatch.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest metadata/x.avro: the list names 1728 bytes, the file holds 1727",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_length_mismatch"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_format_three.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_format_three.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_format_three"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_v1_header.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_v1_header.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_v1_header"
+  },
+  {
+   "codec": "reads",
+   "file": "patched/manifest_deletes_agree.avro",
+   "files": [
+    {
+     "equality_ids": [],
+     "field_ids": [
+      1,
+      2
+     ],
+     "kind": 0,
+     "partition": [],
+     "path": "data/x.parquet",
+     "record_count": 3,
+     "sequence_number": 7
+    }
+   ],
+   "kind": "manifest",
+   "list": "patched/manifest_deletes_agree.list.avro",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "shape": "manifest_deletes_agree"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_top_not_record.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: a top-level Avro schema that is an int, not a record",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_top_not_record"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_no_avro.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: the header names no \"avro.schema\"",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_no_avro"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_no_status.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: a schema that names no field with the id 0",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_no_status"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_no_data_file.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: a schema that names no field with the id 2",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_no_data_file"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_data_file_string.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: a field with the id 2 that is a string, not a record",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_data_file_string"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_no_path_field.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest's data file: a schema that names no field with the id 100",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_no_path_field"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_schema_idless.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the manifest: a schema that names no field with the id 0",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_schema_idless"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_bytes_past_record.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: the block at byte 1589: 1 bytes past the last record",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_bytes_past_record"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_bad_magic.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 0: a file that does not open with the Avro magic",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_bad_magic"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_too_short.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: a file of 3 bytes, too short for the magic",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_too_short"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_empty.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: a file of 0 bytes, too short for the magic",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_empty"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_codec_bzip2.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1567: the header names the block codec \"bzip2\", which this reader does not inflate",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_codec_bzip2"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_deflate_corrupt.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1592: a deflate block that does not decompress within 16777216 bytes",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_deflate_corrupt"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_sync_truncated.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1573 of the manifest as a file: a file that ends inside its sync marker",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_sync_truncated"
+  },
+  {
+   "codec": "refuses",
+   "file": "patched/manifest_sync_mismatch.avro",
+   "kind": "manifest",
+   "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/append_one",
+   "refusal": {
+    "step": "manifest",
+    "text": "iceberg: byte 1711: a block whose sync marker differs from the file's",
+    "variant": "ParseError"
+   },
+   "shape": "manifest_sync_mismatch"
+  }
+ ],
+ "platform": "win32",
+ "tables": [
+  {
+   "codec": "reads",
+   "name": "append_one",
+   "origin": "reference",
+   "sidecar": "append_one.json"
+  },
+  {
+   "codec": "reads",
+   "name": "append_three",
+   "origin": "reference",
+   "sidecar": "append_three.json"
+  },
+  {
+   "codec": "reads",
+   "name": "overwrite",
+   "origin": "reference",
+   "sidecar": "overwrite.json"
+  },
+  {
+   "codec": "reads",
+   "name": "delete_rows",
+   "origin": "reference",
+   "sidecar": "delete_rows.json"
+  },
+  {
+   "codec": "reads",
+   "name": "evolution",
+   "origin": "reference",
+   "sidecar": "evolution.json"
+  },
+  {
+   "codec": "reads",
+   "name": "types",
+   "origin": "reference",
+   "sidecar": "types.json"
+  },
+  {
+   "codec": "reads",
+   "name": "unicode",
+   "origin": "reference",
+   "sidecar": "unicode.json"
+  },
+  {
+   "codec": "reads",
+   "name": "partition_identity",
+   "origin": "reference",
+   "sidecar": "partition_identity.json"
+  },
+  {
+   "codec": "reads",
+   "name": "partition_transforms",
+   "origin": "reference",
+   "sidecar": "partition_transforms.json"
+  },
+  {
+   "codec": "reads",
+   "name": "partition_scalars",
+   "origin": "reference",
+   "sidecar": "partition_scalars.json"
+  },
+  {
+   "codec": "reads",
+   "name": "partition_evolution",
+   "origin": "reference",
+   "sidecar": "partition_evolution.json"
+  },
+  {
+   "codec": "reads",
+   "name": "position_deletes",
+   "origin": "derived",
+   "sidecar": "position_deletes.json"
+  },
+  {
+   "codec": "reads",
+   "name": "position_deletes_partitioned",
+   "origin": "derived",
+   "sidecar": "position_deletes_partitioned.json"
+  },
+  {
+   "codec": "reads",
+   "name": "equality_deletes",
+   "origin": "derived",
+   "sidecar": "equality_deletes.json"
+  },
+  {
+   "codec": "reads",
+   "name": "version_one",
+   "origin": "reference",
+   "sidecar": "version_one.json"
+  },
+  {
+   "codec": "reads",
+   "name": "version_one_partitioned",
+   "origin": "reference",
+   "sidecar": "version_one_partitioned.json"
+  },
+  {
+   "codec": "reads",
+   "name": "version_three",
+   "origin": "derived",
+   "sidecar": "version_three.json"
+  },
+  {
+   "codec": "reads",
+   "name": "empty",
+   "origin": "reference",
+   "sidecar": "empty.json"
+  },
+  {
+   "codec": "reads",
+   "name": "no_columns",
+   "origin": "reference",
+   "sidecar": "no_columns.json"
+  },
+  {
+   "codec": "reads",
+   "name": "no_rows",
+   "origin": "reference",
+   "sidecar": "no_rows.json"
+  },
+  {
+   "codec": "reads",
+   "name": "all_null",
+   "origin": "reference",
+   "sidecar": "all_null.json"
+  },
+  {
+   "codec": "reads",
+   "name": "limits",
+   "origin": "reference",
+   "sidecar": "limits.json"
+  },
+  {
+   "codec": "reads",
+   "name": "refs",
+   "origin": "reference",
+   "sidecar": "refs.json"
+  },
+  {
+   "codec": "reads",
+   "name": "codec_null",
+   "origin": "reference",
+   "sidecar": "codec_null.json"
+  },
+  {
+   "codec": "reads",
+   "name": "codec_zstandard",
+   "origin": "reference",
+   "sidecar": "codec_zstandard.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_binary",
+   "origin": "reference",
+   "sidecar": "refused_binary.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_map",
+   "origin": "reference",
+   "sidecar": "refused_map.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_time",
+   "origin": "reference",
+   "sidecar": "refused_time.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_decimal_38",
+   "origin": "reference",
+   "sidecar": "refused_decimal_38.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_default",
+   "origin": "reference",
+   "sidecar": "refused_default.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_name_mapping",
+   "origin": "reference",
+   "sidecar": "refused_name_mapping.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_codec_bzip2",
+   "origin": "reference",
+   "sidecar": "refused_codec_bzip2.json"
+  },
+  {
+   "codec": "refuses",
+   "name": "refused_version_four",
+   "origin": "derived",
+   "sidecar": "refused_version_four.json"
+  }
+ ],
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

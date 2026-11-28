@@ -1,0 +1,611 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/types",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-5398930576112997474-0-9a4f7d43-7ae5-4495-94cd-3dce5932262d.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11,
+       15,
+       16,
+       17,
+       19,
+       21
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-9a4f7d43-7ae5-4495-94cd-3dce5932262d.parquet",
+      "record_count": 3,
+      "sequence_number": 1
+     }
+    ],
+    "length": 5639,
+    "path": "metadata/9a4f7d43-7ae5-4495-94cd-3dce5932262d-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 5398930576112997474
+ },
+ "plan_rows": [
+  {
+   "b": {
+    "kind": "bool",
+    "value": true
+   },
+   "d": {
+    "kind": "float",
+    "value": "4002000000000000"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "12.3"
+   },
+   "deep": {
+    "kind": "list",
+    "value": [
+     {
+      "kind": "struct",
+      "value": [
+       [
+        "a",
+        {
+         "kind": "int",
+         "value": 1
+        }
+       ],
+       [
+        "inner",
+        {
+         "kind": "struct",
+         "value": [
+          [
+           "z",
+           {
+            "kind": "bool",
+            "value": true
+           }
+          ]
+         ]
+        }
+       ]
+      ]
+     },
+     {
+      "kind": "struct",
+      "value": [
+       [
+        "a",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "inner",
+        {
+         "kind": "null"
+        }
+       ]
+      ]
+     }
+    ]
+   },
+   "dt": {
+    "kind": "date",
+    "value": 3
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": -5
+   },
+   "l": {
+    "kind": "int",
+    "value": -1099511627776
+   },
+   "lst": {
+    "kind": "list",
+    "value": [
+     {
+      "kind": "int",
+      "value": 1
+     },
+     {
+      "kind": "int",
+      "value": 2
+     }
+    ]
+   },
+   "s": {
+    "kind": "string",
+    "value": "hé"
+   },
+   "st": {
+    "kind": "struct",
+    "value": [
+     [
+      "x",
+      {
+       "kind": "int",
+       "value": 1
+      }
+     ],
+     [
+      "y",
+      {
+       "kind": "string",
+       "value": "a"
+      }
+     ]
+    ]
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "tstz": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "wide": {
+    "kind": "decimal",
+    "value": "12345678901234.567891"
+   }
+  },
+  {
+   "b": {
+    "kind": "null"
+   },
+   "d": {
+    "kind": "float",
+    "value": "c00c000000000000"
+   },
+   "dec": {
+    "kind": "null"
+   },
+   "deep": {
+    "kind": "list",
+    "value": []
+   },
+   "dt": {
+    "kind": "date",
+    "value": -1
+   },
+   "f": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "int",
+    "value": 7
+   },
+   "l": {
+    "kind": "int",
+    "value": 1099511627776
+   },
+   "lst": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   },
+   "st": {
+    "kind": "null"
+   },
+   "ts": {
+    "kind": "null"
+   },
+   "tstz": {
+    "kind": "null"
+   },
+   "wide": {
+    "kind": "null"
+   }
+  },
+  {
+   "b": {
+    "kind": "bool",
+    "value": false
+   },
+   "d": {
+    "kind": "float",
+    "value": "7ff0000000000000"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "-0.05"
+   },
+   "deep": {
+    "kind": "list",
+    "value": []
+   },
+   "dt": {
+    "kind": "null"
+   },
+   "f": {
+    "kind": "float",
+    "value": "8000000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": 2147483647
+   },
+   "l": {
+    "kind": "null"
+   },
+   "lst": {
+    "kind": "list",
+    "value": []
+   },
+   "s": {
+    "kind": "string",
+    "value": ""
+   },
+   "st": {
+    "kind": "struct",
+    "value": [
+     [
+      "x",
+      {
+       "kind": "null"
+      }
+     ],
+     [
+      "y",
+      {
+       "kind": "null"
+      }
+     ]
+    ]
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789013
+   },
+   "tstz": {
+    "kind": "timestamp",
+    "value": 1583048096789012
+   },
+   "wide": {
+    "kind": "decimal",
+    "value": "1"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "b": {
+    "kind": "bool",
+    "value": true
+   },
+   "d": {
+    "kind": "float",
+    "value": "4002000000000000"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "12.3"
+   },
+   "deep": {
+    "kind": "list",
+    "value": [
+     {
+      "kind": "struct",
+      "value": [
+       [
+        "a",
+        {
+         "kind": "int",
+         "value": 1
+        }
+       ],
+       [
+        "inner",
+        {
+         "kind": "struct",
+         "value": [
+          [
+           "z",
+           {
+            "kind": "bool",
+            "value": true
+           }
+          ]
+         ]
+        }
+       ]
+      ]
+     },
+     {
+      "kind": "struct",
+      "value": [
+       [
+        "a",
+        {
+         "kind": "null"
+        }
+       ],
+       [
+        "inner",
+        {
+         "kind": "null"
+        }
+       ]
+      ]
+     }
+    ]
+   },
+   "dt": {
+    "kind": "date",
+    "value": 3
+   },
+   "f": {
+    "kind": "float",
+    "value": "3ff8000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": -5
+   },
+   "l": {
+    "kind": "int",
+    "value": -1099511627776
+   },
+   "lst": {
+    "kind": "list",
+    "value": [
+     {
+      "kind": "int",
+      "value": 1
+     },
+     {
+      "kind": "int",
+      "value": 2
+     }
+    ]
+   },
+   "s": {
+    "kind": "string",
+    "value": "hé"
+   },
+   "st": {
+    "kind": "struct",
+    "value": [
+     [
+      "x",
+      {
+       "kind": "int",
+       "value": 1
+      }
+     ],
+     [
+      "y",
+      {
+       "kind": "string",
+       "value": "a"
+      }
+     ]
+    ]
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "tstz": {
+    "kind": "timestamp",
+    "value": 1583066096789012
+   },
+   "wide": {
+    "kind": "decimal",
+    "value": "12345678901234.567891"
+   }
+  },
+  {
+   "b": {
+    "kind": "null"
+   },
+   "d": {
+    "kind": "float",
+    "value": "c00c000000000000"
+   },
+   "dec": {
+    "kind": "null"
+   },
+   "deep": {
+    "kind": "list",
+    "value": []
+   },
+   "dt": {
+    "kind": "date",
+    "value": -1
+   },
+   "f": {
+    "kind": "null"
+   },
+   "i": {
+    "kind": "int",
+    "value": 7
+   },
+   "l": {
+    "kind": "int",
+    "value": 1099511627776
+   },
+   "lst": {
+    "kind": "null"
+   },
+   "s": {
+    "kind": "null"
+   },
+   "st": {
+    "kind": "null"
+   },
+   "ts": {
+    "kind": "null"
+   },
+   "tstz": {
+    "kind": "null"
+   },
+   "wide": {
+    "kind": "null"
+   }
+  },
+  {
+   "b": {
+    "kind": "bool",
+    "value": false
+   },
+   "d": {
+    "kind": "float",
+    "value": "7ff0000000000000"
+   },
+   "dec": {
+    "kind": "decimal",
+    "value": "-0.05"
+   },
+   "deep": {
+    "kind": "list",
+    "value": []
+   },
+   "dt": {
+    "kind": "null"
+   },
+   "f": {
+    "kind": "float",
+    "value": "8000000000000000"
+   },
+   "i": {
+    "kind": "int",
+    "value": 2147483647
+   },
+   "l": {
+    "kind": "null"
+   },
+   "lst": {
+    "kind": "list",
+    "value": []
+   },
+   "s": {
+    "kind": "string",
+    "value": ""
+   },
+   "st": {
+    "kind": "struct",
+    "value": [
+     [
+      "x",
+      {
+       "kind": "null"
+      }
+     ],
+     [
+      "y",
+      {
+       "kind": "null"
+      }
+     ]
+    ]
+   },
+   "ts": {
+    "kind": "timestamp",
+    "value": 1583066096789013
+   },
+   "tstz": {
+    "kind": "timestamp",
+    "value": 1583048096789012
+   },
+   "wide": {
+    "kind": "decimal",
+    "value": "1"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Bool",
+   "Int",
+   "Int",
+   "Float",
+   "Float",
+   "String",
+   "Date",
+   "Timestamp",
+   "Timestamp",
+   "Decimal",
+   "Decimal",
+   "List[Int]",
+   "Struct{x: Int, y: String}",
+   "List[Struct{a: Int, inner: Struct{z: Bool}}]"
+  ],
+  "field_ids": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14
+  ],
+  "names": [
+   "b",
+   "i",
+   "l",
+   "f",
+   "d",
+   "s",
+   "dt",
+   "ts",
+   "tstz",
+   "dec",
+   "wide",
+   "lst",
+   "st",
+   "deep"
+  ],
+  "types": [
+   "boolean",
+   "int",
+   "long",
+   "float",
+   "double",
+   "string",
+   "date",
+   "timestamp",
+   "timestamptz",
+   "decimal(9, 2)",
+   "decimal(20, 6)",
+   "list<long>",
+   "struct<16: x: optional int, 17: y: optional string>",
+   "list<struct<19: a: optional int, 20: inner: optional struct<21: z: optional boolean>>>"
+  ]
+ },
+ "table": "types",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

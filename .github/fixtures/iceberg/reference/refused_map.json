@@ -1,0 +1,104 @@
+{
+ "codec": "refuses",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/refused_map",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-5592954640969401307-0-6c759a98-884a-4a21-8042-cb60b59f1dec.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       3,
+       4
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-6c759a98-884a-4a21-8042-cb60b59f1dec.parquet",
+      "record_count": 1,
+      "sequence_number": 1
+     }
+    ],
+    "length": 4394,
+    "path": "metadata/6c759a98-884a-4a21-8042-cb60b59f1dec-m0.avro"
+   }
+  ],
+  "sequence_number": 1,
+  "snapshot": 5592954640969401307
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "mp": {
+    "kind": "map",
+    "value": [
+     [
+      {
+       "kind": "string",
+       "value": "a"
+      },
+      {
+       "kind": "int",
+       "value": 1
+      }
+     ]
+    ]
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: column \"mp\": the type map, which this reader does not carry",
+  "variant": "Unsupported"
+ },
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 1
+   },
+   "mp": {
+    "kind": "map",
+    "value": [
+     [
+      {
+       "kind": "string",
+       "value": "a"
+      },
+      {
+       "kind": "int",
+       "value": 1
+      }
+     ]
+    ]
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": null,
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "mp"
+  ],
+  "types": [
+   "long",
+   "map<string, long>"
+  ]
+ },
+ "table": "refused_map",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

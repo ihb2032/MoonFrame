@@ -1,0 +1,34 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/empty",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": null,
+  "manifests": [],
+  "sequence_number": null,
+  "snapshot": null
+ },
+ "plan_rows": [],
+ "reference": "plans and reads",
+ "rows": [],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int"
+  ],
+  "field_ids": [
+   1
+  ],
+  "names": [
+   "i"
+  ],
+  "types": [
+   "long"
+  ]
+ },
+ "table": "empty",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

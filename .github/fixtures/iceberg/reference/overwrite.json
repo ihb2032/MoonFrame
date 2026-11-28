@@ -1,0 +1,99 @@
+{
+ "codec": "reads",
+ "format_version": 2,
+ "location": "D:\\projects\\mf_scratch\\wt_iceberg\\_build\\iceberg_fixture_warehouse/ns/overwrite",
+ "not_carried": [],
+ "origin": "reference",
+ "partition_fields": [],
+ "plan": {
+  "manifest_list": "metadata/snap-2601221294042270479-0-ae4137ea-b147-4b36-b05a-15fd133174bd.avro",
+  "manifests": [
+   {
+    "files": [
+     {
+      "equality_ids": [],
+      "field_ids": [
+       1,
+       2
+      ],
+      "kind": 0,
+      "partition": [],
+      "path": "data/00000-0-ae4137ea-b147-4b36-b05a-15fd133174bd.parquet",
+      "record_count": 2,
+      "sequence_number": 3
+     }
+    ],
+    "length": 4306,
+    "path": "metadata/ae4137ea-b147-4b36-b05a-15fd133174bd-m0.avro"
+   }
+  ],
+  "sequence_number": 3,
+  "snapshot": 2601221294042270479
+ },
+ "plan_rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 4
+   },
+   "k": {
+    "kind": "string",
+    "value": "d"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 5
+   },
+   "k": {
+    "kind": "string",
+    "value": "e"
+   }
+  }
+ ],
+ "reference": "plans and reads",
+ "rows": [
+  {
+   "i": {
+    "kind": "int",
+    "value": 4
+   },
+   "k": {
+    "kind": "string",
+    "value": "d"
+   }
+  },
+  {
+   "i": {
+    "kind": "int",
+    "value": 5
+   },
+   "k": {
+    "kind": "string",
+    "value": "e"
+   }
+  }
+ ],
+ "rows_source": "rows: the reference's scan, in its order; plan_rows: the snapshot's files read one by one in the plan's order with the deletes the reference's plan attaches dropped — equal to rows as a multiset",
+ "schema": {
+  "dtypes": [
+   "Int",
+   "String"
+  ],
+  "field_ids": [
+   1,
+   2
+  ],
+  "names": [
+   "i",
+   "k"
+  ],
+  "types": [
+   "long",
+   "string"
+  ]
+ },
+ "table": "overwrite",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

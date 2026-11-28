@@ -1,0 +1,14 @@
+{
+ "codec": "refuses",
+ "derived": "the metadata of a version-2 table rewritten as format version 4",
+ "not_carried": [],
+ "origin": "derived",
+ "reference": "refuses the metadata",
+ "refusal": {
+  "step": "metadata",
+  "text": "iceberg: format version 4, where this reader reads 1 to 3",
+  "variant": "Unsupported"
+ },
+ "table": "refused_version_four",
+ "writer": "pyiceberg 0.12.0, pyarrow 26.0.1, python 3.13.5"
+}

@@ -27,3 +27,8 @@ coveralls.json
 /_cov_extract.py
 _cov.txt
 uncovered.log
+
+# Python's bytecode caches: running any fixture generator or guard script
+# leaves a `__pycache__/` of compiled helpers beside it, which nothing
+# tracks and which a `git add -A` otherwise picks up.
+__pycache__/
